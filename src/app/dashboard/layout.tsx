@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
     FiHome, FiUsers, FiDollarSign, FiFileText, FiUserCheck, FiCreditCard,
     FiTrendingDown, FiTrendingUp, FiBox, FiLogOut, FiMenu, FiX,
-    FiChevronLeft, FiChevronRight, FiBell, FiSearch, FiSettings, FiKey, FiCalendar
+    FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, FiSettings, FiKey, FiCalendar
 } from 'react-icons/fi';
 
 interface UserSession {
@@ -29,6 +29,7 @@ const navItems = [
     { href: '/dashboard/income', label: 'Income', icon: FiTrendingUp, emoji: '💼', perm: 'income' },
     { href: '/dashboard/assets', label: 'Assets', icon: FiBox, emoji: '🏢', perm: 'assets' },
     { href: '/dashboard/attendance', label: 'Attendance', icon: FiCalendar, emoji: '📋', perm: 'attendance' },
+    // Reports is handled separately as collapsible group
     { href: '/dashboard/settings', label: 'Settings', icon: FiSettings, emoji: '⚙️', perm: 'settings' },
     { href: '/dashboard/users', label: 'Users', icon: FiKey, emoji: '🔑', perm: 'users' },
 ];
@@ -43,6 +44,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [pageLoading, setPageLoading] = useState(false);
+    const [reportsOpen, setReportsOpen] = useState(false);
     const prevPathRef = useRef(pathname);
 
     useEffect(() => {
@@ -171,35 +173,101 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {/* Nav Items */}
                 <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-                    {filteredNavItems.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={`
-                                flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                                transition-all duration-200 group
-                                ${isActive(item.href)
-                                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm'
-                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-                                }
-                                ${sidebarCollapsed ? 'justify-center' : ''}
-                            `}
-                            title={sidebarCollapsed ? item.label : undefined}
-                        >
-                            <div className={`
-                                flex items-center justify-center w-8 h-8 rounded-lg text-base
-                                ${isActive(item.href) ? 'bg-blue-100' : 'bg-gray-100 group-hover:bg-gray-200'}
-                                transition-colors
-                            `}>
-                                {item.emoji}
+                    {filteredNavItems.map((item) => {
+                        // Insert collapsible Reports group after Attendance
+                        const isAttendance = item.href === '/dashboard/attendance';
+                        const reportsActive = pathname.startsWith('/dashboard/reports');
+                        const showReports = isAdmin || userPermissions['reports'] === true;
+                        return (
+                            <div key={item.href}>
+                                <Link
+                                    href={item.href}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className={`
+                                        flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                                        transition-all duration-200 group
+                                        ${isActive(item.href)
+                                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm'
+                                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                                        }
+                                        ${sidebarCollapsed ? 'justify-center' : ''}
+                                    `}
+                                    title={sidebarCollapsed ? item.label : undefined}
+                                >
+                                    <div className={`
+                                        flex items-center justify-center w-8 h-8 rounded-lg text-base
+                                        ${isActive(item.href) ? 'bg-blue-100' : 'bg-gray-100 group-hover:bg-gray-200'}
+                                        transition-colors
+                                    `}>
+                                        {item.emoji}
+                                    </div>
+                                    {!sidebarCollapsed && <span>{item.label}</span>}
+                                    {!sidebarCollapsed && isActive(item.href) && (
+                                        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                    )}
+                                </Link>
+
+                                {/* Collapsible Reports Group — appears after Attendance */}
+                                {isAttendance && showReports && !sidebarCollapsed && (
+                                    <div className="mt-1">
+                                        <button
+                                            onClick={() => setReportsOpen(!reportsOpen)}
+                                            className={`
+                                                w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                                                transition-all duration-200
+                                                ${reportsActive
+                                                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm'
+                                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                                                }
+                                            `}
+                                        >
+                                            <div className={`flex items-center justify-center w-8 h-8 rounded-lg text-base ${reportsActive ? 'bg-blue-100' : 'bg-gray-100'} transition-colors`}>
+                                                📊
+                                            </div>
+                                            <span>Reports</span>
+                                            <FiChevronDown
+                                                size={14}
+                                                className={`ml-auto transition-transform duration-200 ${reportsOpen || reportsActive ? 'rotate-180' : ''}`}
+                                            />
+                                        </button>
+                                        {(reportsOpen || reportsActive) && (
+                                            <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-gray-100 pl-3">
+                                                {[
+                                                    { href: '/dashboard/reports?tab=marksheet', label: '📋 Mark Sheet', emoji: '📋' },
+                                                    { href: '/dashboard/reports?tab=subject-analysis', label: '📈 Subject Analysis', emoji: '📈' },
+                                                    { href: '/dashboard/reports?tab=class-analysis', label: '🏫 Class/Form Analysis', emoji: '🏫' },
+                                                    { href: '/dashboard/reports?tab=progressive', label: '📊 Progressive Report', emoji: '📊' },
+                                                    { href: '/dashboard/reports?tab=report-card', label: '🎓 Report Cards', emoji: '🎓' },
+                                                    { href: '/dashboard/reports?tab=merit-list', label: '🏆 Merit List', emoji: '🏆' },
+                                                    { href: '/dashboard/reports?tab=fee-reports', label: '💰 Fee Reports', emoji: '💰' },
+                                                    { href: '/dashboard/reports?tab=attendance-report', label: '📅 Attendance Report', emoji: '📅' },
+                                                ].map(sub => (
+                                                    <Link key={sub.href} href={sub.href}
+                                                        onClick={() => setMobileMenuOpen(false)}
+                                                        className={`block px-3 py-2 rounded-lg text-xs font-medium transition-all
+                                                            ${pathname === '/dashboard/reports' && typeof window !== 'undefined' && window.location.search.includes(sub.href.split('?')[1])
+                                                                ? 'text-blue-700 bg-blue-50'
+                                                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                                            }
+                                                        `}
+                                                    >
+                                                        {sub.label}
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {/* Collapsed sidebar: just show report icon */}
+                                {isAttendance && showReports && sidebarCollapsed && (
+                                    <Link href="/dashboard/reports" title="Reports"
+                                        className={`flex items-center justify-center px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${reportsActive ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
+                                        <div className={`flex items-center justify-center w-8 h-8 rounded-lg text-base ${reportsActive ? 'bg-blue-100' : 'bg-gray-100'} transition-colors`}>📊</div>
+                                    </Link>
+                                )}
                             </div>
-                            {!sidebarCollapsed && <span>{item.label}</span>}
-                            {!sidebarCollapsed && isActive(item.href) && (
-                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />
-                            )}
-                        </Link>
-                    ))}
+                        );
+                    })}
                 </nav>
 
                 {/* User section */}
