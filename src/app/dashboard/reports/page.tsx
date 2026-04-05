@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -9,14 +9,14 @@ import { FiDownload, FiPrinter, FiSearch, FiFilter } from 'react-icons/fi';
 type ReportTab = 'marksheet' | 'subject-analysis' | 'class-analysis' | 'progressive' | 'report-card' | 'merit-list' | 'fee-reports' | 'attendance-report';
 
 const REPORT_TABS: { key: ReportTab; label: string; emoji: string; desc: string }[] = [
-    { key: 'marksheet', label: 'Mark Sheet', emoji: '📋', desc: 'Subject mark entry sheets per class' },
-    { key: 'subject-analysis', label: 'Subject Analysis', emoji: '📈', desc: 'Performance breakdown by subject' },
-    { key: 'class-analysis', label: 'Class/Form Analysis', emoji: '🏫', desc: 'Class & form-level performance' },
-    { key: 'progressive', label: 'Progressive Report', emoji: '📊', desc: 'Student progress across terms' },
-    { key: 'report-card', label: 'Report Cards', emoji: '🎓', desc: 'End of term student reports' },
-    { key: 'merit-list', label: 'Merit List', emoji: '🏆', desc: 'Ranked student performance' },
-    { key: 'fee-reports', label: 'Fee Reports', emoji: '💰', desc: 'Fee collection & balance reports' },
-    { key: 'attendance-report', label: 'Attendance Report', emoji: '📅', desc: 'Student attendance summaries' },
+    { key: 'marksheet', label: 'Mark Sheet', emoji: 'ðŸ“‹', desc: 'Subject mark entry sheets per class' },
+    { key: 'subject-analysis', label: 'Subject Analysis', emoji: 'ðŸ“ˆ', desc: 'Performance breakdown by subject' },
+    { key: 'class-analysis', label: 'Class/Form Analysis', emoji: 'ðŸ«', desc: 'Class & form-level performance' },
+    { key: 'progressive', label: 'Progressive Report', emoji: 'ðŸ“Š', desc: 'Student progress across terms' },
+    { key: 'report-card', label: 'Report Cards', emoji: 'ðŸŽ“', desc: 'End of term student reports' },
+    { key: 'merit-list', label: 'Merit List', emoji: 'ðŸ†', desc: 'Ranked student performance' },
+    { key: 'fee-reports', label: 'Fee Reports', emoji: 'ðŸ’°', desc: 'Fee collection & balance reports' },
+    { key: 'attendance-report', label: 'Attendance Report', emoji: 'ðŸ“…', desc: 'Student attendance summaries' },
 ];
 
 const KCSE_GRADES = [
@@ -102,7 +102,7 @@ function ReportsContent() {
                 });
             }
         });
-        // Also add all term × exam_type combos for completeness
+        // Also add all term Ã— exam_type combos for completeness
         (termRes.data || []).forEach((t: any) => {
             EXAM_TYPES.forEach(et => {
                 const key = `${t.id}_${et}`;
@@ -172,7 +172,7 @@ function ReportsContent() {
         const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`; a.click();
-        toast.success('Report exported ✅');
+        toast.success('Report exported âœ…');
     };
 
     const gradeColor = (grade: string) => {
@@ -213,8 +213,8 @@ function ReportsContent() {
 
                 <div id="report-print-area" className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                        <h3 className="font-bold text-gray-800">📋 Mark Sheet {exam ? `— ${exam.exam_name} (${exam.term} ${exam.year})` : ''}</h3>
-                        <p className="text-xs text-gray-500 mt-1">{examStudents.length} students • {examSubjects.length} subjects</p>
+                        <h3 className="font-bold text-gray-800">ðŸ“‹ Mark Sheet {exam ? `â€” ${exam.exam_name} (${exam.term} ${exam.year})` : ''}</h3>
+                        <p className="text-xs text-gray-500 mt-1">{examStudents.length} students â€¢ {examSubjects.length} subjects</p>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="table-modern text-xs">
@@ -316,7 +316,7 @@ function ReportsContent() {
                 </div>
                 <div id="report-print-area" className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                        <h3 className="font-bold text-gray-800">📈 Subject Analysis Report</h3>
+                        <h3 className="font-bold text-gray-800">ðŸ“ˆ Subject Analysis Report</h3>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="table-modern">
@@ -386,7 +386,7 @@ function ReportsContent() {
             </div>
             <div id="report-print-area" className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                    <h3 className="font-bold text-gray-800">🏫 Class/Form Analysis Report</h3>
+                    <h3 className="font-bold text-gray-800">ðŸ« Class/Form Analysis Report</h3>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="table-modern">
@@ -456,7 +456,7 @@ function ReportsContent() {
             </div>
             <div id="report-print-area" className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                    <h3 className="font-bold text-gray-800">📊 Student Progressive Report</h3>
+                    <h3 className="font-bold text-gray-800">ðŸ“Š Student Progressive Report</h3>
                     <p className="text-xs text-gray-500 mt-1">Track student performance across multiple exams</p>
                 </div>
                 <div className="overflow-x-auto">
@@ -484,7 +484,7 @@ function ReportsContent() {
                                         return Math.round(stMarks.reduce((a, m) => a + m.score, 0) / stMarks.length);
                                     });
                                     const validMeans = examMeans.filter((m): m is number => m !== null);
-                                    const trend = validMeans.length >= 2 ? (validMeans[0]! >= validMeans[validMeans.length - 1]! ? '📈' : '📉') : '➡️';
+                                    const trend = validMeans.length >= 2 ? (validMeans[0]! >= validMeans[validMeans.length - 1]! ? 'ðŸ“ˆ' : 'ðŸ“‰') : 'âž¡ï¸';
 
                                     return (
                                         <tr key={st.id} className="hover:bg-gray-50/50">
@@ -514,273 +514,262 @@ function ReportsContent() {
     );
 
     const renderReportCards = () => {
-        const exam = selExam ? exams.find(e => e.id === selExam) : null;
+        const exam = selExam ? exams.find((e: any) => e.id === selExam) : null;
         const reportStudents = selStudent ? filteredStudents.filter(s => s.id === selStudent) : filteredStudents;
+        const genCode = (sid: number) => { let h = 0; const r = `APSIMS${sid}${selExam}${Date.now()}`; for (let i = 0; i < r.length; i++) { h = ((h << 5) - h) + r.charCodeAt(i); h |= 0; } return `APS-${Math.abs(h).toString(36).toUpperCase().slice(0,8)}`; };
 
-        // Generate a verification hash for QR code
-        const genVerifyCode = (studentId: number) => {
-            const raw = `APSIMS-${studentId}-${selExam}-${Date.now().toString(36)}`;
-            let hash = 0;
-            for (let i = 0; i < raw.length; i++) { hash = ((hash << 5) - hash) + raw.charCodeAt(i); hash |= 0; }
-            return `APSIMS-${Math.abs(hash).toString(36).toUpperCase()}-${studentId}`;
-        };
+        const getProgress = (sid: number) => exams.slice(0,6).map((ex: any) => {
+            const sm = marks.filter((m: any) => m.student_id === sid && m.exam_id === ex.id && m.score != null);
+            return sm.length > 0 ? { name: `${ex.exam_name}`, term: ex.term, year: ex.year, mean: Math.round(sm.reduce((a: number, m: any) => a + m.score, 0) / sm.length) } : null;
+        }).filter(Boolean).reverse() as { name: string; term: string; year: number; mean: number }[];
 
-        // Get student progress across all exams
-        const getStudentProgress = (studentId: number) => {
-            return exams.slice(0, 6).map(ex => {
-                const stMarks = marks.filter(m => m.student_id === studentId && m.exam_id === ex.id && m.score != null);
-                if (stMarks.length === 0) return null;
-                return { examName: ex.exam_name, term: ex.term, year: ex.year, mean: Math.round(stMarks.reduce((a: number, m: any) => a + m.score, 0) / stMarks.length) };
-            }).filter(Boolean).reverse() as { examName: string; term: string; year: number; mean: number }[];
-        };
-
-        // Calculate rank in class
-        const getClassRank = (studentId: number) => {
-            if (!selExam) return { rank: '-', total: 0 };
-            const classStudents = students.filter(s => s.form_id === (students.find(st => st.id === studentId)?.form_id) && s.status === 'Active');
-            const ranked = classStudents.map(st => {
-                const stMarks = marks.filter(m => m.student_id === st.id && m.exam_id === selExam && m.score != null);
-                const mean = stMarks.length > 0 ? stMarks.reduce((a, m) => a + m.score, 0) / stMarks.length : 0;
-                return { id: st.id, mean };
+        const getRank = (sid: number) => {
+            if (!selExam) return { rank: '-', of: 0, streamRank: '-', streamOf: 0 };
+            const st = students.find((s: any) => s.id === sid);
+            const classAll = students.filter((s: any) => s.form_id === st?.form_id && s.status === 'Active');
+            const streamAll = st?.stream_id ? classAll.filter((s: any) => s.stream_id === st.stream_id) : classAll;
+            const calcMean = (list: any[]) => list.map(s => {
+                const sm = marks.filter((m: any) => m.student_id === s.id && m.exam_id === selExam && m.score != null);
+                return { id: s.id, mean: sm.length > 0 ? sm.reduce((a: number, m: any) => a + m.score, 0) / sm.length : 0 };
             }).sort((a, b) => b.mean - a.mean);
-            const pos = ranked.findIndex(r => r.id === studentId) + 1;
-            return { rank: pos > 0 ? pos : '-', total: ranked.length };
+            const classRanked = calcMean(classAll);
+            const streamRanked = calcMean(streamAll);
+            const cp = classRanked.findIndex(r => r.id === sid) + 1;
+            const sp = streamRanked.findIndex(r => r.id === sid) + 1;
+            return { rank: cp || '-', of: classAll.length, streamRank: sp || '-', streamOf: streamAll.length };
         };
 
         return (
             <div className="space-y-4">
-                {/* Generator Controls */}
-                <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white">
-                    <h3 className="font-bold text-lg flex items-center gap-2">🎓 End of Term Report Card Generator</h3>
-                    <p className="text-indigo-200 text-sm mt-1">Select Form and Exam — report cards generate automatically. Includes QR verification and progress chart.</p>
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-700 text-white">
+                    <h3 className="font-bold text-lg">ðŸŽ“ Comprehensive Report Card Generator</h3>
+                    <p className="text-indigo-200 text-sm mt-1">Zeraki-style Kenyan KCSE report card â€¢ Select Form to auto-generate â€¢ Select Exam to include marks</p>
                 </div>
-
-                {/* Filters */}
                 <div className="flex flex-wrap gap-3 items-end">
-                    <div>
-                        <label className="text-[10px] font-semibold text-gray-500 uppercase block mb-1">Form *</label>
-                        <select value={selForm} onChange={e => setSelForm(Number(e.target.value))} className="select-modern text-sm px-3 py-2.5 min-w-[140px]">
-                            <option value={0}>Select Form</option>
-                            {forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-semibold text-gray-500 uppercase block mb-1">Stream</label>
-                        <select value={selStream} onChange={e => setSelStream(Number(e.target.value))} className="select-modern text-sm px-3 py-2.5 min-w-[140px]">
-                            <option value={0}>All Streams</option>
-                            {streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-semibold text-gray-500 uppercase block mb-1">Exam *</label>
-                        <select value={selExam} onChange={e => setSelExam(e.target.value)} className="select-modern text-sm px-3 py-2.5 min-w-[200px]">
-                            <option value="">Select Exam</option>
-                            {exams.map(e => <option key={e.id} value={e.id}>{e.exam_name} ({e.term} {e.year})</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-semibold text-gray-500 uppercase block mb-1">Student</label>
-                        <select value={selStudent} onChange={e => setSelStudent(Number(e.target.value))} className="select-modern text-sm px-3 py-2.5 min-w-[220px]">
-                            <option value={0}>📄 All Students (Bulk Print)</option>
-                            {filteredStudents.map(s => <option key={s.id} value={s.id}>{s.admission_number} — {s.first_name} {s.last_name}</option>)}
-                        </select>
-                    </div>
-                    {selForm > 0 && selExam !== '' && (
-                        <button onClick={printReport} className="btn-primary flex items-center gap-2 text-sm h-[42px]">
-                            <FiPrinter size={14} /> Generate & Print ({reportStudents.length})
-                        </button>
-                    )}
+                    <div><label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Form *</label>
+                        <select value={selForm} onChange={e => setSelForm(Number(e.target.value))} className="select-modern text-sm px-3 py-2.5 min-w-[130px]"><option value={0}>Select Form</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}</select></div>
+                    <div><label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Stream</label>
+                        <select value={selStream} onChange={e => setSelStream(Number(e.target.value))} className="select-modern text-sm px-3 py-2.5 min-w-[130px]"><option value={0}>All Streams</option>{streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}</select></div>
+                    <div><label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Exam *</label>
+                        <select value={selExam} onChange={e => setSelExam(e.target.value)} className="select-modern text-sm px-3 py-2.5 min-w-[200px]"><option value="">Select Exam</option>{exams.map((e: any) => <option key={e.id} value={e.id}>{e.exam_name} ({e.term} {e.year})</option>)}</select></div>
+                    <div><label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Student</label>
+                        <select value={selStudent} onChange={e => setSelStudent(Number(e.target.value))} className="select-modern text-sm px-3 py-2.5 min-w-[200px]"><option value={0}>ðŸ“„ All Students (Bulk)</option>{filteredStudents.map(s => <option key={s.id} value={s.id}>{s.admission_number} â€” {s.first_name} {s.last_name}</option>)}</select></div>
+                    {selForm > 0 && selExam && <button onClick={printReport} className="btn-primary flex items-center gap-2 text-sm h-[42px]"><FiPrinter size={14} /> Print ({reportStudents.length})</button>}
                 </div>
+                {selForm > 0 && <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-medium">âœ… {reportStudents.length} report card{reportStudents.length !== 1 ? 's' : ''} ready {!selExam && <span className="text-amber-600 ml-2">âš ï¸ Select exam to include marks</span>}</div>}
 
-                {/* Status */}
-                {selForm > 0 && (
-                    <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-medium flex items-center gap-2">
-                        ✅ {reportStudents.length} report card{reportStudents.length !== 1 ? 's' : ''} ready
-                        {!selExam && <span className="text-amber-600 ml-2">⚠️ Select an exam to include marks — blank template shown below</span>}
-                    </div>
-                )}
-
-                {/* Report Cards */}
                 {selForm > 0 && (
                     <div id="report-print-area">
                         {reportStudents.map(student => {
-                            const studentMarks = selExam ? getStudentMarks(student.id, selExam) : [];
-                            const activeSubjects = subjects.filter(s => s.is_active !== false);
-                            let total = 0, count = 0;
-                            const rows = activeSubjects.map(sub => {
-                                const mark = studentMarks.find(m => m.subject_id === sub.id);
+                            const sMarks = selExam ? getStudentMarks(student.id, selExam) : [];
+                            const activeSubs = subjects.filter((s: any) => s.is_active !== false);
+                            let total = 0, count = 0, totalPts = 0;
+                            const rows = activeSubs.map(sub => {
+                                const mark = sMarks.find((m: any) => m.subject_id === sub.id);
                                 const score = mark?.score ?? null;
                                 const g = score !== null ? getGrade(score) : null;
-                                if (score !== null) { total += score; count++; }
-                                const teacher = subjectTeachers.find(st => st.subject_id === sub.id);
-                                return { sub, score, grade: g?.grade || '-', pts: g?.pts || 0, initials: teacher?.teacher_initials || '-' };
+                                if (score !== null) { total += score; count++; totalPts += (g?.pts || 0); }
+                                const subMarksAll = marks.filter((m: any) => m.subject_id === sub.id && m.exam_id === selExam && m.score != null);
+                                const classAvg = subMarksAll.length > 0 ? Math.round(subMarksAll.reduce((a: number, m: any) => a + m.score, 0) / subMarksAll.length) : 0;
+                                const subRanked = subMarksAll.map((m: any) => m.score).sort((a: number, b: number) => b - a);
+                                const subPos = score !== null ? subRanked.indexOf(score) + 1 : null;
+                                const teacher = subjectTeachers.find((st: any) => st.subject_id === sub.id);
+                                return { sub, score, grade: g?.grade || '-', pts: g?.pts || 0, initials: teacher?.teacher_initials || '-', classAvg, subPos, outOf: subRanked.length };
                             });
                             const mean = count > 0 ? Math.round(total / count) : 0;
-                            const form = forms.find(f => f.id === student.form_id);
-                            const stream = streams.find(s => s.id === student.stream_id);
-                            const progress = getStudentProgress(student.id);
-                            const classRank = getClassRank(student.id);
-                            const verifyCode = genVerifyCode(student.id);
-                            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`APSIMS Report Card | Student: ${student.first_name} ${student.last_name} | Adm: ${student.admission_number} | Exam: ${exam?.exam_name || 'N/A'} | Mean: ${mean} | Grade: ${getGrade(mean).grade} | Code: ${verifyCode}`)}`;
+                            const meanGrade = getGrade(mean);
+                            const form = forms.find((f: any) => f.id === student.form_id);
+                            const stream = streams.find((s: any) => s.id === student.stream_id);
+                            const progress = getProgress(student.id);
+                            const rank = getRank(student.id);
+                            const vCode = genCode(student.id);
+                            const qrData = encodeURIComponent(`APSIMS|${student.first_name} ${student.last_name}|${student.admission_number}|${exam?.exam_name||''}|Mean:${mean}|Grade:${meanGrade.grade}|${vCode}`);
+                            const gradeDist: Record<string, number> = {};
+                            KCSE_GRADES.forEach(g => { gradeDist[g.grade] = 0; });
+                            rows.filter(r => r.score !== null).forEach(r => { gradeDist[r.grade]++; });
 
                             return (
-                                <div key={student.id} className="bg-white rounded-2xl border-2 border-gray-300 p-6 mb-8 shadow-sm" style={{ pageBreakAfter: 'always' }}>
-                                    {/* ===== SCHOOL HEADER ===== */}
-                                    <div className="flex items-center justify-between border-b-2 border-indigo-700 pb-3 mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-14 h-14 rounded-xl overflow-hidden shadow-lg"><img src="/school_logo.png" alt="School Logo" className="w-full h-full object-cover" /></div>
-                                            <div>
-                                                <h1 className="text-xl font-bold text-gray-900 tracking-tight">ALPHA SCHOOL</h1>
-                                                <p className="text-[10px] text-gray-500 font-medium">P.O. Box XXX, Town • Tel: 0720316175 • Email: info@alphaschool.co.ke</p>
-                                                <p className="text-[10px] text-gray-400 italic">Motto: &quot;Excellence in Education&quot;</p>
-                                            </div>
+                                <div key={student.id} className="bg-white border-2 border-gray-400 mb-8 text-[11px]" style={{ pageBreakAfter: 'always', fontFamily: "'Segoe UI', Arial, sans-serif" }}>
+                                    {/* â•â•â•â•â•â• HEADER â•â•â•â•â•â• */}
+                                    <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b-2 border-indigo-800">
+                                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-indigo-700"><img src="/school_logo.png" alt="Logo" className="w-full h-full object-cover" /></div>
+                                        <div className="text-center flex-1 px-4">
+                                            <h1 className="text-lg font-black text-indigo-900 uppercase tracking-wider">ALPHA SCHOOL</h1>
+                                            <p className="text-[9px] text-gray-500">P.O. Box XXX, Town â€¢ Tel: 0720316175 â€¢ Email: info@alphaschool.co.ke</p>
+                                            <p className="text-[9px] text-gray-400 italic">Motto: &quot;Excellence in Education&quot;</p>
+                                            <div className="mt-1 bg-indigo-800 text-white font-bold px-4 py-1 rounded text-xs inline-block">{exam?.exam_name || 'ACADEMIC'} REPORT â€” {exam?.term || 'Term'} {exam?.year || new Date().getFullYear()}</div>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="bg-indigo-700 text-white font-bold px-4 py-1.5 rounded-lg text-sm">
-                                                {exam?.exam_name || 'End of Term Report'}
-                                            </div>
-                                            <p className="text-xs text-gray-500 mt-1 font-semibold">{exam?.term || 'Term'} — {exam?.year || new Date().getFullYear()}</p>
-                                        </div>
+                                        <div className="text-right"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${qrData}`} alt="QR" className="w-14 h-14" /><p className="text-[6px] text-gray-400 mt-0.5 font-mono">{vCode}</p></div>
                                     </div>
 
-                                    {/* ===== STUDENT INFO ===== */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-4 p-3 bg-gray-50 rounded-xl text-xs">
-                                        <div className="col-span-2"><span className="text-gray-400">Student Name:</span> <span className="font-bold text-sm">{student.first_name} {student.middle_name || ''} {student.last_name}</span></div>
-                                        <div><span className="text-gray-400">Adm No:</span> <span className="font-bold text-indigo-700">{student.admission_number || '-'}</span></div>
-                                        <div><span className="text-gray-400">KCPE Index:</span> <span className="font-bold">{student.kcpe_index || '-'}</span></div>
-                                        <div><span className="text-gray-400">Form:</span> <span className="font-bold">{form?.form_name || '-'}</span></div>
-                                        <div><span className="text-gray-400">Stream:</span> <span className="font-bold">{stream?.stream_name || '-'}</span></div>
+                                    {/* â•â•â•â•â•â• STUDENT BIO â•â•â•â•â•â• */}
+                                    <div className="grid grid-cols-6 gap-0 border-b border-gray-300 text-[10px]">
+                                        {[
+                                            ['Student Name', `${student.first_name} ${student.middle_name || ''} ${student.last_name}`, 2],
+                                            ['Adm No', student.admission_number || '-', 1],
+                                            ['KCPE Marks', student.kcpe_marks || student.kcpe_index || '-', 1],
+                                            ['Form', form?.form_name || '-', 1],
+                                            ['Stream', stream?.stream_name || '-', 1],
+                                        ].map(([lbl, val, span], i) => (
+                                            <div key={i} className={`px-3 py-1.5 border-r border-gray-200 ${Number(span) > 1 ? `col-span-${span}` : ''}`}>
+                                                <span className="text-gray-400">{lbl as string}: </span><span className="font-bold text-gray-800">{val as string}</span>
+                                            </div>
+                                        ))}
                                     </div>
 
-                                    {/* ===== MARKS TABLE ===== */}
-                                    <table className="w-full text-[11px] border-collapse mb-3">
+                                    {/* â•â•â•â•â•â• MARKS TABLE â•â•â•â•â•â• */}
+                                    <table className="w-full border-collapse">
                                         <thead>
-                                            <tr className="bg-indigo-700 text-white">
-                                                <th className="border border-indigo-800 px-2 py-1.5 text-left">Subject</th>
-                                                <th className="border border-indigo-800 px-2 py-1.5 text-center w-12">Code</th>
-                                                <th className="border border-indigo-800 px-2 py-1.5 text-center w-16">Score /100</th>
-                                                <th className="border border-indigo-800 px-2 py-1.5 text-center w-12">Grade</th>
-                                                <th className="border border-indigo-800 px-2 py-1.5 text-center w-10">Pts</th>
-                                                <th className="border border-indigo-800 px-2 py-1.5 text-center w-12">Teacher</th>
-                                                <th className="border border-indigo-800 px-2 py-1.5 text-left">Remarks</th>
+                                            <tr className="bg-indigo-900 text-white text-[9px]">
+                                                <th className="border border-indigo-800 px-1.5 py-1 text-left w-6">#</th>
+                                                <th className="border border-indigo-800 px-1.5 py-1 text-left">SUBJECT</th>
+                                                <th className="border border-indigo-800 px-1.5 py-1 text-center w-10">CODE</th>
+                                                <th className="border border-indigo-800 px-1.5 py-1 text-center w-12">SCORE</th>
+                                                <th className="border border-indigo-800 px-1.5 py-1 text-center w-10">GRD</th>
+                                                <th className="border border-indigo-800 px-1.5 py-1 text-center w-8">PTS</th>
+                                                <th className="border border-indigo-800 px-1.5 py-1 text-center w-14">CLASS AVG</th>
+                                                <th className="border border-indigo-800 px-1.5 py-1 text-center w-14">SUB POS</th>
+                                                <th className="border border-indigo-800 px-1.5 py-1 text-center w-10">TCHR</th>
+                                                <th className="border border-indigo-800 px-1.5 py-1 text-left">REMARKS</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {rows.map((r, idx) => (
-                                                <tr key={r.sub.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                                                    <td className="border border-gray-300 px-2 py-1 font-medium">{r.sub.subject_name}</td>
-                                                    <td className="border border-gray-300 px-2 py-1 text-center text-indigo-600 font-bold">{r.sub.subject_code || '-'}</td>
-                                                    <td className="border border-gray-300 px-2 py-1 text-center font-bold text-sm">{r.score ?? ''}</td>
-                                                    <td className="border border-gray-300 px-2 py-1 text-center"><span className={`font-bold text-[10px] px-1.5 py-0.5 rounded ${r.score !== null ? gradeColor(r.grade) : ''}`}>{r.score !== null ? r.grade : ''}</span></td>
-                                                    <td className="border border-gray-300 px-2 py-1 text-center font-semibold">{r.score !== null ? r.pts : ''}</td>
-                                                    <td className="border border-gray-300 px-2 py-1 text-center font-mono text-[10px]">{r.initials}</td>
-                                                    <td className="border border-gray-300 px-2 py-1 text-[10px] text-gray-500">{r.score !== null ? (r.score >= 80 ? 'Excellent' : r.score >= 60 ? 'Good' : r.score >= 40 ? 'Average' : r.score >= 30 ? 'Below Avg' : 'Needs Improvement') : ''}</td>
+                                                <tr key={r.sub.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                    <td className="border border-gray-300 px-1.5 py-0.5 text-gray-400">{idx + 1}</td>
+                                                    <td className="border border-gray-300 px-1.5 py-0.5 font-semibold">{r.sub.subject_name}</td>
+                                                    <td className="border border-gray-300 px-1.5 py-0.5 text-center text-indigo-600 font-bold">{r.sub.subject_code || '-'}</td>
+                                                    <td className="border border-gray-300 px-1.5 py-0.5 text-center font-bold text-sm">{r.score ?? ''}</td>
+                                                    <td className="border border-gray-300 px-1.5 py-0.5 text-center"><span className={`font-bold text-[9px] px-1 rounded ${r.score !== null ? gradeColor(r.grade) : ''}`}>{r.score !== null ? r.grade : ''}</span></td>
+                                                    <td className="border border-gray-300 px-1.5 py-0.5 text-center font-semibold">{r.score !== null ? r.pts : ''}</td>
+                                                    <td className="border border-gray-300 px-1.5 py-0.5 text-center text-gray-500">{r.classAvg || ''}</td>
+                                                    <td className="border border-gray-300 px-1.5 py-0.5 text-center text-blue-600 font-semibold">{r.subPos ? `${r.subPos}/${r.outOf}` : ''}</td>
+                                                    <td className="border border-gray-300 px-1.5 py-0.5 text-center font-mono text-[9px]">{r.initials}</td>
+                                                    <td className="border border-gray-300 px-1.5 py-0.5 text-[9px] text-gray-500">{r.score !== null ? (r.score >= 80 ? 'Excellent' : r.score >= 60 ? 'Good' : r.score >= 40 ? 'Average' : r.score >= 30 ? 'Below Avg' : 'Weak') : ''}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                         <tfoot>
-                                            <tr className="bg-indigo-50 font-bold text-xs">
-                                                <td className="border border-gray-300 px-2 py-1.5">TOTAL / MEAN</td>
-                                                <td className="border border-gray-300 px-2 py-1.5 text-center">{count} subj</td>
-                                                <td className="border border-gray-300 px-2 py-1.5 text-center text-sm">{count > 0 ? total : '-'}</td>
-                                                <td className="border border-gray-300 px-2 py-1.5 text-center"><span className={`px-1.5 py-0.5 rounded ${count > 0 ? gradeColor(getGrade(mean).grade) : ''}`}>{count > 0 ? getGrade(mean).grade : '-'}</span></td>
-                                                <td className="border border-gray-300 px-2 py-1.5 text-center">{count > 0 ? mean : '-'}</td>
-                                                <td className="border border-gray-300 px-2 py-1.5 text-center text-sm text-indigo-700">Rank: {classRank.rank}/{classRank.total}</td>
-                                                <td className="border border-gray-300 px-2 py-1.5"></td>
+                                            <tr className="bg-indigo-100 font-bold text-[10px]">
+                                                <td colSpan={2} className="border border-gray-300 px-1.5 py-1">AGGREGATE</td>
+                                                <td className="border border-gray-300 px-1.5 py-1 text-center">{count} subj</td>
+                                                <td className="border border-gray-300 px-1.5 py-1 text-center text-sm">{count > 0 ? total : '-'}</td>
+                                                <td className="border border-gray-300 px-1.5 py-1 text-center"><span className={`px-1 rounded ${count > 0 ? gradeColor(meanGrade.grade) : ''}`}>{count > 0 ? meanGrade.grade : '-'}</span></td>
+                                                <td className="border border-gray-300 px-1.5 py-1 text-center">{count > 0 ? totalPts : '-'}</td>
+                                                <td className="border border-gray-300 px-1.5 py-1 text-center">{count > 0 ? mean : '-'}</td>
+                                                <td colSpan={3} className="border border-gray-300 px-1.5 py-1 text-indigo-700">Class: {rank.rank}/{rank.of} â€¢ Stream: {rank.streamRank}/{rank.streamOf}</td>
                                             </tr>
                                         </tfoot>
                                     </table>
 
-                                    {/* ===== PROGRESS CHART + QR CODE ===== */}
-                                    <div className="flex gap-4 mb-4">
-                                        {/* Progress Bar Chart */}
-                                        <div className="flex-1 border border-gray-200 rounded-xl p-3">
-                                            <h4 className="text-[10px] font-bold text-gray-600 mb-2 uppercase">📊 Performance Progress</h4>
+                                    {/* â•â•â•â•â•â• GRADE DISTRIBUTION + PROGRESS â•â•â•â•â•â• */}
+                                    <div className="flex gap-0 border-y border-gray-300">
+                                        {/* Grade Distribution */}
+                                        <div className="flex-1 p-2 border-r border-gray-300">
+                                            <p className="text-[8px] font-bold text-gray-600 uppercase mb-1">Grade Distribution</p>
+                                            <div className="flex gap-0.5">
+                                                {KCSE_GRADES.map(g => (
+                                                    <div key={g.grade} className="flex-1 text-center">
+                                                        <div className="text-[7px] font-bold text-gray-500">{g.grade}</div>
+                                                        <div className={`text-[9px] font-bold rounded py-0.5 ${gradeDist[g.grade] > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-50 text-gray-300'}`}>{gradeDist[g.grade]}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {/* Performance Progress */}
+                                        <div className="w-64 p-2">
+                                            <p className="text-[8px] font-bold text-gray-600 uppercase mb-1">ðŸ“Š Performance Trend</p>
                                             {progress.length > 0 ? (
-                                                <div className="flex items-end gap-2 h-24">
+                                                <div className="flex items-end gap-1 h-14">
                                                     {progress.map((p, i) => {
-                                                        const height = Math.max(10, (p.mean / 100) * 100);
-                                                        const color = p.mean >= 60 ? '#22c55e' : p.mean >= 40 ? '#f59e0b' : '#ef4444';
-                                                        return (
-                                                            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                                                                <span className="text-[9px] font-bold" style={{ color }}>{p.mean}%</span>
-                                                                <div className="w-full rounded-t-md transition-all" style={{ height: `${height}%`, background: `linear-gradient(to top, ${color}, ${color}dd)`, minHeight: 8 }} />
-                                                                <div className="text-[7px] text-gray-400 text-center leading-tight">
-                                                                    <div className="font-semibold">{p.term}</div>
-                                                                    <div>{p.year}</div>
-                                                                </div>
-                                                            </div>
-                                                        );
+                                                        const h = Math.max(8, (p.mean / 100) * 100);
+                                                        const c = p.mean >= 60 ? '#059669' : p.mean >= 40 ? '#d97706' : '#dc2626';
+                                                        return (<div key={i} className="flex-1 flex flex-col items-center">
+                                                            <span className="text-[7px] font-bold" style={{ color: c }}>{p.mean}</span>
+                                                            <div className="w-full rounded-t" style={{ height: `${h}%`, background: c, minHeight: 4 }} />
+                                                            <span className="text-[6px] text-gray-400 mt-0.5">{p.term}</span>
+                                                        </div>);
                                                     })}
                                                 </div>
-                                            ) : (
-                                                <div className="h-24 flex items-center justify-center text-[10px] text-gray-400">No previous exam data</div>
-                                            )}
-                                        </div>
-
-                                        {/* QR Code */}
-                                        <div className="flex flex-col items-center justify-center border border-gray-200 rounded-xl p-3 min-w-[120px]">
-                                            <img src={qrUrl} alt="QR Verification" className="w-16 h-16 mb-1" />
-                                            <p className="text-[7px] text-gray-400 text-center font-mono">{verifyCode}</p>
-                                            <p className="text-[6px] text-gray-400 mt-0.5">Scan to verify</p>
+                                            ) : <p className="text-[8px] text-gray-400 h-14 flex items-center">No history</p>}
                                         </div>
                                     </div>
 
-                                    {/* ===== FEES SECTION ===== */}
-                                    <div className="border border-gray-200 rounded-xl p-3 mb-4">
-                                        <h4 className="text-[10px] font-bold text-gray-600 mb-2 uppercase">💰 Fee Statement</h4>
-                                        <div className="grid grid-cols-4 gap-3 text-xs">
-                                            <div className="bg-red-50 rounded-lg p-2 text-center">
-                                                <p className="text-[9px] text-gray-500">Arrears (B/F)</p>
-                                                <p className="font-bold text-red-600 text-sm">KSh _______</p>
+                                    {/* â•â•â•â•â•â• CONDUCT & ACTIVITIES â•â•â•â•â•â• */}
+                                    <div className="grid grid-cols-2 gap-0 border-b border-gray-300">
+                                        <div className="border-r border-gray-300 p-2">
+                                            <p className="text-[8px] font-bold text-gray-600 uppercase mb-1">Conduct & Behavior</p>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px]">
+                                                {['Discipline', 'Punctuality', 'Neatness', 'Respect', 'Effort', 'Attitude'].map(item => (
+                                                    <div key={item} className="flex justify-between"><span className="text-gray-500">{item}:</span><span className="font-semibold text-gray-400">____</span></div>
+                                                ))}
                                             </div>
-                                            <div className="bg-blue-50 rounded-lg p-2 text-center">
-                                                <p className="text-[9px] text-gray-500">Next Term Fees</p>
-                                                <p className="font-bold text-blue-600 text-sm">KSh _______</p>
+                                        </div>
+                                        <div className="p-2">
+                                            <p className="text-[8px] font-bold text-gray-600 uppercase mb-1">Co-Curricular Activities & Clubs</p>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px]">
+                                                {['Sports', 'Music/Drama', 'Clubs/Societies', 'Leadership'].map(item => (
+                                                    <div key={item} className="flex justify-between"><span className="text-gray-500">{item}:</span><span className="font-semibold text-gray-400">____</span></div>
+                                                ))}
                                             </div>
-                                            <div className="bg-amber-50 rounded-lg p-2 text-center">
-                                                <p className="text-[9px] text-gray-500">Total Fees Due</p>
-                                                <p className="font-bold text-amber-700 text-sm">KSh _______</p>
-                                            </div>
-                                            <div className="bg-green-50 rounded-lg p-2 text-center">
-                                                <p className="text-[9px] text-gray-500">School Opens</p>
-                                                <p className="font-bold text-green-700 text-sm">___/___/____</p>
+                                            <div className="mt-1 flex gap-4 text-[9px]">
+                                                <div><span className="text-gray-500">Days Present:</span> <span className="font-bold">___</span></div>
+                                                <div><span className="text-gray-500">Days Absent:</span> <span className="font-bold">___</span></div>
+                                                <div><span className="text-gray-500">Total Days:</span> <span className="font-bold">___</span></div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* ===== REMARKS & SIGNATURES ===== */}
-                                    <div className="grid grid-cols-2 gap-4 text-xs mb-4">
-                                        <div className="border border-gray-200 rounded-xl p-3">
-                                            <p className="text-[10px] font-bold text-gray-600 mb-1">Class Teacher&apos;s Remarks:</p>
-                                            <div className="border-b border-dashed border-gray-300 h-4 mb-1"></div>
-                                            <div className="border-b border-dashed border-gray-300 h-4 mb-3"></div>
-                                            <div className="flex justify-between items-end mt-3">
-                                                <div>
-                                                    <p className="text-[9px] text-gray-500">Name: _________________________</p>
-                                                    <div className="border-b border-gray-400 w-40 mt-5"></div>
-                                                    <p className="text-[8px] text-gray-400 mt-0.5">Signature & Date</p>
+                                    {/* â•â•â•â•â•â• REMARKS & SIGNATURES â•â•â•â•â•â• */}
+                                    <div className="border-b border-gray-300 p-2">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <p className="text-[8px] font-bold text-gray-600 uppercase">Class Teacher&apos;s Remarks</p>
+                                                <div className="border-b border-dotted border-gray-300 h-3 mt-1"></div>
+                                                <div className="border-b border-dotted border-gray-300 h-3"></div>
+                                                <div className="flex justify-between items-end mt-2 text-[9px]">
+                                                    <div><span className="text-gray-500">Name:</span> <span className="font-bold">_____________________</span></div>
+                                                    <div><span className="text-gray-500">Sign:</span> ____________ <span className="text-gray-500 ml-2">Date:</span> ___/___/____</div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="border border-gray-200 rounded-xl p-3">
-                                            <p className="text-[10px] font-bold text-gray-600 mb-1">Principal&apos;s Remarks:</p>
-                                            <div className="border-b border-dashed border-gray-300 h-4 mb-1"></div>
-                                            <div className="border-b border-dashed border-gray-300 h-4 mb-3"></div>
-                                            <div className="flex justify-between items-end mt-3">
-                                                <div>
-                                                    <p className="text-[9px] text-gray-500">Name: _________________________</p>
-                                                    <div className="border-b border-gray-400 w-40 mt-5"></div>
-                                                    <p className="text-[8px] text-gray-400 mt-0.5">Signature & Official Stamp</p>
+                                            <div>
+                                                <p className="text-[8px] font-bold text-gray-600 uppercase">Principal&apos;s Remarks</p>
+                                                <div className="border-b border-dotted border-gray-300 h-3 mt-1"></div>
+                                                <div className="border-b border-dotted border-gray-300 h-3"></div>
+                                                <div className="flex justify-between items-end mt-2 text-[9px]">
+                                                    <div><span className="text-gray-500">Name:</span> <span className="font-bold">_____________________</span></div>
+                                                    <div><span className="text-gray-500">Sign & Stamp:</span> ____________</div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* ===== FOOTER ===== */}
-                                    <div className="text-center text-[8px] text-gray-400 border-t border-gray-200 pt-2">
-                                        <p>This is a computer-generated report card from APSIMS — Alpha Plus School Information Management System</p>
-                                        <p>Verified by QR Code: {verifyCode} • Generated on {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                    {/* â•â•â•â•â•â• PARENT + FEES â•â•â•â•â•â• */}
+                                    <div className="grid grid-cols-2 gap-0 border-b border-gray-300">
+                                        <div className="border-r border-gray-300 p-2">
+                                            <p className="text-[8px] font-bold text-gray-600 uppercase">Parent / Guardian&apos;s Comments</p>
+                                            <div className="border-b border-dotted border-gray-300 h-3 mt-1"></div>
+                                            <div className="flex justify-between items-end mt-2 text-[9px]">
+                                                <div><span className="text-gray-500">Name:</span> ___________________</div>
+                                                <div><span className="text-gray-500">Sign:</span> ____________ <span className="text-gray-500 ml-2">Date:</span> ___/___/____</div>
+                                            </div>
+                                        </div>
+                                        <div className="p-2">
+                                            <p className="text-[8px] font-bold text-gray-600 uppercase mb-1">ðŸ’° Fee Statement</p>
+                                            <div className="grid grid-cols-4 gap-1 text-[9px]">
+                                                <div className="bg-red-50 rounded p-1 text-center"><p className="text-[7px] text-gray-500">Arrears</p><p className="font-bold text-red-600">KSh ______</p></div>
+                                                <div className="bg-blue-50 rounded p-1 text-center"><p className="text-[7px] text-gray-500">Next Term</p><p className="font-bold text-blue-600">KSh ______</p></div>
+                                                <div className="bg-amber-50 rounded p-1 text-center"><p className="text-[7px] text-gray-500">Total Due</p><p className="font-bold text-amber-700">KSh ______</p></div>
+                                                <div className="bg-green-50 rounded p-1 text-center"><p className="text-[7px] text-gray-500">Opens</p><p className="font-bold text-green-700">__/__/____</p></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* â•â•â•â•â•â• FOOTER â•â•â•â•â•â• */}
+                                    <div className="px-5 py-1.5 bg-gray-50 text-center text-[7px] text-gray-400 flex justify-between items-center">
+                                        <span>APSIMS â€” Alpha Plus School Information Management System</span>
+                                        <span>Verified: {vCode} â€¢ {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                        <span>This is a computer-generated document</span>
                                     </div>
                                 </div>
                             );
@@ -788,23 +777,17 @@ function ReportsContent() {
                     </div>
                 )}
 
-                {/* No selection state */}
                 {!selForm && (
                     <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center text-gray-400">
-                        <span className="text-5xl block mb-3">🎓</span>
-                        <p className="font-medium text-gray-600">Select a Form to auto-generate report cards</p>
-                        <p className="text-sm mt-1">Report cards include marks, progress chart, QR verification, and fee statement</p>
-                        <div className="flex justify-center gap-3 mt-4 text-xs text-gray-400">
-                            <span className="flex items-center gap-1">📊 Progress Chart</span>
-                            <span className="flex items-center gap-1">🔐 QR Verification</span>
-                            <span className="flex items-center gap-1">💰 Fee Statement</span>
-                            <span className="flex items-center gap-1">✍️ Signature Lines</span>
-                        </div>
+                        <span className="text-5xl block mb-3">ðŸŽ“</span>
+                        <p className="font-medium text-gray-600">Select a Form to auto-generate comprehensive report cards</p>
+                        <p className="text-sm mt-1">Zeraki-style layout with marks, grade distribution, progress chart, conduct, fees & QR verification</p>
                     </div>
                 )}
             </div>
         );
     };
+
 
     const renderMeritList = () => {
         const examStudents = filteredStudents;
@@ -826,7 +809,7 @@ function ReportsContent() {
                 </div>
                 <div id="report-print-area" className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                        <h3 className="font-bold text-gray-800">🏆 Merit List — Ranked Student Performance</h3>
+                        <h3 className="font-bold text-gray-800">ðŸ† Merit List â€” Ranked Student Performance</h3>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="table-modern">
@@ -849,7 +832,7 @@ function ReportsContent() {
 
                                         return results.map((r, i) => (
                                             <tr key={r.st.id} className={`hover:bg-gray-50/50 ${i < 3 ? 'bg-yellow-50/30' : ''}`}>
-                                                <td className="font-bold text-lg">{i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</td>
+                                                <td className="font-bold text-lg">{i < 3 ? ['ðŸ¥‡', 'ðŸ¥ˆ', 'ðŸ¥‰'][i] : i + 1}</td>
                                                 <td className="font-semibold text-blue-600">{r.st.admission_number}</td>
                                                 <td className="font-medium">{r.st.first_name} {r.st.last_name}</td>
                                                 <td>{r.form?.form_name || '-'}</td>
@@ -873,14 +856,14 @@ function ReportsContent() {
     const renderFeeReports = () => (
         <div className="space-y-4">
             <div className="p-4 rounded-2xl bg-green-50 border border-green-200 text-green-700">
-                <p className="font-semibold">💰 Fee Reports</p>
+                <p className="font-semibold">ðŸ’° Fee Reports</p>
                 <p className="text-xs mt-1">Fee collection summaries, balance statements, and defaulter lists. Data is loaded from the Fees & Accounts module.</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                    { title: 'Fee Collection Summary', desc: 'Total fees collected per term, form, and stream', emoji: '💵', href: '/dashboard/fees' },
-                    { title: 'Fee Balance Report', desc: 'Outstanding balances per student', emoji: '📋', href: '/dashboard/fees' },
-                    { title: 'Fee Defaulters List', desc: 'Students with overdue fees', emoji: '⚠️', href: '/dashboard/fees' },
+                    { title: 'Fee Collection Summary', desc: 'Total fees collected per term, form, and stream', emoji: 'ðŸ’µ', href: '/dashboard/fees' },
+                    { title: 'Fee Balance Report', desc: 'Outstanding balances per student', emoji: 'ðŸ“‹', href: '/dashboard/fees' },
+                    { title: 'Fee Defaulters List', desc: 'Students with overdue fees', emoji: 'âš ï¸', href: '/dashboard/fees' },
                 ].map((r, i) => (
                     <div key={i} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-lg transition-all cursor-pointer" onClick={() => window.location.href = r.href}>
                         <span className="text-3xl">{r.emoji}</span>
@@ -895,14 +878,14 @@ function ReportsContent() {
     const renderAttendanceReport = () => (
         <div className="space-y-4">
             <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700">
-                <p className="font-semibold">📅 Attendance Reports</p>
+                <p className="font-semibold">ðŸ“… Attendance Reports</p>
                 <p className="text-xs mt-1">Summary of student attendance per term, form, and stream.</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                    { title: 'Daily Attendance', desc: 'View daily attendance records per class', emoji: '📋', href: '/dashboard/attendance' },
-                    { title: 'Term Attendance Summary', desc: 'Percentage attendance per student per term', emoji: '📊', href: '/dashboard/attendance' },
-                    { title: 'Absentee Report', desc: 'Students with high absenteeism', emoji: '🚫', href: '/dashboard/attendance' },
+                    { title: 'Daily Attendance', desc: 'View daily attendance records per class', emoji: 'ðŸ“‹', href: '/dashboard/attendance' },
+                    { title: 'Term Attendance Summary', desc: 'Percentage attendance per student per term', emoji: 'ðŸ“Š', href: '/dashboard/attendance' },
+                    { title: 'Absentee Report', desc: 'Students with high absenteeism', emoji: 'ðŸš«', href: '/dashboard/attendance' },
                 ].map((r, i) => (
                     <div key={i} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-lg transition-all cursor-pointer" onClick={() => window.location.href = r.href}>
                         <span className="text-3xl">{r.emoji}</span>
@@ -930,14 +913,14 @@ function ReportsContent() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">📊 Reports Center</h1>
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">ðŸ“Š Reports Center</h1>
                     <p className="text-sm text-gray-500 mt-1">Academic, financial, and administrative reports</p>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={printReport} className="btn-outline flex items-center gap-1.5 text-sm"><FiPrinter size={14} /> Print</button>
                     <button onClick={() => {
                         const tab = REPORT_TABS.find(t => t.key === activeTab);
-                        exportCSV(['Report'], [[`${tab?.label} — Generated ${new Date().toLocaleString()}`]], `APSIMS_${activeTab}`);
+                        exportCSV(['Report'], [[`${tab?.label} â€” Generated ${new Date().toLocaleString()}`]], `APSIMS_${activeTab}`);
                     }} className="btn-outline flex items-center gap-1.5 text-sm"><FiDownload size={14} /> Export</button>
                 </div>
             </div>
