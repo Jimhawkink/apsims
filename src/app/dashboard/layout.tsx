@@ -22,6 +22,7 @@ const navItems = [
     { href: '/dashboard/students', label: 'Students', icon: FiUsers, emoji: '👨‍🎓', perm: 'students' },
     { href: '/dashboard/fees', label: 'Fees & Accounts', icon: FiDollarSign, emoji: '💰', perm: 'fees' },
     { href: '/dashboard/exams', label: 'Exams', icon: FiFileText, emoji: '📝', perm: 'exams' },
+    { href: '/dashboard/subjects', label: 'Subjects', icon: FiFileText, emoji: '📚', perm: 'subjects' },
     { href: '/dashboard/staff', label: 'Staff', icon: FiUserCheck, emoji: '👨‍🏫', perm: 'staff' },
     { href: '/dashboard/payroll', label: 'Payroll', icon: FiCreditCard, emoji: '💵', perm: 'payroll' },
     { href: '/dashboard/expenses', label: 'Expenses', icon: FiTrendingDown, emoji: '📉', perm: 'expenses' },
