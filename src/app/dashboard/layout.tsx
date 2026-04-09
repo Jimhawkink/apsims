@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
     FiHome, FiUsers, FiDollarSign, FiFileText, FiUserCheck, FiCreditCard,
     FiTrendingDown, FiTrendingUp, FiBox, FiLogOut, FiMenu, FiX,
-    FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, FiSettings, FiKey, FiCalendar
+    FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, FiShield, FiGrid
 } from 'react-icons/fi';
 
 interface UserSession {
@@ -29,6 +29,11 @@ const navItems = [
     { href: '/dashboard/income', label: 'Income', icon: FiTrendingUp, emoji: '💼', perm: 'income' },
     { href: '/dashboard/assets', label: 'Assets', icon: FiBox, emoji: '🏢', perm: 'assets' },
     { href: '/dashboard/attendance', label: 'Attendance', icon: FiCalendar, emoji: '📋', perm: 'attendance' },
+    { href: '/dashboard/leave-out', label: 'Leave Out', icon: FiExternalLink, emoji: '🚪', perm: 'leave-out' },
+    { href: '/dashboard/remedial', label: 'Remedial', icon: FiBookOpen, emoji: '📚', perm: 'remedial' },
+    { href: '/dashboard/rim-paper', label: 'Rim Paper', icon: FiCopy, emoji: '📄', perm: 'rim-paper' },
+    { href: '/dashboard/discipline', label: 'Discipline', icon: FiShield, emoji: '🛡️', perm: 'discipline' },
+    { href: '/dashboard/timetable', label: 'Timetable', icon: FiGrid, emoji: '📅', perm: 'timetable' },
     // Reports is handled separately as collapsible group
     { href: '/dashboard/settings', label: 'Settings', icon: FiSettings, emoji: '⚙️', perm: 'settings' },
     { href: '/dashboard/users', label: 'Users', icon: FiKey, emoji: '🔑', perm: 'users' },
