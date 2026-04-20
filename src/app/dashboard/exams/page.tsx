@@ -1,478 +1,315 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import toast from 'react-hot-toast';
-import { FiSave, FiDownload, FiCheckCircle, FiLoader } from 'react-icons/fi';
+import Link from 'next/link';
+import { FiFileText, FiGrid, FiTrendingUp, FiPieChart, FiEdit3, FiPrinter, FiBarChart2, FiAward, FiUsers, FiBookOpen, FiCheckCircle, FiClock, FiChevronRight } from 'react-icons/fi';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement } from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
 
-export default function ExamsPage() {
-    const [forms, setForms] = useState<any[]>([]);
-    const [streams, setStreams] = useState<any[]>([]);
-    const [subjects, setSubjects] = useState<any[]>([]);
-    const [students, setStudents] = useState<any[]>([]);
-    const [terms, setTerms] = useState<any[]>([]);
-    const [subjectTeachers, setSubjectTeachers] = useState<any[]>([]);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
+
+interface GradeEntry { grade: string; min_score: number; max_score: number; points: number; remarks: string; }
+
+export default function ExamDashboardPage() {
     const [loading, setLoading] = useState(true);
-
-    // Selection
-    const [selForm, setSelForm] = useState('');
-    const [selStream, setSelStream] = useState('');
-    const [selSubject, setSelSubject] = useState('');
+    const [stats, setStats] = useState({ totalStudents: 0, totalMarks: 0, totalSubjects: 0, totalExamTypes: 0 });
+    const [grading, setGrading] = useState<GradeEntry[]>([]);
+    const [marks, setMarks] = useState<any[]>([]);
+    const [students, setStudents] = useState<any[]>([]);
+    const [subjects, setSubjects] = useState<any[]>([]);
+    const [forms, setForms] = useState<any[]>([]);
+    const [terms, setTerms] = useState<any[]>([]);
     const [selTerm, setSelTerm] = useState('');
-    const [selExamType, setSelExamType] = useState('CAT 1');
-
-    // Marks data: { [studentId_subjectId]: score }
-    const [marks, setMarks] = useState<Record<string, string>>({});
-    const [savedMarks, setSavedMarks] = useState<Record<string, string>>({});
-    const [unsavedCells, setUnsavedCells] = useState<Set<string>>(new Set());
-    const [saving, setSaving] = useState(false);
-    const [autoSaveTimer, setAutoSaveTimer] = useState<any>(null);
-
-    const examTypes = ['CAT 1', 'CAT 2', 'Mid-Term', 'End-Term', 'Mock', 'KCSE Trial'];
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
-        const [f, st, sub, s, t, stl] = await Promise.all([
+        const [gRes, mRes, sRes, subRes, fRes, tRes] = await Promise.all([
+            supabase.from('school_grading_system').select('*').order('points', { ascending: false }),
+            supabase.from('school_exam_marks').select('*'),
+            supabase.from('school_students').select('*').eq('status', 'Active'),
+            supabase.from('school_subjects').select('*').eq('is_active', true),
             supabase.from('school_forms').select('*').order('form_level'),
-            supabase.from('school_streams').select('*').order('stream_name'),
-            supabase.from('school_subjects').select('*').order('subject_name'),
-            supabase.from('school_students').select('*').eq('status', 'Active').order('first_name'),
             supabase.from('school_terms').select('*').order('id', { ascending: false }),
-            supabase.from('school_subject_teachers').select('*'),
         ]);
-        setForms(f.data || []);
-        setStreams(st.data || []);
-        setSubjects(sub.data || []);
-        setStudents(s.data || []);
-        setTerms(t.data || []);
-        setSubjectTeachers(stl.data || []);
-        // Auto-select current term
-        const cur = (t.data || []).find((x: any) => x.is_current);
+        setGrading(gRes.data || []);
+        setMarks(mRes.data || []);
+        setStudents(sRes.data || []);
+        setSubjects(subRes.data || []);
+        setForms(fRes.data || []);
+        setTerms(tRes.data || []);
+        const cur = (tRes.data || []).find((t: any) => t.is_current);
         if (cur) setSelTerm(String(cur.id));
+        setStats({
+            totalStudents: (sRes.data || []).length,
+            totalMarks: (mRes.data || []).length,
+            totalSubjects: (subRes.data || []).length,
+            totalExamTypes: 6,
+        });
         setLoading(false);
     }, []);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    // Get subjects for the current user (teacher) or all for admin
-    const getAvailableSubjects = () => {
-        try {
-            const user = JSON.parse(localStorage.getItem('school_user') || '{}');
-            if (user.role === 'admin' || user.role === 'principal') return subjects;
-            // Teachers only see their assigned subjects
-            const myLinks = subjectTeachers.filter(st => st.teacher_id === user.id);
-            const mySubjectIds = myLinks.map(l => l.subject_id);
-            return subjects.filter(s => mySubjectIds.includes(s.id));
-        } catch { return subjects; }
+    const getGrade = (score: number): GradeEntry => {
+        const sorted = [...grading].sort((a, b) => b.min_score - a.min_score);
+        return sorted.find(g => score >= g.min_score && score <= g.max_score) || { grade: 'E', min_score: 0, max_score: 29, points: 1, remarks: 'Very Poor' };
     };
 
-    // Get the class (form + stream) student list
-    const classStudents = students
-        .filter(s => selForm && String(s.form_id) === selForm)
-        .filter(s => !selStream || String(s.stream_id) === selStream)
-        .sort((a, b) => (a.admission_no || a.admission_number || '').localeCompare(b.admission_no || b.admission_number || ''));
+    const termMarks = marks.filter(m => !selTerm || String(m.term_id) === selTerm);
+    const avgScore = termMarks.length > 0 ? termMarks.reduce((a, m) => a + Number(m.score || 0), 0) / termMarks.length : 0;
+    const avgGrade = getGrade(avgScore);
 
-    // Load existing marks when selection changes
-    useEffect(() => {
-        if (!selForm || !selSubject || !selTerm || !selExamType) return;
-        const loadMarks = async () => {
-            const studentIds = classStudents.map(s => s.id);
-            if (studentIds.length === 0) return;
-            const { data } = await supabase.from('school_exam_marks')
-                .select('*')
-                .eq('subject_id', Number(selSubject))
-                .eq('term_id', Number(selTerm))
-                .eq('exam_type', selExamType)
-                .in('student_id', studentIds);
-            const loaded: Record<string, string> = {};
-            (data || []).forEach((m: any) => {
-                const key = `${m.student_id}_${m.subject_id}`;
-                loaded[key] = String(m.score ?? '');
-            });
-            setMarks(loaded);
-            setSavedMarks({ ...loaded });
-            setUnsavedCells(new Set());
-        };
-        loadMarks();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selForm, selStream, selSubject, selTerm, selExamType, students]);
+    // Grade distribution
+    const gradeDistribution: Record<string, number> = {};
+    grading.forEach(g => { gradeDistribution[g.grade] = 0; });
+    termMarks.forEach(m => {
+        const g = getGrade(Number(m.score || 0));
+        gradeDistribution[g.grade] = (gradeDistribution[g.grade] || 0) + 1;
+    });
 
-    // Mark a cell as changed
-    const handleMarkChange = (studentId: number, value: string) => {
-        const key = `${studentId}_${selSubject}`;
-        const numVal = value === '' ? '' : String(Math.min(100, Math.max(0, Number(value))));
-        setMarks(prev => ({ ...prev, [key]: numVal }));
-        const newUnsaved = new Set(unsavedCells);
-        if (numVal !== (savedMarks[key] || '')) {
-            newUnsaved.add(key);
-        } else {
-            newUnsaved.delete(key);
-        }
-        setUnsavedCells(newUnsaved);
-
-        // Auto-save individual cell after 2 seconds of inactivity
-        if (autoSaveTimer) clearTimeout(autoSaveTimer);
-        const timer = setTimeout(() => {
-            autoSaveCell(studentId, numVal);
-        }, 2000);
-        setAutoSaveTimer(timer);
+    const gradeColors: Record<string, string> = {
+        'A': '#059669', 'A-': '#10b981', 'B+': '#34d399', 'B': '#3b82f6', 'B-': '#60a5fa',
+        'C+': '#8b5cf6', 'C': '#a78bfa', 'C-': '#f59e0b', 'D+': '#f97316', 'D': '#ef4444',
+        'D-': '#dc2626', 'E': '#991b1b',
     };
 
-    // Auto-save a single cell
-    const autoSaveCell = async (studentId: number, score: string) => {
-        if (!selSubject || !selTerm) return;
-        const key = `${studentId}_${selSubject}`;
-        if (score === '' || score === (savedMarks[key] || '')) return;
-
-        const payload = {
-            student_id: studentId,
-            subject_id: Number(selSubject),
-            term_id: Number(selTerm),
-            exam_type: selExamType,
-            score: Number(score),
-        };
-
-        // Upsert: try update first, then insert
-        const { data: existing } = await supabase.from('school_exam_marks')
-            .select('id')
-            .eq('student_id', studentId)
-            .eq('subject_id', Number(selSubject))
-            .eq('term_id', Number(selTerm))
-            .eq('exam_type', selExamType)
-            .maybeSingle();
-
-        let error;
-        if (existing) {
-            ({ error } = await supabase.from('school_exam_marks').update({ score: Number(score) }).eq('id', existing.id));
-        } else {
-            ({ error } = await supabase.from('school_exam_marks').insert([payload]));
-        }
-        if (!error) {
-            setSavedMarks(prev => ({ ...prev, [key]: score }));
-            setUnsavedCells(prev => { const n = new Set(prev); n.delete(key); return n; });
-        }
+    const gradeChartData = {
+        labels: Object.keys(gradeDistribution),
+        datasets: [{
+            data: Object.values(gradeDistribution),
+            backgroundColor: Object.keys(gradeDistribution).map(g => gradeColors[g] || '#94a3b8'),
+            borderWidth: 0,
+            borderRadius: 6,
+        }],
     };
 
-    // Save all unsaved marks at once
-    const handleSaveAll = async () => {
-        if (unsavedCells.size === 0) { toast('All marks are already saved ✅'); return; }
-        setSaving(true);
-        let saved = 0;
-        for (const key of Array.from(unsavedCells)) {
-            const [sid, subId] = key.split('_');
-            const score = marks[key];
-            if (score === '' || score === undefined) continue;
+    // Subject performance
+    const subjectAvgs: { name: string; avg: number; count: number }[] = subjects.map(sub => {
+        const subMarks = termMarks.filter(m => m.subject_id === sub.id);
+        const avg = subMarks.length > 0 ? subMarks.reduce((a, m) => a + Number(m.score || 0), 0) / subMarks.length : 0;
+        return { name: sub.subject_name, avg, count: subMarks.length };
+    }).filter(s => s.count > 0).sort((a, b) => b.avg - a.avg);
 
-            const payload = {
-                student_id: Number(sid),
-                subject_id: Number(subId),
-                term_id: Number(selTerm),
-                exam_type: selExamType,
-                score: Number(score),
-            };
-
-            const { data: existing } = await supabase.from('school_exam_marks')
-                .select('id')
-                .eq('student_id', Number(sid))
-                .eq('subject_id', Number(subId))
-                .eq('term_id', Number(selTerm))
-                .eq('exam_type', selExamType)
-                .maybeSingle();
-
-            let error;
-            if (existing) {
-                ({ error } = await supabase.from('school_exam_marks').update({ score: Number(score) }).eq('id', existing.id));
-            } else {
-                ({ error } = await supabase.from('school_exam_marks').insert([payload]));
-            }
-            if (!error) saved++;
-        }
-        setSavedMarks({ ...marks });
-        setUnsavedCells(new Set());
-        setSaving(false);
-        toast.success(`${saved} marks saved successfully ✅`);
+    const subjectChartData = {
+        labels: subjectAvgs.slice(0, 12).map(s => s.name.length > 10 ? s.name.substring(0, 10) + '…' : s.name),
+        datasets: [{
+            label: 'Average Score',
+            data: subjectAvgs.slice(0, 12).map(s => Math.round(s.avg * 10) / 10),
+            backgroundColor: subjectAvgs.slice(0, 12).map(s => {
+                if (s.avg >= 70) return '#22c55e';
+                if (s.avg >= 50) return '#3b82f6';
+                if (s.avg >= 35) return '#f59e0b';
+                return '#ef4444';
+            }),
+            borderWidth: 0,
+            borderRadius: 8,
+        }],
     };
 
-    // Grade from score
-    const getGrade = (score: number): { grade: string; color: string } => {
-        if (score >= 80) return { grade: 'A', color: '#059669' };
-        if (score >= 75) return { grade: 'A-', color: '#10b981' };
-        if (score >= 70) return { grade: 'B+', color: '#34d399' };
-        if (score >= 65) return { grade: 'B', color: '#3b82f6' };
-        if (score >= 60) return { grade: 'B-', color: '#60a5fa' };
-        if (score >= 55) return { grade: 'C+', color: '#8b5cf6' };
-        if (score >= 50) return { grade: 'C', color: '#a78bfa' };
-        if (score >= 45) return { grade: 'C-', color: '#f59e0b' };
-        if (score >= 40) return { grade: 'D+', color: '#f97316' };
-        if (score >= 35) return { grade: 'D', color: '#ef4444' };
-        if (score >= 30) return { grade: 'D-', color: '#dc2626' };
-        return { grade: 'E', color: '#991b1b' };
-    };
+    // Form performance
+    const formAvgs = forms.map(f => {
+        const formStudentIds = students.filter(s => s.form_id === f.id).map(s => s.id);
+        const fMarks = termMarks.filter(m => formStudentIds.includes(m.student_id));
+        const avg = fMarks.length > 0 ? fMarks.reduce((a, m) => a + Number(m.score || 0), 0) / fMarks.length : 0;
+        return { name: f.form_name, avg, count: fMarks.length };
+    });
 
-    const availableSubjects = getAvailableSubjects();
-    const getSubjectName = (id: number) => subjects.find(s => s.id === id)?.subject_name || '-';
-    const getFormName = (id: number) => forms.find(f => f.id === id)?.form_name || '-';
-    const getStreamName = (id: number) => streams.find(s => s.id === id)?.stream_name || '-';
+    const quickActions = [
+        { href: '/dashboard/exams/marks', icon: FiEdit3, label: 'Enter Marks', desc: 'Broadsheet-style entry', color: '#3b82f6', bg: '#eff6ff' },
+        { href: '/dashboard/exams/broadsheet', icon: FiGrid, label: 'View Broadsheet', desc: 'All subjects per class', color: '#8b5cf6', bg: '#f5f3ff' },
+        { href: '/dashboard/exams/merit-list', icon: FiAward, label: 'Merit List', desc: 'Ranked student list', color: '#f59e0b', bg: '#fffbeb' },
+        { href: '/dashboard/exams/report-cards', icon: FiPrinter, label: 'Report Cards', desc: 'Generate & print', color: '#10b981', bg: '#ecfdf5' },
+        { href: '/dashboard/exams/analysis', icon: FiBarChart2, label: 'Analysis', desc: 'Performance trends', color: '#ef4444', bg: '#fef2f2' },
+        { href: '/dashboard/exams/manage', icon: FiBookOpen, label: 'Exam Manager', desc: 'Create & manage exams', color: '#6366f1', bg: '#eef2ff' },
+    ];
 
-    // Stats
-    const enteredCount = Object.values(marks).filter(v => v !== '' && v !== undefined).length;
-    const avg = enteredCount > 0 ? Object.values(marks).filter(v => v !== '').reduce((s, v) => s + Number(v), 0) / enteredCount : 0;
-
-    // Export marks as CSV
-    const exportMarks = () => {
-        if (classStudents.length === 0) return;
-        const subName = getSubjectName(Number(selSubject));
-        const headers = ['#', 'Adm No', 'Student Name', 'Score', 'Grade'];
-        const rows = classStudents.map((s, i) => {
-            const key = `${s.id}_${selSubject}`;
-            const score = marks[key] || '';
-            const grade = score ? getGrade(Number(score)).grade : '';
-            return [i + 1, s.admission_no || s.admission_number, `${s.first_name} ${s.last_name}`, score, grade];
-        });
-        const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = `marks_${subName}_${selExamType}_${new Date().toISOString().split('T')[0]}.csv`; a.click();
-        toast.success('Marks exported ✅');
-    };
-
-    const isReady = selForm && selSubject && selTerm;
+    if (loading) return (
+        <div className="flex items-center justify-center h-[60vh]">
+            <div className="text-center">
+                <div className="w-10 h-10 border-3 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" style={{ borderWidth: 3 }} />
+                <p className="text-gray-400 text-sm">Loading Exam Dashboard...</p>
+            </div>
+        </div>
+    );
 
     return (
-        <div className="space-y-5 animate-fade-in">
-            {/* Hide number input spinners globally */}
-            <style jsx>{`
-                input[type=number]::-webkit-inner-spin-button,
-                input[type=number]::-webkit-outer-spin-button {
-                    -webkit-appearance: none;
-                    margin: 0;
-                }
-                input[type=number] {
-                    -moz-appearance: textfield;
-                    appearance: textfield;
-                }
-            `}</style>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="space-y-6 animate-fade-in">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">📝 Exam Marks Entry</h1>
-                    <p className="text-sm text-gray-500 mt-1">Enter and manage student marks per subject — Broadsheet style</p>
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">📝 Examination Dashboard</h1>
+                    <p className="text-sm text-gray-500 mt-1">Complete exam lifecycle — Mark entry, broadsheets, report cards & analytics</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <select value={selTerm} onChange={e => setSelTerm(e.target.value)}
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:border-blue-400 outline-none min-w-[160px]">
+                        <option value="">All Terms</option>
+                        {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.academic_year || t.year || ''}</option>)}
+                    </select>
                 </div>
             </div>
 
-            {loading ? (
-                <div className="flex justify-center py-20"><div className="spinner" style={{ borderTopColor: '#8b5cf6', borderColor: '#e2e8f0', width: 32, height: 32, borderWidth: 3 }} /></div>
-            ) : (
-                <>
-                    {/* Selection Bar */}
-                    <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                            <div>
-                                <label className="lbl">Form *</label>
-                                <select value={selForm} onChange={e => { setSelForm(e.target.value); setSelStream(''); }} className="select-modern w-full text-sm">
-                                    <option value="">Select Form</option>
-                                    {forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}
-                                </select>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                    { icon: FiUsers, label: 'Total Students', value: stats.totalStudents, color: '#3b82f6', bg: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
+                    { icon: FiCheckCircle, label: 'Marks Entered', value: termMarks.length, color: '#10b981', bg: 'linear-gradient(135deg, #10b981, #059669)' },
+                    { icon: FiBarChart2, label: 'Mean Score', value: avgScore > 0 ? `${avgScore.toFixed(1)}%` : '--', color: '#8b5cf6', bg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
+                    { icon: FiAward, label: 'Mean Grade', value: termMarks.length > 0 ? avgGrade.grade : '--', color: '#f59e0b', bg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
+                ].map((card, i) => {
+                    const Icon = card.icon;
+                    return (
+                        <div key={i} className="rounded-2xl p-5 text-white shadow-lg" style={{ background: card.bg }}>
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-xs font-semibold opacity-80 uppercase">{card.label}</p>
+                                <Icon size={20} className="opacity-60" />
                             </div>
-                            <div>
-                                <label className="lbl">Stream</label>
-                                <select value={selStream} onChange={e => setSelStream(e.target.value)} className="select-modern w-full text-sm">
-                                    <option value="">All Streams</option>
-                                    {streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="lbl">Subject *</label>
-                                <select value={selSubject} onChange={e => setSelSubject(e.target.value)} className="select-modern w-full text-sm">
-                                    <option value="">Select Subject</option>
-                                    {availableSubjects.map(s => <option key={s.id} value={s.id}>{s.subject_name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="lbl">Term *</label>
-                                <select value={selTerm} onChange={e => setSelTerm(e.target.value)} className="select-modern w-full text-sm">
-                                    <option value="">Select Term</option>
-                                    {terms.map(t => <option key={t.id} value={t.id}>{t.term_name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="lbl">Exam Type</label>
-                                <select value={selExamType} onChange={e => setSelExamType(e.target.value)} className="select-modern w-full text-sm">
-                                    {examTypes.map(e => <option key={e} value={e}>{e}</option>)}
-                                </select>
-                            </div>
+                            <p className="text-3xl font-extrabold">{card.value}</p>
                         </div>
+                    );
+                })}
+            </div>
+
+            {/* Quick Actions */}
+            <div>
+                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Quick Actions</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {quickActions.map((action, i) => {
+                        const Icon = action.icon;
+                        return (
+                            <Link key={i} href={action.href}
+                                className="group bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+                                <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110"
+                                    style={{ background: action.bg }}>
+                                    <Icon size={20} style={{ color: action.color }} />
+                                </div>
+                                <p className="text-sm font-bold text-gray-800">{action.label}</p>
+                                <p className="text-[11px] text-gray-400 mt-0.5">{action.desc}</p>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Charts Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Grade Distribution */}
+                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2"><FiPieChart className="text-blue-500" /> Grade Distribution</h3>
+                        <span className="text-xs text-gray-400">{termMarks.length} marks</span>
                     </div>
-
-                    {!isReady ? (
-                        <div className="bg-white rounded-2xl border border-gray-200 text-center py-20 text-gray-400">
-                            <span className="text-5xl block mb-4">📊</span>
-                            <p className="font-semibold text-lg mb-1">Select Form, Subject & Term to begin</p>
-                            <p className="text-sm">Choose from the filters above to load the marks broadsheet</p>
-                        </div>
-                    ) : classStudents.length === 0 ? (
-                        <div className="bg-white rounded-2xl border border-gray-200 text-center py-20 text-gray-400">
-                            <span className="text-5xl block mb-4">👤</span>
-                            <p className="font-semibold">No students found in this class</p>
-                        </div>
-                    ) : (
-                        <>
-                            {/* Stats Bar */}
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                                <div className="bg-white rounded-xl border border-gray-200 p-3.5 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-lg">👨‍🎓</div>
-                                    <div><p className="text-[10px] font-semibold text-gray-400 uppercase">Students</p><p className="text-xl font-bold text-gray-800">{classStudents.length}</p></div>
-                                </div>
-                                <div className="bg-white rounded-xl border border-gray-200 p-3.5 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center text-lg">✏️</div>
-                                    <div><p className="text-[10px] font-semibold text-gray-400 uppercase">Entered</p><p className="text-xl font-bold text-green-600">{enteredCount} / {classStudents.length}</p></div>
-                                </div>
-                                <div className="bg-white rounded-xl border border-gray-200 p-3.5 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-lg">📊</div>
-                                    <div><p className="text-[10px] font-semibold text-gray-400 uppercase">Average</p><p className="text-xl font-bold text-purple-600">{avg.toFixed(1)}%</p></div>
-                                </div>
-                                <div className="bg-white rounded-xl border border-gray-200 p-3.5 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-lg">{unsavedCells.size > 0 ? '⚠️' : '✅'}</div>
-                                    <div><p className="text-[10px] font-semibold text-gray-400 uppercase">Unsaved</p><p className={`text-xl font-bold ${unsavedCells.size > 0 ? 'text-amber-600' : 'text-green-600'}`}>{unsavedCells.size}</p></div>
-                                </div>
-                                {/* Progress Card */}
-                                <div className={`rounded-xl border p-3.5 ${enteredCount === classStudents.length && classStudents.length > 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200'}`}>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-lg">{enteredCount === classStudents.length && classStudents.length > 0 ? '🎉' : '📋'}</span>
-                                        <div>
-                                            <p className="text-[10px] font-semibold text-gray-400 uppercase">Captured</p>
-                                            <p className={`text-xl font-bold ${enteredCount === classStudents.length && classStudents.length > 0 ? 'text-emerald-600' : 'text-gray-700'}`}>
-                                                {classStudents.length > 0 ? Math.round((enteredCount / classStudents.length) * 100) : 0}%
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                        <div className="h-full rounded-full transition-all duration-500" style={{
-                                            width: `${classStudents.length > 0 ? (enteredCount / classStudents.length) * 100 : 0}%`,
-                                            background: enteredCount === classStudents.length && classStudents.length > 0 ? '#10b981' : 'linear-gradient(90deg, #3b82f6, #6366f1)',
-                                        }} />
-                                    </div>
-                                    {enteredCount === classStudents.length && classStudents.length > 0 && (
-                                        <p className="text-[10px] font-bold text-emerald-600 mt-1">✅ All marks captured!</p>
-                                    )}
-                                </div>
+                    <div className="p-5">
+                        {termMarks.length > 0 ? (
+                            <div className="h-[280px] flex items-center justify-center">
+                                <Doughnut data={gradeChartData} options={{
+                                    responsive: true, maintainAspectRatio: false,
+                                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11, weight: 'bold' as const } } } },
+                                    cutout: '60%',
+                                }} />
                             </div>
+                        ) : (
+                            <div className="h-[280px] flex items-center justify-center text-gray-400 text-sm">No marks data for this term</div>
+                        )}
+                    </div>
+                </div>
 
-                            {/* Action Bar */}
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm text-gray-500">
-                                    <span className="font-semibold text-gray-700">{getSubjectName(Number(selSubject))}</span>
-                                    {' — '}{getFormName(Number(selForm))} {selStream ? getStreamName(Number(selStream)) : ''} • {selExamType}
-                                    {unsavedCells.size > 0 && <span className="ml-2 text-amber-600 font-semibold animate-pulse">• {unsavedCells.size} unsaved changes</span>}
-                                </div>
-                                <div className="flex gap-2">
-                                    <button onClick={exportMarks} className="btn-outline text-sm flex items-center gap-1.5"><FiDownload size={14} /> Export</button>
-                                    <button onClick={handleSaveAll} disabled={saving || unsavedCells.size === 0}
-                                        className={`flex items-center gap-1.5 text-sm px-5 py-2.5 rounded-xl font-semibold transition-all ${unsavedCells.size > 0
-                                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:-translate-y-0.5'
-                                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
-                                        {saving ? <FiLoader className="animate-spin" size={14} /> : <FiSave size={14} />}
-                                        {saving ? 'Saving...' : unsavedCells.size > 0 ? `Save All (${unsavedCells.size})` : 'All Saved ✅'}
-                                    </button>
-                                </div>
+                {/* Subject Performance */}
+                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2"><FiBarChart2 className="text-purple-500" /> Subject Performance</h3>
+                        <span className="text-xs text-gray-400">{subjectAvgs.length} subjects</span>
+                    </div>
+                    <div className="p-5">
+                        {subjectAvgs.length > 0 ? (
+                            <div className="h-[280px]">
+                                <Bar data={subjectChartData} options={{
+                                    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                                    scales: { x: { max: 100, grid: { color: '#f1f5f9' } }, y: { grid: { display: false } } },
+                                    plugins: { legend: { display: false } },
+                                }} />
                             </div>
+                        ) : (
+                            <div className="h-[280px] flex items-center justify-center text-gray-400 text-sm">No subject data</div>
+                        )}
+                    </div>
+                </div>
+            </div>
 
-                            {/* Broadsheet Table */}
-                            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full border-collapse">
-                                        <thead>
-                                            <tr className="bg-gradient-to-r from-slate-50 to-gray-50">
-                                                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-10">#</th>
-                                                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-24">Adm No</th>
-                                                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 min-w-[180px]">Student Name</th>
-                                                <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-28">Score (/100)</th>
-                                                <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-20">Grade</th>
-                                                <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-16">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {classStudents.map((s, i) => {
-                                                const key = `${s.id}_${selSubject}`;
-                                                const score = marks[key] || '';
-                                                const isUnsaved = unsavedCells.has(key);
-                                                const gradeInfo = score !== '' ? getGrade(Number(score)) : null;
-                                                return (
-                                                    <tr key={s.id} className={`border-b border-gray-100 transition-colors ${isUnsaved ? 'bg-amber-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                                                        <td className="px-3 py-2 text-xs text-gray-400 font-medium">{i + 1}</td>
-                                                        <td className="px-3 py-2 text-sm font-bold text-blue-600">{s.admission_no || s.admission_number}</td>
-                                                        <td className="px-3 py-2 text-sm font-semibold text-gray-700">{s.first_name} {s.last_name}</td>
-                                                        <td className="px-3 py-1.5 text-center">
-                                                            <input
-                                                                type="number"
-                                                                min="0" max="100"
-                                                                value={score}
-                                                                onChange={e => handleMarkChange(s.id, e.target.value)}
-                                                                onKeyDown={e => {
-                                                                    if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'ArrowDown') {
-                                                                        // Move to next row
-                                                                        const nextRow = classStudents[i + 1];
-                                                                        if (nextRow) {
-                                                                            const nextInput = document.getElementById(`mark-${nextRow.id}`);
-                                                                            if (nextInput) { e.preventDefault(); nextInput.focus(); }
-                                                                        }
-                                                                    } else if (e.key === 'ArrowUp') {
-                                                                        // Move to previous row
-                                                                        const prevRow = classStudents[i - 1];
-                                                                        if (prevRow) {
-                                                                            const prevInput = document.getElementById(`mark-${prevRow.id}`);
-                                                                            if (prevInput) { e.preventDefault(); prevInput.focus(); }
-                                                                        }
-                                                                    }
-                                                                }}
-                                                                id={`mark-${s.id}`}
-                                                                placeholder="—"
-                                                                className={`w-20 text-center text-sm font-bold rounded-lg border-2 py-2 outline-none transition-all
-                                                                    ${isUnsaved ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-200' :
-                                                                        score !== '' ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'}
-                                                                    focus:border-blue-500 focus:ring-2 focus:ring-blue-200`}
-                                                            />
-                                                        </td>
-                                                        <td className="px-3 py-2 text-center">
-                                                            {gradeInfo ? (
-                                                                <span className="inline-flex items-center justify-center w-10 h-8 rounded-lg font-bold text-sm text-white" style={{ background: gradeInfo.color }}>
-                                                                    {gradeInfo.grade}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-gray-300">—</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-center">
-                                                            {isUnsaved ? (
-                                                                <span className="text-amber-500" title="Unsaved">⚡</span>
-                                                            ) : score !== '' ? (
-                                                                <FiCheckCircle className="text-green-500 mx-auto" size={16} />
-                                                            ) : (
-                                                                <span className="text-gray-300">○</span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+            {/* Form/Class Performance */}
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                    <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2"><FiTrendingUp className="text-green-500" /> Class Performance Overview</h3>
+                </div>
+                <div className="p-5">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {formAvgs.map((f, i) => {
+                            const g = getGrade(f.avg);
+                            const pct = f.avg;
+                            return (
+                                <div key={i} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <p className="font-bold text-gray-800">{f.name}</p>
+                                        <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-white font-bold text-xs"
+                                            style={{ background: gradeColors[g.grade] || '#94a3b8' }}>
+                                            {g.grade}
+                                        </span>
+                                    </div>
+                                    <p className="text-2xl font-extrabold text-gray-800">{f.count > 0 ? f.avg.toFixed(1) : '--'}%</p>
+                                    <div className="w-full bg-gray-100 rounded-full h-2 mt-2">
+                                        <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, background: gradeColors[g.grade] || '#94a3b8' }} />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1.5">{f.count} mark entries</p>
                                 </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
 
-                                {/* Bottom summary */}
-                                <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-gray-50 border-t border-gray-200 flex items-center justify-between text-sm">
-                                    <div className="text-gray-500">
-                                        <span className="font-semibold text-gray-700">{enteredCount}</span> of {classStudents.length} marks entered
-                                        {enteredCount > 0 && <> • Mean: <span className="font-bold text-purple-600">{avg.toFixed(1)}</span></>}
-                                    </div>
-                                    <div className="flex gap-3 text-xs">
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-400 inline-block"></span> Saved</span>
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-400 inline-block"></span> Unsaved</span>
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-gray-200 inline-block"></span> Empty</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </>
+            {/* Top Performers Quick View */}
+            {termMarks.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2"><FiAward className="text-amber-500" /> Recent High Scores</h3>
+                        <Link href="/dashboard/exams/merit-list" className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1">
+                            View Merit List <FiChevronRight size={12} />
+                        </Link>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">#</th>
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Subject</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Score</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Grade</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {[...termMarks].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, 10).map((m, i) => {
+                                    const student = students.find(s => s.id === m.student_id);
+                                    const subject = subjects.find(s => s.id === m.subject_id);
+                                    const g = getGrade(Number(m.score));
+                                    return (
+                                        <tr key={m.id || i} className="border-b border-gray-100 hover:bg-gray-50">
+                                            <td className="px-4 py-2.5 text-xs text-gray-400 font-mono">{i + 1}</td>
+                                            <td className="px-4 py-2.5 text-sm font-semibold text-gray-800">{student ? `${student.first_name} ${student.last_name}` : '-'}</td>
+                                            <td className="px-4 py-2.5 text-sm text-gray-600">{subject?.subject_name || '-'}</td>
+                                            <td className="px-4 py-2.5 text-center text-sm font-bold text-gray-800">{m.score}%</td>
+                                            <td className="px-4 py-2.5 text-center">
+                                                <span className="inline-flex items-center justify-center w-9 h-7 rounded-md text-white font-bold text-xs"
+                                                    style={{ background: gradeColors[g.grade] || '#94a3b8' }}>{g.grade}</span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             )}
         </div>
     );

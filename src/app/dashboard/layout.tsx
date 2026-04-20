@@ -8,7 +8,8 @@ import {
     FiTrendingDown, FiTrendingUp, FiBox, FiLogOut, FiMenu, FiX,
     FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, 
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
-    FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap
+    FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
+    FiHeart, FiGlobe, FiSend, FiSmartphone
 } from 'react-icons/fi';
 
 interface UserSession {
@@ -42,6 +43,7 @@ const menuGroups = [
             { href: '/dashboard/students/id-cards', label: 'ID Cards', icon: FiCreditCard, perm: 'students' },
             { href: '/dashboard/discipline', label: 'Discipline', icon: FiShield, perm: 'discipline' },
             { href: '/dashboard/leave-out', label: 'Leave Out', icon: FiExternalLink, perm: 'leave-out' },
+            { href: '/dashboard/students/health', label: 'Health Records', icon: FiHeart, perm: 'students' },
         ]
     },
     {
@@ -62,6 +64,7 @@ const menuGroups = [
             { href: '/dashboard/exams/question-bank', label: 'Question Bank', icon: FiCopy, perm: 'exams' },
             { href: '/dashboard/exams/paper-generator', label: 'Paper Generator', icon: FiFileText, perm: 'exams' },
             { href: '/dashboard/exams/ai-generate', label: 'AI Question Gen', icon: FiZap, perm: 'exams' },
+            { href: '/dashboard/exams/digital-delivery', label: 'Digital Report Cards', icon: FiSend, perm: 'exams' },
             { href: '/dashboard/curriculum/cbc-tracking', label: 'CBC Tracking', icon: FiTrendingUp, perm: 'curriculum' },
             { href: '/dashboard/curriculum/cbc-assessment', label: 'CBC Assessment', icon: FiFileText, perm: 'curriculum' },
             { href: '/dashboard/timetable', label: 'Timetable', icon: FiGrid, perm: 'timetable' },
@@ -103,6 +106,7 @@ const menuGroups = [
             { href: '/dashboard/fees/statements', label: 'Fee Statements', icon: FiBookOpen, perm: 'fees' },
             { href: '/dashboard/expenses', label: 'Expenses', icon: FiTrendingDown, perm: 'expenses' },
             { href: '/dashboard/income', label: 'Other Income', icon: FiTrendingUp, perm: 'income' },
+            { href: '/dashboard/payments/integration', label: 'Payment Integration', icon: FiSmartphone, perm: 'fees' },
         ]
     },
     {
@@ -121,12 +125,13 @@ const menuGroups = [
         ]
     },
     {
-        label: "Parent & Comms",
+        label: "Parent & Portals",
         icon: FiMessageSquare,
         name: 'comms',
         collapsible: true,
         items: [
             { href: '/dashboard/communication', label: 'SMS & Broadcasting', icon: FiMessageSquare, perm: 'communication' },
+            { href: '/dashboard/portals', label: 'Parent & Student Portal', icon: FiUsers, perm: 'portals' },
         ]
     },
     {
@@ -138,6 +143,7 @@ const menuGroups = [
             { href: '/dashboard/reports', label: 'Reports & Export', icon: FiPieChart, perm: 'reports' },
             { href: '/dashboard/users', label: 'User Roles', icon: FiKey, perm: 'users' },
             { href: '/dashboard/settings', label: 'System Settings', icon: FiSettings, perm: 'settings' },
+            { href: '/dashboard/super-admin', label: 'Multi-School / Super Admin', icon: FiGlobe, perm: 'super-admin' },
         ]
     }
 ];
@@ -316,7 +322,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto sidebar-scroll py-3 px-3 space-y-0.5">
+                <nav className="flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll py-3 px-3 space-y-0.5" style={{ WebkitOverflowScrolling: 'touch' }}>
                     {filteredGroups.map((group) => {
                         const isExpanded = expandedGroups[group.name];
                         const GroupIcon = group.icon;
@@ -367,8 +373,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 </button>
                                 
                                 {/* Sub Items */}
-                                <div className={`overflow-hidden transition-all duration-200 ease-in-out
-                                    ${isExpanded && !sidebarCollapsed ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}
+                                <div className={`overflow-y-auto overflow-x-hidden transition-all duration-200 ease-in-out
+                                    ${isExpanded && !sidebarCollapsed ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}
                                 `}>
                                     <div className="ml-[22px] pl-3 mt-0.5 space-y-0.5 border-l-2 border-gray-100">
                                         {group.items.map(item => {
