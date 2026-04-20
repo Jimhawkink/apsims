@@ -6,7 +6,9 @@ import Link from 'next/link';
 import {
     FiHome, FiUsers, FiDollarSign, FiFileText, FiUserCheck, FiCreditCard,
     FiTrendingDown, FiTrendingUp, FiBox, FiLogOut, FiMenu, FiX,
-    FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, FiShield, FiGrid
+    FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, 
+    FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
+    FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap
 } from 'react-icons/fi';
 
 interface UserSession {
@@ -17,27 +19,140 @@ interface UserSession {
     email: string;
 }
 
-const navItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: FiHome, emoji: '📊', perm: 'dashboard' },
-    { href: '/dashboard/students', label: 'Students', icon: FiUsers, emoji: '👨‍🎓', perm: 'students' },
-    { href: '/dashboard/fees', label: 'Fees & Accounts', icon: FiDollarSign, emoji: '💰', perm: 'fees' },
-    { href: '/dashboard/exams', label: 'Exams', icon: FiFileText, emoji: '📝', perm: 'exams' },
-    { href: '/dashboard/subjects', label: 'Subjects', icon: FiFileText, emoji: '📚', perm: 'subjects' },
-    { href: '/dashboard/staff', label: 'Staff', icon: FiUserCheck, emoji: '👨‍🏫', perm: 'staff' },
-    { href: '/dashboard/payroll', label: 'Payroll', icon: FiCreditCard, emoji: '💵', perm: 'payroll' },
-    { href: '/dashboard/expenses', label: 'Expenses', icon: FiTrendingDown, emoji: '📉', perm: 'expenses' },
-    { href: '/dashboard/income', label: 'Income', icon: FiTrendingUp, emoji: '💼', perm: 'income' },
-    { href: '/dashboard/assets', label: 'Assets', icon: FiBox, emoji: '🏢', perm: 'assets' },
-    { href: '/dashboard/attendance', label: 'Attendance', icon: FiCalendar, emoji: '📋', perm: 'attendance' },
-    { href: '/dashboard/leave-out', label: 'Leave Out', icon: FiExternalLink, emoji: '🚪', perm: 'leave-out' },
-    { href: '/dashboard/remedial', label: 'Remedial', icon: FiBookOpen, emoji: '📚', perm: 'remedial' },
-    { href: '/dashboard/rim-paper', label: 'Rim Paper', icon: FiCopy, emoji: '📄', perm: 'rim-paper' },
-    { href: '/dashboard/discipline', label: 'Discipline', icon: FiShield, emoji: '🛡️', perm: 'discipline' },
-    { href: '/dashboard/timetable', label: 'Timetable', icon: FiGrid, emoji: '📅', perm: 'timetable' },
-    // Reports is handled separately as collapsible group
-    { href: '/dashboard/settings', label: 'Settings', icon: FiSettings, emoji: '⚙️', perm: 'settings' },
-    { href: '/dashboard/users', label: 'Users', icon: FiKey, emoji: '🔑', perm: 'users' },
+// Structured Menu configuration
+const menuGroups = [
+    {
+        label: "", 
+        collapsible: false,
+        name: 'main',
+        items: [
+            { href: '/dashboard', label: 'Dashboard', icon: FiHome, perm: 'dashboard' },
+        ]
+    },
+    {
+        label: "Student Information",
+        icon: FiUsers,
+        name: 'students',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/students', label: 'Students List', icon: FiUsers, perm: 'students' },
+            { href: '/dashboard/students/profile', label: 'Student Profiles', icon: FiFileText, perm: 'students' },
+            { href: '/dashboard/students/admissions', label: 'Admissions', icon: FiUserCheck, perm: 'students' },
+            { href: '/dashboard/students/promotion', label: 'Promotion', icon: FiTrendingUp, perm: 'students' },
+            { href: '/dashboard/students/id-cards', label: 'ID Cards', icon: FiCreditCard, perm: 'students' },
+            { href: '/dashboard/discipline', label: 'Discipline', icon: FiShield, perm: 'discipline' },
+            { href: '/dashboard/leave-out', label: 'Leave Out', icon: FiExternalLink, perm: 'leave-out' },
+        ]
+    },
+    {
+        label: "Academics",
+        icon: FiBookOpen,
+        name: 'academics',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/curriculum', label: 'Curriculum & Grading', icon: FiBookOpen, perm: 'curriculum' },
+            { href: '/dashboard/subjects', label: 'Subjects', icon: FiFileText, perm: 'subjects' },
+            { href: '/dashboard/exams', label: 'Exam Dashboard', icon: FiFileText, perm: 'exams' },
+            { href: '/dashboard/exams/marks', label: 'Mark Entry', icon: FiFileText, perm: 'exams' },
+            { href: '/dashboard/exams/broadsheet', label: 'Broadsheet', icon: FiGrid, perm: 'exams' },
+            { href: '/dashboard/exams/merit-list', label: 'Merit List', icon: FiTrendingUp, perm: 'exams' },
+            { href: '/dashboard/exams/report-cards', label: 'Report Cards', icon: FiFileText, perm: 'exams' },
+            { href: '/dashboard/exams/analysis', label: 'Performance Analysis', icon: FiPieChart, perm: 'exams' },
+            { href: '/dashboard/exams/manage', label: 'Exam Manager', icon: FiSettings, perm: 'exams' },
+            { href: '/dashboard/exams/question-bank', label: 'Question Bank', icon: FiCopy, perm: 'exams' },
+            { href: '/dashboard/exams/paper-generator', label: 'Paper Generator', icon: FiFileText, perm: 'exams' },
+            { href: '/dashboard/exams/ai-generate', label: 'AI Question Gen', icon: FiZap, perm: 'exams' },
+            { href: '/dashboard/curriculum/cbc-tracking', label: 'CBC Tracking', icon: FiTrendingUp, perm: 'curriculum' },
+            { href: '/dashboard/curriculum/cbc-assessment', label: 'CBC Assessment', icon: FiFileText, perm: 'curriculum' },
+            { href: '/dashboard/timetable', label: 'Timetable', icon: FiGrid, perm: 'timetable' },
+            { href: '/dashboard/remedial', label: 'Remedial Programs', icon: FiTrendingUp, perm: 'remedial' },
+        ]
+    },
+    {
+        label: "Attendance & Leave",
+        icon: FiCalendar,
+        name: 'attendance',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/attendance', label: 'Student Attendance', icon: FiCalendar, perm: 'attendance' },
+            { href: '/dashboard/attendance/staff', label: 'Staff Attendance', icon: FiUserCheck, perm: 'attendance' },
+        ]
+    },
+    {
+        label: "HR & Payroll",
+        icon: FiBriefcase,
+        name: 'hr',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/hr-payroll', label: 'Overview', icon: FiBriefcase, perm: 'payroll' },
+            { href: '/dashboard/hr-payroll/staff', label: 'Staff Directory', icon: FiUserCheck, perm: 'staff' },
+            { href: '/dashboard/hr-payroll/payroll', label: 'Run Payroll', icon: FiCreditCard, perm: 'payroll' },
+        ]
+    },
+    {
+        label: "Finance",
+        icon: FiDollarSign,
+        name: 'finance',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/fees', label: 'Fee Dashboard', icon: FiPieChart, perm: 'fees' },
+            { href: '/dashboard/fees/collect', label: 'Collect Fee', icon: FiCreditCard, perm: 'fees' },
+            { href: '/dashboard/fees/outstanding', label: 'Outstanding Fees', icon: FiUsers, perm: 'fees' },
+            { href: '/dashboard/fees/payments', label: 'Payment History', icon: FiFileText, perm: 'fees' },
+            { href: '/dashboard/fees/structure', label: 'Fee Structure', icon: FiGrid, perm: 'fees' },
+            { href: '/dashboard/fees/statements', label: 'Fee Statements', icon: FiBookOpen, perm: 'fees' },
+            { href: '/dashboard/expenses', label: 'Expenses', icon: FiTrendingDown, perm: 'expenses' },
+            { href: '/dashboard/income', label: 'Other Income', icon: FiTrendingUp, perm: 'income' },
+        ]
+    },
+    {
+        label: "Stores & Library",
+        icon: FiBox,
+        name: 'stores',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/library-inventory', label: 'Library Dashboard', icon: FiBookOpen, perm: 'library' },
+            { href: '/dashboard/library-inventory/catalog', label: 'Book Catalog', icon: FiBookOpen, perm: 'library' },
+            { href: '/dashboard/library-inventory/checkout', label: 'Issue & Return', icon: FiClock, perm: 'library' },
+            { href: '/dashboard/library-inventory/overdue', label: 'Overdue Books', icon: FiAlertCircle, perm: 'library' },
+            { href: '/dashboard/assets', label: 'Assets Register', icon: FiBox, perm: 'assets' },
+            { href: '/dashboard/stores', label: 'Store Items', icon: FiCopy, perm: 'stores' },
+            { href: '/dashboard/rim-paper', label: 'Rim Paper', icon: FiCopy, perm: 'rim-paper' },
+        ]
+    },
+    {
+        label: "Parent & Comms",
+        icon: FiMessageSquare,
+        name: 'comms',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/communication', label: 'SMS & Broadcasting', icon: FiMessageSquare, perm: 'communication' },
+        ]
+    },
+    {
+        label: "Administration",
+        icon: FiSettings,
+        name: 'admin',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/reports', label: 'Reports & Export', icon: FiPieChart, perm: 'reports' },
+            { href: '/dashboard/users', label: 'User Roles', icon: FiKey, perm: 'users' },
+            { href: '/dashboard/settings', label: 'System Settings', icon: FiSettings, perm: 'settings' },
+        ]
+    }
 ];
+
+// Check permissions
+const filterMenuGroups = (groups: typeof menuGroups, isAdmin: boolean, permissions: Record<string, boolean>) => {
+    return groups.map(group => {
+        const filteredItems = group.items.filter(item => {
+            if (isAdmin) return true;
+            if (item.perm === 'dashboard') return true;
+            return permissions[item.perm] === true;
+        });
+        return { ...group, items: filteredItems };
+    }).filter(group => group.items.length > 0);
+};
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -49,8 +164,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [pageLoading, setPageLoading] = useState(false);
-    const [reportsOpen, setReportsOpen] = useState(false);
     const prevPathRef = useRef(pathname);
+
+    // Track which groups are expanded
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         setMounted(true);
@@ -69,6 +186,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
     }, [router]);
 
+    // Setup initial expanded groups based on current path
+    useEffect(() => {
+        if (!mounted) return;
+        
+        const newExpandedState: Record<string, boolean> = { ...expandedGroups };
+        let stateChanged = false;
+        
+        menuGroups.forEach(group => {
+            const isGroupActive = group.items.some(item => 
+                item.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(item.href)
+            );
+            if (isGroupActive && !expandedGroups[group.name]) {
+                newExpandedState[group.name] = true;
+                stateChanged = true;
+            }
+        });
+        
+        if (stateChanged) {
+            setExpandedGroups(newExpandedState);
+        }
+    }, [pathname, mounted]);
+
     // SHA-style loading bar on route change
     useEffect(() => {
         if (prevPathRef.current !== pathname) {
@@ -79,13 +218,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
     }, [pathname]);
 
-    // Filter nav items based on user role and permissions
     const isAdmin = userRole === 'admin' || userRole === 'principal';
-    const filteredNavItems = navItems.filter(item => {
-        if (isAdmin) return true; // Admin and Principal see everything
-        if (item.perm === 'dashboard') return true; // Everyone sees dashboard
-        return userPermissions[item.perm] === true;
-    });
+    const filteredGroups = filterMenuGroups(menuGroups, isAdmin, userPermissions);
 
     const handleLogout = () => {
         localStorage.removeItem('school_user');
@@ -95,6 +229,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const isActive = (href: string) => {
         if (href === '/dashboard') return pathname === '/dashboard';
         return pathname.startsWith(href);
+    };
+
+    const toggleGroup = (groupName: string) => {
+        if (sidebarCollapsed) {
+            setSidebarCollapsed(false);
+            setExpandedGroups({ [groupName]: true });
+        } else {
+            setExpandedGroups(prev => ({
+                ...prev,
+                [groupName]: !prev[groupName]
+            }));
+        }
     };
 
     if (!mounted || !user) {
@@ -109,235 +255,203 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     return (
-        <div className="min-h-screen bg-[#f0f4f8] flex">
-            {/* SHA-style thin green loading bar */}
+        <div className="min-h-screen bg-[#f0f2f5] flex font-sans text-gray-800">
             {pageLoading && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, height: 3, zIndex: 9999,
-                    background: 'linear-gradient(90deg, transparent 0%, #22c55e 40%, #4ade80 60%, transparent 100%)',
+                    background: 'linear-gradient(90deg, transparent 0%, #3b82f6 40%, #60a5fa 60%, transparent 100%)',
                     animation: 'loadbar 0.8s ease-in-out',
                 }}>
                     <div style={{
                         position: 'absolute', right: 0, top: 0, width: '30%', height: '100%',
-                        background: 'linear-gradient(90deg, transparent, rgba(74,222,128,0.6))',
+                        background: 'linear-gradient(90deg, transparent, rgba(96,165,250,0.6))',
                         animation: 'loadglow 0.8s ease-in-out',
                     }} />
                 </div>
             )}
             <style jsx>{`
-                @keyframes loadbar {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(0); }
-                }
-                @keyframes loadglow {
-                    0% { opacity: 0; }
-                    50% { opacity: 1; }
-                    100% { opacity: 0; }
-                }
+                @keyframes loadbar { 0% { transform: translateX(-100%); } 100% { transform: translateX(0); } }
+                @keyframes loadglow { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+                .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+                .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+                .sidebar-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+                .sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
             `}</style>
-            {/* Mobile Overlay */}
+            
             {mobileMenuOpen && (
-                <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setMobileMenuOpen(false)} />
+                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 lg:hidden" onClick={() => setMobileMenuOpen(false)} />
             )}
 
-            {/* Sidebar */}
+            {/* ═══ LIGHT THEME SIDEBAR ═══ */}
             <aside className={`
                 fixed top-0 left-0 h-full z-50 bg-white border-r border-gray-200 shadow-sm
                 transition-all duration-300 ease-in-out flex flex-col
-                ${sidebarCollapsed ? 'w-[70px]' : 'w-[270px]'}
+                ${sidebarCollapsed ? 'w-[68px]' : 'w-[260px]'}
                 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `}>
-                {/* Logo */}
-                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'px-5'} py-5 border-b border-gray-100`}>
+                {/* Logo Header */}
+                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'px-5'} h-[60px] border-b border-gray-100`}>
                     {!sidebarCollapsed && (
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                                <span className="text-xl">🏫</span>
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm" style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
+                                <FiHome size={16} />
                             </div>
                             <div>
-                                <h1 className="text-base font-bold text-gray-800" style={{ fontFamily: 'Outfit, sans-serif' }}>AlphaSchool</h1>
-                                <p className="text-[10px] text-gray-400 font-medium">Management System</p>
+                                <h1 className="text-[16px] font-bold text-gray-900 tracking-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>Alpha<span className="text-blue-600">School</span></h1>
                             </div>
                         </div>
                     )}
-                    {sidebarCollapsed && <span className="text-2xl">🏫</span>}
+                    {sidebarCollapsed && <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm" style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}><FiHome size={16} /></div>}
 
-                    {/* Collapse button (desktop) */}
                     <button
                         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors ml-auto"
+                        className="hidden lg:flex items-center justify-center w-6 h-6 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors ml-auto text-gray-400 hover:text-gray-600"
                     >
-                        {sidebarCollapsed ? <FiChevronRight size={14} /> : <FiChevronLeft size={14} />}
+                        {sidebarCollapsed ? <FiChevronRight size={12} /> : <FiChevronLeft size={12} />}
                     </button>
 
-                    {/* Close button (mobile) */}
                     <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden ml-auto text-gray-400 hover:text-gray-600">
                         <FiX size={20} />
                     </button>
                 </div>
 
-                {/* Nav Items */}
-                <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-                    {filteredNavItems.map((item) => {
-                        // Insert collapsible Reports group after Attendance
-                        const isAttendance = item.href === '/dashboard/attendance';
-                        const reportsActive = pathname.startsWith('/dashboard/reports');
-                        const showReports = isAdmin || userPermissions['reports'] === true;
-                        return (
-                            <div key={item.href}>
-                                <Link
-                                    href={item.href}
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className={`
-                                        flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                                        transition-all duration-200 group
-                                        ${isActive(item.href)
-                                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm'
-                                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-                                        }
-                                        ${sidebarCollapsed ? 'justify-center' : ''}
-                                    `}
-                                    title={sidebarCollapsed ? item.label : undefined}
-                                >
-                                    <div className={`
-                                        flex items-center justify-center w-8 h-8 rounded-lg text-base
-                                        ${isActive(item.href) ? 'bg-blue-100' : 'bg-gray-100 group-hover:bg-gray-200'}
-                                        transition-colors
-                                    `}>
-                                        {item.emoji}
-                                    </div>
-                                    {!sidebarCollapsed && <span>{item.label}</span>}
-                                    {!sidebarCollapsed && isActive(item.href) && (
-                                        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                    )}
-                                </Link>
+                {/* Navigation */}
+                <nav className="flex-1 overflow-y-auto sidebar-scroll py-3 px-3 space-y-0.5">
+                    {filteredGroups.map((group) => {
+                        const isExpanded = expandedGroups[group.name];
+                        const GroupIcon = group.icon;
+                        const isGroupActive = group.items.some(item => isActive(item.href));
 
-                                {/* Collapsible Reports Group — appears after Attendance */}
-                                {isAttendance && showReports && !sidebarCollapsed && (
-                                    <div className="mt-1">
-                                        <button
-                                            onClick={() => setReportsOpen(!reportsOpen)}
-                                            className={`
-                                                w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                                                transition-all duration-200
-                                                ${reportsActive
-                                                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm'
-                                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-                                                }
-                                            `}
-                                        >
-                                            <div className={`flex items-center justify-center w-8 h-8 rounded-lg text-base ${reportsActive ? 'bg-blue-100' : 'bg-gray-100'} transition-colors`}>
-                                                📊
-                                            </div>
-                                            <span>Reports</span>
-                                            <FiChevronDown
-                                                size={14}
-                                                className={`ml-auto transition-transform duration-200 ${reportsOpen || reportsActive ? 'rotate-180' : ''}`}
-                                            />
-                                        </button>
-                                        {(reportsOpen || reportsActive) && (
-                                            <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-gray-100 pl-3">
-                                                {[
-                                                    { href: '/dashboard/reports?tab=marksheet', label: '📋 Mark Sheet', emoji: '📋' },
-                                                    { href: '/dashboard/reports?tab=subject-analysis', label: '📈 Subject Analysis', emoji: '📈' },
-                                                    { href: '/dashboard/reports?tab=class-analysis', label: '🏫 Class/Form Analysis', emoji: '🏫' },
-                                                    { href: '/dashboard/reports?tab=progressive', label: '📊 Progressive Report', emoji: '📊' },
-                                                    { href: '/dashboard/reports?tab=report-card', label: '🎓 Report Cards', emoji: '🎓' },
-                                                    { href: '/dashboard/reports?tab=merit-list', label: '🏆 Merit List', emoji: '🏆' },
-                                                    { href: '/dashboard/reports?tab=fee-reports', label: '💰 Fee Reports', emoji: '💰' },
-                                                    { href: '/dashboard/reports?tab=attendance-report', label: '📅 Attendance Report', emoji: '📅' },
-                                                ].map(sub => (
-                                                    <Link key={sub.href} href={sub.href}
-                                                        onClick={() => setMobileMenuOpen(false)}
-                                                        className={`block px-3 py-2 rounded-lg text-xs font-medium transition-all
-                                                            ${pathname === '/dashboard/reports' && typeof window !== 'undefined' && window.location.search.includes(sub.href.split('?')[1])
-                                                                ? 'text-blue-700 bg-blue-50'
-                                                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                                                            }
-                                                        `}
-                                                    >
-                                                        {sub.label}
-                                                    </Link>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                                {/* Collapsed sidebar: just show report icon */}
-                                {isAttendance && showReports && sidebarCollapsed && (
-                                    <Link href="/dashboard/reports" title="Reports"
-                                        className={`flex items-center justify-center px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${reportsActive ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
-                                        <div className={`flex items-center justify-center w-8 h-8 rounded-lg text-base ${reportsActive ? 'bg-blue-100' : 'bg-gray-100'} transition-colors`}>📊</div>
+                        // Dashboard link (non-collapsible)
+                        if (!group.label || !group.collapsible) {
+                            return group.items.map(item => {
+                                const ItemIcon = item.icon;
+                                const active = isActive(item.href);
+                                return (
+                                    <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}
+                                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all mb-2
+                                            ${active
+                                                ? 'bg-blue-50 text-blue-700 font-semibold'
+                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                                            ${sidebarCollapsed ? 'justify-center' : ''}`}
+                                        title={sidebarCollapsed ? item.label : undefined}
+                                    >
+                                        <ItemIcon size={18} className={active ? 'text-blue-600' : 'text-gray-400'} />
+                                        {!sidebarCollapsed && <span>{item.label}</span>}
+                                        {active && !sidebarCollapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />}
                                     </Link>
-                                )}
+                                );
+                            });
+                        }
+
+                        // Collapsible Group
+                        return (
+                            <div key={group.name} className="mb-0.5">
+                                {/* Group Header */}
+                                <button
+                                    onClick={() => toggleGroup(group.name)}
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all
+                                        ${isGroupActive
+                                            ? 'text-blue-700 bg-blue-50/50'
+                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                                        ${sidebarCollapsed ? 'justify-center' : ''}`}
+                                    title={sidebarCollapsed ? group.label : undefined}
+                                >
+                                    {GroupIcon && <GroupIcon size={17} className={isGroupActive ? 'text-blue-600' : 'text-gray-400'} />}
+                                    {!sidebarCollapsed && (
+                                        <>
+                                            <span className="flex-1 text-left">{group.label}</span>
+                                            <FiChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                        </>
+                                    )}
+                                </button>
+                                
+                                {/* Sub Items */}
+                                <div className={`overflow-hidden transition-all duration-200 ease-in-out
+                                    ${isExpanded && !sidebarCollapsed ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}
+                                `}>
+                                    <div className="ml-[22px] pl-3 mt-0.5 space-y-0.5 border-l-2 border-gray-100">
+                                        {group.items.map(item => {
+                                            const ItemIcon = item.icon;
+                                            const active = isActive(item.href);
+                                            return (
+                                                <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}
+                                                    className={`flex items-center gap-2 px-2.5 py-[7px] rounded-md text-[12.5px] transition-all
+                                                        ${active
+                                                            ? 'text-blue-700 bg-blue-50 font-semibold border-l-2 border-blue-500 -ml-[3px] pl-[11px]'
+                                                            : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'}
+                                                    `}
+                                                >
+                                                    <ItemIcon size={14} className={active ? 'text-blue-600' : 'text-gray-400'} />
+                                                    <span>{item.label}</span>
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
                         );
                     })}
                 </nav>
 
-                {/* User section */}
-                <div className={`border-t border-gray-100 p-3 ${sidebarCollapsed ? 'px-2' : ''}`}>
+                {/* User Panel */}
+                <div className={`border-t border-gray-100 ${sidebarCollapsed ? 'p-2' : 'p-3'}`}>
                     {!sidebarCollapsed ? (
-                        <div className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50">
-                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow">
+                        <div className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm" style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}>
                                 {user.full_name?.charAt(0)?.toUpperCase() || '?'}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-gray-700 truncate">{user.full_name}</p>
-                                <p className="text-[11px] text-gray-400 capitalize">{user.role}</p>
+                                <p className="text-[12.5px] font-semibold text-gray-800 truncate">{user.full_name}</p>
+                                <p className="text-[10.5px] text-blue-600 capitalize font-medium">{user.role}</p>
                             </div>
-                            <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 transition-colors" title="Logout">
-                                <FiLogOut size={16} />
+                            <button onClick={handleLogout} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Logout">
+                                <FiLogOut size={15} />
                             </button>
                         </div>
                     ) : (
-                        <button onClick={handleLogout} className="w-full flex justify-center py-2 text-gray-400 hover:text-red-500 transition-colors" title="Logout">
-                            <FiLogOut size={18} />
-                        </button>
+                        <div className="flex flex-col items-center gap-2">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}>
+                                {user.full_name?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                            <button onClick={handleLogout} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Logout">
+                                <FiLogOut size={15} />
+                            </button>
+                        </div>
                     )}
                 </div>
             </aside>
 
-            {/* Main Content */}
-            <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-[70px]' : 'lg:ml-[270px]'}`}>
+            {/* ═══ MAIN CONTENT ═══ */}
+            <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-[68px]' : 'lg:ml-[260px]'}`}>
                 {/* Top Bar */}
-                <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200/50 px-4 lg:px-6 py-3">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-gray-500 hover:text-gray-700">
-                                <FiMenu size={22} />
-                            </button>
-                            <div className="hidden sm:flex items-center gap-2 bg-gray-100 rounded-xl px-4 py-2 w-72">
-                                <FiSearch className="text-gray-400" size={16} />
-                                <input type="text" placeholder="Search anything..." className="bg-transparent text-sm text-gray-700 outline-none w-full placeholder:text-gray-400" />
-                            </div>
+                <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200/70 px-4 lg:px-6 h-14 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-gray-500 hover:text-gray-800">
+                            <FiMenu size={22} />
+                        </button>
+                        <div className="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-72 focus-within:w-96 focus-within:ring-2 focus-within:ring-blue-100 focus-within:bg-white focus-within:border-blue-300 transition-all duration-300">
+                            <FiSearch className="text-gray-400" size={15} />
+                            <input type="text" placeholder="Search students, staff, reports..." className="bg-transparent text-[13px] text-gray-800 outline-none w-full placeholder:text-gray-400" />
                         </div>
-                        <div className="flex items-center gap-3">
-                            <button className="relative p-2 rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">
-                                <FiBell size={18} />
-                                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[9px] text-white font-bold flex items-center justify-center">3</span>
-                            </button>
-                            <button className="p-2 rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">
-                                <FiSettings size={18} />
-                            </button>
-                            <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-gray-200">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
-                                    {user.full_name?.charAt(0)?.toUpperCase()}
-                                </div>
-                                <div>
-                                    <p className="text-xs font-semibold text-gray-700">{user.full_name}</p>
-                                    <p className="text-[10px] text-gray-400 capitalize">{user.role}</p>
-                                </div>
-                            </div>
-                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+                            <FiBell size={17} />
+                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                        </button>
+                        <button className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+                            <FiSettings size={17} />
+                        </button>
                     </div>
                 </header>
 
                 {/* Page Content */}
-                <div className="p-4 lg:p-6">
+                <div className="p-4 lg:p-6 flex-1 overflow-x-hidden">
                     {children}
                 </div>
             </main>
         </div>
     );
 }
+
