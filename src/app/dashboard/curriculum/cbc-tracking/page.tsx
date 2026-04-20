@@ -52,7 +52,7 @@ export default function CBCTrackingPage() {
       supabase.from('school_cbc_sub_strands').select('*').order('sort_order'),
       supabase.from('school_cbc_learning_outcomes').select('*').order('sort_order'),
       supabase.from('school_cbc_assessments').select('*').order('assessment_date', { ascending: false }),
-      supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id, stream_id').eq('is_active', true).order('last_name'),
+      supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id, stream_id').eq('status', 'Active').order('last_name'),
       supabase.from('school_cbc_competency_summary').select('*'),
       supabase.from('school_terms').select('*').order('id', { ascending: false }),
     ]);

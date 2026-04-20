@@ -34,7 +34,7 @@ export default function CBCAssessmentPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [s, la, st, ss, oc, te, forms] = await Promise.all([
-      supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id').eq('is_active', true).order('last_name'),
+      supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id').eq('status', 'Active').order('last_name'),
       supabase.from('school_cbc_learning_areas').select('*').order('sort_order'),
       supabase.from('school_cbc_strands').select('*').order('sort_order'),
       supabase.from('school_cbc_sub_strands').select('*').order('sort_order'),
