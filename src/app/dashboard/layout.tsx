@@ -9,7 +9,7 @@ import {
     FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, 
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
-    FiHeart, FiGlobe, FiSend, FiSmartphone
+    FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers
 } from 'react-icons/fi';
 
 interface UserSession {
@@ -53,6 +53,7 @@ const menuGroups = [
         collapsible: true,
         items: [
             { href: '/dashboard/curriculum', label: 'Curriculum & Grading', icon: FiBookOpen, perm: 'curriculum' },
+            { href: '/dashboard/schemes', label: 'Schemes of Work', icon: FiLayers, perm: 'curriculum' },
             { href: '/dashboard/subjects', label: 'Subjects', icon: FiFileText, perm: 'subjects' },
             { href: '/dashboard/exams', label: 'Exam Dashboard', icon: FiFileText, perm: 'exams' },
             { href: '/dashboard/exams/marks', label: 'Mark Entry', icon: FiFileText, perm: 'exams' },

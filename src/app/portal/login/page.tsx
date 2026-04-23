@@ -17,18 +17,29 @@ export default function PortalLoginPage() {
     if (!username.trim() || !password.trim()) return toast.error('🚫 Enter username & password!', { icon: '⚠️' });
     setLoading(true);
     try {
+      // Case-insensitive username lookup
       const { data, error } = await supabase
         .from('school_portal_users')
         .select('*, school_students(id, first_name, last_name, admission_number, form_id, status, school_forms(id, form_name))')
-        .eq('username', username.trim())
+        .ilike('username', username.trim())
         .eq('is_active', true)
         .single();
 
-      if (error || !data) { toast.error('❌ Account not found or inactive', { icon: '🔒' }); setLoading(false); return; }
+      console.log('Portal login query:', { data, error: error?.message, code: error?.code });
+
+      if (error || !data) {
+        // Show specific error for RLS vs not found
+        const msg = error?.code === '42501' ? '🔒 Database access denied — contact admin to disable RLS'
+          : error?.message?.includes('0 rows') ? '❌ Username not found'
+          : error?.message?.includes('multiple') ? '❌ Multiple accounts found — contact admin'
+          : '❌ Account not found or inactive';
+        toast.error(msg, { icon: '⚠️', duration: 6000 }); setLoading(false); return;
+      }
 
       // Password verification (direct comparison — upgrade to bcrypt in production)
       if (data.password_hash !== password) {
-        toast.error('❌ Invalid credentials', { icon: '🔒' }); setLoading(false); return;
+        console.log('Password mismatch:', { input: password, stored: data.password_hash });
+        toast.error('❌ Wrong password — check and try again', { icon: '🔒' }); setLoading(false); return;
       }
 
       // Update last login
