@@ -1,14 +1,13 @@
--- ============================================================
--- ALPHA SCHOOL — SCHEMES OF WORK MODULE
--- Based on Kenya CBC (Competency Based Curriculum) & 8-4-4 Syllabus
--- Run this on Supabase SQL Editor (safe to re-run)
--- ============================================================
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SCHEMES OF WORK MIGRATION — AlphaSchool (Kenya CBC + 8-4-4)
+-- Run this in Supabase SQL Editor
+-- ══════════════════════════════════════════════════════════════════════════════
 
 -- ════════════════════════════════════════════════════════════
 -- PART 1: SCHEMES OF WORK TABLES
 -- ════════════════════════════════════════════════════════════
 
--- 1a. Schemes of Work (main header — one per subject per term per form)
+-- Main scheme header
 CREATE TABLE IF NOT EXISTS school_schemes_of_work (
     id SERIAL PRIMARY KEY,
     subject_id INTEGER NOT NULL REFERENCES school_subjects(id) ON DELETE CASCADE,
@@ -16,38 +15,36 @@ CREATE TABLE IF NOT EXISTS school_schemes_of_work (
     term_id INTEGER NOT NULL REFERENCES school_terms(id) ON DELETE CASCADE,
     teacher_id INTEGER REFERENCES school_teachers(id) ON DELETE SET NULL,
     curriculum_type VARCHAR(10) NOT NULL DEFAULT 'CBC',
-        -- CBC, 8-4-4
     strand_id INTEGER REFERENCES school_cbc_strands(id) ON DELETE SET NULL,
     sub_strand_id INTEGER REFERENCES school_cbc_sub_strands(id) ON DELETE SET NULL,
     topic_id INTEGER REFERENCES school_topics(id) ON DELETE SET NULL,
     total_lessons INTEGER DEFAULT 0,
-    total_weeks INTEGER DEFAULT 14,
+    total_weeks INTEGER DEFAULT 0,
     status VARCHAR(20) DEFAULT 'Draft',
-        -- Draft, Active, Completed, Archived
     approved_by VARCHAR(100),
     approved_at TIMESTAMPTZ,
     created_by VARCHAR(100),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(subject_id, form_id, term_id, strand_id, sub_strand_id, topic_id)
+    UNIQUE(subject_id, form_id, term_id, curriculum_type)
 );
 
--- 1b. Scheme Weeks (each week within a scheme)
+-- Scheme weeks
 CREATE TABLE IF NOT EXISTS school_scheme_weeks (
     id SERIAL PRIMARY KEY,
     scheme_id INTEGER NOT NULL REFERENCES school_schemes_of_work(id) ON DELETE CASCADE,
     week_number INTEGER NOT NULL,
-    week_title VARCHAR(300),
+    week_title VARCHAR(200),
     start_date DATE,
     end_date DATE,
-    is_holiday BOOLEAN DEFAULT false,
-    is_midterm BOOLEAN DEFAULT false,
+    is_holiday BOOLEAN DEFAULT FALSE,
+    is_midterm BOOLEAN DEFAULT FALSE,
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(scheme_id, week_number)
 );
 
--- 1c. Scheme Lessons (individual lessons within each week)
+-- Scheme lessons (detailed CBC/8-4-4 lesson plan)
 CREATE TABLE IF NOT EXISTS school_scheme_lessons (
     id SERIAL PRIMARY KEY,
     week_id INTEGER NOT NULL REFERENCES school_scheme_weeks(id) ON DELETE CASCADE,
@@ -56,57 +53,44 @@ CREATE TABLE IF NOT EXISTS school_scheme_lessons (
     lesson_title VARCHAR(300) NOT NULL,
     sub_strand_id INTEGER REFERENCES school_cbc_sub_strands(id) ON DELETE SET NULL,
     topic_id INTEGER REFERENCES school_topics(id) ON DELETE SET NULL,
-    learning_outcomes TEXT[],
-        -- Array of specific outcomes for this lesson
-    key_inquiry_questions TEXT[],
-        -- CBC key inquiry questions
-    learning_activities TEXT[],
-        -- Teaching/learning activities
-    learning_resources TEXT[],
-        -- Materials, textbooks, digital resources
-    assessment_methods TEXT[],
-        -- How learning will be assessed
-    core_competencies TEXT[],
-        -- CBC core competencies: Communication, Collaboration, Critical Thinking, Creativity, Citizenship, Self-Efficacy, Digital Literacy
-    values TEXT[],
-        -- CBC values: Love, Responsibility, Respect, Unity, Peace, Patriotism, Integrity
-    links_to_other_subjects TEXT[],
-        -- Cross-curricular links
+    learning_outcomes TEXT[] DEFAULT '{}',
+    key_inquiry_questions TEXT[] DEFAULT '{}',
+    learning_activities TEXT[] DEFAULT '{}',
+    learning_resources TEXT[] DEFAULT '{}',
+    assessment_methods TEXT[] DEFAULT '{}',
+    core_competencies TEXT[] DEFAULT '{}',
+    values TEXT[] DEFAULT '{}',
+    links_to_other_subjects TEXT[] DEFAULT '{}',
     community_service_learning TEXT,
-        -- CBC community service learning activities
     non_formal_activity TEXT,
-        -- CBC non-formal activity
     lesson_duration_minutes INTEGER DEFAULT 40,
-    is_double_lesson BOOLEAN DEFAULT false,
-    is_completed BOOLEAN DEFAULT false,
+    is_double_lesson BOOLEAN DEFAULT FALSE,
+    is_completed BOOLEAN DEFAULT FALSE,
     completion_notes TEXT,
     completed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(week_id, lesson_number)
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 1d. Scheme Lesson Resources (detailed resource linking)
+-- Lesson resources (detailed)
 CREATE TABLE IF NOT EXISTS school_scheme_resources (
     id SERIAL PRIMARY KEY,
     lesson_id INTEGER NOT NULL REFERENCES school_scheme_lessons(id) ON DELETE CASCADE,
     resource_type VARCHAR(50) NOT NULL,
-        -- textbook, worksheet, digital, apparatus, chart, realia, video, reference_book
-    resource_title VARCHAR(300) NOT NULL,
+    resource_title VARCHAR(200) NOT NULL,
     resource_details TEXT,
-    is_digital BOOLEAN DEFAULT false,
+    is_digital BOOLEAN DEFAULT FALSE,
     url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 1e. Scheme Remarks / Reflections (teacher reflections after lessons)
+-- Scheme remarks / reflections
 CREATE TABLE IF NOT EXISTS school_scheme_remarks (
     id SERIAL PRIMARY KEY,
     scheme_id INTEGER NOT NULL REFERENCES school_schemes_of_work(id) ON DELETE CASCADE,
     week_id INTEGER REFERENCES school_scheme_weeks(id) ON DELETE SET NULL,
     lesson_id INTEGER REFERENCES school_scheme_lessons(id) ON DELETE SET NULL,
-    remark_type VARCHAR(30) NOT NULL DEFAULT 'weekly',
-        -- weekly, lesson, term, hod_review
+    remark_type VARCHAR(30) DEFAULT 'weekly',
     remark_text TEXT NOT NULL,
     challenges TEXT,
     improvements TEXT,
@@ -118,36 +102,32 @@ CREATE TABLE IF NOT EXISTS school_scheme_remarks (
 CREATE INDEX IF NOT EXISTS idx_schemes_subject ON school_schemes_of_work(subject_id);
 CREATE INDEX IF NOT EXISTS idx_schemes_form ON school_schemes_of_work(form_id);
 CREATE INDEX IF NOT EXISTS idx_schemes_term ON school_schemes_of_work(term_id);
-CREATE INDEX IF NOT EXISTS idx_schemes_status ON school_schemes_of_work(status);
 CREATE INDEX IF NOT EXISTS idx_scheme_weeks_scheme ON school_scheme_weeks(scheme_id);
-CREATE INDEX IF NOT EXISTS idx_scheme_lessons_week ON school_scheme_lessons(week_id);
 CREATE INDEX IF NOT EXISTS idx_scheme_lessons_scheme ON school_scheme_lessons(scheme_id);
+CREATE INDEX IF NOT EXISTS idx_scheme_lessons_week ON school_scheme_lessons(week_id);
 CREATE INDEX IF NOT EXISTS idx_scheme_resources_lesson ON school_scheme_resources(lesson_id);
 CREATE INDEX IF NOT EXISTS idx_scheme_remarks_scheme ON school_scheme_remarks(scheme_id);
 
 -- RLS
 ALTER TABLE school_schemes_of_work ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all for school_schemes_of_work" ON school_schemes_of_work FOR ALL USING (true) WITH CHECK (true);
-
 ALTER TABLE school_scheme_weeks ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all for school_scheme_weeks" ON school_scheme_weeks FOR ALL USING (true) WITH CHECK (true);
-
 ALTER TABLE school_scheme_lessons ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all for school_scheme_lessons" ON school_scheme_lessons FOR ALL USING (true) WITH CHECK (true);
-
 ALTER TABLE school_scheme_resources ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all for school_scheme_resources" ON school_scheme_resources FOR ALL USING (true) WITH CHECK (true);
-
 ALTER TABLE school_scheme_remarks ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all for school_scheme_remarks" ON school_scheme_remarks FOR ALL USING (true) WITH CHECK (true);
 
+CREATE POLICY "Authenticated users can view schemes" ON school_schemes_of_work FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can insert schemes" ON school_schemes_of_work FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Authenticated users can update schemes" ON school_schemes_of_work FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users can delete schemes" ON school_schemes_of_work FOR DELETE TO authenticated USING (true);
+CREATE POLICY "Authenticated users full access weeks" ON school_scheme_weeks FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users full access lessons" ON school_scheme_lessons FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users full access resources" ON school_scheme_resources FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users full access remarks" ON school_scheme_remarks FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ════════════════════════════════════════════════════════════
--- PART 2: KENYA CBC LEARNING AREAS & STRANDS DATA
--- (Junior Secondary: Grade 7, 8, 9 mapped to Forms 1, 2, 3)
+-- PART 2: KENYA CBC LEARNING AREAS
 -- ════════════════════════════════════════════════════════════
 
--- Ensure core subjects exist
 INSERT INTO school_subjects (subject_name, subject_code, category, is_active) VALUES
     ('Mathematics', '121', 'Compulsory', true),
     ('English', '101', 'Compulsory', true),
@@ -172,7 +152,6 @@ INSERT INTO school_subjects (subject_name, subject_code, category, is_active) VA
     ('Home Science', '441', 'Technical', true)
 ON CONFLICT (subject_name) DO NOTHING;
 
--- CBC Learning Areas for Junior Secondary (Grades 7-9)
 INSERT INTO school_cbc_learning_areas (area_name, area_code, description, sort_order) VALUES
     ('Mathematics', 'MATH', 'Mathematics — Junior Secondary CBC', 1),
     ('English', 'ENG', 'English — Junior Secondary CBC', 2),
@@ -187,186 +166,180 @@ INSERT INTO school_cbc_learning_areas (area_name, area_code, description, sort_o
 ON CONFLICT (area_name) DO NOTHING;
 
 -- ════════════════════════════════════════════════════════════
--- PART 3: CBC STRANDS & SUB-STRANDS DATA
+-- PART 3: CBC STRANDS (using area_name lookups + ON CONFLICT DO UPDATE)
 -- ════════════════════════════════════════════════════════════
 
--- Mathematics Strands
+-- First, fix any existing strands that may lack strand_code
+UPDATE school_cbc_strands s SET strand_code = sub.code
+FROM (VALUES
+    ('Mathematics','Numbers','M-NUM'),('Mathematics','Algebra','M-ALG'),('Mathematics','Measurement','M-MEA'),
+    ('Mathematics','Geometry','M-GEO'),('Mathematics','Data Handling & Probability','M-DAT'),
+    ('English','Listening & Speaking','E-LS'),('English','Reading','E-RD'),('English','Writing','E-WR'),
+    ('English','Grammar in Use','E-GU'),('English','Literature','E-LIT'),
+    ('Kiswahili','Kusikiliza na Kusema','K-KS'),('Kiswahili','Kusoma','K-KU'),
+    ('Kiswahili','Kuandika','K-KA'),('Kiswahili','Sarufi','K-SA'),('Kiswahili','Fasihi','K-FA'),
+    ('Integrated Science','Scientific Investigation','IS-SI'),('Integrated Science','Matter','IS-MT'),
+    ('Integrated Science','Force & Energy','IS-FE'),('Integrated Science','Earth & Space','IS-ES'),
+    ('Integrated Science','Living Things','IS-LT'),('Integrated Science','Ecology','IS-EC'),
+    ('Social Studies','People & Population','SS-PP'),('Social Studies','Resources & Economic Activities','SS-RE'),
+    ('Social Studies','Political Development & Governance','SS-PG'),
+    ('Social Studies','Social Interactions & Cultural Heritage','SS-SC'),
+    ('Social Studies','Devolution & Governance','SS-DG'),
+    ('Health Education','Health & Wellness','HE-HW'),('Health Education','Nutrition','HE-NU'),
+    ('Health Education','First Aid','HE-FA'),('Health Education','Substance Abuse','HE-SA'),
+    ('Health Education','Reproductive Health','HE-RH'),
+    ('Pre-Technical Studies','Safety & Security','PTS-SS'),('Pre-Technical Studies','Tools & Equipment','PTS-TE'),
+    ('Pre-Technical Studies','Materials','PTS-MA'),('Pre-Technical Studies','Drawing & Design','PTS-DD'),
+    ('Pre-Technical Studies','Entrepreneurship','PTS-EN'),
+    ('Creative Arts & Sports','Visual Arts','CAS-VA'),('Creative Arts & Sports','Performing Arts','CAS-PA'),
+    ('Creative Arts & Sports','Physical Education','CAS-PE'),('Creative Arts & Sports','Sports & Games','CAS-SG'),
+    ('Religious Education','Creation','RE-CR'),('Religious Education','Faith & Worship','RE-FW'),
+    ('Religious Education','Morality','RE-MO'),('Religious Education','Contemporary Living','RE-CL'),
+    ('Life Skills Education','Self-Awareness','LSE-SA'),('Life Skills Education','Self-Management','LSE-SM'),
+    ('Life Skills Education','Social Relationships','LSE-SR'),('Life Skills Education','Decision Making','LSE-DM'),
+    ('Life Skills Education','Effective Communication','LSE-EC')
+) AS sub(area_name, strand_name, code)
+JOIN school_cbc_learning_areas la ON la.area_name = sub.area_name
+WHERE s.learning_area_id = la.id AND s.strand_name = sub.strand_name AND (s.strand_code IS NULL OR s.strand_code = '');
+
+-- Now insert strands (upsert to ensure codes are set)
 INSERT INTO school_cbc_strands (learning_area_id, strand_name, strand_code, sort_order) VALUES
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'MATH'), 'Numbers', 'M-NUM', 1),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'MATH'), 'Algebra', 'M-ALG', 2),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'MATH'), 'Measurement', 'M-MEA', 3),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'MATH'), 'Geometry', 'M-GEO', 4),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'MATH'), 'Data Handling & Probability', 'M-DAT', 5)
-ON CONFLICT (learning_area_id, strand_name) DO NOTHING;
+    -- Mathematics
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Mathematics'), 'Numbers', 'M-NUM', 1),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Mathematics'), 'Algebra', 'M-ALG', 2),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Mathematics'), 'Measurement', 'M-MEA', 3),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Mathematics'), 'Geometry', 'M-GEO', 4),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Mathematics'), 'Data Handling & Probability', 'M-DAT', 5),
+    -- English
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'English'), 'Listening & Speaking', 'E-LS', 1),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'English'), 'Reading', 'E-RD', 2),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'English'), 'Writing', 'E-WR', 3),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'English'), 'Grammar in Use', 'E-GU', 4),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'English'), 'Literature', 'E-LIT', 5),
+    -- Kiswahili
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Kiswahili'), 'Kusikiliza na Kusema', 'K-KS', 1),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Kiswahili'), 'Kusoma', 'K-KU', 2),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Kiswahili'), 'Kuandika', 'K-KA', 3),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Kiswahili'), 'Sarufi', 'K-SA', 4),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Kiswahili'), 'Fasihi', 'K-FA', 5),
+    -- Integrated Science
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Integrated Science'), 'Scientific Investigation', 'IS-SI', 1),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Integrated Science'), 'Matter', 'IS-MT', 2),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Integrated Science'), 'Force & Energy', 'IS-FE', 3),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Integrated Science'), 'Earth & Space', 'IS-ES', 4),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Integrated Science'), 'Living Things', 'IS-LT', 5),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Integrated Science'), 'Ecology', 'IS-EC', 6),
+    -- Social Studies
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Social Studies'), 'People & Population', 'SS-PP', 1),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Social Studies'), 'Resources & Economic Activities', 'SS-RE', 2),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Social Studies'), 'Political Development & Governance', 'SS-PG', 3),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Social Studies'), 'Social Interactions & Cultural Heritage', 'SS-SC', 4),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Social Studies'), 'Devolution & Governance', 'SS-DG', 5),
+    -- Health Education
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Health Education'), 'Health & Wellness', 'HE-HW', 1),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Health Education'), 'Nutrition', 'HE-NU', 2),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Health Education'), 'First Aid', 'HE-FA', 3),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Health Education'), 'Substance Abuse', 'HE-SA', 4),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Health Education'), 'Reproductive Health', 'HE-RH', 5),
+    -- Pre-Technical Studies
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Pre-Technical Studies'), 'Safety & Security', 'PTS-SS', 1),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Pre-Technical Studies'), 'Tools & Equipment', 'PTS-TE', 2),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Pre-Technical Studies'), 'Materials', 'PTS-MA', 3),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Pre-Technical Studies'), 'Drawing & Design', 'PTS-DD', 4),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Pre-Technical Studies'), 'Entrepreneurship', 'PTS-EN', 5),
+    -- Creative Arts & Sports
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Creative Arts & Sports'), 'Visual Arts', 'CAS-VA', 1),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Creative Arts & Sports'), 'Performing Arts', 'CAS-PA', 2),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Creative Arts & Sports'), 'Physical Education', 'CAS-PE', 3),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Creative Arts & Sports'), 'Sports & Games', 'CAS-SG', 4),
+    -- Religious Education
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Religious Education'), 'Creation', 'RE-CR', 1),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Religious Education'), 'Faith & Worship', 'RE-FW', 2),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Religious Education'), 'Morality', 'RE-MO', 3),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Religious Education'), 'Contemporary Living', 'RE-CL', 4),
+    -- Life Skills Education
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Life Skills Education'), 'Self-Awareness', 'LSE-SA', 1),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Life Skills Education'), 'Self-Management', 'LSE-SM', 2),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Life Skills Education'), 'Social Relationships', 'LSE-SR', 3),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Life Skills Education'), 'Decision Making', 'LSE-DM', 4),
+    ((SELECT id FROM school_cbc_learning_areas WHERE area_name = 'Life Skills Education'), 'Effective Communication', 'LSE-EC', 5)
+ON CONFLICT (learning_area_id, strand_name) DO UPDATE SET strand_code = EXCLUDED.strand_code, sort_order = EXCLUDED.sort_order;
+
+-- ════════════════════════════════════════════════════════════
+-- PART 4: CBC SUB-STRANDS (using JOIN on area_name + strand_name)
+-- ════════════════════════════════════════════════════════════
 
 -- Mathematics Sub-Strands
 INSERT INTO school_cbc_sub_strands (strand_id, sub_strand_name, sub_strand_code, sort_order) VALUES
-    -- Numbers
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-NUM'), 'Whole Numbers', 'M-NUM-WN', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-NUM'), 'Fractions', 'M-NUM-FR', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-NUM'), 'Decimals', 'M-NUM-DC', 3),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-NUM'), 'Percentages', 'M-NUM-PC', 4),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-NUM'), 'Integers', 'M-NUM-INT', 5),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-NUM'), 'Ratios & Proportions', 'M-NUM-RP', 6),
-    -- Algebra
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-ALG'), 'Algebraic Expressions', 'M-ALG-AE', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-ALG'), 'Linear Equations', 'M-ALG-LE', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-ALG'), 'Inequalities', 'M-ALG-IN', 3),
-    -- Measurement
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-MEA'), 'Length', 'M-MEA-LN', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-MEA'), 'Area', 'M-MEA-AR', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-MEA'), 'Volume & Capacity', 'M-MEA-VC', 3),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-MEA'), 'Mass', 'M-MEA-MS', 4),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-MEA'), 'Time', 'M-MEA-TM', 5),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-MEA'), 'Money', 'M-MEA-MN', 6),
-    -- Geometry
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-GEO'), 'Angles', 'M-GEO-AN', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-GEO'), 'Geometrical Constructions', 'M-GEO-GC', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-GEO'), 'Transformation', 'M-GEO-TR', 3),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-GEO'), 'Coordinates & Graphs', 'M-GEO-CG', 4),
-    -- Data Handling
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-DAT'), 'Data Representation', 'M-DAT-DR', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-DAT'), 'Probability', 'M-DAT-PR', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'M-DAT'), 'Statistics', 'M-DAT-ST', 3)
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Numbers'), 'Whole Numbers', 'M-NUM-WN', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Numbers'), 'Fractions', 'M-NUM-FR', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Numbers'), 'Decimals', 'M-NUM-DC', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Numbers'), 'Percentages', 'M-NUM-PC', 4),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Numbers'), 'Integers', 'M-NUM-INT', 5),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Numbers'), 'Ratios & Proportions', 'M-NUM-RP', 6),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Algebra'), 'Algebraic Expressions', 'M-ALG-AE', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Algebra'), 'Linear Equations', 'M-ALG-LE', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Algebra'), 'Inequalities', 'M-ALG-IN', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Measurement'), 'Length', 'M-MEA-LN', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Measurement'), 'Area', 'M-MEA-AR', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Measurement'), 'Volume & Capacity', 'M-MEA-VC', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Measurement'), 'Mass', 'M-MEA-MS', 4),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Measurement'), 'Time', 'M-MEA-TM', 5),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Measurement'), 'Money', 'M-MEA-MN', 6),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Geometry'), 'Angles', 'M-GEO-AN', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Geometry'), 'Geometrical Constructions', 'M-GEO-GC', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Geometry'), 'Transformation', 'M-GEO-TR', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Geometry'), 'Coordinates & Graphs', 'M-GEO-CG', 4),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Data Handling & Probability'), 'Data Representation', 'M-DAT-DR', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Data Handling & Probability'), 'Probability', 'M-DAT-PR', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Mathematics' AND s.strand_name = 'Data Handling & Probability'), 'Statistics', 'M-DAT-ST', 3)
 ON CONFLICT (strand_id, sub_strand_name) DO NOTHING;
-
--- English Strands
-INSERT INTO school_cbc_strands (learning_area_id, strand_name, strand_code, sort_order) VALUES
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'ENG'), 'Listening & Speaking', 'E-LS', 1),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'ENG'), 'Reading', 'E-RD', 2),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'ENG'), 'Writing', 'E-WR', 3),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'ENG'), 'Grammar in Use', 'E-GU', 4),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'ENG'), 'Literature', 'E-LIT', 5)
-ON CONFLICT (learning_area_id, strand_name) DO NOTHING;
 
 -- English Sub-Strands
 INSERT INTO school_cbc_sub_strands (strand_id, sub_strand_name, sub_strand_code, sort_order) VALUES
-    -- Listening & Speaking
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-LS'), 'Listening Comprehension', 'E-LS-LC', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-LS'), 'Oral Presentations', 'E-LS-OP', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-LS'), 'Conversations & Discussions', 'E-LS-CD', 3),
-    -- Reading
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-RD'), 'Comprehension', 'E-RD-CO', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-RD'), 'Study Skills', 'E-RD-SS', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-RD'), 'Extensive Reading', 'E-RD-ER', 3),
-    -- Writing
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-WR'), 'Functional Writing', 'E-WR-FW', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-WR'), 'Creative Writing', 'E-WR-CW', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-WR'), 'Summary Writing', 'E-WR-SW', 3),
-    -- Grammar
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-GU'), 'Word Formation', 'E-GU-WF', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-GU'), 'Sentence Construction', 'E-GU-SC', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-GU'), 'Punctuation & Spelling', 'E-GU-PS', 3),
-    -- Literature
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-LIT'), 'Poetry', 'E-LIT-PO', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-LIT'), 'Short Stories', 'E-LIT-SS', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'E-LIT'), 'Novels & Plays', 'E-LIT-NP', 3)
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Listening & Speaking'), 'Listening Comprehension', 'E-LS-LC', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Listening & Speaking'), 'Oral Presentations', 'E-LS-OP', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Listening & Speaking'), 'Conversations & Discussions', 'E-LS-CD', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Reading'), 'Comprehension', 'E-RD-CO', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Reading'), 'Study Skills', 'E-RD-SS', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Reading'), 'Extensive Reading', 'E-RD-ER', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Writing'), 'Functional Writing', 'E-WR-FW', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Writing'), 'Creative Writing', 'E-WR-CW', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Writing'), 'Summary Writing', 'E-WR-SW', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Grammar in Use'), 'Word Formation', 'E-GU-WF', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Grammar in Use'), 'Sentence Construction', 'E-GU-SC', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Grammar in Use'), 'Punctuation & Spelling', 'E-GU-PS', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Literature'), 'Poetry', 'E-LIT-PO', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Literature'), 'Short Stories', 'E-LIT-SS', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'English' AND s.strand_name = 'Literature'), 'Novels & Plays', 'E-LIT-NP', 3)
 ON CONFLICT (strand_id, sub_strand_name) DO NOTHING;
-
--- Kiswahili Strands
-INSERT INTO school_cbc_strands (learning_area_id, strand_name, strand_code, sort_order) VALUES
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'KISW'), 'Kusikiliza na Kusema', 'K-KS', 1),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'KISW'), 'Kusoma', 'K-KU', 2),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'KISW'), 'Kuandika', 'K-KA', 3),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'KISW'), 'Sarufi', 'K-SA', 4),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'KISW'), 'Fasihi', 'K-FA', 5)
-ON CONFLICT (learning_area_id, strand_name) DO NOTHING;
-
--- Integrated Science Strands
-INSERT INTO school_cbc_strands (learning_area_id, strand_name, strand_code, sort_order) VALUES
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'IS'), 'Scientific Investigation', 'IS-SI', 1),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'IS'), 'Matter', 'IS-MT', 2),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'IS'), 'Force & Energy', 'IS-FE', 3),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'IS'), 'Earth & Space', 'IS-ES', 4),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'IS'), 'Living Things', 'IS-LT', 5),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'IS'), 'Ecology', 'IS-EC', 6)
-ON CONFLICT (learning_area_id, strand_name) DO NOTHING;
 
 -- Integrated Science Sub-Strands
 INSERT INTO school_cbc_sub_strands (strand_id, sub_strand_name, sub_strand_code, sort_order) VALUES
-    -- Scientific Investigation
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-SI'), 'Laboratory Safety', 'IS-SI-LS', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-SI'), 'Scientific Method', 'IS-SI-SM', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-SI'), 'Measurement', 'IS-SI-MS', 3),
-    -- Matter
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-MT'), 'States of Matter', 'IS-MT-SM', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-MT'), 'Mixtures & Compounds', 'IS-MT-MC', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-MT'), 'Atoms & Elements', 'IS-MT-AE', 3),
-    -- Force & Energy
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-FE'), 'Force', 'IS-FE-FO', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-FE'), 'Magnetism', 'IS-FE-MG', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-FE'), 'Electricity', 'IS-FE-EL', 3),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-FE'), 'Light', 'IS-FE-LI', 4),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-FE'), 'Sound', 'IS-FE-SO', 5),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-FE'), 'Heat', 'IS-FE-HT', 6),
-    -- Living Things
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-LT'), 'Cells', 'IS-LT-CL', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-LT'), 'Human Body Systems', 'IS-LT-HB', 2),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-LT'), 'Reproduction', 'IS-LT-RP', 3),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-LT'), 'Classification', 'IS-LT-CF', 4),
-    -- Ecology
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-EC'), 'Ecosystems', 'IS-EC-ES', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-EC'), 'Environmental Conservation', 'IS-EC-EC', 2),
-    -- Earth & Space
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-ES'), 'Solar System', 'IS-ES-SS', 1),
-    ((SELECT id FROM school_cbc_strands WHERE strand_code = 'IS-ES'), 'Weather & Climate', 'IS-ES-WC', 2)
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Scientific Investigation'), 'Laboratory Safety', 'IS-SI-LS', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Scientific Investigation'), 'Scientific Method', 'IS-SI-SM', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Scientific Investigation'), 'Measurement', 'IS-SI-MS', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Matter'), 'States of Matter', 'IS-MT-SM', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Matter'), 'Mixtures & Compounds', 'IS-MT-MC', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Matter'), 'Atoms & Elements', 'IS-MT-AE', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Force & Energy'), 'Force', 'IS-FE-FO', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Force & Energy'), 'Magnetism', 'IS-FE-MG', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Force & Energy'), 'Electricity', 'IS-FE-EL', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Force & Energy'), 'Light', 'IS-FE-LI', 4),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Force & Energy'), 'Sound', 'IS-FE-SO', 5),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Force & Energy'), 'Heat', 'IS-FE-HT', 6),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Living Things'), 'Cells', 'IS-LT-CL', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Living Things'), 'Human Body Systems', 'IS-LT-HB', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Living Things'), 'Reproduction', 'IS-LT-RP', 3),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Living Things'), 'Classification', 'IS-LT-CF', 4),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Ecology'), 'Ecosystems', 'IS-EC-ES', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Ecology'), 'Environmental Conservation', 'IS-EC-EC', 2),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Earth & Space'), 'Solar System', 'IS-ES-SS', 1),
+    ((SELECT s.id FROM school_cbc_strands s JOIN school_cbc_learning_areas la ON s.learning_area_id = la.id WHERE la.area_name = 'Integrated Science' AND s.strand_name = 'Earth & Space'), 'Weather & Climate', 'IS-ES-WC', 2)
 ON CONFLICT (strand_id, sub_strand_name) DO NOTHING;
 
--- Social Studies Strands
-INSERT INTO school_cbc_strands (learning_area_id, strand_name, strand_code, sort_order) VALUES
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'SS'), 'People & Population', 'SS-PP', 1),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'SS'), 'Resources & Economic Activities', 'SS-RE', 2),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'SS'), 'Political Development & Governance', 'SS-PG', 3),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'SS'), 'Social Interactions & Cultural Heritage', 'SS-SC', 4),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'SS'), 'Devolution & Governance', 'SS-DG', 5)
-ON CONFLICT (learning_area_id, strand_name) DO NOTHING;
-
--- Health Education Strands
-INSERT INTO school_cbc_strands (learning_area_id, strand_name, strand_code, sort_order) VALUES
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'HE'), 'Health & Wellness', 'HE-HW', 1),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'HE'), 'Nutrition', 'HE-NU', 2),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'HE'), 'First Aid', 'HE-FA', 3),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'HE'), 'Substance Abuse', 'HE-SA', 4),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'HE'), 'Reproductive Health', 'HE-RH', 5)
-ON CONFLICT (learning_area_id, strand_name) DO NOTHING;
-
--- Pre-Technical Studies Strands
-INSERT INTO school_cbc_strands (learning_area_id, strand_name, strand_code, sort_order) VALUES
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'PTS'), 'Safety & Security', 'PTS-SS', 1),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'PTS'), 'Tools & Equipment', 'PTS-TE', 2),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'PTS'), 'Materials', 'PTS-MA', 3),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'PTS'), 'Drawing & Design', 'PTS-DD', 4),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'PTS'), 'Entrepreneurship', 'PTS-EN', 5)
-ON CONFLICT (learning_area_id, strand_name) DO NOTHING;
-
--- Creative Arts & Sports Strands
-INSERT INTO school_cbc_strands (learning_area_id, strand_name, strand_code, sort_order) VALUES
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'CAS'), 'Visual Arts', 'CAS-VA', 1),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'CAS'), 'Performing Arts', 'CAS-PA', 2),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'CAS'), 'Physical Education', 'CAS-PE', 3),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'CAS'), 'Sports & Games', 'CAS-SG', 4)
-ON CONFLICT (learning_area_id, strand_name) DO NOTHING;
-
--- Religious Education Strands
-INSERT INTO school_cbc_strands (learning_area_id, strand_name, strand_code, sort_order) VALUES
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'RE'), 'Creation', 'RE-CR', 1),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'RE'), 'Faith & Worship', 'RE-FW', 2),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'RE'), 'Morality', 'RE-MO', 3),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'RE'), 'Contemporary Living', 'RE-CL', 4)
-ON CONFLICT (learning_area_id, strand_name) DO NOTHING;
-
--- Life Skills Education Strands
-INSERT INTO school_cbc_strands (learning_area_id, strand_name, strand_code, sort_order) VALUES
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'LSE'), 'Self-Awareness', 'LSE-SA', 1),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'LSE'), 'Self-Management', 'LSE-SM', 2),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'LSE'), 'Social Relationships', 'LSE-SR', 3),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'LSE'), 'Decision Making', 'LSE-DM', 4),
-    ((SELECT id FROM school_cbc_learning_areas WHERE area_code = 'LSE'), 'Effective Communication', 'LSE-EC', 5)
-ON CONFLICT (learning_area_id, strand_name) DO NOTHING;
-
-
 -- ════════════════════════════════════════════════════════════
--- PART 4: 8-4-4 SENIOR SCHOOL TOPICS (Form 1-4)
+-- PART 5: 8-4-4 SENIOR SCHOOL TOPICS (Form 1-4)
 -- ════════════════════════════════════════════════════════════
 
 -- Mathematics 8-4-4 Topics
