@@ -19,6 +19,15 @@ function formatPhone(phone: string): string {
 
 export async function POST(request: NextRequest) {
     try {
+        // ─── Auth + CSRF Check ───
+        const { getSession, validateCsrf } = await import('@/lib/auth');
+        const session = await getSession();
+        if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+        const csrfToken = request.headers.get('x-csrf-token');
+        const csrfValid = await validateCsrf(csrfToken);
+        if (!csrfValid) return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 });
+
         const { phone, message } = await request.json();
 
         if (!phone || !message) {

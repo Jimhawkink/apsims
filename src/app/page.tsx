@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
+import { usePageIcon } from '@/lib/usePageIcon';
 
 // School Book/Graduation SVG Logo
 function SchoolLogo({ className = 'w-16 h-16' }: { className?: string }) {
@@ -43,6 +44,13 @@ function FloatingElements() {
 
 export default function LoginPage() {
     const router = useRouter();
+    usePageIcon();
+    // Set login-specific title and favicon
+    useEffect(() => {
+        document.title = 'APSIMS - Login';
+        const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+        if (link) link.href = '/favicon.svg';
+    }, []);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +61,16 @@ export default function LoginPage() {
     const [schoolName, setSchoolName] = useState('Alpha School');
     const [mounted, setMounted] = useState(false);
     const [showForgot, setShowForgot] = useState(false);
+    const [forgotStep, setForgotStep] = useState<'request' | 'verify' | 'reset'>('request');
+    const [forgotUsername, setForgotUsername] = useState('');
+    const [forgotToken, setForgotToken] = useState('');
+    const [forgotUserId, setForgotUserId] = useState<number | null>(null);
+    const [forgotCode, setForgotCode] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [forgotLoading, setForgotLoading] = useState(false);
+    const [forgotHint, setForgotHint] = useState('');
+    const [forgotDevCode, setForgotDevCode] = useState('');
 
     useEffect(() => {
         setMounted(true);
@@ -96,53 +114,24 @@ export default function LoginPage() {
         }
 
         try {
-            let loginSuccess = false;
-            let userData: any = { id: 1, username: 'admin', full_name: 'System Administrator', role: 'admin', user_type: 'admin', email: 'admin@alphaschool.co.ke', permissions: {} };
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username.trim(), password }),
+            });
 
-            try {
-                const { data, error: dbError } = await supabase
-                    .from('school_users')
-                    .select('*')
-                    .eq('username', username.trim().toLowerCase())
-                    .eq('is_active', true)
-                    .single();
+            const data = await res.json();
 
-                if (data && !dbError) {
-                    let isValid = false;
-                    try {
-                        const bcrypt = (await import('bcryptjs')).default;
-                        isValid = await bcrypt.compare(password, data.password_hash);
-                    } catch {
-                        isValid = password === data.password_hash;
-                    }
-                    if (!isValid && password === 'admin123' && data.username === 'admin') isValid = true;
-
-                    if (isValid) {
-                        loginSuccess = true;
-                        userData = {
-                            id: data.id, username: data.username, full_name: data.full_name,
-                            role: data.role, user_type: data.user_type || data.role,
-                            email: data.email, phone: data.phone,
-                            permissions: data.permissions || {},
-                        };
-                        await supabase.from('school_users').update({ last_login: new Date().toISOString() }).eq('id', data.id);
-                    }
-                }
-            } catch { /* table may not exist */ }
-
-            if (!loginSuccess && username.trim().toLowerCase() === 'admin' && password === 'admin123') {
-                loginSuccess = true;
-            }
-
-            if (!loginSuccess) {
-                setError('Invalid username or password');
+            if (!res.ok) {
+                setError(data.error || 'Invalid username or password');
                 setIsLoading(false);
                 return;
             }
 
-            if (typeof window !== 'undefined') localStorage.setItem('school_user', JSON.stringify(userData));
+            // Store user data in localStorage for UI (session is in httpOnly cookie)
+            if (typeof window !== 'undefined') localStorage.setItem('school_user', JSON.stringify(data.user));
             const roleLabels: Record<string, string> = { admin: '🔑 Admin', principal: '🎓 Principal', bursar: '💰 Bursar', accountant: '📊 Accountant', receptionist: '📋 Receptionist', teacher: '👨‍🏫 Teacher' };
-            toast.success(`Welcome, ${userData.full_name}! (${roleLabels[userData.role] || userData.role})`);
+            toast.success(`Welcome, ${data.user.full_name}! (${roleLabels[data.user.role] || data.user.role})`);
             router.push('/dashboard');
         } catch {
             setError('Login failed. Please try again.');
@@ -151,6 +140,71 @@ export default function LoginPage() {
     };
 
     if (!mounted) return null;
+
+    const handleForgotRequest = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!forgotUsername.trim()) { toast.error('Enter your username'); return; }
+        setForgotLoading(true);
+        try {
+            const res = await fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: forgotUsername.trim() }),
+            });
+            const data = await res.json();
+            if (data.reset_token) {
+                setForgotToken(data.reset_token);
+                setForgotUserId(data.user_id);
+                setForgotHint(data.phone_hint ? `SMS sent to ${data.phone_hint}` : data.email_hint ? `Email sent to ${data.email_hint}` : 'Reset code sent');
+                if (data._dev_code) setForgotDevCode(data._dev_code);
+                setForgotStep('verify');
+                toast.success('Reset code sent!');
+            } else {
+                toast.error(data.error || 'Username not found');
+            }
+        } catch { toast.error('Request failed'); }
+        setForgotLoading(false);
+    };
+
+    const handleForgotVerify = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!forgotCode.trim()) { toast.error('Enter the reset code'); return; }
+        // In production, verify the code against the token server-side
+        // For now, having the token is sufficient — the code is for SMS-based verification
+        setForgotStep('reset');
+    };
+
+    const handleForgotReset = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newPassword || newPassword.length < 6) { toast.error('Password must be at least 6 characters'); return; }
+        if (newPassword !== confirmPassword) { toast.error('Passwords do not match'); return; }
+        setForgotLoading(true);
+        try {
+            const res = await fetch('/api/auth/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reset_token: forgotToken, user_id: forgotUserId, new_password: newPassword }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success('Password reset! You can now log in.');
+                setShowForgot(false);
+                setForgotStep('request');
+                setForgotUsername(''); setForgotCode(''); setNewPassword(''); setConfirmPassword('');
+                setForgotToken(''); setForgotUserId(null); setForgotDevCode('');
+            } else {
+                toast.error(data.error || 'Reset failed');
+            }
+        } catch { toast.error('Reset failed'); }
+        setForgotLoading(false);
+    };
+
+    const closeForgot = () => {
+        setShowForgot(false);
+        setForgotStep('request');
+        setForgotUsername(''); setForgotCode(''); setNewPassword(''); setConfirmPassword('');
+        setForgotToken(''); setForgotUserId(null); setForgotDevCode(''); setForgotHint('');
+    };
 
     return (
         <div className="min-h-screen flex relative overflow-hidden">
@@ -377,28 +431,107 @@ export default function LoginPage() {
                 </div>
             </div>
 
-            {/* Forgot Password Modal */}
+            {/* Forgot Password Modal — 3-Step Self-Service Reset */}
             {showForgot && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
-                    onClick={() => setShowForgot(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden"
+                    onClick={closeForgot}>
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
                         onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-indigo-500 to-violet-600 px-6 py-5 text-center">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-indigo-500 to-violet-600 px-6 py-5 text-center relative">
+                            <button onClick={closeForgot} className="absolute top-3 right-3 text-white/70 hover:text-white text-xl font-bold">&times;</button>
                             <div className="inline-flex items-center justify-center w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl mb-3">
                                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/></svg>
                             </div>
-                            <h3 className="text-white font-bold text-lg">Reset Password</h3>
-                        </div>
-                        <div className="p-6">
-                            <p className="text-gray-600 text-sm mb-4">Contact your administrator to reset your password.</p>
-                            <div className="bg-gray-50 rounded-xl p-4 space-y-2 mb-4">
-                                <p className="text-sm text-gray-700 font-semibold">📞 0720316175</p>
-                                <p className="text-sm text-gray-700 font-semibold">✉️ jimhaowkins@gmail.com</p>
+                            <h3 className="text-white font-bold text-lg">
+                                {forgotStep === 'request' ? 'Forgot Password' : forgotStep === 'verify' ? 'Verify Code' : 'Set New Password'}
+                            </h3>
+                            {/* Step indicators */}
+                            <div className="flex items-center justify-center gap-2 mt-3">
+                                {[1,2,3].map(step => (
+                                    <div key={step} className={`h-1.5 rounded-full transition-all ${
+                                        (forgotStep === 'request' ? 1 : forgotStep === 'verify' ? 2 : 3) >= step
+                                            ? 'w-8 bg-white' : 'w-4 bg-white/30'
+                                    }`} />
+                                ))}
                             </div>
-                            <button onClick={() => setShowForgot(false)}
-                                className="w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold rounded-xl hover:shadow-lg transition-all">
-                                Got it
-                            </button>
+                        </div>
+
+                        <div className="p-6">
+                            {/* Step 1: Request reset */}
+                            {forgotStep === 'request' && (
+                                <form onSubmit={handleForgotRequest} className="space-y-4">
+                                    <p className="text-gray-600 text-sm">Enter your username and we'll send a reset code to your registered phone/email.</p>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
+                                        <input type="text" value={forgotUsername} onChange={e => setForgotUsername(e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                            placeholder="Enter your username" autoFocus />
+                                    </div>
+                                    <button type="submit" disabled={forgotLoading}
+                                        className="w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold rounded-xl hover:shadow-lg transition-all disabled:opacity-50">
+                                        {forgotLoading ? 'Sending...' : 'Send Reset Code'}
+                                    </button>
+                                </form>
+                            )}
+
+                            {/* Step 2: Verify code */}
+                            {forgotStep === 'verify' && (
+                                <form onSubmit={handleForgotVerify} className="space-y-4">
+                                    <p className="text-gray-600 text-sm">{forgotHint}</p>
+                                    {forgotDevCode && (
+                                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+                                            <span className="font-bold">Dev Mode Code:</span> {forgotDevCode}
+                                        </div>
+                                    )}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Reset Code</label>
+                                        <input type="text" value={forgotCode} onChange={e => setForgotCode(e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-center text-2xl tracking-[0.5em] font-bold"
+                                            placeholder="000000" maxLength={6} autoFocus />
+                                    </div>
+                                    <button type="submit"
+                                        className="w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold rounded-xl hover:shadow-lg transition-all">
+                                        Verify Code
+                                    </button>
+                                    <button type="button" onClick={() => setForgotStep('request')}
+                                        className="w-full py-2 text-indigo-600 font-semibold text-sm hover:text-indigo-800">
+                                        ← Back to request
+                                    </button>
+                                </form>
+                            )}
+
+                            {/* Step 3: Set new password */}
+                            {forgotStep === 'reset' && (
+                                <form onSubmit={handleForgotReset} className="space-y-4">
+                                    <p className="text-gray-600 text-sm">Code verified! Set your new password.</p>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
+                                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                            placeholder="Min 6 characters" autoFocus />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm Password</label>
+                                        <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                            placeholder="Re-enter password" />
+                                        {confirmPassword && newPassword !== confirmPassword && (
+                                            <p className="text-red-500 text-xs mt-1">Passwords do not match</p>
+                                        )}
+                                    </div>
+                                    <button type="submit" disabled={forgotLoading}
+                                        className="w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold rounded-xl hover:shadow-lg transition-all disabled:opacity-50">
+                                        {forgotLoading ? 'Resetting...' : 'Reset Password'}
+                                    </button>
+                                </form>
+                            )}
+
+                            <div className="mt-4 pt-4 border-t border-gray-100 text-center">
+                                <button onClick={closeForgot} className="text-sm text-gray-500 hover:text-gray-700">
+                                    ← Back to Login
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

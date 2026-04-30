@@ -20,6 +20,15 @@ async function getJengaToken() {
 
 export async function POST(req: NextRequest) {
   try {
+    // ─── Auth + CSRF Check ───
+    const { getSession, validateCsrf } = await import('@/lib/auth');
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const csrfToken = req.headers.get('x-csrf-token');
+    const csrfValid = await validateCsrf(csrfToken);
+    if (!csrfValid) return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 });
+
     const body = await req.json();
     const { amount, phone, student_id, account_reference } = body;
 

@@ -3,7 +3,35 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiSave, FiDownload, FiCheckCircle, FiLoader, FiUpload } from 'react-icons/fi';
+import { FiSave, FiDownload, FiCheckCircle, FiLoader, FiUpload, FiRefreshCw, FiSearch } from 'react-icons/fi';
+
+const GRADIENTS = [
+    'linear-gradient(135deg,#6366f1,#8b5cf6)', 'linear-gradient(135deg,#0891b2,#06b6d4)',
+    'linear-gradient(135deg,#059669,#10b981)', 'linear-gradient(135deg,#d97706,#f59e0b)',
+    'linear-gradient(135deg,#dc2626,#ef4444)', 'linear-gradient(135deg,#7c3aed,#a855f7)',
+    'linear-gradient(135deg,#0284c7,#38bdf8)', 'linear-gradient(135deg,#15803d,#22c55e)',
+];
+
+function StudentAvatar({ name, size = 32 }: { name: string; size?: number }) {
+    const initials = (name || '?').split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?';
+    const idx = (name || '').charCodeAt(0) % GRADIENTS.length;
+    return (
+        <div style={{ width: size, height: size, borderRadius: '50%', background: GRADIENTS[idx], display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: size * 0.35, letterSpacing: 0.5, flexShrink: 0, boxShadow: '0 2px 8px rgba(99,102,241,0.25)' }}>
+            {initials}
+        </div>
+    );
+}
+
+const C = {
+    num:     { bg: '#f5f3ff', text: '#6d28d9', head: '#ddd6fe' },
+    adm:     { bg: '#eff6ff', text: '#1d4ed8', head: '#bfdbfe' },
+    name:    { bg: '#eef2ff', text: '#4338ca', head: '#c7d2fe' },
+    score:   { bg: '#fffbeb', text: '#b45309', head: '#fde68a' },
+    grade:   { bg: '#f0fdf4', text: '#15803d', head: '#bbf7d0' },
+    pts:     { bg: '#faf5ff', text: '#7c3aed', head: '#e9d5ff' },
+    remarks: { bg: '#f0fdfa', text: '#0f766e', head: '#99f6e4' },
+    status:  { bg: '#ecfdf5', text: '#059669', head: '#a7f3d0' },
+};
 
 interface GradeEntry { id?: number; grade: string; min_score: number; max_score: number; points: number; remarks: string; }
 
@@ -185,113 +213,112 @@ export default function MarkEntryPage() {
     const isReady = selForm && selSubject && selTerm;
 
     return (
-        <div className="space-y-5 animate-fade-in">
+        <div className="animate-fadeIn space-y-5">
             <style jsx>{`
                 input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
                 input[type=number] { -moz-appearance: textfield; appearance: textfield; }
             `}</style>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">✏️ Mark Entry — Broadsheet</h1>
+                    <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">✏️ Mark Entry — Broadsheet</h1>
                     <p className="text-sm text-gray-500 mt-1">Enter marks per subject with auto-grading from grading system</p>
                 </div>
+                <button onClick={fetchAll} className="p-2.5 rounded-xl border border-gray-200 text-gray-400 hover:text-indigo-600 hover:border-indigo-200 transition"><FiRefreshCw size={15} /></button>
             </div>
 
             {loading ? (
-                <div className="flex justify-center py-20"><div className="spinner" style={{ borderTopColor: '#3b82f6', borderColor: '#e2e8f0', width: 32, height: 32, borderWidth: 3 }} /></div>
+                <div className="flex flex-col items-center justify-center h-64 gap-3">
+                    <div className="relative">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>✏️</div>
+                        <div className="absolute -inset-2 rounded-3xl border-2 border-indigo-200 animate-ping opacity-30" />
+                    </div>
+                    <p className="text-sm font-bold text-gray-500">Loading Mark Entry…</p>
+                </div>
             ) : (
                 <>
-                    {/* Selection Bar */}
-                    <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                    {/* ── Selection Bar ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                            <div><label className="lbl">Form *</label><select value={selForm} onChange={e => { setSelForm(e.target.value); setSelStream(''); }} className="select-modern w-full text-sm"><option value="">Select Form</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}</select></div>
-                            <div><label className="lbl">Stream</label><select value={selStream} onChange={e => setSelStream(e.target.value)} className="select-modern w-full text-sm"><option value="">All Streams</option>{streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}</select></div>
-                            <div><label className="lbl">Subject *</label><select value={selSubject} onChange={e => setSelSubject(e.target.value)} className="select-modern w-full text-sm"><option value="">Select Subject</option>{availableSubjects.map(s => <option key={s.id} value={s.id}>{s.subject_name}</option>)}</select></div>
-                            <div><label className="lbl">Term *</label><select value={selTerm} onChange={e => setSelTerm(e.target.value)} className="select-modern w-full text-sm"><option value="">Select Term</option>{terms.map(t => <option key={t.id} value={t.id}>{t.term_name}</option>)}</select></div>
-                            <div><label className="lbl">Exam Type</label><select value={selExamType} onChange={e => setSelExamType(e.target.value)} className="select-modern w-full text-sm">{examTypes.map(e => <option key={e} value={e}>{e}</option>)}</select></div>
+                            <div><label className="text-xs font-bold text-gray-500 block mb-1">Form *</label><select value={selForm} onChange={e => { setSelForm(e.target.value); setSelStream(''); }} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 text-gray-700"><option value="">Select Form</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}</select></div>
+                            <div><label className="text-xs font-bold text-gray-500 block mb-1">Stream</label><select value={selStream} onChange={e => setSelStream(e.target.value)} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 text-gray-700"><option value="">All Streams</option>{streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}</select></div>
+                            <div><label className="text-xs font-bold text-gray-500 block mb-1">Subject *</label><select value={selSubject} onChange={e => setSelSubject(e.target.value)} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 text-gray-700"><option value="">Select Subject</option>{availableSubjects.map(s => <option key={s.id} value={s.id}>{s.subject_name}</option>)}</select></div>
+                            <div><label className="text-xs font-bold text-gray-500 block mb-1">Term *</label><select value={selTerm} onChange={e => setSelTerm(e.target.value)} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 text-gray-700"><option value="">Select Term</option>{terms.map(t => <option key={t.id} value={t.id}>{t.term_name}</option>)}</select></div>
+                            <div><label className="text-xs font-bold text-gray-500 block mb-1">Exam Type</label><select value={selExamType} onChange={e => setSelExamType(e.target.value)} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 text-gray-700">{examTypes.map(e => <option key={e} value={e}>{e}</option>)}</select></div>
                         </div>
                     </div>
 
                     {!isReady ? (
-                        <div className="bg-white rounded-2xl border border-gray-200 text-center py-20 text-gray-400">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm text-center py-20 text-gray-400">
                             <span className="text-5xl block mb-4">📊</span>
-                            <p className="font-semibold text-lg mb-1">Select Form, Subject & Term to begin</p>
+                            <p className="font-bold text-lg mb-1">Select Form, Subject & Term to begin</p>
                             <p className="text-sm">Choose from the filters above to load the marks broadsheet</p>
                         </div>
                     ) : classStudents.length === 0 ? (
-                        <div className="bg-white rounded-2xl border border-gray-200 text-center py-20 text-gray-400">
-                            <span className="text-5xl block mb-4">👤</span><p className="font-semibold">No students found in this class</p>
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm text-center py-20 text-gray-400">
+                            <span className="text-5xl block mb-4">👤</span><p className="font-bold">No students found in this class</p>
                         </div>
                     ) : (
                         <>
-                            {/* Stats Bar */}
+                            {/* ── KPI Stats ── */}
                             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                                <div className="bg-white rounded-xl border border-gray-200 p-3.5 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-lg">👨‍🎓</div>
-                                    <div><p className="text-[10px] font-semibold text-gray-400 uppercase">Students</p><p className="text-xl font-bold text-gray-800">{classStudents.length}</p></div>
-                                </div>
-                                <div className="bg-white rounded-xl border border-gray-200 p-3.5 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center text-lg">✏️</div>
-                                    <div><p className="text-[10px] font-semibold text-gray-400 uppercase">Entered</p><p className="text-xl font-bold text-green-600">{enteredCount} / {classStudents.length}</p></div>
-                                </div>
-                                <div className="bg-white rounded-xl border border-gray-200 p-3.5 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-lg">📊</div>
-                                    <div><p className="text-[10px] font-semibold text-gray-400 uppercase">Average</p><p className="text-xl font-bold text-purple-600">{avg.toFixed(1)}%</p></div>
-                                </div>
-                                <div className="bg-white rounded-xl border border-gray-200 p-3.5 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-lg">{unsavedCells.size > 0 ? '⚠️' : '✅'}</div>
-                                    <div><p className="text-[10px] font-semibold text-gray-400 uppercase">Unsaved</p><p className={`text-xl font-bold ${unsavedCells.size > 0 ? 'text-amber-600' : 'text-green-600'}`}>{unsavedCells.size}</p></div>
-                                </div>
-                                <div className={`rounded-xl border p-3.5 ${enteredCount === classStudents.length && classStudents.length > 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200'}`}>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-lg">{enteredCount === classStudents.length && classStudents.length > 0 ? '🎉' : '📋'}</span>
-                                        <div><p className="text-[10px] font-semibold text-gray-400 uppercase">Captured</p>
-                                        <p className={`text-xl font-bold ${enteredCount === classStudents.length && classStudents.length > 0 ? 'text-emerald-600' : 'text-gray-700'}`}>
-                                            {classStudents.length > 0 ? Math.round((enteredCount / classStudents.length) * 100) : 0}%
-                                        </p></div>
+                                {[
+                                    { label: 'Students', value: classStudents.length, emoji: '👨‍🎓', color: '#3b82f6', sub: 'In this class' },
+                                    { label: 'Entered', value: `${enteredCount} / ${classStudents.length}`, emoji: '✏️', color: '#10b981', sub: 'Marks filled' },
+                                    { label: 'Average', value: `${avg.toFixed(1)}%`, emoji: '📊', color: '#7c3aed', sub: 'Class mean' },
+                                    { label: 'Unsaved', value: unsavedCells.size, emoji: unsavedCells.size > 0 ? '⚠️' : '✅', color: unsavedCells.size > 0 ? '#f59e0b' : '#10b981', sub: unsavedCells.size > 0 ? 'Pending changes' : 'All saved', pulse: unsavedCells.size > 0 },
+                                    { label: 'Captured', value: `${classStudents.length > 0 ? Math.round((enteredCount / classStudents.length) * 100) : 0}%`, emoji: enteredCount === classStudents.length && classStudents.length > 0 ? '🎉' : '📋', color: enteredCount === classStudents.length && classStudents.length > 0 ? '#10b981' : '#6366f1', sub: 'Completion rate' },
+                                ].map((card, i) => (
+                                    <div key={i} className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden" style={{ borderLeftWidth: 4, borderLeftColor: card.color }}>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">{card.label}</p>
+                                            <span className="text-lg">{card.emoji}</span>
+                                        </div>
+                                        <p className="text-xl font-extrabold text-gray-900">{card.value}</p>
+                                        <p className="text-[10px] text-gray-400 mt-0.5">{card.sub}</p>
+                                        {card.pulse && <div className="absolute top-3 right-3 w-2 h-2 rounded-full animate-pulse" style={{ background: card.color }} />}
+                                        <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full opacity-[0.06]" style={{ background: card.color }} />
                                     </div>
-                                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                        <div className="h-full rounded-full transition-all duration-500" style={{
-                                            width: `${classStudents.length > 0 ? (enteredCount / classStudents.length) * 100 : 0}%`,
-                                            background: enteredCount === classStudents.length && classStudents.length > 0 ? '#10b981' : 'linear-gradient(90deg, #3b82f6, #6366f1)',
-                                        }} />
-                                    </div>
-                                </div>
+                                ))}
                             </div>
 
-                            {/* Action Bar */}
+                            {/* ── Action Bar ── */}
                             <div className="flex items-center justify-between">
                                 <div className="text-sm text-gray-500">
-                                    <span className="font-semibold text-gray-700">{getSubjectName(Number(selSubject))}</span>
+                                    <span className="font-bold text-gray-700">{getSubjectName(Number(selSubject))}</span>
                                     {' — '}{getFormName(Number(selForm))} {selStream ? getStreamName(Number(selStream)) : ''} • {selExamType}
-                                    {unsavedCells.size > 0 && <span className="ml-2 text-amber-600 font-semibold animate-pulse">• {unsavedCells.size} unsaved changes</span>}
+                                    {unsavedCells.size > 0 && <span className="ml-2 text-amber-600 font-bold animate-pulse">• {unsavedCells.size} unsaved changes</span>}
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={exportMarks} className="btn-outline text-sm flex items-center gap-1.5"><FiDownload size={14} /> Export</button>
+                                    <button onClick={exportMarks} className="px-4 py-2.5 rounded-xl text-sm font-bold border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 transition"><FiDownload size={14} /> Export</button>
                                     <button onClick={handleSaveAll} disabled={saving || unsavedCells.size === 0}
-                                        className={`flex items-center gap-1.5 text-sm px-5 py-2.5 rounded-xl font-semibold transition-all ${unsavedCells.size > 0
-                                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:-translate-y-0.5'
-                                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
+                                        className={`flex items-center gap-1.5 text-sm px-5 py-2.5 rounded-xl font-bold transition-all ${unsavedCells.size > 0 ? 'text-white shadow-lg hover:shadow-xl' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                                        style={unsavedCells.size > 0 ? { background: 'linear-gradient(135deg,#10b981,#059669)' } : {}}>
                                         {saving ? <FiLoader className="animate-spin" size={14} /> : <FiSave size={14} />}
-                                        {saving ? 'Saving...' : unsavedCells.size > 0 ? `Save All (${unsavedCells.size})` : 'All Saved ✅'}
+                                        {saving ? 'Saving…' : unsavedCells.size > 0 ? `Save All (${unsavedCells.size})` : 'All Saved ✅'}
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Broadsheet Table */}
-                            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                            {/* ── Broadsheet Table ── */}
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                                 <div className="overflow-x-auto">
-                                    <table className="w-full border-collapse">
+                                    <table className="w-full border-collapse" style={{ fontSize: 12 }}>
                                         <thead>
-                                            <tr className="bg-gradient-to-r from-slate-50 to-gray-50">
-                                                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-10">#</th>
-                                                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-24">Adm No</th>
-                                                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 min-w-[180px]">Student Name</th>
-                                                <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-28">Score (/100)</th>
-                                                <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-20">Grade</th>
-                                                <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-16">Pts</th>
-                                                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200">Remarks</th>
-                                                <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase border-b-2 border-gray-200 w-16">Status</th>
+                                            <tr>
+                                                {[
+                                                    { label: '#', col: C.num },
+                                                    { label: '📋 Adm No', col: C.adm },
+                                                    { label: '👤 Student', col: C.name },
+                                                    { label: '📝 Score (/100)', col: C.score },
+                                                    { label: '🏅 Grade', col: C.grade },
+                                                    { label: '⭐ Pts', col: C.pts },
+                                                    { label: '💬 Remarks', col: C.remarks },
+                                                    { label: '📊 Status', col: C.status },
+                                                ].map((h, i) => (
+                                                    <th key={i} className="text-left px-3 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
+                                                        style={{ background: h.col.head, color: h.col.text, borderBottom: `2px solid ${h.col.text}30` }}>{h.label}</th>
+                                                ))}
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -301,11 +328,19 @@ export default function MarkEntryPage() {
                                                 const isUnsaved = unsavedCells.has(key);
                                                 const gradeInfo = score !== '' ? getGrade(Number(score)) : null;
                                                 return (
-                                                    <tr key={s.id} className={`border-b border-gray-100 transition-colors ${isUnsaved ? 'bg-amber-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                                                        <td className="px-3 py-2 text-xs text-gray-400 font-medium">{i + 1}</td>
-                                                        <td className="px-3 py-2 text-sm font-bold text-blue-600">{s.admission_no || s.admission_number}</td>
-                                                        <td className="px-3 py-2 text-sm font-semibold text-gray-700">{s.first_name} {s.last_name}</td>
-                                                        <td className="px-3 py-1.5 text-center">
+                                                    <tr key={s.id} className={`transition-colors ${isUnsaved ? 'bg-amber-50/50' : ''}`}
+                                                        style={{ borderBottom: '1px solid #f1f5f9' }}
+                                                        onMouseEnter={e => { if (!isUnsaved) (e.currentTarget as HTMLTableRowElement).style.background = '#fafbff'; }}
+                                                        onMouseLeave={e => { if (!isUnsaved) (e.currentTarget as HTMLTableRowElement).style.background = ''; }}>
+                                                        <td className="px-3 py-2 text-center font-bold" style={{ background: C.num.bg + '60', color: C.num.text }}>{i + 1}</td>
+                                                        <td className="px-3 py-2 font-mono text-xs font-bold" style={{ background: C.adm.bg + '60', color: C.adm.text }}>{s.admission_no || s.admission_number}</td>
+                                                        <td className="px-3 py-2" style={{ background: C.name.bg + '60' }}>
+                                                            <div className="flex items-center gap-2.5">
+                                                                <StudentAvatar name={`${s.first_name} ${s.last_name}`} size={30} />
+                                                                <span className="font-bold text-gray-900">{s.first_name} {s.last_name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-3 py-1.5 text-center" style={{ background: C.score.bg + '60' }}>
                                                             <input type="number" min="0" max="100" value={score}
                                                                 onChange={e => handleMarkChange(s.id, e.target.value)}
                                                                 onKeyDown={e => {
@@ -321,17 +356,17 @@ export default function MarkEntryPage() {
                                                                 className={`w-20 text-center text-sm font-bold rounded-lg border-2 py-2 outline-none transition-all
                                                                     ${isUnsaved ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-200' :
                                                                         score !== '' ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'}
-                                                                    focus:border-blue-500 focus:ring-2 focus:ring-blue-200`}
+                                                                    focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200`}
                                                             />
                                                         </td>
-                                                        <td className="px-3 py-2 text-center">
-                                                            {gradeInfo ? (<span className="inline-flex items-center justify-center w-10 h-8 rounded-lg font-bold text-sm text-white"
+                                                        <td className="px-3 py-2 text-center" style={{ background: C.grade.bg + '60' }}>
+                                                            {gradeInfo ? (<span className="inline-flex items-center justify-center w-10 h-8 rounded-lg font-black text-sm text-white shadow-sm"
                                                                 style={{ background: gradeColors[gradeInfo.grade] || '#94a3b8' }}>{gradeInfo.grade}</span>
                                                             ) : (<span className="text-gray-300">—</span>)}
                                                         </td>
-                                                        <td className="px-3 py-2 text-center text-sm font-bold text-gray-600">{gradeInfo ? gradeInfo.points : '—'}</td>
-                                                        <td className="px-3 py-2 text-xs text-gray-500">{gradeInfo?.remarks || '—'}</td>
-                                                        <td className="px-3 py-2 text-center">
+                                                        <td className="px-3 py-2 text-center font-bold" style={{ background: C.pts.bg + '60', color: C.pts.text }}>{gradeInfo ? gradeInfo.points : '—'}</td>
+                                                        <td className="px-3 py-2 text-xs" style={{ background: C.remarks.bg + '60', color: C.remarks.text }}>{gradeInfo?.remarks || '—'}</td>
+                                                        <td className="px-3 py-2 text-center" style={{ background: C.status.bg + '60' }}>
                                                             {isUnsaved ? <span className="text-amber-500" title="Unsaved">⚡</span> :
                                                                 score !== '' ? <FiCheckCircle className="text-green-500 mx-auto" size={16} /> :
                                                                 <span className="text-gray-300">○</span>}
@@ -342,15 +377,15 @@ export default function MarkEntryPage() {
                                         </tbody>
                                     </table>
                                 </div>
-                                <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-gray-50 border-t border-gray-200 flex items-center justify-between text-sm">
+                                <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm" style={{ background: 'linear-gradient(135deg,#fafbff,#f5f3ff)' }}>
                                     <div className="text-gray-500">
-                                        <span className="font-semibold text-gray-700">{enteredCount}</span> of {classStudents.length} marks entered
-                                        {enteredCount > 0 && <> • Mean: <span className="font-bold text-purple-600">{avg.toFixed(1)}</span> • Grade: <span className="font-bold" style={{ color: gradeColors[getGrade(avg).grade] }}>{getGrade(avg).grade}</span></>}
+                                        <span className="font-bold text-gray-700">{enteredCount}</span> of {classStudents.length} marks entered
+                                        {enteredCount > 0 && <> • Mean: <span className="font-bold text-purple-600">{avg.toFixed(1)}</span> • Grade: <span className="font-black" style={{ color: gradeColors[getGrade(avg).grade] }}>{getGrade(avg).grade}</span></>}
                                     </div>
                                     <div className="flex gap-3 text-xs">
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-400 inline-block"></span> Saved</span>
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-400 inline-block"></span> Unsaved</span>
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-gray-200 inline-block"></span> Empty</span>
+                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-400 inline-block" /> Saved</span>
+                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-400 inline-block" /> Unsaved</span>
+                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-gray-200 inline-block" /> Empty</span>
                                     </div>
                                 </div>
                             </div>

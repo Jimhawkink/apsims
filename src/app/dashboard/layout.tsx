@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { usePageIcon } from '@/lib/usePageIcon';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -9,7 +10,7 @@ import {
     FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, 
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
-    FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers
+    FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2
 } from 'react-icons/fi';
 
 interface UserSession {
@@ -52,9 +53,12 @@ const menuGroups = [
         name: 'academics',
         collapsible: true,
         items: [
-            { href: '/dashboard/curriculum', label: 'Curriculum & Grading', icon: FiBookOpen, perm: 'curriculum' },
+            { href: '/dashboard/curriculum', label: 'Ultra Academics Hub', icon: FiBookOpen, perm: 'curriculum' },
+            { href: '/dashboard/curriculum/cbc-tracking', label: 'CBC Tracking', icon: FiTrendingUp, perm: 'curriculum' },
+            { href: '/dashboard/curriculum/cbc-assessment', label: 'CBC Assessment', icon: FiFileText, perm: 'curriculum' },
             { href: '/dashboard/schemes', label: 'Schemes of Work', icon: FiLayers, perm: 'curriculum' },
             { href: '/dashboard/subjects', label: 'Subjects', icon: FiFileText, perm: 'subjects' },
+            { href: '/dashboard/timetable', label: 'Timetable', icon: FiGrid, perm: 'timetable' },
             { href: '/dashboard/exams', label: 'Exam Dashboard', icon: FiFileText, perm: 'exams' },
             { href: '/dashboard/exams/marks', label: 'Mark Entry', icon: FiFileText, perm: 'exams' },
             { href: '/dashboard/exams/broadsheet', label: 'Broadsheet', icon: FiGrid, perm: 'exams' },
@@ -66,9 +70,9 @@ const menuGroups = [
             { href: '/dashboard/exams/paper-generator', label: 'Paper Generator', icon: FiFileText, perm: 'exams' },
             { href: '/dashboard/exams/ai-generate', label: 'AI Question Gen', icon: FiZap, perm: 'exams' },
             { href: '/dashboard/exams/digital-delivery', label: 'Digital Report Cards', icon: FiSend, perm: 'exams' },
-            { href: '/dashboard/curriculum/cbc-tracking', label: 'CBC Tracking', icon: FiTrendingUp, perm: 'curriculum' },
-            { href: '/dashboard/curriculum/cbc-assessment', label: 'CBC Assessment', icon: FiFileText, perm: 'curriculum' },
-            { href: '/dashboard/timetable', label: 'Timetable', icon: FiGrid, perm: 'timetable' },
+            { href: '/dashboard/exams/weighted', label: 'Weighted Exam Config', icon: FiSettings, perm: 'exams' },
+            { href: '/dashboard/exams/ultra-report-cards', label: 'Ultra Report Cards', icon: FiFileText, perm: 'exams' },
+            { href: '/dashboard/exams/detailed-analysis', label: 'Detailed Analysis', icon: FiBarChart2, perm: 'exams' },
             { href: '/dashboard/remedial', label: 'Remedial Programs', icon: FiTrendingUp, perm: 'remedial' },
         ]
     },
@@ -104,7 +108,10 @@ const menuGroups = [
             { href: '/dashboard/fees/outstanding', label: 'Outstanding Fees', icon: FiUsers, perm: 'fees' },
             { href: '/dashboard/fees/payments', label: 'Payment History', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/structure', label: 'Fee Structure', icon: FiGrid, perm: 'fees' },
-            { href: '/dashboard/fees/statements', label: 'Fee Statements', icon: FiBookOpen, perm: 'fees' },
+            { href: '/dashboard/fees/statements', label: 'Fee Statements', icon: FiFileText, perm: 'fees' },
+            { href: '/dashboard/fees/combined-sms', label: 'Fee+Results SMS', icon: FiMessageSquare, perm: 'fees' },
+            { href: '/dashboard/fees/structure-improvements', label: 'Fee Structure & Waivers', icon: FiDollarSign, perm: 'fees' },
+            { href: '/dashboard/fees/invoices-demand', label: 'Invoices & Demand Letters', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/expenses', label: 'Expenses', icon: FiTrendingDown, perm: 'expenses' },
             { href: '/dashboard/income', label: 'Other Income', icon: FiTrendingUp, perm: 'income' },
             { href: '/dashboard/payments/integration', label: 'Payment Integration', icon: FiSmartphone, perm: 'fees' },
@@ -164,6 +171,7 @@ const filterMenuGroups = (groups: typeof menuGroups, isAdmin: boolean, permissio
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
+    usePageIcon(pathname);
     const [user, setUser] = useState<UserSession | null>(null);
     const [userPermissions, setUserPermissions] = useState<Record<string, boolean>>({});
     const [userRole, setUserRole] = useState('admin');
@@ -178,19 +186,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     useEffect(() => {
         setMounted(true);
-        const stored = localStorage.getItem('school_user');
-        if (!stored) {
-            router.push('/');
-            return;
-        }
-        try {
-            const parsed = JSON.parse(stored);
-            setUser(parsed);
-            setUserRole(parsed.role || 'admin');
-            setUserPermissions(parsed.permissions || {});
-        } catch {
-            router.push('/');
-        }
+        // Verify session server-side (httpOnly cookie) before trusting localStorage
+        const verifySession = async () => {
+            try {
+                const res = await fetch('/api/auth/session');
+                if (!res.ok) {
+                    // No valid server session — redirect to login
+                    localStorage.removeItem('school_user');
+                    router.push('/');
+                    return;
+                }
+                const { user: serverUser } = await res.json();
+                // Use server-verified user data (authoritative)
+                const stored = localStorage.getItem('school_user');
+                const localUser = stored ? JSON.parse(stored) : null;
+                // If server user doesn't match local, use server data
+                const userData = serverUser || localUser;
+                if (!userData) { router.push('/'); return; }
+                setUser(userData);
+                setUserRole(userData.role || 'admin');
+                setUserPermissions(userData.permissions || {});
+                // Sync localStorage with verified data
+                localStorage.setItem('school_user', JSON.stringify(userData));
+            } catch {
+                // Network error — fall back to localStorage but flag as unverified
+                const stored = localStorage.getItem('school_user');
+                if (!stored) { router.push('/'); return; }
+                try {
+                    const parsed = JSON.parse(stored);
+                    setUser(parsed);
+                    setUserRole(parsed.role || 'admin');
+                    setUserPermissions(parsed.permissions || {});
+                } catch { router.push('/'); }
+            }
+        };
+        verifySession();
     }, [router]);
 
     // Setup initial expanded groups based on current path
@@ -228,7 +258,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const isAdmin = userRole === 'admin' || userRole === 'principal';
     const filteredGroups = filterMenuGroups(menuGroups, isAdmin, userPermissions);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
         localStorage.removeItem('school_user');
         router.push('/');
     };

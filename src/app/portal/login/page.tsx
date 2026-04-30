@@ -1,7 +1,6 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { FiUser, FiLock, FiLogIn, FiEye, FiEyeOff } from 'react-icons/fi';
 
@@ -17,63 +16,39 @@ export default function PortalLoginPage() {
     if (!username.trim() || !password.trim()) return toast.error('🚫 Enter username & password!', { icon: '⚠️' });
     setLoading(true);
     try {
-      // Case-insensitive username lookup
-      const { data, error } = await supabase
-        .from('school_portal_users')
-        .select('*, school_students(id, first_name, last_name, admission_number, form_id, status, school_forms(id, form_name))')
-        .ilike('username', username.trim())
-        .eq('is_active', true)
-        .single();
+      const res = await fetch('/api/auth/portal-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
 
-      console.log('Portal login query:', { data, error: error?.message, code: error?.code });
+      const data = await res.json();
 
-      if (error || !data) {
-        // Show specific error for RLS vs not found
-        const msg = error?.code === '42501' ? '🔒 Database access denied — contact admin to disable RLS'
-          : error?.message?.includes('0 rows') ? '❌ Username not found'
-          : error?.message?.includes('multiple') ? '❌ Multiple accounts found — contact admin'
-          : '❌ Account not found or inactive';
-        toast.error(msg, { icon: '⚠️', duration: 6000 }); setLoading(false); return;
+      if (!res.ok) {
+        toast.error(data.error || '❌ Login failed', { icon: '⚠️', duration: 6000 });
+        setLoading(false);
+        return;
       }
 
-      // Password verification (direct comparison — upgrade to bcrypt in production)
-      if (data.password_hash !== password) {
-        console.log('Password mismatch:', { input: password, stored: data.password_hash });
-        toast.error('❌ Wrong password — check and try again', { icon: '🔒' }); setLoading(false); return;
-      }
-
-      // Update last login
-      await supabase.from('school_portal_users').update({
-        last_login: new Date().toISOString(),
-        login_count: (data.login_count || 0) + 1,
-      }).eq('id', data.id);
-
-      // Log activity
-      await supabase.from('school_portal_activity_logs').insert([{
-        portal_user_id: data.id,
-        action: 'login',
-        details: { user_type: data.user_type },
-      }]);
-
-      // Store session
+      // Store minimal UI data in localStorage (session is in httpOnly cookie)
       localStorage.setItem('portal_session', JSON.stringify({
-        id: data.id,
-        user_type: data.user_type,
-        full_name: data.full_name || data.username,
-        student_id: data.linked_student_id,
-        student: data.school_students,
-        avatar: data.avatar_url,
+        id: data.user.id,
+        user_type: data.user.user_type_portal,
+        full_name: data.user.full_name,
+        student_id: data.user.student_id,
+        student: data.student,
+        avatar: data.user.avatar_url,
       }));
 
-      toast.success(`👋 Welcome, ${data.full_name || data.username}!`, { icon: '✅' });
+      toast.success(`👋 Welcome, ${data.user.full_name}!`, { icon: '✅' });
 
-      if (data.user_type === 'parent') {
+      if (data.user.user_type_portal === 'parent') {
         router.push('/portal/parent');
       } else {
         router.push('/portal/student');
       }
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || 'Login failed');
     }
     setLoading(false);
   };

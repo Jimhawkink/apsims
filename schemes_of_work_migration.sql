@@ -108,21 +108,61 @@ CREATE INDEX IF NOT EXISTS idx_scheme_lessons_week ON school_scheme_lessons(week
 CREATE INDEX IF NOT EXISTS idx_scheme_resources_lesson ON school_scheme_resources(lesson_id);
 CREATE INDEX IF NOT EXISTS idx_scheme_remarks_scheme ON school_scheme_remarks(scheme_id);
 
--- RLS
-ALTER TABLE school_schemes_of_work ENABLE ROW LEVEL SECURITY;
-ALTER TABLE school_scheme_weeks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE school_scheme_lessons ENABLE ROW LEVEL SECURITY;
-ALTER TABLE school_scheme_resources ENABLE ROW LEVEL SECURITY;
-ALTER TABLE school_scheme_remarks ENABLE ROW LEVEL SECURITY;
+-- RLS (safe to re-run)
+DO $$ BEGIN ALTER TABLE school_schemes_of_work ENABLE ROW LEVEL SECURITY; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE school_scheme_weeks ENABLE ROW LEVEL SECURITY; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE school_scheme_lessons ENABLE ROW LEVEL SECURITY; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE school_scheme_resources ENABLE ROW LEVEL SECURITY; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE school_scheme_remarks ENABLE ROW LEVEL SECURITY; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
-CREATE POLICY "Authenticated users can view schemes" ON school_schemes_of_work FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Authenticated users can insert schemes" ON school_schemes_of_work FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "Authenticated users can update schemes" ON school_schemes_of_work FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Authenticated users can delete schemes" ON school_schemes_of_work FOR DELETE TO authenticated USING (true);
-CREATE POLICY "Authenticated users full access weeks" ON school_scheme_weeks FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Authenticated users full access lessons" ON school_scheme_lessons FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Authenticated users full access resources" ON school_scheme_resources FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Authenticated users full access remarks" ON school_scheme_remarks FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DO $$ BEGIN
+    CREATE POLICY "Authenticated users can view schemes" ON school_schemes_of_work FOR SELECT TO authenticated USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Anon can view schemes" ON school_schemes_of_work FOR SELECT TO anon USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Authenticated users can insert schemes" ON school_schemes_of_work FOR INSERT TO authenticated WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Anon can insert schemes" ON school_schemes_of_work FOR INSERT TO anon WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Authenticated users can update schemes" ON school_schemes_of_work FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Anon can update schemes" ON school_schemes_of_work FOR UPDATE TO anon USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Authenticated users can delete schemes" ON school_schemes_of_work FOR DELETE TO authenticated USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Anon can delete schemes" ON school_schemes_of_work FOR DELETE TO anon USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Authenticated users full access weeks" ON school_scheme_weeks FOR ALL TO authenticated USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Anon full access weeks" ON school_scheme_weeks FOR ALL TO anon USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Authenticated users full access lessons" ON school_scheme_lessons FOR ALL TO authenticated USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Anon full access lessons" ON school_scheme_lessons FOR ALL TO anon USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Authenticated users full access resources" ON school_scheme_resources FOR ALL TO authenticated USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Anon full access resources" ON school_scheme_resources FOR ALL TO anon USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Authenticated users full access remarks" ON school_scheme_remarks FOR ALL TO authenticated USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "Anon full access remarks" ON school_scheme_remarks FOR ALL TO anon USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ════════════════════════════════════════════════════════════
 -- PART 2: KENYA CBC LEARNING AREAS

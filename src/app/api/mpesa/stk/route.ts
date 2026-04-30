@@ -28,6 +28,15 @@ function generatePassword(shortcode: string, passkey: string, timestamp: string)
 
 export async function POST(req: NextRequest) {
   try {
+    // ─── Auth + CSRF Check ───
+    const { getSession, validateCsrf, auditLog } = await import('@/lib/auth');
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const csrfToken = req.headers.get('x-csrf-token');
+    const csrfValid = await validateCsrf(csrfToken);
+    if (!csrfValid) return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 });
+
     const body = await req.json();
     const { phone, amount, account_reference, transaction_desc, student_id } = body;
 
@@ -99,6 +108,19 @@ export async function POST(req: NextRequest) {
         status: 'processing',
       }]);
     }
+
+    // Audit log
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    await auditLog({
+      action: 'mpesa_stk_initiated',
+      actor_id: session.id,
+      actor_name: session.username,
+      actor_role: session.role,
+      target_type: 'student',
+      target_id: student_id,
+      details: { amount: Number(amount), phone, checkout_request_id: result.CheckoutRequestID },
+      ip_address: ip,
+    });
 
     return NextResponse.json({
       success: result.ResponseCode === '0',

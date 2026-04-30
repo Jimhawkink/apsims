@@ -28,11 +28,22 @@ export default function ParentDashboard() {
   const PS = 8;
 
   useEffect(() => {
-    const s = localStorage.getItem('portal_session');
-    if (!s) { router.push('/portal/login'); return; }
-    const p = JSON.parse(s);
-    if (p.user_type !== 'parent') { router.push('/portal/student'); return; }
-    setSession(p);
+    const verifyAndLoad = async () => {
+      // Verify session server-side
+      try {
+        const res = await fetch('/api/auth/session');
+        if (!res.ok) { localStorage.removeItem('portal_session'); router.push('/portal/login'); return; }
+        const { user } = await res.json();
+        if (user?.user_type_portal !== 'parent' && user?.role !== 'parent') { router.push('/portal/student'); return; }
+      } catch { /* network error — continue with local check */ }
+
+      const s = localStorage.getItem('portal_session');
+      if (!s) { router.push('/portal/login'); return; }
+      const p = JSON.parse(s);
+      if (p.user_type !== 'parent') { router.push('/portal/student'); return; }
+      setSession(p);
+    };
+    verifyAndLoad();
   }, [router]);
 
   const fetchData = useCallback(async () => {
@@ -68,7 +79,7 @@ export default function ParentDashboard() {
     await supabase.from('school_portal_notifications').update({ is_read: true }).eq('portal_user_id', session.id).eq('is_read', false);
     setNotifications(p => p.map(n => ({ ...n, is_read: true }))); toast.success('All marked as read');
   };
-  const logout = () => { localStorage.removeItem('portal_session'); router.push('/portal/login'); };
+  const logout = async () => { await fetch('/api/auth/logout', { method: 'POST' }); localStorage.removeItem('portal_session'); router.push('/portal/login'); };
 
   if (!session) return null;
   const st = session.student;

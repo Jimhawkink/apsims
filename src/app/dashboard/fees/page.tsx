@@ -11,7 +11,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, LineElement
 export default function FeeDashboardPage() {
     const { forms, students, payments, structures, terms, loading, fetchAll, currentTerm, getStudentFees } = useFeeData();
 
-    if (loading) return <div className="flex items-center justify-center h-[60vh]"><div className="text-center"><div className="w-10 h-10 border-3 border-gray-200 border-t-purple-500 rounded-full animate-spin mx-auto mb-3" /><p className="text-gray-400 text-sm">Loading Fee Dashboard...</p></div></div>;
+    if (loading) return <div className="flex flex-col items-center justify-center h-64 gap-3"><div className="relative"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>💰</div><div className="absolute -inset-2 rounded-3xl border-2 border-indigo-200 animate-ping opacity-30" /></div><p className="text-sm font-bold text-gray-500">Loading Fee Dashboard…</p></div>;
 
     const totalCollected = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
     const activeStudents = students.filter(s => s.status === 'Active');
@@ -84,17 +84,22 @@ export default function FeeDashboardPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
-                    { label: "Today's Collection", value: fmt(todayTotal), gradient: 'linear-gradient(135deg, #22c55e, #16a34a)', sub: `${todayPayments.length} payments` },
-                    { label: "This Week", value: fmt(weekTotal), gradient: 'linear-gradient(135deg, #06b6d4, #0891b2)', sub: `${weekPayments.length} payments` },
-                    { label: 'Total Collected', value: fmt(totalCollected), gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', sub: `${payments.length} transactions` },
-                    { label: 'Total Expected', value: fmt(totalExpected), gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', sub: `${activeStudents.length} students` },
-                    { label: 'Outstanding', value: fmt(totalOutstanding), gradient: 'linear-gradient(135deg, #ef4444, #dc2626)', sub: `${studentsOwing} owing` },
-                    { label: 'Collection Rate', value: `${collectionRate}%`, gradient: collectionRate >= 70 ? 'linear-gradient(135deg, #22c55e, #16a34a)' : collectionRate >= 40 ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #ef4444, #dc2626)', sub: 'Progress' },
+                    { label: "Today's Collection", value: fmt(todayTotal), emoji: '📅', color: '#22c55e', sub: `${todayPayments.length} payments` },
+                    { label: "This Week", value: fmt(weekTotal), emoji: '📆', color: '#06b6d4', sub: `${weekPayments.length} payments` },
+                    { label: 'Total Collected', value: fmt(totalCollected), emoji: '✅', color: '#3b82f6', sub: `${payments.length} transactions` },
+                    { label: 'Total Expected', value: fmt(totalExpected), emoji: '📊', color: '#7c3aed', sub: `${activeStudents.length} students` },
+                    { label: 'Outstanding', value: fmt(totalOutstanding), emoji: '⚠️', color: '#ef4444', sub: `${studentsOwing} owing`, pulse: totalOutstanding > 0 },
+                    { label: 'Collection Rate', value: `${collectionRate}%`, emoji: '📈', color: collectionRate >= 70 ? '#22c55e' : collectionRate >= 40 ? '#f59e0b' : '#ef4444', sub: collectionRate >= 70 ? 'On track' : collectionRate >= 40 ? 'Needs attention' : 'Critical', pulse: collectionRate < 40 },
                 ].map((c, i) => (
-                    <div key={i} className="rounded-2xl p-4 text-white relative overflow-hidden" style={{ background: c.gradient }}>
-                        <p className="text-[10px] font-semibold opacity-85 uppercase tracking-wide">{c.label}</p>
-                        <p className="text-lg font-extrabold mt-1">{c.value}</p>
-                        <p className="text-[10px] opacity-70 mt-1">{c.sub}</p>
+                    <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden" style={{ borderLeftWidth: 4, borderLeftColor: c.color }}>
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">{c.label}</p>
+                            <span className="text-lg">{c.emoji}</span>
+                        </div>
+                        <p className="text-lg font-extrabold text-gray-900">{c.value}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">{c.sub}</p>
+                        {c.pulse && <div className="absolute top-3 right-3 w-2 h-2 rounded-full animate-pulse" style={{ background: c.color }} />}
+                        <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full opacity-[0.06]" style={{ background: c.color }} />
                     </div>
                 ))}
             </div>
@@ -102,13 +107,13 @@ export default function FeeDashboardPage() {
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div className="lg:col-span-2 chart-container">
-                    <h3 className="font-bold text-gray-700 text-sm mb-4 flex items-center gap-2"><FiTrendingUp className="text-blue-500" /> Monthly Collection Trend</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2"><FiTrendingUp className="text-indigo-500" /> Monthly Collection Trend</p>
                     <div style={{ height: 260 }}>
                         <Line data={{ labels: monthlyTrends.map(m => m.month), datasets: [{ label: 'Collections', data: monthlyTrends.map(m => m.amount), borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#6366f1' }] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } }} />
                     </div>
                 </div>
                 <div className="chart-container">
-                    <h3 className="font-bold text-gray-700 text-sm mb-4 flex items-center gap-2"><FiCreditCard className="text-green-500" /> Payment Methods</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2"><FiCreditCard className="text-green-500" /> Payment Methods</p>
                     <div style={{ height: 260 }}>
                         {Object.keys(methodBreakdown).length > 0 ? (
                             <Doughnut data={{ labels: Object.keys(methodBreakdown), datasets: [{ data: Object.values(methodBreakdown), backgroundColor: ['#22c55e','#10b981','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#06b6d4'], borderWidth: 0 }] }} options={{ responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' as const, labels: { padding: 10, usePointStyle: true, font: { size: 11 } } } } }} />
@@ -120,15 +125,15 @@ export default function FeeDashboardPage() {
             {/* Daily bar chart + Recent payments */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div className="chart-container">
-                    <h3 className="font-bold text-gray-700 text-sm mb-4 flex items-center gap-2"><FiBarChart2 className="text-purple-500" /> Daily Collection (Last 7 Days)</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2"><FiBarChart2 className="text-purple-500" /> Daily Collection (Last 7 Days)</p>
                     <div style={{ height: 220 }}>
                         <Bar data={{ labels: daily.map(d => d.day), datasets: [{ label: 'KES', data: daily.map(d => d.amount), backgroundColor: '#8b5cf6', borderRadius: 8 }] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } }} />
                     </div>
                 </div>
 
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                        <h3 className="font-bold text-gray-700 text-sm">Recent Payments</h3>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recent Payments</p>
                         <Link href="/dashboard/fees/payments" className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1">View All <FiArrowRight size={12} /></Link>
                     </div>
                     <div className="divide-y divide-gray-50">
@@ -149,9 +154,9 @@ export default function FeeDashboardPage() {
             </div>
 
             {/* Form-wise Collection */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100">
-                    <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2"><FiUsers className="text-purple-500" /> Form-wise Fee Collection</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2"><FiUsers className="text-purple-500" /> Form-wise Fee Collection</p>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
@@ -201,9 +206,10 @@ export default function FeeDashboardPage() {
                 ].map((a, i) => {
                     const Icon = a.icon;
                     return (
-                        <Link key={i} href={a.href} className="bg-white rounded-xl border border-gray-200 p-5 text-center hover:shadow-lg hover:-translate-y-1 transition-all group">
+                        <Link key={i} href={a.href} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center hover:shadow-md transition-all group relative overflow-hidden" style={{ borderLeftWidth: 4, borderLeftColor: a.color }}>
                             <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: a.color + '18' }}><Icon size={22} style={{ color: a.color }} /></div>
-                            <p className="text-sm font-semibold text-gray-600 group-hover:text-gray-800">{a.label}</p>
+                            <p className="text-sm font-bold text-gray-600 group-hover:text-gray-800">{a.label}</p>
+                            <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full opacity-[0.06]" style={{ background: a.color }} />
                         </Link>
                     );
                 })}

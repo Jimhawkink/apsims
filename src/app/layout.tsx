@@ -8,6 +8,9 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
     title: 'APSIMS - School Management System',
     description: 'Advanced Pupil & Staff Information Management System - Powered by Hawkinsoft Solutions',
+    icons: {
+        icon: '/favicon.svg',
+    },
 };
 
 export default function RootLayout({
