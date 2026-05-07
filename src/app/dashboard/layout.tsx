@@ -10,7 +10,7 @@ import {
     FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, 
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
-    FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2
+    FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive
 } from 'react-icons/fi';
 
 interface UserSession {
@@ -177,6 +177,7 @@ const menuGroups = [
             { href: '/dashboard/settings', label: 'System Settings', icon: FiSettings, perm: 'settings' },
             { href: '/dashboard/super-admin', label: 'Multi-School / Super Admin', icon: FiGlobe, perm: 'super-admin' },
             { href: '/dashboard/cbc-analytics', label: 'CBC Analytics', icon: FiBarChart2, perm: 'exams' },
+            { href: '/dashboard/backup', label: 'Ultra Database Backup', icon: FiHardDrive, perm: 'settings' },
         ]
     }
 ];
