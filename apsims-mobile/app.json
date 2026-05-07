@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ultra APSIMS",
     "slug": "apsims-mobile",
-    "version": "1.0.0",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,21 +14,54 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.alphasolutions.apsims"
+      "bundleIdentifier": "com.alphasolutions.apsims",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "APSIMS needs camera access to scan documents and take student photos.",
+        "NSPhotoLibraryUsageDescription": "APSIMS needs photo library access to upload student documents and photos.",
+        "NSLocationWhenInUseUsageDescription": "APSIMS uses location for attendance verification."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.alphasolutions.apsims"
+      "package": "com.alphasolutions.apsims",
+      "versionCode": 8,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-asset",
-      "expo-font"
-    ]
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#6366f1",
+          "sounds": [],
+          "androidMode": "default",
+          "androidCollapsedTitle": "APSIMS"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
+    }
   }
 }

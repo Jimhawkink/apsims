@@ -36,8 +36,9 @@ export interface SessionData {
   phone?: string;
   permissions?: Record<string, boolean>;
   // Portal session fields
-  user_type_portal?: 'student' | 'parent';
+  user_type_portal?: 'student' | 'parent' | 'teacher';
   student_id?: number;
+  teacher_id?: number;
 }
 
 export function encodeSession(data: SessionData): string {

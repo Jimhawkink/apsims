@@ -28,7 +28,7 @@ export default function AssetsPage() {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
-        const { data } = await supabase.from('school_assets').select('*').order('asset_name');
+        const { data } = await (supabase as any).from('school_assets').select('*').order('asset_name');
         setAssets(data || []);
         setLoading(false);
     }, []);
@@ -68,8 +68,8 @@ export default function AssetsPage() {
             supplier: form.supplier || null, status: form.status,
         };
         let error;
-        if (editingId) ({ error } = await supabase.from('school_assets').update(payload).eq('id', editingId));
-        else ({ error } = await supabase.from('school_assets').insert([payload]));
+        if (editingId) ({ error } = await (supabase as any).from('school_assets').update(payload).eq('id', editingId));
+        else ({ error } = await (supabase as any).from('school_assets').insert([payload]));
         if (error) { toast.error('Failed to save asset'); return; }
         toast.success(editingId ? 'Asset updated! ✅' : 'Asset added! 🏫');
         setShowModal(false);
@@ -79,7 +79,7 @@ export default function AssetsPage() {
 
     const handleDelete = async (id: number) => {
         if (!confirm('Delete this asset?')) return;
-        await supabase.from('school_assets').delete().eq('id', id);
+        await (supabase as any).from('school_assets').delete().eq('id', id);
         toast.success('Asset deleted');
         fetchData();
     };

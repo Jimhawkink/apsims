@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { FiUser, FiSearch, FiPrinter, FiMail, FiPhone, FiMapPin, FiCalendar, FiBookOpen, FiAward, FiChevronLeft, FiChevronRight, FiFileText, FiHeart, FiShield } from 'react-icons/fi';
+import EmergencyContactsSection from '@/components/EmergencyContactsSection';
 
 export default function StudentProfilePage() {
     const [students, setStudents] = useState<any[]>([]);
@@ -194,6 +195,15 @@ export default function StudentProfilePage() {
                                         ))}
                                     </div>
                                 </div>
+                            )}
+
+                            {/* Emergency Contacts Section — shown on personal tab */}
+                            {tab === 'personal' && selStudent && (
+                                <EmergencyContactsSection
+                                    studentId={selStudent.id}
+                                    studentStatus={selStudent.status}
+                                    canWrite={true}
+                                />
                             )}
 
                             {/* Academic Tab */}

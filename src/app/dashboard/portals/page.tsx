@@ -6,6 +6,64 @@ import { FiPlus, FiEdit2, FiTrash2, FiSave, FiX, FiSearch, FiRefreshCw, FiChevro
 const G={blue:'linear-gradient(135deg,#2563eb,#3b82f6)',green:'linear-gradient(135deg,#059669,#0d9488)',amber:'linear-gradient(135deg,#f59e0b,#d97706)',purple:'linear-gradient(135deg,#7c3aed,#8b5cf6)',red:'linear-gradient(135deg,#ef4444,#dc2626)'};
 const typeEmoji:any={info:'📢',fee:'💰',result:'📊',attendance:'📋',health:'🏥',general:'🔔'};
 
+// Searchable student picker — handles thousands of students without freezing
+function StudentPicker({students,value,onChange}:{students:any[],value:number,onChange:(id:number)=>void}) {
+  const [q,setQ]=useState('');
+  const [open,setOpen]=useState(false);
+  const selected=students.find(s=>s.id===value);
+  const filtered=q.trim().length>0
+    ?students.filter(s=>{
+        const name=`${s.last_name} ${s.first_name} ${s.admission_number}`.toLowerCase();
+        return name.includes(q.toLowerCase());
+      }).slice(0,50)
+    :[];
+  return(
+    <div className="relative">
+      <div
+        className="w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-xl text-sm cursor-pointer flex items-center justify-between hover:border-green-400 transition-all"
+        onClick={()=>setOpen(o=>!o)}
+      >
+        <span className={selected?'text-gray-900 font-semibold':'text-gray-400'}>
+          {selected?`${selected.last_name}, ${selected.first_name} (${selected.admission_number})${selected.school_forms?.form_name?` — ${selected.school_forms.form_name}`:''}` :'🔍 Type to search student…'}
+        </span>
+        <span className="text-gray-400 text-xs">{open?'▲':'▼'}</span>
+      </div>
+      {open&&(
+        <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-2xl mt-1 overflow-hidden">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              autoFocus
+              value={q}
+              onChange={e=>setQ(e.target.value)}
+              placeholder="Type name or admission number…"
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-green-400"
+            />
+          </div>
+          <div className="max-h-60 overflow-y-auto">
+            {q.trim().length===0&&(
+              <div className="px-4 py-3 text-xs text-gray-400 text-center">Start typing to search from {students.length} students</div>
+            )}
+            {q.trim().length>0&&filtered.length===0&&(
+              <div className="px-4 py-3 text-xs text-gray-400 text-center">No students found for "{q}"</div>
+            )}
+            {filtered.map(s=>(
+              <div
+                key={s.id}
+                className={`px-4 py-2.5 cursor-pointer hover:bg-green-50 text-sm transition-colors ${value===s.id?'bg-green-50 font-bold text-green-700':''}`}
+                onClick={()=>{onChange(s.id);setOpen(false);setQ('');}}
+              >
+                <span className="font-semibold">{s.last_name}, {s.first_name}</span>
+                <span className="text-gray-400 ml-2 text-xs">({s.admission_number})</span>
+                {s.school_forms?.form_name&&<span className="text-gray-400 ml-1 text-xs">— {s.school_forms.form_name}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PortalsPage() {
   const [loading,setLoading]=useState(true),[portalUsers,setPortalUsers]=useState<any[]>([]),
     [notifications,setNotifications]=useState<any[]>([]),[students,setStudents]=useState<any[]>([]),
@@ -15,8 +73,37 @@ export default function PortalsPage() {
   const [uForm,setUForm]=useState({user_type:'parent',linked_student_id:0,linked_teacher_id:0,username:'',full_name:'',email:'',phone:'',is_active:true,password:'',auto_password:true});
   const [showPw,setShowPw]=useState(false),[generatedPw,setGeneratedPw]=useState('');
   const [nForm,setNForm]=useState({portal_user_id:0,title:'',message:'',type:'info',student_id:0});
+  const [studentSearch,setStudentSearch]=useState('');
 
-  const fetchAll=useCallback(async()=>{setLoading(true);const[u,n,s,t]=await Promise.all([fetch('/api/portal-users').then(r=>r.json()).then(j=>j.data||[]),supabase.from('school_portal_notifications').select('*').order('created_at',{ascending:false}).limit(50),supabase.from('school_students').select('id,first_name,last_name,admission_number').eq('status','Active').order('last_name'),supabase.from('school_teachers').select('id,first_name,last_name,tsc_number').order('last_name')]);setPortalUsers(u);setNotifications(n.data||[]);setStudents(s.data||[]);setTeachers(t.data||[]);setLoading(false)},[]);
+  const fetchAll=useCallback(async()=>{
+    setLoading(true);
+    // Fetch all students using pagination (Supabase caps at 1000 per request)
+    const fetchAllStudents = async () => {
+      const allStudents: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('school_students')
+          .select('id,first_name,last_name,admission_number,form_id,school_forms(form_name)')
+          .eq('status','Active')
+          .order('last_name')
+          .range(from, from + pageSize - 1);
+        if (error || !data || data.length === 0) break;
+        allStudents.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allStudents;
+    };
+    const[u,n,s,t]=await Promise.all([
+      fetch('/api/portal-users').then(r=>r.json()).then(j=>j.data||[]),
+      supabase.from('school_portal_notifications').select('*').order('created_at',{ascending:false}).limit(50),
+      fetchAllStudents(),
+      supabase.from('school_teachers').select('id,first_name,last_name,tsc_number').order('last_name').limit(500)
+    ]);
+    setPortalUsers(u);setNotifications(n.data||[]);setStudents(s);setTeachers(t.data||[]);setLoading(false);
+  },[]);
   useEffect(()=>{fetchAll()},[fetchAll]);
 
   const filtered=useMemo(()=>{if(!search)return portalUsers;const q=search.toLowerCase();return portalUsers.filter(u=>u.username?.toLowerCase().includes(q)||u.full_name?.toLowerCase().includes(q))},[portalUsers,search]);
@@ -90,10 +177,11 @@ export default function PortalsPage() {
                 ):(
                   <>
                     <label className="text-[11px] font-bold text-gray-500 mb-1.5 block uppercase tracking-wider flex items-center gap-1"><FiUser size={11}/> Linked Student *</label>
-                    <select value={uForm.linked_student_id} onChange={e=>setUForm({...uForm,linked_student_id:Number(e.target.value)})} className="w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-xl text-sm focus:outline-none focus:bg-white focus:border-green-400 focus:ring-2 focus:ring-green-100 transition-all cursor-pointer">
-                      <option value={0}>🔍 Select Student…</option>
-                      {students.map(s=><option key={s.id} value={s.id}>{s.last_name}, {s.first_name} ({s.admission_number})</option>)}
-                    </select>
+                    <StudentPicker
+                      students={students}
+                      value={uForm.linked_student_id}
+                      onChange={(id)=>setUForm({...uForm,linked_student_id:id})}
+                    />
                   </>
                 )}
               </div>

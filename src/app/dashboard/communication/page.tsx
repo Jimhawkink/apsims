@@ -29,7 +29,7 @@ interface MessageLog {
 export default function CommunicationPage() {
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
-    const [tab, setTab] = useState<'compose' | 'history' | 'templates'>('compose');
+    const [tab, setTab] = useState<'compose' | 'history' | 'templates' | 'whatsapp'>('compose');
 
     // Compose State
     const [recipientFilter, setRecipientFilter] = useState<RecipientFilter>('all_parents');
@@ -38,6 +38,15 @@ export default function CommunicationPage() {
     const [feeThreshold, setFeeThreshold] = useState(0);
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState<'sms' | 'notification'>('sms');
+
+    // WhatsApp Tab State
+    const [waRecipientFilter, setWaRecipientFilter] = useState<RecipientFilter>('all_parents');
+    const [waSelForm, setWaSelForm] = useState('');
+    const [waSelStream, setWaSelStream] = useState('');
+    const [waCustomPhones, setWaCustomPhones] = useState('');
+    const [waMessage, setWaMessage] = useState('');
+    const [waSending, setWaSending] = useState(false);
+    const [waRecipients, setWaRecipients] = useState<any[]>([]);
 
     // Data
     const [forms, setForms] = useState<any[]>([]);
@@ -93,6 +102,65 @@ export default function CommunicationPage() {
         }
         setSelectedRecipients(recipients);
     }, [recipientFilter, selForm, selStream, students, feeThreshold]);
+
+    // Compute WhatsApp recipients
+    useEffect(() => {
+        let recipients: any[] = [];
+        if (waRecipientFilter === 'all_parents') {
+            recipients = students.filter(s => s.guardian_phone);
+        } else if (waRecipientFilter === 'by_form') {
+            recipients = students.filter(s => s.guardian_phone && (!waSelForm || String(s.form_id) === waSelForm));
+        } else if (waRecipientFilter === 'by_stream') {
+            recipients = students.filter(s => s.guardian_phone && (!waSelForm || String(s.form_id) === waSelForm) && (!waSelStream || String(s.stream_id) === waSelStream));
+        } else if (waRecipientFilter === 'fee_defaulters') {
+            recipients = students.filter(s => s.guardian_phone);
+        }
+        setWaRecipients(recipients);
+    }, [waRecipientFilter, waSelForm, waSelStream, students]);
+
+    const waRecipientCount = waRecipientFilter === 'custom'
+        ? waCustomPhones.split(/[\n,;]+/).filter(p => p.trim()).length
+        : waRecipients.length;
+    const waEstimatedCost = waRecipientCount * 0.50; // KES 0.50 per WhatsApp message
+
+    const handleSendWhatsApp = async () => {
+        if (!waMessage.trim()) { toast.error('Please type a message'); return; }
+        if (waRecipientFilter === 'custom' && !waCustomPhones.trim()) { toast.error('Enter phone numbers'); return; }
+        if (waRecipientFilter !== 'custom' && waRecipients.length === 0) { toast.error('No recipients found'); return; }
+
+        setWaSending(true);
+        try {
+            const payload: any = {
+                recipient_filter: waRecipientFilter,
+                message_content: waMessage.trim(),
+            };
+            if (waRecipientFilter === 'by_form' && waSelForm) payload.form_id = Number(waSelForm);
+            if (waRecipientFilter === 'by_stream') {
+                if (waSelForm) payload.form_id = Number(waSelForm);
+                if (waSelStream) payload.stream_id = Number(waSelStream);
+            }
+            if (waRecipientFilter === 'custom') {
+                payload.custom_phones = waCustomPhones.split(/[\n,;]+/).map(p => p.trim()).filter(Boolean);
+            }
+
+            const res = await fetch('/api/communication/whatsapp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                toast.error(data.error || 'Failed to send WhatsApp messages');
+            } else {
+                toast.success(`WhatsApp sent to ${data.sent} of ${data.total} recipients ✅`);
+                setWaMessage('');
+                fetchData();
+            }
+        } catch (e) {
+            toast.error('Failed to send WhatsApp messages');
+        }
+        setWaSending(false);
+    };
 
     const charCount = message.length;
     const smsCount = Math.ceil(charCount / 160) || 0;
@@ -197,6 +265,7 @@ export default function CommunicationPage() {
                     { key: 'compose', label: 'Compose Message', icon: FiSend },
                     { key: 'history', label: 'Message History', icon: FiClock },
                     { key: 'templates', label: 'Templates', icon: FiMessageSquare },
+                    { key: 'whatsapp', label: 'WhatsApp', icon: FiPhone },
                 ].map(t => {
                     const Icon = t.icon;
                     return (
@@ -397,18 +466,162 @@ export default function CommunicationPage() {
                                         <tr key={log.id}>
                                             <td className="text-xs text-gray-400">{i + 1}</td>
                                             <td className="text-sm">{new Date(log.sent_at || log.created_at).toLocaleDateString('en-KE')}</td>
-                                            <td><span className={`badge ${log.message_type === 'sms' ? 'badge-success' : 'badge-blue'}`}>{log.message_type?.toUpperCase()}</span></td>
+                                            <td><span className={`badge ${log.message_type === 'sms' ? 'badge-success' : log.message_type === 'whatsapp' ? 'badge-green' : 'badge-blue'}`}>
+                                                {log.message_type === 'whatsapp' ? (
+                                                    <span className="flex items-center gap-1">
+                                                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                                                        WA
+                                                    </span>
+                                                ) : log.message_type === 'whatsapp_error' ? (
+                                                    <span className="flex items-center gap-1 text-red-600">
+                                                        <FiAlertCircle size={10} /> ERR
+                                                    </span>
+                                                ) : log.message_type?.toUpperCase()}
+                                            </span></td>
                                             <td className="text-sm font-medium text-gray-700">{log.recipients}</td>
                                             <td className="text-sm font-bold text-indigo-600">{log.recipient_count}</td>
                                             <td className="text-xs text-gray-600 max-w-[200px] truncate">{log.message}</td>
                                             <td className="text-sm text-gray-500">{log.sent_by}</td>
-                                            <td><span className={`badge ${log.status === 'Sent' ? 'badge-success' : log.status === 'Failed' ? 'badge-danger' : 'badge-warning'}`}>{log.status}</span></td>
+                                            <td><span className={`badge ${log.status === 'Sent' ? 'badge-success' : log.status === 'Failed' ? 'badge-danger' : log.status === 'Partial' ? 'badge-warning' : 'badge-warning'}`}>{log.status}</span></td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* WhatsApp Tab */}
+            {tab === 'whatsapp' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    {/* Left: Recipients */}
+                    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100" style={{ background: 'linear-gradient(135deg, #25d366, #128c7e)' }}>
+                            <h3 className="font-bold text-white text-sm flex items-center gap-2"><FiPhone size={14} /> WhatsApp Recipients</h3>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Recipient Filter</label>
+                                <select value={waRecipientFilter} onChange={e => setWaRecipientFilter(e.target.value as RecipientFilter)}
+                                    className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-green-400 outline-none">
+                                    <option value="all_parents">All Parents / Guardians</option>
+                                    <option value="by_form">Filter by Form</option>
+                                    <option value="by_stream">Filter by Form & Stream</option>
+                                    <option value="fee_defaulters">Fee Defaulters</option>
+                                    <option value="custom">Custom Phone List</option>
+                                </select>
+                            </div>
+
+                            {(waRecipientFilter === 'by_form' || waRecipientFilter === 'by_stream') && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Form</label>
+                                    <select value={waSelForm} onChange={e => setWaSelForm(e.target.value)}
+                                        className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-green-400 outline-none">
+                                        <option value="">All Forms</option>
+                                        {forms.map(f => <option key={f.id} value={String(f.id)}>{f.form_name}</option>)}
+                                    </select>
+                                </div>
+                            )}
+
+                            {waRecipientFilter === 'by_stream' && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Stream</label>
+                                    <select value={waSelStream} onChange={e => setWaSelStream(e.target.value)}
+                                        className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-green-400 outline-none">
+                                        <option value="">All Streams</option>
+                                        {streams.map(s => <option key={s.id} value={String(s.id)}>{s.stream_name}</option>)}
+                                    </select>
+                                </div>
+                            )}
+
+                            {waRecipientFilter === 'custom' && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Phone Numbers (one per line)</label>
+                                    <textarea value={waCustomPhones} onChange={e => setWaCustomPhones(e.target.value)}
+                                        className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-green-400 outline-none"
+                                        rows={6} placeholder="0712345678&#10;0723456789&#10;+254711222333" />
+                                </div>
+                            )}
+
+                            {waRecipientFilter !== 'custom' && (
+                                <div className="bg-green-50 rounded-lg p-3 border border-green-100">
+                                    <p className="text-xs font-semibold text-green-700 mb-2">
+                                        <FiCheckCircle className="inline mr-1" size={12} /> {waRecipients.length} recipients selected
+                                    </p>
+                                    <div className="max-h-40 overflow-y-auto space-y-1">
+                                        {waRecipients.slice(0, 20).map(s => (
+                                            <div key={s.id} className="flex items-center justify-between text-xs">
+                                                <span className="text-gray-700">{s.guardian_name || `${s.first_name}'s Guardian`}</span>
+                                                <span className="text-gray-400 font-mono">{s.guardian_phone}</span>
+                                            </div>
+                                        ))}
+                                        {waRecipients.length > 20 && (
+                                            <p className="text-xs text-green-600 font-semibold mt-2">+ {waRecipients.length - 20} more...</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Estimated Cost */}
+                            <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                                <p className="text-xs font-bold text-amber-700">
+                                    Estimated cost: KES {(waRecipientCount * 0.50).toFixed(2)} (@ KES 0.50/message)
+                                </p>
+                                <p className="text-xs text-amber-600 mt-1">{waRecipientCount} recipient{waRecipientCount !== 1 ? 's' : ''}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right: Message Compose */}
+                    <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                            <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2">
+                                <FiPhone className="text-green-500" /> Compose WhatsApp Message
+                            </h3>
+                            <span className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200">
+                                WhatsApp Business API
+                            </span>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Message Body</label>
+                                <textarea value={waMessage} onChange={e => setWaMessage(e.target.value)}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:border-green-400 outline-none transition-all resize-none"
+                                    rows={8} placeholder="Type your WhatsApp message here... Use {student_name}, {balance}, {date}, {school_name} as merge tags." />
+                                <div className="flex items-center justify-between mt-2">
+                                    <span className="text-xs text-gray-400">{waMessage.length} characters</span>
+                                    <span className="text-xs font-bold text-green-600">
+                                        Est. Cost: KES {waEstimatedCost.toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                                <p className="text-xs font-bold text-amber-700 mb-1">Available Merge Tags:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {['{student_name}', '{balance}', '{date}', '{school_name}', '{guardian}'].map(tag => (
+                                        <button key={tag} onClick={() => setWaMessage(prev => prev + ' ' + tag)}
+                                            className="px-2 py-1 bg-white border border-amber-200 rounded text-xs font-mono text-amber-700 hover:bg-amber-100 transition-all cursor-pointer">
+                                            {tag}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2">
+                                <button onClick={() => setWaMessage('')} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-all">Clear</button>
+                                <button onClick={handleSendWhatsApp} disabled={waSending || !waMessage.trim()}
+                                    className="px-8 py-2.5 text-sm font-bold text-white rounded-lg flex items-center gap-2 shadow-lg disabled:opacity-50"
+                                    style={{ background: waSending ? '#94a3b8' : 'linear-gradient(135deg, #25d366, #128c7e)' }}>
+                                    {waSending
+                                        ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sending...</>
+                                        : <><FiPhone size={14} /> Send to {waRecipientCount} Recipients</>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

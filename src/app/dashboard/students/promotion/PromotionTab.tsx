@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { FiTrendingUp, FiSend } from 'react-icons/fi';
+import { getEducationSystem } from '@/lib/cbc-utils';
+import EducationSystemBadge from '@/components/cbc/EducationSystemBadge';
 
 export default function PromotionTab({ data }: { data: any }) {
     const { students, forms, streams, rules, studentAverages, checkEligibility, getFormName, getStreamName, getCurrentAcademicYear, schoolDetails, user, fetchAll } = data;
@@ -73,7 +75,8 @@ export default function PromotionTab({ data }: { data: any }) {
             if (!confirm(`${ineligible.length} student(s) are INELIGIBLE:\n${ineligible.join(', ')}\n\nProceed anyway?`)) return;
         }
         const targetFormName = getFormName(Number(targetForm));
-        if (!confirm(`Promote ${selected.size} students to ${targetFormName}?${autoAssignStream ? ' (Streams auto-assigned by merit)' : ''}`)) return;
+        const isCBCPromotion = getEducationSystem(Number(selForm), forms) === 'CBC_Senior_School';
+        if (!confirm(`Promote ${selected.size} students to ${targetFormName}?${autoAssignStream ? ' (Streams auto-assigned by merit)' : ''}${isCBCPromotion ? '\n\nCBC: Subject combinations will be carried forward.' : ''}`)) return;
         setPromoting(true);
         let count = 0;
         const rule = rules.find((r: any) => r.from_form_id === Number(selForm) && r.to_form_id === Number(targetForm));
@@ -86,6 +89,8 @@ export default function PromotionTab({ data }: { data: any }) {
             if (!error) {
                 count++;
                 await supabase.from('school_promotion_history').insert([{ student_id: id, from_form_id: Number(selForm), to_form_id: Number(targetForm), from_stream_id: student.stream_id, to_stream_id: newStreamId, action_type: 'Promotion', academic_year_id: currentAY?.id || null, average_score: studentAverages[id]?.average || null, eligibility_status: eligStatus, rule_id: rule?.id || null, approval_status: rule?.require_approval ? 'Pending' : 'Auto', sms_sent: false, performed_by: user?.full_name || user?.username || 'System' }]);
+                // CBC: update pathway_id on cbc_student_subjects to keep subject combination
+                // (subject assignments stay — only form_id changes on the student record)
                 if (sendSmsOnPromote) {
                     const smsOk = await sendPromotionSms(student, targetFormName);
                     if (smsOk) await supabase.from('school_promotion_history').update({ sms_sent: true, sms_phone: student.guardian_phone }).match({ student_id: id, action_type: 'Promotion' });
@@ -145,7 +150,7 @@ export default function PromotionTab({ data }: { data: any }) {
                     <div>
                         <label className="text-xs font-semibold text-gray-500 mb-1 block">Current Form *</label>
                         <select value={selForm} onChange={e => { setSelForm(e.target.value); setSelStream(''); setSelected(new Set()); setSelectAll(false); }} className="select-modern w-full text-sm">
-                            <option value="">Select Form</option>{forms.map((f: any) => <option key={f.id} value={f.id}>{f.form_name}</option>)}
+                            <option value="">Select Form</option>{forms.map((f: any) => <option key={f.id} value={f.id}>{f.form_name}{f.education_system === 'CBC_Senior_School' ? ' [CBC]' : ' [8-4-4]'}</option>)}
                         </select>
                     </div>
                     <div>
@@ -157,7 +162,7 @@ export default function PromotionTab({ data }: { data: any }) {
                     <div>
                         <label className="text-xs font-semibold text-gray-500 mb-1 block">Target Form *</label>
                         <select value={targetForm} onChange={e => setTargetForm(e.target.value)} className="select-modern w-full text-sm">
-                            <option value="">Target Form</option>{forms.filter((f: any) => String(f.id) !== selForm).map((f: any) => <option key={f.id} value={f.id}>{f.form_name}</option>)}
+                            <option value="">Target Form</option>{forms.filter((f: any) => String(f.id) !== selForm).map((f: any) => <option key={f.id} value={f.id}>{f.form_name}{f.education_system === 'CBC_Senior_School' ? ' [CBC]' : ' [8-4-4]'}</option>)}
                         </select>
                     </div>
                     <div>
@@ -193,6 +198,27 @@ export default function PromotionTab({ data }: { data: any }) {
                     </div>
                 </div>
             </div>
+
+            {/* CBC info banner */}
+            {selForm && getEducationSystem(Number(selForm), forms) === 'CBC_Senior_School' && (
+                <div className="flex items-start gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                    <span className="text-lg">🛤️</span>
+                    <div>
+                        <p className="text-sm font-bold text-indigo-800">CBC Senior School Promotion</p>
+                        <p className="text-xs text-indigo-600 mt-0.5">
+                            Promoting CBC students carries their <strong>subject combinations forward</strong> automatically.
+                            Grade 10 → Grade 11 → Grade 12. After Grade 12, use <strong>Graduate</strong> to move them to Alumni.
+                        </p>
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                            {forms.filter((f: any) => f.education_system === 'CBC_Senior_School').map((f: any) => (
+                                <span key={f.id} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                    {f.form_name}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {!selForm ? (
                 <div className="bg-white rounded-2xl border border-gray-200 text-center py-20 text-gray-400">

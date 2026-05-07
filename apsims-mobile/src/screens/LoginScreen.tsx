@@ -5,15 +5,17 @@ import {
     KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { loginUser, UserSession } from '../lib/supabase';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
+import { loginUser } from '../lib/supabase';
+import { useSession } from '../context/SessionContext';
 import {
     validateUsername, validatePassword, isRateLimited,
     recordFailedAttempt, clearRateLimit, saveSession,
 } from '../lib/security';
 
-interface Props {
-    onLoginSuccess: (session: UserSession) => void;
-}
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const C = {
     bg: '#f8fafc',
@@ -33,7 +35,9 @@ const C = {
     inputBorder: '#cbd5e1',
 };
 
-export default function LoginScreen({ onLoginSuccess }: Props) {
+export default function LoginScreen() {
+    const { setSession } = useSession();
+    const navigation = useNavigation<NavProp>();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPw, setShowPw] = useState(false);
@@ -111,7 +115,8 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             if (user) {
                 await clearRateLimit();
                 await saveSession(user);
-                onLoginSuccess(user);
+                setSession(user);
+                // Navigation is handled by App.tsx based on session state
             } else {
                 triggerShake();
                 const { locked, attemptsLeft, lockoutMs } = await recordFailedAttempt();

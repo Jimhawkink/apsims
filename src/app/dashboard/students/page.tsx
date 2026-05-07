@@ -11,6 +11,10 @@ import {
     FiCreditCard, FiGrid, FiList, FiPhone, FiMail, FiAward
 } from 'react-icons/fi';
 import { KENYAN_COUNTIES, COUNTY_NAMES, NATIONALITIES } from '@/lib/kenyan-data';
+import { getEducationSystem, validateSubjectCombination } from '@/lib/cbc-utils';
+import CBCEnrollmentStep from '@/components/cbc/CBCEnrollmentStep';
+import PathwayBadge from '@/components/cbc/PathwayBadge';
+import EducationSystemBadge from '@/components/cbc/EducationSystemBadge';
 
 interface Student {
     id?: number; admission_no: string; first_name: string; last_name: string; middle_name: string;
@@ -56,6 +60,14 @@ export default function StudentsPage() {
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const perPage = 20;
 
+    // CBC state
+    const [cbcPathways, setCbcPathways] = useState<any[]>([]);
+    const [cbcPathwaySubjects, setCbcPathwaySubjects] = useState<any[]>([]);
+    const [cbcStudentSubjects, setCbcStudentSubjects] = useState<any[]>([]);
+    const [selectedPathwayId, setSelectedPathwayId] = useState<number | null>(null);
+    const [selectedElectives, setSelectedElectives] = useState<number[]>([]);
+    const [allSubjects, setAllSubjects] = useState<any[]>([]);
+
     const fetchStudents = useCallback(async () => {
         setLoading(true);
         const [s, f, st] = await Promise.all([
@@ -66,6 +78,23 @@ export default function StudentsPage() {
         setStudents(s.data || []);
         setForms(f.data || []);
         setStreams(st.data || []);
+
+        // Fetch CBC tables (may not exist yet — use try/catch)
+        try {
+            const [pw, pws, ss, subj] = await Promise.all([
+                supabase.from('cbc_pathways').select('*').order('pathway_name'),
+                supabase.from('cbc_pathway_subjects').select('*'),
+                supabase.from('cbc_student_subjects').select('*'),
+                supabase.from('school_subjects').select('*').order('subject_name'),
+            ]);
+            setCbcPathways(pw.data || []);
+            setCbcPathwaySubjects(pws.data || []);
+            setCbcStudentSubjects(ss.data || []);
+            setAllSubjects(subj.data || []);
+        } catch {
+            // CBC tables not yet created — silently ignore
+        }
+
         setLoading(false);
     }, []);
 
@@ -110,12 +139,26 @@ export default function StudentsPage() {
     const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
     const getNextAdmNo = () => {
-        let max = 100;
-        students.forEach(s => { const num = parseInt(s.admission_no || s.admission_number || '0', 10); if (!isNaN(num) && num > max) max = num; });
-        return String(max + 1);
+        const year = new Date().getFullYear();
+        let max = 0;
+        students.forEach(s => {
+            const adm = s.admission_no || s.admission_number || '';
+            // Match ADM/YYYY/NNN format
+            const match = adm.match(/ADM\/\d{4}\/(\d+)/);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (!isNaN(num) && num > max) max = num;
+            } else {
+                // Legacy plain number format
+                const num = parseInt(adm, 10);
+                if (!isNaN(num) && num > max) max = num;
+            }
+        });
+        const next = max + 1;
+        return `ADM/${year}/${String(next).padStart(3, '0')}`;
     };
 
-    const openAdd = () => { setEditId(null); setFormData({ ...defaultStudent, admission_no: getNextAdmNo() }); setModalTab(0); setShowModal(true); };
+    const openAdd = () => { setEditId(null); setFormData({ ...defaultStudent, admission_no: getNextAdmNo() }); setModalTab(0); setSelectedPathwayId(null); setSelectedElectives([]); setShowModal(true); };
     const openEdit = (s: any) => {
         setEditId(s.id);
         setFormData({
@@ -125,11 +168,32 @@ export default function StudentsPage() {
             medical_conditions: s.medical_conditions || s.medical_info || '',
             form_id: s.form_id || null, stream_id: s.stream_id || null,
         });
+        // Pre-populate CBC pathway/electives if editing a CBC student
+        const existingSubjects = cbcStudentSubjects.filter((ss: any) => ss.student_id === s.id);
+        if (existingSubjects.length > 0) {
+            const pathwayId = existingSubjects[0]?.pathway_id ?? null;
+            setSelectedPathwayId(pathwayId);
+            const electiveIds = existingSubjects
+                .filter((ss: any) => ss.is_elective)
+                .map((ss: any) => ss.subject_id as number);
+            setSelectedElectives(electiveIds);
+        } else {
+            setSelectedPathwayId(null);
+            setSelectedElectives([]);
+        }
         setModalTab(0); setShowModal(true);
     };
 
     const handleSave = async () => {
         if (!formData.admission_no || !formData.first_name || !formData.last_name) { toast.error('Please fill admission number, first name and last name'); return; }
+
+        // CBC validation: if the selected form is CBC, require pathway + exactly 3 electives
+        const isCBC = formData.form_id ? getEducationSystem(Number(formData.form_id), forms) === 'CBC_Senior_School' : false;
+        if (isCBC) {
+            if (!selectedPathwayId) { toast.error('Please select a CBC pathway before saving'); return; }
+            if (!validateSubjectCombination(selectedElectives)) { toast.error('Please select exactly 3 elective subjects for the CBC pathway'); return; }
+        }
+
         const payload: any = {
             admission_number: formData.admission_no, admission_no: formData.admission_no,
             first_name: formData.first_name, last_name: formData.last_name,
@@ -151,9 +215,53 @@ export default function StudentsPage() {
             religion: formData.religion || null, notes: formData.notes || null,
         };
         let error;
-        if (editId) ({ error } = await supabase.from('school_students').update(payload).eq('id', editId));
-        else ({ error } = await supabase.from('school_students').insert([payload]));
+        let studentId: number | null = editId;
+        if (editId) {
+            ({ error } = await supabase.from('school_students').update(payload).eq('id', editId));
+        } else {
+            const { data: inserted, error: insertError } = await supabase.from('school_students').insert([payload]).select('id').single();
+            error = insertError;
+            if (inserted) studentId = inserted.id;
+        }
         if (error) { toast.error(error.message || 'Failed to save'); return; }
+
+        // Upsert CBC subject assignments if this is a CBC student
+        if (isCBC && studentId && selectedPathwayId) {
+            try {
+                // Delete existing subject assignments for this student
+                await supabase.from('cbc_student_subjects').delete().eq('student_id', studentId);
+
+                // Compulsory subjects: is_compulsory = true in cbc_pathway_subjects
+                const compulsorySubjectIds = cbcPathwaySubjects
+                    .filter((ps: any) => ps.is_compulsory)
+                    .map((ps: any) => ps.subject_id as number);
+                const uniqueCompulsoryIds = [...new Set(compulsorySubjectIds)];
+
+                const compulsoryRows = uniqueCompulsoryIds.map((subjectId) => ({
+                    student_id: studentId,
+                    pathway_id: selectedPathwayId,
+                    subject_id: subjectId,
+                    is_elective: false,
+                }));
+
+                const electiveRows = selectedElectives.map((subjectId) => ({
+                    student_id: studentId,
+                    pathway_id: selectedPathwayId,
+                    subject_id: subjectId,
+                    is_elective: true,
+                }));
+
+                if (compulsoryRows.length > 0) {
+                    await supabase.from('cbc_student_subjects').insert(compulsoryRows);
+                }
+                if (electiveRows.length > 0) {
+                    await supabase.from('cbc_student_subjects').insert(electiveRows);
+                }
+            } catch {
+                // CBC tables may not exist yet — silently ignore
+            }
+        }
+
         toast.success(editId ? 'Student updated ✅' : 'Student enrolled ✅');
         setShowModal(false); fetchStudents();
     };
@@ -213,7 +321,10 @@ export default function StudentsPage() {
     };
 
     const subCounties = formData.county ? KENYAN_COUNTIES[formData.county] || [] : [];
-    const modalTabs = ['📋 Basic Info', '🏠 Location', '👨‍👩‍👦 Guardian', '🏥 Medical', '🎓 Academic'];
+    const isCBCForm = formData.form_id ? getEducationSystem(Number(formData.form_id), forms) === 'CBC_Senior_School' : false;
+    const modalTabs = isCBCForm
+        ? ['📋 Basic Info', '🏠 Location', '👨‍👩‍👦 Guardian', '🏥 Medical', '🎓 Academic', '🛤️ CBC Pathway']
+        : ['📋 Basic Info', '🏠 Location', '👨‍👩‍👦 Guardian', '🏥 Medical', '🎓 Academic'];
 
     const handleSort = (col: typeof sortBy) => {
         if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -428,8 +539,22 @@ export default function StudentsPage() {
                                                 </td>
                                                 <td className="px-3 py-2.5 text-center text-xs font-medium text-gray-500">{getAge(s.date_of_birth)}</td>
                                                 <td className="px-3 py-2.5">
-                                                    <p className="text-sm font-semibold text-gray-700">{getFormName(s.form_id)}</p>
-                                                    <p className="text-[10px] text-gray-400">{getStreamName(s.stream_id)}</p>
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <p className="text-sm font-semibold text-gray-700">{getFormName(s.form_id)}</p>
+                                                        {s.form_id && (() => {
+                                                            const sys = getEducationSystem(Number(s.form_id), forms);
+                                                            return sys ? <EducationSystemBadge system={sys} /> : null;
+                                                        })()}
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                                        <p className="text-[10px] text-gray-400">{getStreamName(s.stream_id)}</p>
+                                                        {s.form_id && getEducationSystem(Number(s.form_id), forms) === 'CBC_Senior_School' && (() => {
+                                                            const studentSubj = cbcStudentSubjects.find((ss: any) => ss.student_id === s.id);
+                                                            if (!studentSubj) return null;
+                                                            const pathway = cbcPathways.find((p: any) => p.id === studentSubj.pathway_id);
+                                                            return pathway ? <PathwayBadge pathwayName={pathway.pathway_name} colorHex={pathway.color_hex} /> : null;
+                                                        })()}
+                                                    </div>
                                                 </td>
                                                 <td className="px-3 py-2.5 text-center">
                                                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
@@ -610,7 +735,7 @@ export default function StudentsPage() {
                                     <div><label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Last Name *</label><input type="text" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-400 outline-none" /></div>
                                     <div><label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Gender *</label><select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-400 outline-none"><option value="Male">👦 Male</option><option value="Female">👧 Female</option></select></div>
                                     <div><label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Date of Birth</label><input type="date" value={formData.date_of_birth} onChange={e => setFormData({ ...formData, date_of_birth: e.target.value })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-400 outline-none" /></div>
-                                    <div><label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Form</label><select value={formData.form_id || ''} onChange={e => setFormData({ ...formData, form_id: e.target.value ? Number(e.target.value) : null })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-400 outline-none"><option value="">Select Form</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}</select></div>
+                                    <div><label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Form</label><select value={formData.form_id || ''} onChange={e => setFormData({ ...formData, form_id: e.target.value ? Number(e.target.value) : null })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-400 outline-none"><option value="">Select Form</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}{f.education_system === 'CBC_Senior_School' ? ' [CBC]' : ' [8-4-4]'}</option>)}</select>{formData.form_id && (() => { const sys = getEducationSystem(Number(formData.form_id), forms); return sys ? <div className="mt-1.5 flex items-center gap-1.5"><EducationSystemBadge system={sys} /><span className="text-[10px] text-gray-400">{sys === 'CBC_Senior_School' ? 'CBC Senior School pathway required' : '8-4-4 curriculum'}</span></div> : null; })()}</div>
                                     <div><label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Stream</label><select value={formData.stream_id || ''} onChange={e => setFormData({ ...formData, stream_id: e.target.value ? Number(e.target.value) : null })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-400 outline-none"><option value="">Select Stream</option>{streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}</select></div>
                                     <div><label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Admission Date</label><input type="date" value={formData.admission_date} onChange={e => setFormData({ ...formData, admission_date: e.target.value })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-400 outline-none" /></div>
                                     <div><label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Status</label><select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-400 outline-none"><option value="Active">✅ Active</option><option value="Inactive">❌ Inactive</option><option value="Transferred">🔄 Transferred</option><option value="Graduated">🎓 Graduated</option><option value="Suspended">⚠️ Suspended</option></select></div>
@@ -658,6 +783,17 @@ export default function StudentsPage() {
                                     <div><label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">NEMIS / UPI Number</label><input type="text" value={formData.nemis_no} onChange={e => setFormData({ ...formData, nemis_no: e.target.value })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-400 outline-none" /></div>
                                     <div className="sm:col-span-2"><label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Additional Notes</label><textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-400 outline-none min-h-[80px]" /></div>
                                 </div>
+                            )}
+                            {modalTab === 5 && isCBCForm && (
+                                <CBCEnrollmentStep
+                                    pathways={cbcPathways}
+                                    pathwaySubjects={cbcPathwaySubjects}
+                                    allSubjects={allSubjects}
+                                    selectedPathwayId={selectedPathwayId}
+                                    selectedElectives={selectedElectives}
+                                    onPathwayChange={(id) => { setSelectedPathwayId(id); setSelectedElectives([]); }}
+                                    onElectivesChange={setSelectedElectives}
+                                />
                             )}
                         </div>
 

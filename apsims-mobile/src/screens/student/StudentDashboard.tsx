@@ -1,29 +1,45 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, StatusBar, SafeAreaView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { UserSession, HomeworkItem, getStudentHomework, getPastPapers, getStudentResults, formatDate, getGrade } from '../../lib/supabase';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/types';
+import { useSession } from '../../context/SessionContext';
+import { clearSession } from '../../lib/security';
+import { HomeworkItem, getStudentHomework, getPastPapers, getStudentResults, formatDate, getGrade, getUnreadNotificationCount } from '../../lib/supabase';
+import { cacheData } from '../../lib/offline';
+import OfflineBanner from '../../components/OfflineBanner';
 
-interface Props { session: UserSession; onLogout: () => void; }
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
 type Tab = 'assignments' | 'papers' | 'results';
 const C = { bg: '#f8fafc', card: '#fff', border: '#e2e8f0', primary: '#2563eb', accent: '#059669', danger: '#ef4444', warning: '#f59e0b', purple: '#7c3aed', teal: '#0d9488', text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8' };
 
-export default function StudentDashboard({ session, onLogout }: Props) {
+export default function StudentDashboard() {
+    const { session, setSession } = useSession();
+    const navigation = useNavigation<NavProp>();
     const [tab, setTab] = useState<Tab>('assignments');
     const [homework, setHomework] = useState<HomeworkItem[]>([]);
     const [papers, setPapers] = useState<any[]>([]);
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const portalUserId = session?.portal_user_id || 0;
 
     const loadData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
             const [hw, pp, res] = await Promise.all([
-                session.student_form_id ? getStudentHomework(session.student_form_id) : Promise.resolve([]),
+                session?.student_form_id ? getStudentHomework(session.student_form_id) : Promise.resolve([]),
                 getPastPapers(),
-                session.linked_student_id ? getStudentResults(session.linked_student_id) : Promise.resolve([]),
+                session?.linked_student_id ? getStudentResults(session.linked_student_id) : Promise.resolve([]),
             ]);
             setHomework(hw); setPapers(pp); setResults(res);
+            await cacheData(`student_${session?.portal_user_id}_dashboard`, { hw, pp, res });
+            if (portalUserId) {
+                const count = await getUnreadNotificationCount(portalUserId);
+                setUnreadCount(count);
+            }
         } catch (err: any) { console.error('Student load error:', err.message); }
         finally { setLoading(false); setRefreshing(false); }
     }, [session]);
@@ -46,13 +62,27 @@ export default function StudentDashboard({ session, onLogout }: Props) {
                 <SafeAreaView>
                     <View style={st.headerRow}>
                         <View style={st.avatar}><Text style={st.avatarText}>
-                            {(session.student_name || 'S').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)}
+                            {(session?.student_name || 'S').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
                         </Text></View>
                         <View style={{ flex: 1 }}>
-                            <Text style={st.headerName}>{session.student_name || 'Student'}</Text>
-                            <Text style={st.headerSub}>🎓 Adm: {session.student_admission || 'N/A'} • {session.student_form || 'N/A'}</Text>
+                            <Text style={st.headerName}>{session?.student_name || 'Student'}</Text>
+                            <Text style={st.headerSub}>🎓 Adm: {session?.student_admission || 'N/A'} • {session?.student_form || 'N/A'}</Text>
                         </View>
-                        <TouchableOpacity onPress={onLogout} style={st.logoutBtn}><Text style={{ fontSize: 18 }}>🚪</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => { setSession(null); clearSession(); }} style={st.logoutBtn}>
+                            <Text style={{ fontSize: 18 }}>🚪</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('Notifications', { portalUserId })}
+                            style={[st.logoutBtn, { position: 'relative' }]}
+                            accessibilityLabel="Notifications"
+                        >
+                            <Text style={{ fontSize: 20 }}>🔔</Text>
+                            {unreadCount > 0 && (
+                                <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: '#ef4444', borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.8)' }}>
+                                    <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{unreadCount > 99 ? '99+' : String(unreadCount)}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
                     </View>
                 </SafeAreaView>
             </LinearGradient>

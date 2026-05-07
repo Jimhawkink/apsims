@@ -51,10 +51,24 @@ export function useFeeData() {
     const getStudentFees = (studentId: number, formId?: number) => {
         const studentPays = payments.filter(p => p.student_id === studentId);
         const totalPaid = studentPays.reduce((s, p) => s + Number(p.amount || 0), 0);
-        const applicableFees = formId ? structures.filter(f => !f.form_id || f.form_id === formId) : structures;
-        const termFees = applicableFees.filter(f => currentTerm ? (!f.term_id || f.term_id === currentTerm.id) : true);
+
+        // Filter structures by form (include general + form-specific)
+        const applicableFees = formId
+            ? structures.filter(f => !f.form_id || f.form_id === formId)
+            : structures;
+
+        // Filter by current year — if no current year data, use most recent year
+        const currentYear = new Date().getFullYear();
+        let yearFiltered = applicableFees.filter(f => !f.year || f.year === currentYear);
+        if (yearFiltered.length === 0 && applicableFees.length > 0) {
+            // Fall back to most recent year available
+            const maxYear = Math.max(...applicableFees.map(f => f.year || 0));
+            yearFiltered = applicableFees.filter(f => !f.year || f.year === maxYear);
+        }
+
+        const termFees = yearFiltered.filter(f => currentTerm ? (!f.term_id || f.term_id === currentTerm.id) : true);
         const termTotal = termFees.reduce((s, f) => s + Number(f.amount || 0), 0);
-        const annualTotal = applicableFees.reduce((s, f) => s + Number(f.amount || 0), 0);
+        const annualTotal = yearFiltered.reduce((s, f) => s + Number(f.amount || 0), 0);
         return {
             totalPaid, termTotal, termBalance: Math.max(0, termTotal - totalPaid),
             annualTotal, annualBalance: Math.max(0, annualTotal - totalPaid),

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiDownload, FiPrinter, FiSearch, FiFilter, FiFileText, FiBarChart2, FiGrid, FiTrendingUp, FiAward, FiDollarSign, FiCalendar, FiBookOpen, FiCheckSquare, FiSquare } from 'react-icons/fi';
+import { FiDownload, FiPrinter, FiSearch, FiFilter, FiFileText, FiBarChart2, FiGrid, FiTrendingUp, FiAward, FiDollarSign, FiCalendar, FiBookOpen, FiCheckSquare, FiSquare, FiDatabase, FiX } from 'react-icons/fi';
 
 type ReportTab = 'marksheet' | 'subject-analysis' | 'class-analysis' | 'progressive' | 'report-card' | 'merit-list' | 'fee-reports' | 'attendance-report';
 
@@ -60,6 +60,11 @@ function ReportsContent() {
     const [selStudent, setSelStudent] = useState(0);
     const [search, setSearch] = useState('');
     const [selExams, setSelExams] = useState<string[]>([]);
+
+    // NEMIS Export State
+    const [nemisFormId, setNemisFormId] = useState('');
+    const [showNemisModal, setShowNemisModal] = useState(false);
+    const [nemisStudentCount, setNemisStudentCount] = useState(0);
 
     const EXAM_TYPES = ['CAT 1', 'CAT 2', 'Mid-Term', 'End-Term', 'Mock', 'KCSE Trial'];
 
@@ -126,6 +131,16 @@ function ReportsContent() {
     }, []);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
+
+    // Compute NEMIS export student count
+    useEffect(() => {
+        const count = students.filter(s => {
+            if (s.status !== 'Active') return false;
+            if (nemisFormId && String(s.form_id) !== nemisFormId) return false;
+            return true;
+        }).length;
+        setNemisStudentCount(count);
+    }, [students, nemisFormId]);
 
     // Helpers
     const filteredStudents = students.filter(s => {
@@ -581,6 +596,102 @@ function ReportsContent() {
             {loading ? (
                 <div className="flex justify-center py-20"><div className="spinner" style={{ borderTopColor: '#6366f1', borderColor: '#e2e8f0', width: 32, height: 32, borderWidth: 3 }} /></div>) : (
                 tabContent[activeTab]()
+            )}
+
+            {/* NEMIS Export Section */}
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                    <FiDatabase className="text-green-600" size={16} />
+                    <h3 className="font-bold text-gray-700 text-sm">NEMIS Web Export</h3>
+                    <span className="ml-auto text-xs text-gray-400">KNEC-compliant student data export</span>
+                </div>
+                <div className="p-5">
+                    <div className="flex flex-wrap items-end gap-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Form Filter</label>
+                            <select value={nemisFormId} onChange={e => setNemisFormId(e.target.value)}
+                                className="select-modern text-sm px-3 py-2.5 min-w-[160px]">
+                                <option value="">All Forms</option>
+                                {forms.map(f => <option key={f.id} value={String(f.id)}>{f.form_name}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex items-end gap-3">
+                            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2.5">
+                                <p className="text-xs text-green-600 font-semibold">{nemisStudentCount} active students</p>
+                                <p className="text-xs text-green-500">{nemisFormId ? `Form ${forms.find(f => String(f.id) === nemisFormId)?.form_name || ''}` : 'All Forms'}</p>
+                            </div>
+                            <button onClick={() => setShowNemisModal(true)}
+                                className="px-5 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow-lg"
+                                style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}>
+                                <FiDownload size={14} /> Export NEMIS CSV
+                            </button>
+                        </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-3">
+                        Exports: admission_number, first_name, middle_name, last_name, date_of_birth, gender, nemis_no, birth_cert_no, form_name, stream_name, county, sub_county
+                    </p>
+                </div>
+            </div>
+
+            {/* NEMIS Export Confirm Modal */}
+            {showNemisModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between"
+                            style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}>
+                            <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                                <FiDatabase size={14} /> NEMIS Export Confirmation
+                            </h3>
+                            <button onClick={() => setShowNemisModal(false)} className="text-white/80 hover:text-white transition-colors">
+                                <FiX size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2">
+                                <p className="text-sm font-bold text-green-800">Export Summary</p>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-600">Total active students:</span>
+                                    <span className="font-bold text-green-700">{nemisStudentCount}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-600">Form filter:</span>
+                                    <span className="font-bold text-green-700">
+                                        {nemisFormId ? forms.find(f => String(f.id) === nemisFormId)?.form_name || 'Selected Form' : 'All Forms'}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-600">Format:</span>
+                                    <span className="font-bold text-green-700">NEMIS CSV (KNEC)</span>
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                                The CSV file will be downloaded to your device. It contains student data in KNEC NEMIS format with 12 columns.
+                            </p>
+                        </div>
+                        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                            <button onClick={() => setShowNemisModal(false)}
+                                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const url = `/api/nemis-export${nemisFormId ? `?form_id=${nemisFormId}` : ''}`;
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `NEMIS_Export_${new Date().toISOString().split('T')[0]}.csv`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    toast.success('NEMIS CSV download started ✅');
+                                    setShowNemisModal(false);
+                                }}
+                                className="px-6 py-2 text-sm font-bold text-white rounded-lg flex items-center gap-2 shadow-lg"
+                                style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}>
+                                <FiDownload size={14} /> Download CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>);
 }

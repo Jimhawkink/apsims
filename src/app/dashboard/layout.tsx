@@ -73,6 +73,9 @@ const menuGroups = [
             { href: '/dashboard/exams/weighted', label: 'Weighted Exam Config', icon: FiSettings, perm: 'exams' },
             { href: '/dashboard/exams/ultra-report-cards', label: 'Ultra Report Cards', icon: FiFileText, perm: 'exams' },
             { href: '/dashboard/exams/detailed-analysis', label: 'Detailed Analysis', icon: FiBarChart2, perm: 'exams' },
+            { href: '/dashboard/exams/cbc-marks', label: 'CBC Mark Entry', icon: FiFileText, perm: 'exams' },
+            { href: '/dashboard/exams/cbc-report-cards', label: 'CBC Report Cards', icon: FiFileText, perm: 'exams' },
+            { href: '/dashboard/students/subject-combinations', label: 'CBC Subject Combos', icon: FiGrid, perm: 'students' },
             { href: '/dashboard/remedial', label: 'Remedial Programs', icon: FiTrendingUp, perm: 'remedial' },
         ]
     },
@@ -133,6 +136,27 @@ const menuGroups = [
         ]
     },
     {
+        label: "Cutting-Edge Features",
+        icon: FiZap,
+        name: 'cutting-edge',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/students/clinic', label: 'Clinic / Sick Bay', icon: FiHeart, perm: 'students' },
+            { href: '/dashboard/visitors', label: 'Visitor Management', icon: FiUsers, perm: 'students' },
+            { href: '/dashboard/students/bus-passes', label: 'Bus Pass Cards', icon: FiSmartphone, perm: 'students' },
+            { href: '/dashboard/students/alumni', label: 'Alumni Tracking', icon: FiUsers, perm: 'students' },
+            { href: '/dashboard/academic-calendar', label: 'Academic Calendar', icon: FiCalendar, perm: 'students' },
+            { href: '/dashboard/hostel', label: 'Hostel / Boarding', icon: FiHome, perm: 'students' },
+            { href: '/dashboard/transport', label: 'Transport Management', icon: FiSmartphone, perm: 'students' },
+            { href: '/dashboard/analytics', label: 'Advanced Analytics', icon: FiBarChart2, perm: 'reports' },
+            { href: '/dashboard/admissions/applications', label: 'Online Admissions', icon: FiUserCheck, perm: 'students' },
+            { href: '/dashboard/lms', label: 'LMS / E-Learning', icon: FiBookOpen, perm: 'curriculum' },
+            { href: '/dashboard/ptm', label: 'PTM Scheduler', icon: FiCalendar, perm: 'students' },
+            { href: '/dashboard/fees/defaulter-automation', label: 'Fee Defaulter Automation', icon: FiAlertCircle, perm: 'fees' },
+            { href: '/dashboard/knec-compliance', label: 'KNEC / NEMIS Compliance', icon: FiShield, perm: 'reports' },
+        ]
+    },
+    {
         label: "Parent & Portals",
         icon: FiMessageSquare,
         name: 'comms',
@@ -148,10 +172,11 @@ const menuGroups = [
         name: 'admin',
         collapsible: true,
         items: [
-            { href: '/dashboard/reports', label: 'Reports & Export', icon: FiPieChart, perm: 'reports' },
+            { href: '/dashboard/reports', label: 'Reports & NEMIS Export', icon: FiPieChart, perm: 'reports' },
             { href: '/dashboard/users', label: 'User Roles', icon: FiKey, perm: 'users' },
             { href: '/dashboard/settings', label: 'System Settings', icon: FiSettings, perm: 'settings' },
             { href: '/dashboard/super-admin', label: 'Multi-School / Super Admin', icon: FiGlobe, perm: 'super-admin' },
+            { href: '/dashboard/cbc-analytics', label: 'CBC Analytics', icon: FiBarChart2, perm: 'exams' },
         ]
     }
 ];

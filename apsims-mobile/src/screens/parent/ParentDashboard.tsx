@@ -4,17 +4,21 @@ import {
     RefreshControl, ActivityIndicator, StatusBar, SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/types';
+import { useSession } from '../../context/SessionContext';
+import { clearSession } from '../../lib/security';
 import {
-    UserSession, FeePayment, DisciplineRecord,
+    FeePayment, DisciplineRecord,
     getStudentFeePayments, getStudentFeeStructures,
     getStudentDiscipline, getStudentResults, formatKES, formatDate, getGrade,
+    getUnreadNotificationCount,
 } from '../../lib/supabase';
+import { cacheData } from '../../lib/offline';
+import OfflineBanner from '../../components/OfflineBanner';
 
-interface Props {
-    session: UserSession;
-    onLogout: () => void;
-    onPayFees: () => void;
-}
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const C = {
     bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
@@ -28,7 +32,9 @@ const C = {
 
 type Tab = 'fees' | 'academics' | 'discipline';
 
-export default function ParentDashboard({ session, onLogout, onPayFees }: Props) {
+export default function ParentDashboard() {
+    const { session, setSession } = useSession();
+    const navigation = useNavigation<NavProp>();
     const [tab, setTab] = useState<Tab>('fees');
     const [payments, setPayments] = useState<FeePayment[]>([]);
     const [structures, setStructures] = useState<any[]>([]);
@@ -36,9 +42,11 @@ export default function ParentDashboard({ session, onLogout, onPayFees }: Props)
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
 
-    const studentId = session.linked_student_id || 0;
-    const formId = session.student_form_id || 0;
+    const studentId = session?.linked_student_id || 0;
+    const formId = session?.student_form_id || 0;
+    const portalUserId = session?.portal_user_id || 0;
 
     const loadData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -53,6 +61,12 @@ export default function ParentDashboard({ session, onLogout, onPayFees }: Props)
             setStructures(structs);
             setDiscipline(disc);
             setResults(res);
+            await cacheData(`parent_${session?.portal_user_id}_dashboard`, { pays, structs, disc, res });
+            // Refresh notification count
+            if (portalUserId) {
+                const count = await getUnreadNotificationCount(portalUserId);
+                setUnreadCount(count);
+            }
         } catch (err: any) {
             console.error('Parent load error:', err.message);
         } finally {
@@ -89,18 +103,33 @@ export default function ParentDashboard({ session, onLogout, onPayFees }: Props)
                     <View style={styles.headerRow}>
                         <View style={styles.avatar}>
                             <Text style={styles.avatarText}>
-                                {(session.student_name || 'S').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)}
+                                {(session?.student_name || 'S').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
                             </Text>
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.headerName}>{session.student_name || 'Student'}</Text>
+                            <Text style={styles.headerName}>{session?.student_name || 'Student'}</Text>
                             <Text style={styles.headerSub}>
-                                🎓 Adm: {session.student_admission || 'N/A'} • {session.student_form || 'N/A'}
+                                🎓 Adm: {session?.student_admission || 'N/A'} • {session?.student_form || 'N/A'}
                             </Text>
-                            <Text style={styles.headerParent}>👨‍👩‍👧 Parent: {session.full_name}</Text>
+                            <Text style={styles.headerParent}>👨‍👩‍👧 Parent: {session?.full_name}</Text>
                         </View>
-                        <TouchableOpacity onPress={onLogout} style={styles.logoutBtn}>
+                        <TouchableOpacity onPress={() => { setSession(null); clearSession(); }} style={styles.logoutBtn}>
                             <Text style={styles.logoutText}>🚪</Text>
+                        </TouchableOpacity>
+                        {/* Notification Bell */}
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('Notifications', { portalUserId })}
+                            style={styles.bellBtn}
+                            accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+                        >
+                            <Text style={styles.bellText}>🔔</Text>
+                            {unreadCount > 0 && (
+                                <View style={styles.bellBadge}>
+                                    <Text style={styles.bellBadgeText}>
+                                        {unreadCount > 99 ? '99+' : String(unreadCount)}
+                                    </Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </SafeAreaView>
@@ -120,20 +149,47 @@ export default function ParentDashboard({ session, onLogout, onPayFees }: Props)
                     <KPI emoji="📊" label="Avg Marks" value={`${avgMarks}%`} color={C.purple} />
                 </View>
 
-                {/* Pay Fees CTA */}
-                {balance > 0 && (
-                    <TouchableOpacity onPress={onPayFees} activeOpacity={0.85} style={{ marginBottom: 16 }}>
-                        <LinearGradient colors={['#059669', '#047857']} style={styles.ctaBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                            <View style={styles.ctaDecor} />
-                            <Text style={styles.ctaEmoji}>💳</Text>
-                            <View>
-                                <Text style={styles.ctaText}>Pay School Fees</Text>
-                                <Text style={styles.ctaSub}>Balance: {formatKES(balance)} outstanding</Text>
-                            </View>
-                            <Text style={styles.ctaArrow}>→</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-                )}
+                {/* Quick Nav */}
+                <View style={styles.quickNavGrid}>
+                    {[
+                        { emoji: '📅', label: 'Attendance', color: C.purple, onPress: () => {} },
+                        { emoji: '📋', label: 'Homework', color: C.primary, onPress: () => {} },
+                        { emoji: '🏥', label: 'Health', color: C.accent, onPress: () => navigation.navigate('HealthRecord') },
+                        { emoji: '🚪', label: 'Leave Outs', color: '#f97316', onPress: () => navigation.navigate('LeaveOut') },
+                        { emoji: '📄', label: 'Report Card', color: C.primary, onPress: () => navigation.navigate('ReportCard', { studentId, formId, formLevel: 0, isParent: true }) },
+                    ].map(item => (
+                        <TouchableOpacity key={item.label} onPress={item.onPress} style={styles.quickNavCard} accessibilityLabel={item.label}>
+                            <Text style={styles.quickNavEmoji}>{item.emoji}</Text>
+                            <Text style={[styles.quickNavLabel, { color: item.color }]}>{item.label}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                {/* Pay Fees CTA — Always visible, supports prepayments */}
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('PayFees', {
+                        studentId,
+                        studentName: session?.student_name || 'Student',
+                        formId,
+                    })}
+                    activeOpacity={0.85}
+                    style={{ marginBottom: 16 }}
+                    accessibilityLabel="Pay school fees"
+                >
+                    <LinearGradient colors={['#059669', '#047857']} style={styles.ctaBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                        <View style={styles.ctaDecor} />
+                        <Text style={styles.ctaEmoji}>💳</Text>
+                        <View>
+                            <Text style={styles.ctaText}>Pay School Fees</Text>
+                            <Text style={styles.ctaSub}>
+                                {balance > 0
+                                    ? `Balance: ${formatKES(balance)} outstanding`
+                                    : 'Make a payment or prepayment'}
+                            </Text>
+                        </View>
+                        <Text style={styles.ctaArrow}>→</Text>
+                    </LinearGradient>
+                </TouchableOpacity>
 
                 {/* Fee Progress */}
                 <View style={styles.progressCard}>
@@ -327,6 +383,10 @@ const styles = StyleSheet.create({
     headerParent: { fontSize: 10, color: 'rgba(255,255,255,0.7)', fontWeight: '600', marginTop: 2 },
     logoutBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
     logoutText: { fontSize: 18 },
+    bellBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+    bellText: { fontSize: 20 },
+    bellBadge: { position: 'absolute', top: 4, right: 4, backgroundColor: '#ef4444', borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.8)' },
+    bellBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' as const },
 
     kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
     kpiCard: { flex: 1, minWidth: '45%', backgroundColor: C.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
@@ -389,4 +449,8 @@ const styles = StyleSheet.create({
     emptyBox: { alignItems: 'center', paddingVertical: 32, gap: 6 },
     emptyEmoji: { fontSize: 36 },
     emptyText: { fontSize: 12, color: C.textSub },
+    quickNavGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+    quickNavCard: { width: '30%', backgroundColor: C.card, borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: C.border, gap: 4 },
+    quickNavEmoji: { fontSize: 22 },
+    quickNavLabel: { fontSize: 10, fontWeight: '800', textAlign: 'center' },
 });

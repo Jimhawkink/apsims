@@ -4,18 +4,16 @@ import {
     RefreshControl, ActivityIndicator, StatusBar, SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { UserSession, SubjectCard, getTeacherSubjectCards, getCurrentTerm } from '../../lib/supabase';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/types';
+import { useSession } from '../../context/SessionContext';
+import { clearSession } from '../../lib/security';
+import { SubjectCard, getTeacherSubjectCards, getCurrentTerm, getUnreadNotificationCount } from '../../lib/supabase';
+import { cacheData, getQueueCount } from '../../lib/offline';
+import OfflineBanner from '../../components/OfflineBanner';
 
-interface Props {
-    session: UserSession;
-    onLogout: () => void;
-    onOpenMarks: (params: {
-        subject_id: number; subject_name: string;
-        form_id: number; form_name: string;
-        stream_id: number; stream_name: string;
-    }) => void;
-    onOpenTimetable: () => void;
-}
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const C = {
     bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
@@ -28,22 +26,34 @@ const C = {
     text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8',
 };
 
-export default function TeacherDashboard({ session, onLogout, onOpenMarks, onOpenTimetable }: Props) {
+export default function TeacherDashboard() {
+    const { session, setSession } = useSession();
+    const navigation = useNavigation<NavProp>();
     const [cards, setCards] = useState<SubjectCard[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [termName, setTermName] = useState('');
+    const [pendingCount, setPendingCount] = useState(0);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const portalUserId = session?.portal_user_id || 0;
 
     const loadData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            if (session.linked_teacher_id) {
+            if (session?.linked_teacher_id) {
                 const [subjects, term] = await Promise.all([
                     getTeacherSubjectCards(session.linked_teacher_id),
                     getCurrentTerm(),
                 ]);
                 setCards(subjects);
                 setTermName(term?.term_name || '');
+                await cacheData(`teacher_${session.portal_user_id}_dashboard`, subjects);
+            }
+            const count = await getQueueCount();
+            setPendingCount(count);
+            if (portalUserId) {
+                const notifCount = await getUnreadNotificationCount(portalUserId);
+                setUnreadCount(notifCount);
             }
         } catch (err: any) {
             console.error('Teacher load error:', err.message);
@@ -51,7 +61,7 @@ export default function TeacherDashboard({ session, onLogout, onOpenMarks, onOpe
             setLoading(false);
             setRefreshing(false);
         }
-    }, [session.linked_teacher_id]);
+    }, [session?.linked_teacher_id]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -84,18 +94,30 @@ export default function TeacherDashboard({ session, onLogout, onOpenMarks, onOpe
                         <View style={styles.avatarWrap}>
                             <View style={styles.avatar}>
                                 <Text style={styles.avatarText}>
-                                    {session.full_name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+                                    {(session?.full_name || 'T').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()}
                                 </Text>
                             </View>
                             <View style={styles.avatarOnline} />
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.headerName}>{session.full_name}</Text>
-                            <Text style={styles.headerSub}>👩‍🏫 Teacher{session.teacher_tsc ? ` · TSC: ${session.teacher_tsc}` : ''}</Text>
+                            <Text style={styles.headerName}>{session?.full_name}</Text>
+                            <Text style={styles.headerSub}>👩‍🏫 Teacher{session?.teacher_tsc ? ` · TSC: ${session.teacher_tsc}` : ''}</Text>
                             {termName ? <Text style={styles.headerTerm}>📅 {termName}</Text> : null}
                         </View>
-                        <TouchableOpacity onPress={onLogout} style={styles.logoutBtn}>
+                        <TouchableOpacity onPress={() => { setSession(null); clearSession(); }} style={styles.logoutBtn}>
                             <Text style={styles.logoutText}>🚪</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('Notifications', { portalUserId })}
+                            style={[styles.logoutBtn, { position: 'relative' }]}
+                            accessibilityLabel="Notifications"
+                        >
+                            <Text style={{ fontSize: 20 }}>🔔</Text>
+                            {unreadCount > 0 && (
+                                <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: '#ef4444', borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.8)' }}>
+                                    <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' as const }}>{unreadCount > 99 ? '99+' : String(unreadCount)}</Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </SafeAreaView>
@@ -107,8 +129,7 @@ export default function TeacherDashboard({ session, onLogout, onOpenMarks, onOpe
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
                 showsVerticalScrollIndicator={false}
             >
-                {/* KPI Cards */}
-                <View style={styles.kpiGrid}>
+                {/* KPI Cards */}                <View style={styles.kpiGrid}>
                     <KPI emoji="📚" label="My Subjects" value={String(totalSubjects)} color={C.primary} bg={C.primaryLight} />
                     <KPI emoji="✅" label="Fully Entered" value={String(fullyEntered)} color={C.accent} bg={C.accentLight} />
                     <KPI emoji="⚠️" label="Not Started" value={String(notStarted)} color={C.danger} bg={C.dangerLight} />
@@ -116,7 +137,7 @@ export default function TeacherDashboard({ session, onLogout, onOpenMarks, onOpe
                 </View>
 
                 {/* Timetable CTA */}
-                <TouchableOpacity onPress={onOpenTimetable} activeOpacity={0.85} style={{ marginBottom: 16 }}>
+                <TouchableOpacity onPress={() => navigation.navigate('TeacherTimetable')} activeOpacity={0.85} style={{ marginBottom: 16 }}>
                     <LinearGradient colors={['#0d9488', '#059669']} style={styles.ctaBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                         <View style={styles.ctaDecor} />
                         <Text style={styles.ctaEmoji}>🗓️</Text>
@@ -141,17 +162,33 @@ export default function TeacherDashboard({ session, onLogout, onOpenMarks, onOpe
                         <Text style={styles.emptySub}>Contact admin to assign subjects in the timetable</Text>
                     </View>
                 ) : (
-                    cards.map((card, idx) => (
+                    cards.map((card, idx) => {
+                        // Detect CBC forms by form_name containing "Grade" or form_level >= 10
+                        const isCBC = card.form_name?.toLowerCase().includes('grade');
+                        return (
                         <TouchableOpacity
                             key={`${card.subject_id}-${card.form_id}-${card.stream_id}`}
-                            onPress={() => onOpenMarks({
-                                subject_id: card.subject_id,
-                                subject_name: card.subject_name,
-                                form_id: card.form_id,
-                                form_name: card.form_name,
-                                stream_id: card.stream_id,
-                                stream_name: card.stream_name,
-                            })}
+                            onPress={() => {
+                                if (isCBC) {
+                                    navigation.navigate('CBCMarksEntry', {
+                                        subjectId: card.subject_id,
+                                        subjectName: card.subject_name,
+                                        formId: card.form_id,
+                                        formName: card.form_name,
+                                        streamId: card.stream_id,
+                                        streamName: card.stream_name,
+                                    });
+                                } else {
+                                    navigation.navigate('MarksEntry', {
+                                        subject_id: card.subject_id,
+                                        subject_name: card.subject_name,
+                                        form_id: card.form_id,
+                                        form_name: card.form_name,
+                                        stream_id: card.stream_id,
+                                        stream_name: card.stream_name,
+                                    });
+                                }
+                            }}
                             activeOpacity={0.85}
                             style={styles.subjectCard}
                         >
@@ -168,6 +205,7 @@ export default function TeacherDashboard({ session, onLogout, onOpenMarks, onOpe
                                     <Text style={styles.subjectName}>{card.subject_name}</Text>
                                     <Text style={styles.subjectMeta}>
                                         {card.form_name} • {card.stream_name}
+                                        {isCBC ? ' 🎓 CBC' : ''}
                                     </Text>
                                 </View>
                                 <View style={[styles.percentBadge, {
@@ -207,7 +245,8 @@ export default function TeacherDashboard({ session, onLogout, onOpenMarks, onOpe
                                 <Text style={styles.subjectActionArrow}>→</Text>
                             </View>
                         </TouchableOpacity>
-                    ))
+                        );
+                    })
                 )}
             </ScrollView>
         </View>

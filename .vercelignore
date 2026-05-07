@@ -1,0 +1,9 @@
+node_modules
+apsims-mobile
+.next
+*.apk
+*.sql
+*.txt
+*.md
+*.sln
+*.vbproj

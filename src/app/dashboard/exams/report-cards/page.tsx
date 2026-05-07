@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getEducationSystem } from '@/lib/cbc-utils';
+import EducationSystemBadge from '@/components/cbc/EducationSystemBadge';
 import toast from 'react-hot-toast';
-import { FiPrinter, FiDownload, FiUsers, FiUser, FiChevronLeft, FiChevronRight, FiFileText } from 'react-icons/fi';
+import Link from 'next/link';
+import { FiPrinter, FiDownload, FiUsers, FiUser, FiChevronLeft, FiChevronRight, FiFileText, FiAlertTriangle, FiExternalLink } from 'react-icons/fi';
 
 interface GradeEntry { grade: string; min_score: number; max_score: number; points: number; remarks: string; }
 
@@ -165,7 +168,7 @@ export default function ReportCardsPage() {
             {/* Filters */}
             <div className="no-print bg-white rounded-2xl border border-gray-200 p-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <div><label className="lbl">Form *</label><select value={selForm} onChange={e => { setSelForm(e.target.value); setSelStream(''); setSelStudent(''); }} className="select-modern w-full text-sm"><option value="">Select Form</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}</select></div>
+                    <div><label className="lbl">Form *</label><select value={selForm} onChange={e => { setSelForm(e.target.value); setSelStream(''); setSelStudent(''); }} className="select-modern w-full text-sm"><option value="">Select Form</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}{getEducationSystem(f.id, forms) === 'CBC_Senior_School' ? ' [CBC]' : ' [8-4-4]'}</option>)}</select></div>
                     <div><label className="lbl">Stream</label><select value={selStream} onChange={e => { setSelStream(e.target.value); setSelStudent(''); }} className="select-modern w-full text-sm"><option value="">All Streams</option>{streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}</select></div>
                     <div><label className="lbl">Term *</label><select value={selTerm} onChange={e => setSelTerm(e.target.value)} className="select-modern w-full text-sm"><option value="">Select Term</option>{terms.map(t => <option key={t.id} value={t.id}>{t.term_name}</option>)}</select></div>
                     <div><label className="lbl">Exam Type *</label><select value={selExamType} onChange={e => setSelExamType(e.target.value)} className="select-modern w-full text-sm">{examTypes.map(e => <option key={e} value={e}>{e}</option>)}</select></div>
@@ -191,6 +194,22 @@ export default function ReportCardsPage() {
                 <div className="bg-white rounded-2xl border border-gray-200 text-center py-20 text-gray-400 no-print">
                     <span className="text-5xl block mb-4">🎓</span>
                     <p className="font-semibold text-lg">Select Form, Term & Exam Type to generate report cards</p>
+                </div>
+            ) : selForm && getEducationSystem(Number(selForm), forms) === 'CBC_Senior_School' ? (
+                <div className="no-print flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <FiAlertTriangle className="text-amber-500 mt-0.5 flex-shrink-0" size={18} />
+                    <div className="flex-1">
+                        <p className="text-sm font-bold text-amber-800">This is a CBC class.</p>
+                        <p className="text-sm text-amber-700 mt-0.5">
+                            CBC Senior School students use competency-based report cards (EE/ME/AE/BE), not percentage scores.
+                        </p>
+                    </div>
+                    <Link
+                        href="/dashboard/exams/cbc-report-cards"
+                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-indigo-500 rounded-xl hover:bg-indigo-600 flex-shrink-0"
+                    >
+                        <FiExternalLink size={13} /> Use CBC Report Cards
+                    </Link>
                 </div>
             ) : loadingMarks ? (
                 <div className="bg-white rounded-2xl border border-gray-200 text-center py-20 no-print">

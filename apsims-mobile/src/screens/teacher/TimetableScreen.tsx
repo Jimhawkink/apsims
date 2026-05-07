@@ -4,12 +4,9 @@ import {
     ActivityIndicator, StatusBar, SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { UserSession, TimetableEntry, getTeacherTimetable } from '../../lib/supabase';
-
-interface Props {
-    session: UserSession;
-    onBack: () => void;
-}
+import { useNavigation } from '@react-navigation/native';
+import { useSession } from '../../context/SessionContext';
+import { TimetableEntry, getTeacherTimetable } from '../../lib/supabase';
 
 const C = {
     bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
@@ -26,7 +23,9 @@ const DAY_COLORS: Record<string, string[]> = {
     Friday: ['#059669', '#047857'],
 };
 
-export default function TimetableScreen({ session, onBack }: Props) {
+export default function TimetableScreen() {
+    const { session } = useSession();
+    const navigation = useNavigation();
     const [entries, setEntries] = useState<TimetableEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedDay, setSelectedDay] = useState(getCurrentDay());
@@ -39,16 +38,16 @@ export default function TimetableScreen({ session, onBack }: Props) {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            if (session.linked_teacher_id) {
+            if (session?.linked_teacher_id) {
                 const data = await getTeacherTimetable(session.linked_teacher_id);
                 setEntries(data);
             }
         } catch (err: any) {
-            console.error('Timetable load error:', err.message);
+            console.error('TimetableScreen error:', err.message);
         } finally {
             setLoading(false);
         }
-    }, [session.linked_teacher_id]);
+    }, [session?.linked_teacher_id]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -73,11 +72,11 @@ export default function TimetableScreen({ session, onBack }: Props) {
 
             <LinearGradient colors={['#0d9488', '#059669']} style={styles.header}>
                 <SafeAreaView>
-                    <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                         <Text style={styles.backText}>← Back to Dashboard</Text>
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>🗓️ My Timetable</Text>
-                    <Text style={styles.headerSub}>{session.full_name} • {totalLessons} lessons/week</Text>
+                    <Text style={styles.headerSub}>{session?.full_name} • {totalLessons} lessons/week</Text>
                 </SafeAreaView>
             </LinearGradient>
 
@@ -121,7 +120,7 @@ export default function TimetableScreen({ session, onBack }: Props) {
                 ) : (
                     dayEntries.map((entry, idx) => {
                         const isBreak = entry.period_type === 'break' || entry.period_type === 'assembly';
-                        const colors = DAY_COLORS[selectedDay] || ['#2563eb', '#1d4ed8'];
+                        const colors: [string, string] = (DAY_COLORS[selectedDay] || ['#2563eb', '#1d4ed8']) as [string, string];
 
                         if (isBreak) {
                             return (

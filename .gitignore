@@ -23,8 +23,18 @@ npm-debug.log*
 
 # local env files
 .env*.local
+.env
+.env.local
+.env.production
+
+# APK / build artifacts
+*.apk
+*.aab
+apsims-mobile/dist/
+apsims-mobile/android/app/build/
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+.kiro/
