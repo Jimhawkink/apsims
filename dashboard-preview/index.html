@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>APSIMS Ultra Dashboard — Alpha Plus School ERP Kenya</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo-badge"><i class="ti ti-school"></i> APSIMS</div>
+    <div class="school-info"><h1>Alpha Plus School</h1><span>Nairobi · Kenya ERP · CBC & 8-4-4</span></div>
+  </div>
+  <div class="topbar-right">
+    <div class="pill pill-live"><span class="chip-dot" style="background:#10b981"></span> Live</div>
+    <div class="pill pill-term"><i class="ti ti-calendar" style="font-size:12px"></i> Term 2 · 2025</div>
+    <div class="pill pill-alert"><i class="ti ti-alert-triangle" style="font-size:12px"></i> 3 alerts</div>
+    <div class="avatar">JK</div>
+  </div>
+</div>
+
+<div class="dashboard">
+
+<!-- SECTION: KEY METRICS ROW 1 -->
+<div class="section-label">Key Metrics — Real-Time</div>
+<div class="grid-4">
+  <!-- Card 1: Total Students -->
+  <div class="ultra-card accent animate-in delay-1">
+    <div class="glow"></div>
+    <div class="card-header">
+      <div class="card-icon accent"><i class="ti ti-users"></i></div>
+      <div class="trend-badge trend-up">▲ 3.9%</div>
+    </div>
+    <div class="card-label">Total Students</div>
+    <div class="card-value">1,248</div>
+    <div class="card-sub"><span class="up">+47 this term</span> · 624♂ 624♀</div>
+    <svg class="card-spark" viewBox="0 0 120 32"><defs><linearGradient id="sg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a78bfa" stop-opacity=".3"/><stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/></linearGradient></defs><path d="M0,28 L20,24 L40,26 L60,18 L80,20 L100,12 L120,8 L120,32 L0,32Z" fill="url(#sg1)"/><polyline points="0,28 20,24 40,26 60,18 80,20 100,12 120,8" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+  <!-- Card 2: Fees Collected -->
+  <div class="ultra-card green animate-in delay-2">
+    <div class="glow"></div>
+    <div class="card-header">
+      <div class="card-icon green"><i class="ti ti-cash"></i></div>
+      <div class="trend-badge trend-up">▲ 83%</div>
+    </div>
+    <div class="card-label">Fees Collected</div>
+    <div class="card-value">Ksh 4.2M</div>
+    <div class="card-sub"><span class="up">83% of Ksh 5.1M target</span></div>
+    <div class="card-progress"><div class="card-progress-label"><span>Target</span><span>83%</span></div><div class="card-progress-bar"><div class="card-progress-fill" style="width:83%;background:linear-gradient(90deg,#059669,#34d399)"></div></div></div>
+  </div>
+  <!-- Card 3: Fee Arrears -->
+  <div class="ultra-card amber animate-in delay-3">
+    <div class="glow"></div>
+    <div class="card-header">
+      <div class="card-icon amber"><i class="ti ti-coin"></i></div>
+      <div class="trend-badge trend-down">▼ 187</div>
+    </div>
+    <div class="card-label">Fee Arrears</div>
+    <div class="card-value">Ksh 862K</div>
+    <div class="card-sub"><span class="warn">187 defaulters · 15% of students</span></div>
+    <svg class="card-spark" viewBox="0 0 120 32"><defs><linearGradient id="sg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fbbf24" stop-opacity=".3"/><stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/></linearGradient></defs><path d="M0,8 L20,12 L40,10 L60,18 L80,15 L100,22 L120,24 L120,32 L0,32Z" fill="url(#sg3)"/><polyline points="0,8 20,12 40,10 60,18 80,15 100,22 120,24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/></svg>
+  </div>
+  <!-- Card 4: Mean Grade -->
+  <div class="ultra-card blue animate-in delay-4">
+    <div class="glow"></div>
+    <div class="card-header">
+      <div class="card-icon blue"><i class="ti ti-chart-bar"></i></div>
+      <div class="trend-badge trend-up">▲ 2.1 pts</div>
+    </div>
+    <div class="card-label">Term Mean Grade</div>
+    <div class="card-value">B+ (67.4)</div>
+    <div class="card-sub"><span class="up">+2.1 pts vs last term</span></div>
+    <svg class="card-spark" viewBox="0 0 120 32"><defs><linearGradient id="sg4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60a5fa" stop-opacity=".3"/><stop offset="100%" stop-color="#60a5fa" stop-opacity="0"/></linearGradient></defs><path d="M0,26 L20,24 L40,22 L60,18 L80,16 L100,14 L120,10 L120,32 L0,32Z" fill="url(#sg4)"/><polyline points="0,26 20,24 40,22 60,18 80,16 100,14 120,10" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/></svg>
+  </div>
+</div>
+
+<!-- SECTION: KEY METRICS ROW 2 -->
+<div class="grid-4">
+  <div class="ultra-card pink animate-in delay-5">
+    <div class="glow"></div>
+    <div class="card-header"><div class="card-icon pink"><i class="ti ti-calendar-check"></i></div><div class="trend-badge trend-up">94.2%</div></div>
+    <div class="card-label">Attendance Today</div>
+    <div class="card-value">94.2%</div>
+    <div class="card-sub">73 absent · 2 on leave</div>
+    <svg class="card-spark" viewBox="0 0 120 32"><polyline points="0,18 20,16 40,20 60,12 80,14 100,10 120,11" fill="none" stroke="#f472b6" stroke-width="2" stroke-linecap="round"/></svg>
+  </div>
+  <div class="ultra-card cyan animate-in delay-6">
+    <div class="glow"></div>
+    <div class="card-header"><div class="card-icon cyan"><i class="ti ti-books"></i></div><span class="chip chip-warning"><span class="chip-dot" style="background:#f59e0b"></span>34 overdue</span></div>
+    <div class="card-label">Library Activity</div>
+    <div class="card-value">218</div>
+    <div class="card-sub"><span class="warn">34 overdue · Ksh 4,200 fines</span></div>
+    <svg class="card-spark" viewBox="0 0 120 32"><polyline points="0,22 20,18 40,20 60,14 80,16 100,10 120,8" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/></svg>
+  </div>
+  <div class="ultra-card gray animate-in delay-7">
+    <div class="glow"></div>
+    <div class="card-header"><div class="card-icon gray"><i class="ti ti-package"></i></div><span class="chip chip-critical"><span class="chip-dot" style="background:#ef4444"></span>3 overdue</span></div>
+    <div class="card-label">Open LPOs</div>
+    <div class="card-value">12</div>
+    <div class="card-sub"><span class="down">3 overdue delivery</span></div>
+    <svg class="card-spark" viewBox="0 0 120 32"><polyline points="0,14 20,18 40,16 60,20 80,18 100,22 120,20" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"/></svg>
+  </div>
+  <div class="ultra-card red animate-in delay-8">
+    <div class="glow"></div>
+    <div class="card-header"><div class="card-icon red"><i class="ti ti-alert-circle"></i></div><div class="trend-badge trend-down">+3 wk</div></div>
+    <div class="card-label">Discipline Cases</div>
+    <div class="card-value">9</div>
+    <div class="card-sub"><span class="down">+3 this week · 2 pending</span></div>
+    <svg class="card-spark" viewBox="0 0 120 32"><polyline points="0,24 20,26 40,22 60,26 80,22 100,26 120,22" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round"/></svg>
+  </div>
+</div>
+
+<!-- SECTION: CHARTS ROW 1 -->
+<div class="section-label">Financial Analytics & Trends</div>
+<div class="grid-211">
+  <div class="panel animate-in">
+    <div class="panel-title">Fee Collection Trend — Jan to Jun 2025 <em>Ksh thousands · collected vs target</em></div>
+    <div class="chart-wrap"><canvas id="feeCollectionChart"></canvas></div>
+  </div>
+  <div class="panel animate-in">
+    <div class="panel-title">Enrolment by Form <em>Gender split</em></div>
+    <div class="chart-wrap"><canvas id="enrollmentChart"></canvas></div>
+  </div>
+  <div class="panel animate-in">
+    <div class="panel-title">Attendance — 7-Day <em>Daily %</em></div>
+    <div class="chart-wrap"><canvas id="attendanceChart"></canvas></div>
+  </div>
+</div>
+
+<!-- SECTION: CHARTS ROW 2 -->
+<div class="grid-21">
+  <div class="panel animate-in">
+    <div class="panel-title">Revenue vs Expenditure — 6 Month Trend <em>Ksh thousands</em></div>
+    <div class="chart-wrap"><canvas id="revenueExpenseChart"></canvas></div>
+  </div>
+  <div class="panel animate-in">
+    <div class="panel-title">Fee Collection Gauge <em>Term 2 target</em></div>
+    <div style="position:relative;width:100%;height:130px;display:flex;align-items:center;justify-content:center">
+      <canvas id="feeGauge" style="max-height:130px"></canvas>
+      <div style="position:absolute;bottom:30px;text-align:center"><div style="font-size:28px;font-weight:700;color:#10b981">83%</div><div style="font-size:10px;color:#5a6580">Ksh 4.2M / 5.1M</div></div>
+    </div>
+    <div class="mini-kpis">
+      <div class="mini-kpi"><div class="val" style="color:#10b981">Ksh 4.2M</div><div class="lbl">Collected</div></div>
+      <div class="mini-kpi"><div class="val" style="color:#f59e0b">Ksh 862K</div><div class="lbl">Outstanding</div></div>
+      <div class="mini-kpi"><div class="val" style="color:#3b82f6">Ksh 5.1M</div><div class="lbl">Target</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION: ACADEMIC ROW -->
+<div class="section-label">Academic Performance & Analysis</div>
+<div class="grid-211">
+  <div class="panel animate-in">
+    <div class="panel-title">Subject Performance — Mean Scores <em>Form 4 · Term 1 vs Term 2</em></div>
+    <div class="chart-wrap"><canvas id="termCompareChart"></canvas></div>
+  </div>
+  <div class="panel animate-in">
+    <div class="panel-title">Subject Radar — Form 4 <em>Multi-term overlay</em></div>
+    <div class="chart-wrap"><canvas id="subjectRadar"></canvas></div>
+  </div>
+  <div class="panel animate-in">
+    <div class="panel-title">Grade Distribution <em>Form 4 end-term</em></div>
+    <div class="grade-row"><div class="grade-label">A</div><div class="grade-track"><div class="grade-fill" style="width:18%;background:linear-gradient(90deg,#059669,#34d399)">18%</div></div><div class="grade-count">42</div></div>
+    <div class="grade-row"><div class="grade-label">A-</div><div class="grade-track"><div class="grade-fill" style="width:22%;background:linear-gradient(90deg,#10b981,#6ee7b7)">22%</div></div><div class="grade-count">52</div></div>
+    <div class="grade-row"><div class="grade-label">B+</div><div class="grade-track"><div class="grade-fill" style="width:28%;background:linear-gradient(90deg,#3b82f6,#93c5fd)">28%</div></div><div class="grade-count">66</div></div>
+    <div class="grade-row"><div class="grade-label">B</div><div class="grade-track"><div class="grade-fill" style="width:16%;background:linear-gradient(90deg,#6c5ce7,#a78bfa)">16%</div></div><div class="grade-count">38</div></div>
+    <div class="grade-row"><div class="grade-label">B-</div><div class="grade-track"><div class="grade-fill" style="width:10%;background:linear-gradient(90deg,#f59e0b,#fbbf24)">10%</div></div><div class="grade-count">24</div></div>
+    <div class="grade-row"><div class="grade-label">C+</div><div class="grade-track"><div class="grade-fill" style="width:6%;background:linear-gradient(90deg,#ef4444,#f87171)">6%</div></div><div class="grade-count">14</div></div>
+  </div>
+</div>
+
+<!-- SECTION: MORE ANALYTICS -->
+<div class="grid-3">
+  <div class="panel animate-in">
+    <div class="panel-title">Fee Payment Breakdown <em>by method this term</em></div>
+    <div class="donut-wrap">
+      <div class="donut-canvas" style="width:120px;height:120px"><canvas id="feeMethodChart"></canvas></div>
+      <div class="legend">
+        <div class="legend-row"><div class="legend-dot" style="background:#10b981"></div>M-Pesa<div class="legend-val">68%</div></div>
+        <div class="legend-row"><div class="legend-dot" style="background:#3b82f6"></div>Bank Transfer<div class="legend-val">18%</div></div>
+        <div class="legend-row"><div class="legend-dot" style="background:#6b7280"></div>Cash<div class="legend-val">10%</div></div>
+        <div class="legend-row"><div class="legend-dot" style="background:#8b5cf6"></div>Cheque<div class="legend-val">4%</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel animate-in">
+    <div class="panel-title">Budget Utilisation <em>by vote head</em></div>
+    <div class="progress-row"><div class="progress-meta"><span class="label">Tuition & Operations</span><span class="val">78%</span></div><div class="progress-track"><div class="progress-fill" style="width:78%;background:linear-gradient(90deg,#6c5ce7,#a78bfa)"></div></div></div>
+    <div class="progress-row"><div class="progress-meta"><span class="label">Staff Salaries</span><span class="val">91%</span></div><div class="progress-track"><div class="progress-fill" style="width:91%;background:linear-gradient(90deg,#059669,#34d399)"></div></div></div>
+    <div class="progress-row"><div class="progress-meta"><span class="label">Procurement / Stores</span><span class="val">54%</span></div><div class="progress-track"><div class="progress-fill" style="width:54%;background:linear-gradient(90deg,#2563eb,#60a5fa)"></div></div></div>
+    <div class="progress-row"><div class="progress-meta"><span class="label">Infrastructure</span><span class="val">33%</span></div><div class="progress-track"><div class="progress-fill" style="width:33%;background:linear-gradient(90deg,#d97706,#fbbf24)"></div></div></div>
+    <div class="progress-row"><div class="progress-meta"><span class="label">Library & ICT</span><span class="val">62%</span></div><div class="progress-track"><div class="progress-fill" style="width:62%;background:linear-gradient(90deg,#db2777,#f472b6)"></div></div></div>
+    <div class="progress-row"><div class="progress-meta"><span class="label">Extra-curricular</span><span class="val">41%</span></div><div class="progress-track"><div class="progress-fill" style="width:41%;background:linear-gradient(90deg,#0891b2,#22d3ee)"></div></div></div>
+  </div>
+  <div class="panel animate-in">
+    <div class="panel-title">Alerts & Actions Needed</div>
+    <div class="alert-item"><div class="alert-dot" style="background:#ef4444"></div><div><div class="alert-text">187 students — fee balance > Ksh 5,000</div><div class="alert-sub">SMS demand letters pending · urgent</div></div></div>
+    <div class="alert-item"><div class="alert-dot" style="background:#f59e0b"></div><div><div class="alert-text">3 LPO deliveries overdue by > 7 days</div><div class="alert-sub">Suppliers: Bidco, Kaluworks, Unilab</div></div></div>
+    <div class="alert-item"><div class="alert-dot" style="background:#f59e0b"></div><div><div class="alert-text">Payroll run due — 2 days remaining</div><div class="alert-sub">June 2025 · 48 staff · Ksh 2.1M net</div></div></div>
+    <div class="alert-item"><div class="alert-dot" style="background:#3b82f6"></div><div><div class="alert-text">KRA eTIMS token expires in 8 days</div><div class="alert-sub">Renew before 30 June or receipting halts</div></div></div>
+  </div>
+</div>
+
+<!-- MORE TREND CHARTS -->
+<div class="grid-2">
+  <div class="panel animate-in">
+    <div class="panel-title">Student Enrollment Trend — 6 Years <em>Year-over-year growth</em></div>
+    <div class="chart-wrap"><canvas id="enrollTrendChart"></canvas></div>
+  </div>
+  <div class="panel animate-in">
+    <div class="panel-title">Weekly Attendance by Week <em>Term 2 · colour-coded threshold</em></div>
+    <div class="chart-wrap"><canvas id="weeklyAttendanceBar"></canvas></div>
+  </div>
+</div>
+
+<!-- SUPER DATAGRID: Recent Enrollment -->
+<div class="section-label">Recent Enrollment — Ultra Data Grid</div>
+<div class="panel animate-in">
+  <div class="panel-title">Student Enrollment Register <em>Term 2 · 2025 — showing latest 8 entries</em></div>
+  <div class="grid-toolbar">
+    <input class="grid-search" type="text" placeholder="🔍 Search by name, adm no, form...">
+    <div class="grid-filter">
+      <button class="filter-btn active">All</button>
+      <button class="filter-btn">Form 1</button>
+      <button class="filter-btn">Form 2</button>
+      <button class="filter-btn">Form 3</button>
+      <button class="filter-btn">Form 4</button>
+      <button class="filter-btn">CBC</button>
+    </div>
+  </div>
+  <table class="data-grid">
+    <thead><tr><th style="width:30px"></th><th>Adm No.</th><th>Student Name</th><th>Gender</th><th>Form/Stream</th><th>Date Enrolled</th><th>Guardian</th><th>Phone</th><th>KCPE Marks</th><th>Fee Status</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td><div class="row-indicator" style="background:#10b981"></div></td><td class="mono">2025/001</td><td>Wambui, Faith N.</td><td>F</td><td>1 East</td><td>06 Jan 2025</td><td>Mary Wambui</td><td>0722***341</td><td>387</td><td><span class="chip chip-success">Paid</span></td><td><span class="chip chip-success">Active</span></td></tr>
+      <tr><td><div class="row-indicator" style="background:#10b981"></div></td><td class="mono">2025/002</td><td>Otieno, Brian K.</td><td>M</td><td>1 West</td><td>06 Jan 2025</td><td>James Otieno</td><td>0711***892</td><td>362</td><td><span class="chip chip-success">Paid</span></td><td><span class="chip chip-success">Active</span></td></tr>
+      <tr><td><div class="row-indicator" style="background:#f59e0b"></div></td><td class="mono">2025/003</td><td>Muthoni, Grace A.</td><td>F</td><td>1 East</td><td>07 Jan 2025</td><td>Peter Muthoni</td><td>0733***210</td><td>401</td><td><span class="chip chip-warning">Partial</span></td><td><span class="chip chip-success">Active</span></td></tr>
+      <tr><td><div class="row-indicator" style="background:#10b981"></div></td><td class="mono">2025/004</td><td>Kiprop, Dennis W.</td><td>M</td><td>1 North</td><td>07 Jan 2025</td><td>Sarah Kiprop</td><td>0700***551</td><td>345</td><td><span class="chip chip-success">Paid</span></td><td><span class="chip chip-success">Active</span></td></tr>
+      <tr><td><div class="row-indicator" style="background:#ef4444"></div></td><td class="mono">2025/005</td><td>Njeri, Lilian W.</td><td>F</td><td>1 South</td><td>08 Jan 2025</td><td>John Njeri</td><td>0726***774</td><td>378</td><td><span class="chip chip-critical">Unpaid</span></td><td><span class="chip chip-success">Active</span></td></tr>
+      <tr><td><div class="row-indicator" style="background:#10b981"></div></td><td class="mono">2025/006</td><td>Kamau, Victor M.</td><td>M</td><td>1 West</td><td>08 Jan 2025</td><td>David Kamau</td><td>0745***123</td><td>392</td><td><span class="chip chip-success">Paid</span></td><td><span class="chip chip-success">Active</span></td></tr>
+      <tr><td><div class="row-indicator" style="background:#f59e0b"></div></td><td class="mono">2025/007</td><td>Achieng, Mercy O.</td><td>F</td><td>1 East</td><td>09 Jan 2025</td><td>Rose Achieng</td><td>0738***456</td><td>356</td><td><span class="chip chip-warning">Partial</span></td><td><span class="chip chip-success">Active</span></td></tr>
+      <tr><td><div class="row-indicator" style="background:#10b981"></div></td><td class="mono">2025/008</td><td>Mwangi, Collins K.</td><td>M</td><td>1 North</td><td>09 Jan 2025</td><td>Ann Mwangi</td><td>0712***789</td><td>415</td><td><span class="chip chip-success">Paid</span></td><td><span class="chip chip-success">Active</span></td></tr>
+    </tbody>
+  </table>
+  <div class="grid-pagination">
+    <span>Showing 1-8 of 342 students</span>
+    <div class="page-btns">
+      <button class="page-btn">‹</button>
+      <button class="page-btn active">1</button>
+      <button class="page-btn">2</button>
+      <button class="page-btn">3</button>
+      <button class="page-btn">…</button>
+      <button class="page-btn">43</button>
+      <button class="page-btn">›</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUPER DATAGRID: Fee Defaulters -->
+<div class="section-label">Fee Management — Top Defaulters</div>
+<div class="panel animate-in">
+  <div class="panel-title">Student Fee Defaulters Grid <em>click row to drill down · sorted by balance desc</em></div>
+  <table class="data-grid">
+    <thead><tr><th style="width:30px"></th><th>Adm No.</th><th>Student</th><th>Form/Stream</th><th>Guardian Phone</th><th>Invoiced</th><th>Paid</th><th>Balance</th><th>Status</th><th>Last Payment</th><th>Days Overdue</th></tr></thead>
+    <tbody>
+      <tr><td><div class="row-indicator" style="background:#ef4444"></div></td><td class="mono">2021/047</td><td>Wanjiku, Ann M.</td><td>4 East</td><td>0722***341</td><td class="amount">Ksh 42,000</td><td class="amount positive">Ksh 22,000</td><td class="amount negative">Ksh 20,000</td><td><span class="chip chip-critical"><span class="chip-dot" style="background:#ef4444"></span>Critical</span></td><td>14 Mar 2025</td><td class="amount negative">87</td></tr>
+      <tr><td><div class="row-indicator" style="background:#ef4444"></div></td><td class="mono">2022/113</td><td>Odhiambo, Kevin</td><td>3 West</td><td>0711***892</td><td class="amount">Ksh 38,000</td><td class="amount positive">Ksh 21,500</td><td class="amount negative">Ksh 16,500</td><td><span class="chip chip-critical"><span class="chip-dot" style="background:#ef4444"></span>Critical</span></td><td>1 Apr 2025</td><td class="amount negative">69</td></tr>
+      <tr><td><div class="row-indicator" style="background:#f59e0b"></div></td><td class="mono">2023/056</td><td>Mutua, Grace</td><td>2 North</td><td>0733***210</td><td class="amount">Ksh 35,000</td><td class="amount positive">Ksh 22,000</td><td class="amount negative">Ksh 13,000</td><td><span class="chip chip-warning"><span class="chip-dot" style="background:#f59e0b"></span>Overdue</span></td><td>22 Apr 2025</td><td class="amount negative">48</td></tr>
+      <tr><td><div class="row-indicator" style="background:#f59e0b"></div></td><td class="mono">2023/189</td><td>Kipchoge, Brian</td><td>2 South</td><td>0700***551</td><td class="amount">Ksh 35,000</td><td class="amount positive">Ksh 24,000</td><td class="amount negative">Ksh 11,000</td><td><span class="chip chip-warning"><span class="chip-dot" style="background:#f59e0b"></span>Overdue</span></td><td>2 May 2025</td><td class="amount negative">38</td></tr>
+      <tr><td><div class="row-indicator" style="background:#3b82f6"></div></td><td class="mono">2024/022</td><td>Njoroge, Lilian</td><td>1 East</td><td>0726***774</td><td class="amount">Ksh 32,000</td><td class="amount positive">Ksh 22,500</td><td class="amount negative">Ksh 9,500</td><td><span class="chip chip-info"><span class="chip-dot" style="background:#3b82f6"></span>Notice sent</span></td><td>10 May 2025</td><td class="amount negative">30</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SUPER DATAGRID: Procurement -->
+<div class="section-label">Procurement & Supply Chain</div>
+<div class="panel animate-in">
+  <div class="panel-title">Active LPO Tracker <em>current term · sorted by delivery date</em></div>
+  <table class="data-grid">
+    <thead><tr><th>LPO No.</th><th>Supplier</th><th>Category</th><th>Amount</th><th>Date Issued</th><th>Expected Delivery</th><th>Status</th><th>Vote Head</th><th>Approval</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">LPO-2025-041</td><td>Bidco Africa Ltd</td><td>Catering supplies</td><td class="amount">Ksh 148,000</td><td>2 Jun 2025</td><td>9 Jun 2025</td><td><span class="chip chip-critical">Overdue</span></td><td>Operations</td><td><span class="chip chip-success">Approved</span></td></tr>
+      <tr><td class="mono">LPO-2025-038</td><td>Kaluworks Ltd</td><td>Lab equipment</td><td class="amount">Ksh 92,500</td><td>28 May 2025</td><td>7 Jun 2025</td><td><span class="chip chip-critical">Overdue</span></td><td>Infrastructure</td><td><span class="chip chip-success">Approved</span></td></tr>
+      <tr><td class="mono">LPO-2025-043</td><td>Text Book Centre</td><td>Library books</td><td class="amount">Ksh 67,200</td><td>5 Jun 2025</td><td>19 Jun 2025</td><td><span class="chip chip-info">In Transit</span></td><td>Library & ICT</td><td><span class="chip chip-success">Approved</span></td></tr>
+      <tr><td class="mono">LPO-2025-044</td><td>Safaricom PLC</td><td>Internet & comms</td><td class="amount">Ksh 24,000</td><td>6 Jun 2025</td><td>10 Jun 2025</td><td><span class="chip chip-success">Delivered</span></td><td>Library & ICT</td><td><span class="chip chip-success">Approved</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- STAFF & ATTENDANCE HEATMAP -->
+<div class="section-label">Staff Overview & Attendance Heatmap</div>
+<div class="grid-21">
+  <div class="panel animate-in">
+    <div class="panel-title">Staff Summary <em>48 total staff members</em></div>
+    <table class="data-grid">
+      <thead><tr><th>Department</th><th>Staff Count</th><th>TSC</th><th>BOM</th><th>Avg Attendance</th><th>Payroll (Ksh)</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Teaching Staff</td><td>32</td><td>24</td><td>8</td><td><span style="color:#10b981;font-weight:600">96.2%</span></td><td class="amount">1,680,000</td><td><span class="chip chip-success">Active</span></td></tr>
+        <tr><td>Admin & Office</td><td>6</td><td>2</td><td>4</td><td><span style="color:#10b981;font-weight:600">98.1%</span></td><td class="amount">198,000</td><td><span class="chip chip-success">Active</span></td></tr>
+        <tr><td>Support Staff</td><td>8</td><td>0</td><td>8</td><td><span style="color:#f59e0b;font-weight:600">91.5%</span></td><td class="amount">176,000</td><td><span class="chip chip-success">Active</span></td></tr>
+        <tr><td>Security</td><td>2</td><td>0</td><td>2</td><td><span style="color:#10b981;font-weight:600">100%</span></td><td class="amount">46,000</td><td><span class="chip chip-success">Active</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="panel animate-in">
+    <div class="panel-title">Attendance Heatmap <em>June Wk1 · Mon-Sun per form</em></div>
+    <div style="display:grid;grid-template-columns:40px repeat(5,1fr);gap:3px;font-size:9px;color:#5a6580;margin-bottom:6px">
+      <div></div><div style="text-align:center">Mon</div><div style="text-align:center">Tue</div><div style="text-align:center">Wed</div><div style="text-align:center">Thu</div><div style="text-align:center">Fri</div>
+    </div>
+    <div style="display:grid;grid-template-columns:40px repeat(5,1fr);gap:3px;font-size:9px">
+      <div style="color:#8b95b0;display:flex;align-items:center">F1</div>
+      <div class="heat-cell" style="background:rgba(16,185,129,.7)">96</div><div class="heat-cell" style="background:rgba(16,185,129,.8)">97</div><div class="heat-cell" style="background:rgba(16,185,129,.5)">92</div><div class="heat-cell" style="background:rgba(16,185,129,.9)">98</div><div class="heat-cell" style="background:rgba(245,158,11,.5)">89</div>
+      <div style="color:#8b95b0;display:flex;align-items:center">F2</div>
+      <div class="heat-cell" style="background:rgba(16,185,129,.6)">94</div><div class="heat-cell" style="background:rgba(16,185,129,.7)">96</div><div class="heat-cell" style="background:rgba(16,185,129,.6)">93</div><div class="heat-cell" style="background:rgba(16,185,129,.8)">97</div><div class="heat-cell" style="background:rgba(245,158,11,.5)">90</div>
+      <div style="color:#8b95b0;display:flex;align-items:center">F3</div>
+      <div class="heat-cell" style="background:rgba(16,185,129,.6)">93</div><div class="heat-cell" style="background:rgba(16,185,129,.6)">94</div><div class="heat-cell" style="background:rgba(245,158,11,.5)">89</div><div class="heat-cell" style="background:rgba(16,185,129,.7)">95</div><div class="heat-cell" style="background:rgba(245,158,11,.4)">87</div>
+      <div style="color:#8b95b0;display:flex;align-items:center">F4</div>
+      <div class="heat-cell" style="background:rgba(245,158,11,.5)">90</div><div class="heat-cell" style="background:rgba(16,185,129,.6)">93</div><div class="heat-cell" style="background:rgba(245,158,11,.5)">91</div><div class="heat-cell" style="background:rgba(16,185,129,.7)">96</div><div class="heat-cell" style="background:rgba(239,68,68,.4)">85</div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:10px;font-size:9px;color:#5a6580">
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:12px;height:12px;border-radius:3px;background:rgba(16,185,129,.8)"></div>≥95%</div>
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:12px;height:12px;border-radius:3px;background:rgba(16,185,129,.5)"></div>90-94%</div>
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:12px;height:12px;border-radius:3px;background:rgba(245,158,11,.5)"></div>85-89%</div>
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:12px;height:12px;border-radius:3px;background:rgba(239,68,68,.4)"></div>&lt;85%</div>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK ACTIONS -->
+<div class="section-label">Quick Actions</div>
+<div class="panel animate-in">
+  <div class="actions-grid">
+    <div class="action-btn"><div class="icon">📧</div><span>Send Demand Letters</span></div>
+    <div class="action-btn"><div class="icon">💰</div><span>Run Payroll</span></div>
+    <div class="action-btn"><div class="icon">📊</div><span>Exam Reports</span></div>
+    <div class="action-btn"><div class="icon">📋</div><span>Aged Debtors</span></div>
+    <div class="action-btn"><div class="icon">⚖️</div><span>Trial Balance</span></div>
+    <div class="action-btn"><div class="icon">📦</div><span>Procurement</span></div>
+    <div class="action-btn"><div class="icon">📚</div><span>Library Report</span></div>
+    <div class="action-btn"><div class="icon">🎓</div><span>KCSE Predictor</span></div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center;padding:20px 0 10px;font-size:10px;color:#5a6580">
+  APSIMS v3.0 Ultra · Alpha Plus School Information Management System · © 2025 · Powered by AlphaPlus ERP Kenya
+</div>
+
+</div><!-- end dashboard -->
+
+<script src="charts.js"></script>
+</body>
+</html>
