@@ -53,3 +53,14 @@
 .ultra-delay-1 { animation-delay: .05s; }
 .ultra-delay-2 { animation-delay: .1s; }
 .ultra-delay-3 { animation-delay: .15s; }
+
+/* Tab Buttons */
+.ultra-tab-btn {
+  position: relative; display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 10px; border: 1px solid transparent;
+  cursor: pointer; transition: all .25s ease; background: transparent;
+  font-family: inherit;
+}
+.ultra-tab-btn:hover { background: rgba(99,102,241,.06); }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

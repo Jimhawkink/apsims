@@ -8,11 +8,18 @@ import { FiUsers, FiDollarSign, FiTrendingUp, FiCalendar, FiBookOpen, FiUserChec
 import UltraCardsSection from './components/UltraCards';
 import UltraChartsSection from './components/UltraCharts';
 import UltraGridsSection from './components/UltraGrids';
+import DashboardTabs, { TabKey } from './components/DashboardTabs';
+import FinancePanel from './components/FinancePanel';
+import AcademicsPanel from './components/AcademicsPanel';
+import StaffPanel from './components/StaffPanel';
+import StoresPanel from './components/StoresPanel';
+import PortalsPanel from './components/PortalsPanel';
 import './components/ultra-dashboard.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
 
 export default function DashboardPage() {
+    const [activeTab, setActiveTab] = useState<TabKey>('overview');
     const [stats, setStats] = useState({
         totalStudents: 0, activeStudents: 0, newEnrollments: 0,
         totalStaff: 0, teachingStaff: 0, nonTeachingStaff: 0,
@@ -217,14 +224,22 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* Ultra Cards */}
-            <UltraCardsSection stats={stats} currentYear={currentYear} fmt={fmt} />
+            {/* Dashboard Tab Navigation */}
+            <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-            {/* Ultra Charts */}
-            <UltraChartsSection studentsByForm={studentsByForm} feePayments={feePayments} stats={stats} fmt={fmt} />
-
-            {/* Ultra Data Grids */}
-            <UltraGridsSection recentPayments={recentPayments} recentStudents={recentStudents} stats={stats} fmt={fmt} />
+            {/* Tab Content */}
+            {activeTab === 'overview' && (
+                <>
+                    <UltraCardsSection stats={stats} currentYear={currentYear} fmt={fmt} />
+                    <UltraChartsSection studentsByForm={studentsByForm} feePayments={feePayments} stats={stats} fmt={fmt} />
+                    <UltraGridsSection recentPayments={recentPayments} recentStudents={recentStudents} stats={stats} fmt={fmt} />
+                </>
+            )}
+            {activeTab === 'finance' && <FinancePanel />}
+            {activeTab === 'academics' && <AcademicsPanel />}
+            {activeTab === 'staff' && <StaffPanel />}
+            {activeTab === 'stores' && <StoresPanel />}
+            {activeTab === 'portals' && <PortalsPanel />}
 
             {/* Footer */}
             <div className="text-center py-3 text-[9px] text-gray-300 font-medium tracking-wide">
