@@ -13,16 +13,25 @@ const tabs: { key: TabKey; label: string; icon: string; color: string }[] = [
 
 export default function DashboardTabs({ activeTab, onTabChange }: { activeTab: TabKey; onTabChange: (tab: TabKey) => void }) {
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide" style={{ position: 'relative', zIndex: 10 }}>
       {tabs.map(tab => {
         const isActive = activeTab === tab.key;
         return (
-          <button key={tab.key} onClick={() => onTabChange(tab.key)}
+          <button
+            key={tab.key}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onTabChange(tab.key);
+            }}
             className="ultra-tab-btn group flex-shrink-0"
             style={{
               background: isActive ? `${tab.color}12` : 'transparent',
               borderColor: isActive ? `${tab.color}40` : 'transparent',
               color: isActive ? tab.color : '#6b7280',
+              position: 'relative',
+              zIndex: 11,
             }}
           >
             <span className="text-sm group-hover:scale-110 transition-transform">{tab.icon}</span>
@@ -34,3 +43,4 @@ export default function DashboardTabs({ activeTab, onTabChange }: { activeTab: T
     </div>
   );
 }
+
