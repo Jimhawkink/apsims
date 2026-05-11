@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { FiFileText, FiCpu, FiCheck, FiBook, FiEdit2, FiBarChart2, FiCopy } from 'react-icons/fi';
+import { FiFileText, FiCpu, FiCheck, FiBook, FiEdit2, FiBarChart2, FiCopy, FiDatabase } from 'react-icons/fi';
 import { useQuestionBankData } from './useQuestionBankData';
 import AIGenTab from './AIGenTab';
 import MarkingSchemesTab from './MarkingSchemesTab';
@@ -11,6 +11,7 @@ import ApprovalTab from './ApprovalTab';
 import StatsTab from './StatsTab';
 import DuplicatesTab from './DuplicatesTab';
 import QuestionsTab from './QuestionsTab';
+import toast from 'react-hot-toast';
 
 type Tab = 'questions'|'ai'|'marking'|'papers'|'practice'|'kcse'|'approval'|'stats'|'duplicates';
 const TABS: {id:Tab;label:string;icon:any;color:string}[] = [
@@ -28,6 +29,20 @@ const TABS: {id:Tab;label:string;icon:any;color:string}[] = [
 export default function QuestionBankPage() {
   const d = useQuestionBankData();
   const [tab, setTab] = useState<Tab>('questions');
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeed = async () => {
+    if (!confirm('This will pre-load 35+ KCSE questions with answers and 36 past paper records. Continue?')) return;
+    setSeeding(true);
+    try {
+      const res = await fetch('/api/seed-questions', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast.success(`Seeded ${data.questions} questions + ${data.papers} past papers!`);
+      d.fetchAll();
+    } catch (e: any) { toast.error('Seed failed: ' + e.message); }
+    setSeeding(false);
+  };
 
   if (d.loading) return <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-500 rounded-full animate-spin" style={{borderWidth:3}}/></div>;
 
@@ -36,6 +51,9 @@ export default function QuestionBankPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div><h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><FiFileText className="text-indigo-500"/> Ultra Question Bank</h1><p className="text-sm text-gray-500 mt-1">AI · Marking Schemes · KCSE Analysis · Practice</p></div>
         <div className="flex gap-2 flex-wrap">
+          <button onClick={handleSeed} disabled={seeding} className="text-xs font-bold px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center gap-1.5 shadow-md hover:scale-105 transition-transform disabled:opacity-50">
+            <FiDatabase size={12}/> {seeding ? 'Seeding...' : '🇰🇪 Load KCSE Data'}
+          </button>
           <span className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-bold">{d.questions.length} Questions</span>
           <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold">{d.questions.filter((q:any)=>q.source==='ai_generated').length} AI</span>
           <span className="text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded-full font-bold">{d.questions.filter((q:any)=>q.approval_status==='pending').length} Pending</span>
