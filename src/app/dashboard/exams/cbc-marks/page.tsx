@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useUltraCBCMarks } from '@/hooks/useUltraCBCMarks';
 import UltraCBCAnalyticsPanel from '@/components/cbc/UltraCBCAnalyticsPanel';
 import UltraCBCStudentRow from '@/components/cbc/UltraCBCStudentRow';
@@ -127,17 +128,18 @@ export default function CBCMarksPage() {
         {/* Center: Nav Tabs */}
         <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
           {[
-            { id: 'entry', label: 'Mark Entry', icon: FiEdit3 },
-            { id: 'summary', label: 'Summary', icon: FiBarChart2 },
-            { id: 'competency', label: 'Competency', icon: FiAward },
-            { id: 'history', label: 'History', icon: FiClock },
+            { id: 'entry', label: 'Mark Entry', icon: FiEdit3, href: '/dashboard/exams/cbc-marks' },
+            { id: 'summary', label: 'Summary', icon: FiBarChart2, href: '/dashboard/exams/cbc-marks/summary' },
+            { id: 'competency', label: 'Competency', icon: FiAward, href: '/dashboard/exams/cbc-marks/competency' },
+            { id: 'history', label: 'History', icon: FiClock, href: '/dashboard/exams/cbc-marks/history' },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = tab.id === 'entry';
             return (
-              <button
+              <Link
                 key={tab.id}
-                className={`flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs cursor-pointer transition-all ${
+                href={tab.href}
+                className={`flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs cursor-pointer transition-all no-underline ${
                   isActive
                     ? 'bg-white text-gray-800 font-semibold shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
@@ -145,7 +147,7 @@ export default function CBCMarksPage() {
               >
                 <Icon size={12} />
                 {tab.label}
-              </button>
+              </Link>
             );
           })}
         </div>
