@@ -1,340 +1,95 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useUltraCBCMarks } from '@/hooks/useUltraCBCMarks';
+import UltraCBCAnalyticsPanel from '@/components/cbc/UltraCBCAnalyticsPanel';
+import UltraCBCStudentRow from '@/components/cbc/UltraCBCStudentRow';
+import { UltraCBCFilterBar, UltraCBCProgressStrip, UltraCBCBulkBar } from '@/components/cbc/UltraCBCFilterBar';
 import {
-  getEducationSystem,
-  getStudentsForSubject,
-  computeCompetencySummary,
-  computeWeightedSummary,
-  RubricLevel,
-} from '@/lib/cbc-utils';
-import RubricLevelBadge from '@/components/cbc/RubricLevelBadge';
-import EducationSystemBadge from '@/components/cbc/EducationSystemBadge';
-import toast from 'react-hot-toast';
-import { FiDownload, FiFileText, FiCheckCircle } from 'react-icons/fi';
+  FiDownload,
+  FiSave,
+  FiCheckCircle,
+  FiFileText,
+  FiSettings,
+  FiCheck,
+  FiClipboard,
+  FiBarChart2,
+  FiAward,
+  FiClock,
+  FiEdit3,
+  FiBook,
+  FiUsers,
+  FiUpload,
+  FiPrinter,
+  FiCpu,
+  FiList,
+  FiStar,
+  FiLayers,
+} from 'react-icons/fi';
+
+// ---------------------------------------------------------------------------
+// Trend Data (static demo — replace with real data when available)
+// ---------------------------------------------------------------------------
+const TREND_DATA = [
+  { label: 'F1', value: 40, color: '#1D9E75' },
+  { label: 'F2', value: 65, color: '#378ADD' },
+  { label: 'F3', value: 52, color: '#EF9F27' },
+  { label: 'F4', value: 78, color: '#1D9E75' },
+  { label: 'S1', value: 45, color: '#E24B4A' },
+  { label: 'S2', value: 60, color: '#378ADD' },
+];
+
+// ---------------------------------------------------------------------------
+// Page Component
+// ---------------------------------------------------------------------------
 
 export default function CBCMarksPage() {
-  const [forms, setForms] = useState<any[]>([]);
-  const [streams, setStreams] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [terms, setTerms] = useState<any[]>([]);
-  const [pathways, setPathways] = useState<any[]>([]);
-  const [studentSubjects, setStudentSubjects] = useState<any[]>([]);
-  const [assessments, setAssessments] = useState<any[]>([]);
-  const [rubricConfig, setRubricConfig] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const hook = useUltraCBCMarks();
 
-  // Selections
-  const [selForm, setSelForm] = useState('');
-  const [selStream, setSelStream] = useState('');
-  const [selSubject, setSelSubject] = useState('');
-  const [selTerm, setSelTerm] = useState('');
-  const [selAssessmentType, setSelAssessmentType] = useState<'Formative' | 'Summative'>('Formative');
-  const [taskName, setTaskName] = useState('');
-
-  // Marks state: { [studentId]: RubricLevel | null }
-  const [marks, setMarks] = useState<Record<number, RubricLevel | null>>({});
-  const [saving, setSaving] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingSave, setPendingSave] = useState<(() => Promise<void>) | null>(null);
-
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    const [formsRes, streamsRes, subjectsRes, termsRes, pathwaysRes, ssRes, rubricRes] = await Promise.all([
-      supabase.from('school_forms').select('*').order('form_level'),
-      supabase.from('school_streams').select('*').order('stream_name'),
-      supabase.from('school_subjects').select('*').eq('is_active', true).order('subject_name'),
-      supabase.from('school_terms').select('*').order('id', { ascending: false }),
-      supabase.from('cbc_pathways').select('*').order('pathway_name'),
-      supabase.from('cbc_student_subjects').select('*'),
-      supabase.from('cbc_rubric_config').select('*').order('sort_order'),
-    ]);
-
-    const allForms = formsRes.data || [];
-    const cbcForms = allForms.filter(f => getEducationSystem(f.id, allForms) === 'CBC_Senior_School');
-
-    setForms(cbcForms);
-    setStreams(streamsRes.data || []);
-    setSubjects(subjectsRes.data || []);
-    setTerms(termsRes.data || []);
-    setPathways(pathwaysRes.data || []);
-    setStudentSubjects(ssRes.data || []);
-    setRubricConfig(rubricRes.data || []);
-
-    const cur = (termsRes.data || []).find((t: any) => t.is_current);
-    if (cur) setSelTerm(String(cur.id));
-
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  // Fetch students for selected form/stream
-  useEffect(() => {
-    if (!selForm) { setStudents([]); return; }
-    const load = async () => {
-      const query = supabase
-        .from('school_students')
-        .select('*')
-        .eq('form_id', Number(selForm))
-        .eq('status', 'Active')
-        .order('first_name');
-      if (selStream) query.eq('stream_id', Number(selStream));
-      const { data } = await query;
-      setStudents(data || []);
-    };
-    load();
-  }, [selForm, selStream]);
-
-  // Fetch existing assessments when filters change
-  useEffect(() => {
-    if (!selForm || !selTerm || !selSubject) { setAssessments([]); return; }
-    const load = async () => {
-      const studentIds = getStudentsForSubject(Number(selSubject), studentSubjects);
-      if (studentIds.length === 0) { setAssessments([]); return; }
-      const { data } = await supabase
-        .from('cbc_assessments')
-        .select('*')
-        .in('student_id', studentIds)
-        .eq('subject_id', Number(selSubject))
-        .eq('term_id', Number(selTerm));
-      setAssessments(data || []);
-    };
-    load();
-  }, [selForm, selTerm, selSubject, studentSubjects]);
-
-  // Pre-populate marks from existing assessments
-  useEffect(() => {
-    if (!selSubject || !selTerm) return;
-    const newMarks: Record<number, RubricLevel | null> = {};
-    enrolledStudents.forEach(student => {
-      const existing = assessments.find(
-        a => a.student_id === student.id &&
-          a.assessment_type === selAssessmentType &&
-          (selAssessmentType === 'Summative' || a.task_name === taskName)
-      );
-      newMarks[student.id] = existing?.rubric_level || null;
-    });
-    setMarks(newMarks);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessments, selAssessmentType, taskName]);
-
-  // Students enrolled in the selected subject
-  const enrolledStudentIds = selSubject
-    ? getStudentsForSubject(Number(selSubject), studentSubjects)
-    : [];
-  const enrolledStudents = students.filter(s => enrolledStudentIds.includes(s.id));
-
-  // Subjects available for the selected form/stream (via cbc_student_subjects)
-  const availableSubjectIds = new Set(
-    studentSubjects
-      .filter(ss => students.some(s => s.id === ss.student_id))
-      .map(ss => ss.subject_id)
-  );
-  const availableSubjects = subjects.filter(s => availableSubjectIds.has(s.id));
-
-  const assessedCount = Object.values(marks).filter(v => v !== null).length;
-  const totalCount = enrolledStudents.length;
-
-  const handleLevelChange = (studentId: number, level: RubricLevel) => {
-    setMarks(prev => ({ ...prev, [studentId]: level }));
-    // Auto-save after 2s idle
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => {
-      triggerSave(false);
-    }, 2000);
-  };
-
-  const triggerSave = async (force: boolean) => {
-    if (!selSubject || !selTerm || !selAssessmentType) return;
-
-    const doSave = async () => {
-      setSaving(true);
-      try {
-        const user = JSON.parse(localStorage.getItem('school_user') || '{}');
-        const teacherId = user?.id || null;
-
-        for (const student of enrolledStudents) {
-          const level = marks[student.id];
-          if (!level) continue;
-
-          if (selAssessmentType === 'Summative') {
-            // Upsert summative (unique per student/subject/term)
-            await supabase.from('cbc_assessments').upsert({
-              student_id: student.id,
-              subject_id: Number(selSubject),
-              term_id: Number(selTerm),
-              assessment_type: 'Summative',
-              task_name: 'Summative',
-              rubric_level: level,
-              teacher_id: teacherId,
-              assessed_at: new Date().toISOString(),
-            }, { onConflict: 'student_id,subject_id,term_id' });
-          } else {
-            // Formative: upsert by student/subject/term/task_name
-            const { data: existing } = await supabase
-              .from('cbc_assessments')
-              .select('id')
-              .eq('student_id', student.id)
-              .eq('subject_id', Number(selSubject))
-              .eq('term_id', Number(selTerm))
-              .eq('assessment_type', 'Formative')
-              .eq('task_name', taskName || 'Formative Task')
-              .maybeSingle();
-
-            if (existing) {
-              await supabase.from('cbc_assessments').update({
-                rubric_level: level,
-                assessed_at: new Date().toISOString(),
-              }).eq('id', existing.id);
-            } else {
-              await supabase.from('cbc_assessments').insert({
-                student_id: student.id,
-                subject_id: Number(selSubject),
-                term_id: Number(selTerm),
-                assessment_type: 'Formative',
-                task_name: taskName || 'Formative Task',
-                rubric_level: level,
-                teacher_id: teacherId,
-                assessed_at: new Date().toISOString(),
-              });
-            }
-          }
-
-          // Recompute competency summary inline
-          await recomputeSummaryInline(student.id, Number(selSubject), Number(selTerm));
-        }
-
-        toast.success('Marks saved successfully');
-      } catch (err) {
-        toast.error('Failed to save marks');
-        console.error(err);
-      } finally {
-        setSaving(false);
-      }
-    };
-
-    if (selAssessmentType === 'Summative' && !force) {
-      // Check for existing summative
-      const existingSummative = assessments.find(
-        a => a.assessment_type === 'Summative'
-      );
-      if (existingSummative) {
-        setPendingSave(() => doSave);
-        setShowConfirm(true);
-        return;
-      }
-    }
-
-    await doSave();
-  };
-
-  const recomputeSummaryInline = async (studentId: number, subjectId: number, termId: number) => {
-    const { data: allAssessments } = await supabase
-      .from('cbc_assessments')
-      .select('*')
-      .eq('student_id', studentId)
-      .eq('subject_id', subjectId)
-      .eq('term_id', termId);
-
-    if (!allAssessments) return;
-
-    const formativeEntries = allAssessments.filter(a => a.assessment_type === 'Formative');
-    const summativeEntry = allAssessments.find(a => a.assessment_type === 'Summative');
-
-    const formativeLevels = formativeEntries
-      .map(a => a.rubric_level as RubricLevel)
-      .filter(Boolean);
-
-    const formativeLevel = formativeLevels.length > 0
-      ? computeCompetencySummary(formativeLevels)
-      : null;
-    const summativeLevel = summativeEntry?.rubric_level as RubricLevel | null || null;
-
-    let overallLevel: RubricLevel | null = null;
-    if (formativeLevel && summativeLevel) {
-      overallLevel = computeWeightedSummary(formativeLevel, summativeLevel);
-    } else if (formativeLevel) {
-      overallLevel = formativeLevel;
-    } else if (summativeLevel) {
-      overallLevel = summativeLevel;
-    }
-
-    await supabase.from('cbc_competency_summaries').upsert({
-      student_id: studentId,
-      subject_id: subjectId,
-      term_id: termId,
-      formative_level: formativeLevel,
-      summative_level: summativeLevel,
-      overall_level: overallLevel,
-      formative_count: formativeLevels.length,
-      last_computed_at: new Date().toISOString(),
-    }, { onConflict: 'student_id,subject_id,term_id' });
-  };
-
-  const exportCSV = () => {
-    const subjectName = subjects.find(s => s.id === Number(selSubject))?.subject_name || '';
-    const termName = terms.find(t => t.id === Number(selTerm))?.term_name || '';
-    const headers = ['Adm No', 'Student Name', 'Subject', 'Assessment Type', 'Task Name', 'Rubric Level', 'Term'];
-    const rows = enrolledStudents.map(student => [
-      student.admission_no || student.admission_number || '',
-      `${student.first_name} ${student.last_name}`,
-      subjectName,
-      selAssessmentType,
-      selAssessmentType === 'Formative' ? (taskName || 'Formative Task') : 'Summative',
-      marks[student.id] || 'Not Assessed',
-      termName,
-    ]);
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `cbc-marks-${subjectName}-${termName}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const isReady = selForm && selStream !== undefined && selSubject && selTerm && selAssessmentType &&
-    (selAssessmentType === 'Summative' || taskName.trim().length > 0);
-
-  if (loading) {
+  // ── Loading state ──
+  if (hook.loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center">
-          <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-500 rounded-full animate-spin mx-auto mb-3" style={{ borderWidth: 3 }} />
-          <p className="text-gray-400 text-sm">Loading CBC Marks Entry...</p>
+          <div
+            className="w-10 h-10 border-gray-200 border-t-indigo-500 rounded-full animate-spin mx-auto mb-3"
+            style={{ borderWidth: 3, borderStyle: 'solid' }}
+          />
+          <p className="text-gray-400 text-sm">Loading Ultra CBC Assessment System...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Confirm overwrite dialog */}
-      {showConfirm && (
+    <div className="animate-fade-in">
+      {/* ================================================================= */}
+      {/* Confirm Overwrite Dialog                                          */}
+      {/* ================================================================= */}
+      {hook.showConfirm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Overwrite Summative Assessment?</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              Overwrite Summative Assessment?
+            </h3>
             <p className="text-sm text-gray-600 mb-5">
-              A summative assessment already exists for this subject and term. Saving will overwrite the existing records. This cannot be undone.
+              A summative assessment already exists for this subject and term.
+              Saving will overwrite the existing records. This cannot be undone.
             </p>
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => { setShowConfirm(false); setPendingSave(null); }}
+                onClick={() => {
+                  hook.setShowConfirm(false);
+                  hook.setPendingSave(null);
+                }}
                 className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200"
               >
                 Cancel
               </button>
               <button
                 onClick={async () => {
-                  setShowConfirm(false);
-                  if (pendingSave) await pendingSave();
-                  setPendingSave(null);
+                  hook.setShowConfirm(false);
+                  if (hook.pendingSave) await hook.pendingSave();
+                  hook.setPendingSave(null);
                 }}
                 className="px-4 py-2 text-sm font-bold text-white bg-red-500 rounded-xl hover:bg-red-600"
               >
@@ -345,213 +100,364 @@ export default function CBCMarksPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <FiFileText className="text-indigo-500" /> CBC Mark Entry
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Enter rubric levels (EE/ME/AE/BE) for Grade 10 CBC students
-          </p>
-        </div>
-        {isReady && enrolledStudents.length > 0 && (
-          <div className="flex gap-2">
-            <button
-              onClick={exportCSV}
-              className="px-4 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl flex items-center gap-2 hover:bg-gray-50"
+      {/* ================================================================= */}
+      {/* Top Bar                                                           */}
+      {/* ================================================================= */}
+      <div className="flex items-center justify-between py-2.5 px-5 bg-white border-b border-gray-200 sticky top-0 z-40">
+        {/* Left: Logo + Breadcrumb */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+            <div
+              className="w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #6C63FF, #00D9A6)' }}
             >
-              <FiDownload size={14} /> Export CSV
-            </button>
-            <button
-              onClick={() => triggerSave(false)}
-              disabled={saving}
-              className="px-5 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
-            >
-              {saving ? 'Saving...' : 'Save Marks'}
-            </button>
+              <FiBook size={14} className="text-white" />
+            </div>
+            AlphaSIMS
           </div>
-        )}
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <span>Exams</span>
+            <span className="opacity-50">›</span>
+            <span>CBC Assessment</span>
+            <span className="opacity-50">›</span>
+            <span className="text-gray-700 font-medium">Mark Entry</span>
+          </div>
+        </div>
+
+        {/* Center: Nav Tabs */}
+        <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+          {[
+            { id: 'entry', label: 'Mark Entry', icon: FiEdit3 },
+            { id: 'summary', label: 'Summary', icon: FiBarChart2 },
+            { id: 'competency', label: 'Competency', icon: FiAward },
+            { id: 'history', label: 'History', icon: FiClock },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = tab.id === 'entry';
+            return (
+              <button
+                key={tab.id}
+                className={`flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs cursor-pointer transition-all ${
+                  isActive
+                    ? 'bg-white text-gray-800 font-semibold shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Icon size={12} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={hook.exportCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-all cursor-pointer"
+          >
+            <FiDownload size={13} />
+            Export
+          </button>
+          <button
+            onClick={() => hook.triggerSave(false)}
+            disabled={hook.saving}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white transition-all cursor-pointer disabled:opacity-60"
+            style={{ background: hook.saving ? '#1D9E75' : '#00D9A6', borderColor: '#00D9A6' }}
+          >
+            {hook.saving ? (
+              <>
+                <FiCheck size={13} />
+                Saving...
+              </>
+            ) : (
+              <>
+                <FiSave size={13} />
+                Save All
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Selection bar */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Form (CBC) *</label>
-            <select
-              value={selForm}
-              onChange={e => { setSelForm(e.target.value); setSelStream(''); setSelSubject(''); }}
-              className="select-modern w-full text-sm"
+      {/* ================================================================= */}
+      {/* Content Area: Sidebar + Main + Analytics Panel                    */}
+      {/* ================================================================= */}
+      <div className="flex" style={{ minHeight: 'calc(100vh - 180px)' }}>
+
+        {/* ─────────────────────────────────────────────────────────────── */}
+        {/* Left Sidebar                                                   */}
+        {/* ─────────────────────────────────────────────────────────────── */}
+        <div className="w-[200px] flex-shrink-0 bg-white border-r border-gray-200 py-4 px-3 flex flex-col gap-1">
+          {/* Navigation items */}
+          {[
+            { icon: FiEdit3, label: 'Mark Entry', active: true },
+            { icon: FiUsers, label: 'Students', badge: String(hook.totalStudents || 0) },
+          ].map((item, i) => (
+            <div
+              key={i}
+              className={`flex items-center gap-2 py-2 px-2 rounded-md text-xs cursor-pointer transition-all ${
+                item.active
+                  ? 'bg-gray-100 text-gray-800 font-semibold'
+                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              }`}
             >
-              <option value="">Select Form</option>
-              {forms.map(f => (
-                <option key={f.id} value={f.id}>
-                  {f.form_name}
-                </option>
-              ))}
-            </select>
+              <item.icon size={14} className="opacity-70" />
+              {item.label}
+              {item.badge && (
+                <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] text-white font-medium" style={{ background: '#6C63FF' }}>
+                  {item.badge}
+                </span>
+              )}
+            </div>
+          ))}
+
+          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-1">
+            Subjects
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Stream</label>
-            <select
-              value={selStream}
-              onChange={e => { setSelStream(e.target.value); setSelSubject(''); }}
-              className="select-modern w-full text-sm"
+          {[
+            { icon: FiBook, label: 'English' },
+            { icon: FiLayers, label: 'Mathematics' },
+            { icon: FiCpu, label: 'Science' },
+            { icon: FiList, label: 'Social Studies' },
+            { icon: FiStar, label: 'Creative Arts' },
+          ].map((item, i) => (
+            <div
+              key={i}
+              className={`flex items-center gap-2 py-2 px-2 rounded-md text-xs cursor-pointer transition-all ${
+                i === 0
+                  ? 'bg-gray-100 text-gray-800 font-semibold'
+                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              }`}
             >
-              <option value="">All Streams</option>
-              {streams.map(s => (
-                <option key={s.id} value={s.id}>{s.stream_name}</option>
-              ))}
-            </select>
+              <item.icon size={14} className="opacity-70" />
+              {item.label}
+            </div>
+          ))}
+
+          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-1">
+            Assessments
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Subject *</label>
-            <select
-              value={selSubject}
-              onChange={e => setSelSubject(e.target.value)}
-              className="select-modern w-full text-sm"
-              disabled={!selForm}
-            >
-              <option value="">Select Subject</option>
-              {availableSubjects.map(s => (
-                <option key={s.id} value={s.id}>{s.subject_name}</option>
-              ))}
-            </select>
+          {[
+            { icon: FiClipboard, label: 'Formative', badge: '3', badgeBg: '#E6F1FB', badgeColor: '#185FA5' },
+            { icon: FiCheckCircle, label: 'Summative', badge: '1', badgeBg: '#E1F5EE', badgeColor: '#0F6E56' },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center gap-2 py-2 px-2 rounded-md text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 cursor-pointer transition-all">
+              <item.icon size={14} className="opacity-70" />
+              {item.label}
+              <span
+                className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                style={{ background: item.badgeBg, color: item.badgeColor }}
+              >
+                {item.badge}
+              </span>
+            </div>
+          ))}
+
+          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-1">
+            Tools
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Term *</label>
-            <select
-              value={selTerm}
-              onChange={e => setSelTerm(e.target.value)}
-              className="select-modern w-full text-sm"
-            >
-              <option value="">Select Term</option>
-              {terms.map(t => (
-                <option key={t.id} value={t.id}>{t.term_name}</option>
-              ))}
-            </select>
+          {[
+            { icon: FiUpload, label: 'Bulk Import' },
+            { icon: FiPrinter, label: 'Print Report' },
+            { icon: FiCpu, label: 'AI Insights' },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center gap-2 py-2 px-2 rounded-md text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 cursor-pointer transition-all">
+              <item.icon size={14} className="opacity-70" />
+              {item.label}
+            </div>
+          ))}
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────── */}
+        {/* Main Content Area                                              */}
+        {/* ─────────────────────────────────────────────────────────────── */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+
+          {/* Header + Filters */}
+          <div className="py-4 px-5 bg-white border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-lg font-semibold text-gray-800 flex items-center gap-2.5">
+                  <FiClipboard size={20} className="text-indigo-500" />
+                  CBC Mark Entry — {hook.subjectName || 'Select Subject'}
+                  <span className="text-[10px] py-0.5 px-2 rounded border border-gray-200 bg-gray-50 text-gray-500 font-medium ml-1">
+                    {hook.selAssessmentType} Assessment
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Enter rubric levels and marks. Rubric auto-selects from score.{' '}
+                  {hook.termName && `${hook.termName}`}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={hook.toggleBulk}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
+                    hook.bulkMode
+                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <FiCheckCircle size={13} />
+                  Bulk Select
+                </button>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white cursor-pointer" style={{ background: '#6C63FF' }}>
+                  <FiSettings size={13} />
+                  Rubric Config
+                </button>
+              </div>
+            </div>
+
+            <UltraCBCFilterBar
+              forms={hook.forms}
+              streams={hook.streams}
+              subjects={hook.availableSubjects}
+              terms={hook.terms}
+              selForm={hook.selForm}
+              selStream={hook.selStream}
+              selSubject={hook.selSubject}
+              selTerm={hook.selTerm}
+              selAssessmentType={hook.selAssessmentType}
+              searchQuery={hook.searchQuery}
+              rubricFilter={hook.rubricFilter}
+              taskName={hook.taskName}
+              onFormChange={hook.setSelForm}
+              onStreamChange={hook.setSelStream}
+              onSubjectChange={hook.setSelSubject}
+              onTermChange={hook.setSelTerm}
+              onAssessmentTypeChange={hook.setSelAssessmentType}
+              onSearchChange={hook.setSearchQuery}
+              onRubricFilterChange={hook.setRubricFilter}
+              onTaskNameChange={hook.setTaskName}
+            />
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Assessment Type *</label>
-            <select
-              value={selAssessmentType}
-              onChange={e => setSelAssessmentType(e.target.value as 'Formative' | 'Summative')}
-              className="select-modern w-full text-sm"
-            >
-              <option value="Formative">Formative</option>
-              <option value="Summative">Summative</option>
-            </select>
-          </div>
-          {selAssessmentType === 'Formative' && (
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Task Name *</label>
-              <input
-                type="text"
-                value={taskName}
-                onChange={e => setTaskName(e.target.value)}
-                placeholder="e.g. Task 1"
-                className="input-modern w-full text-sm"
-              />
+
+          {/* Progress Strip */}
+          {hook.isReady && hook.totalStudents > 0 && (
+            <UltraCBCProgressStrip
+              counts={hook.analyticsCounts}
+              totalStudents={hook.totalStudents}
+              completionPct={hook.completionPct}
+            />
+          )}
+
+          {/* Bulk Selection Bar */}
+          <UltraCBCBulkBar
+            bulkMode={hook.bulkMode}
+            selectedCount={hook.selected.size}
+            onSelectAll={hook.handleSelectAll}
+            onBulkSet={hook.handleBulkSet}
+            onClearSelected={hook.handleClearSelected}
+          />
+
+          {/* Table or Empty State */}
+          {!hook.isReady ? (
+            <div className="flex-1 flex items-center justify-center bg-white">
+              <div className="text-center py-20 text-gray-400">
+                <span className="text-5xl block mb-4">📝</span>
+                <p className="font-semibold text-lg">Select all required filters to enter marks</p>
+                <p className="text-xs mt-1">
+                  Form, Subject, Term, Assessment Type
+                  {hook.selAssessmentType === 'Formative' ? ', and Task Name' : ''} are required
+                </p>
+              </div>
+            </div>
+          ) : hook.filteredStudents.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center bg-white">
+              <div className="text-center py-20 text-gray-400">
+                <span className="text-5xl block mb-4">👥</span>
+                <p className="font-semibold">No students found</p>
+                <p className="text-xs mt-1">Try adjusting your filters or search query</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10 bg-gray-50">
+                  <tr>
+                    {hook.bulkMode && <th className="px-3 py-2 text-left w-9" />}
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider w-7">
+                      #
+                    </th>
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Student
+                    </th>
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Marks <span className="text-gray-300 font-normal">/100</span>
+                    </th>
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Rubric Level
+                    </th>
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Current
+                    </th>
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Prev Term
+                    </th>
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Trend
+                    </th>
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Form. Avg
+                    </th>
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Teacher Note
+                    </th>
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider w-[80px]">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {hook.filteredStudents.map((student: any, idx: number) => (
+                    <UltraCBCStudentRow
+                      key={student.id}
+                      student={{
+                        id: student.id,
+                        admNo: student.admission_no || student.admission_number || '—',
+                        firstName: student.first_name,
+                        lastName: student.last_name,
+                        gender: student.gender || '',
+                        stream: String(student.stream_id || ''),
+                        streamName: '',
+                      }}
+                      index={idx + 1}
+                      score={hook.markScores[student.id] || ''}
+                      level={hook.markLevels[student.id] || null}
+                      prevLevel={hook.prevTermLevels[student.id] || null}
+                      formativeAvgLevel={hook.formativeAvgLevels[student.id] || null}
+                      note={hook.markNotes[student.id] || ''}
+                      bulkMode={hook.bulkMode}
+                      isSelected={hook.selected.has(student.id)}
+                      onScoreChange={hook.handleScoreChange}
+                      onLevelChange={hook.handleLevelChange}
+                      onClear={hook.handleClear}
+                      onNoteChange={hook.handleNoteChange}
+                      onCheckChange={hook.handleCheckChange}
+                    />
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
+
+        {/* ─────────────────────────────────────────────────────────────── */}
+        {/* Right Analytics Panel                                          */}
+        {/* ─────────────────────────────────────────────────────────────── */}
+        <UltraCBCAnalyticsPanel
+          totalStudents={hook.totalStudents}
+          marks={hook.markLevels as Record<number, string | null>}
+          scores={hook.markScores}
+          rubricConfig={hook.rubricConfig}
+          subjectName={hook.subjectName}
+          termName={hook.termName}
+          deadlineDays={3}
+          beStudentNames={hook.beStudentNames}
+          trendData={TREND_DATA}
+        />
       </div>
-
-      {/* Completion indicator */}
-      {isReady && enrolledStudents.length > 0 && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-          <FiCheckCircle className={assessedCount === totalCount ? 'text-green-500' : 'text-indigo-400'} size={18} />
-          <p className="text-sm font-semibold text-indigo-800">
-            {assessedCount} / {totalCount} students assessed
-          </p>
-          {saving && <span className="text-xs text-indigo-500 ml-auto animate-pulse">Auto-saving...</span>}
-        </div>
-      )}
-
-      {/* Marks grid */}
-      {!isReady ? (
-        <div className="bg-white rounded-2xl border border-gray-200 text-center py-20 text-gray-400">
-          <span className="text-5xl block mb-4">📝</span>
-          <p className="font-semibold text-lg">Select all required filters to enter marks</p>
-          <p className="text-xs mt-1">Form, Subject, Term, Assessment Type{selAssessmentType === 'Formative' ? ', and Task Name' : ''} are required</p>
-        </div>
-      ) : enrolledStudents.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 text-center py-20 text-gray-400">
-          <span className="text-5xl block mb-4">👥</span>
-          <p className="font-semibold">No students enrolled in this subject</p>
-          <p className="text-xs mt-1">Assign students to this subject via the Students page</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-gray-700">
-              {subjects.find(s => s.id === Number(selSubject))?.subject_name} —{' '}
-              {selAssessmentType === 'Formative' ? taskName : 'Summative Assessment'}
-            </h2>
-            <div className="flex gap-2">
-              {(['EE', 'ME', 'AE', 'BE'] as RubricLevel[]).map(level => (
-                <RubricLevelBadge key={level} level={level} rubricConfig={rubricConfig} size="sm" />
-              ))}
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide w-10">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Adm No</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Student Name</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wide">Rubric Level</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wide">Current</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enrolledStudents.map((student, idx) => {
-                  const currentLevel = marks[student.id] || null;
-                  return (
-                    <tr key={student.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                      <td className="px-4 py-3 text-xs text-gray-400">{idx + 1}</td>
-                      <td className="px-4 py-3 text-sm font-mono text-blue-600 font-semibold">
-                        {student.admission_no || student.admission_number || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-800">
-                        {student.first_name} {student.last_name}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {(['EE', 'ME', 'AE', 'BE'] as RubricLevel[]).map(level => (
-                            <button
-                              key={level}
-                              onClick={() => handleLevelChange(student.id, level)}
-                              className={`px-2 py-1 rounded-lg text-xs font-bold border-2 transition-all ${
-                                currentLevel === level
-                                  ? 'text-white border-transparent'
-                                  : 'bg-white border-gray-200 text-gray-500 hover:border-indigo-300'
-                              }`}
-                              style={
-                                currentLevel === level
-                                  ? { background: rubricConfig.find(r => r.level_code === level)?.color_hex || '#6366f1' }
-                                  : {}
-                              }
-                            >
-                              {level}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <RubricLevelBadge level={currentLevel} rubricConfig={rubricConfig} size="sm" />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
