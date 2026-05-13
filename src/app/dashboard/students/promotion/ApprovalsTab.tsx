@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiCheck, FiX as FiXIcon } from 'react-icons/fi';
+import { FiCheck, FiX as FiXIcon, FiShield } from 'react-icons/fi';
 
 export default function ApprovalsTab({ data }: { data: any }) {
     const { approvals, history, students, getFormName, user, fetchAll } = data;
@@ -48,42 +48,44 @@ export default function ApprovalsTab({ data }: { data: any }) {
 
     return (
         <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            <div className="bg-white rounded-2xl border border-gray-200 p-3 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
                     {['Pending', 'Approved', 'Rejected', ''].map(f => (
                         <button key={f || 'all'} onClick={() => setFilter(f)}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg ${filter === f ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                            {f || 'All'} {f === 'Pending' && pendingCount > 0 && <span className="ml-1 bg-white text-purple-600 px-1.5 rounded-full">{pendingCount}</span>}
+                            className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${filter === f ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                            {f || 'All'} {f === 'Pending' && pendingCount > 0 && <span className="ml-1 bg-white/25 text-white px-1.5 py-0.5 text-[10px] rounded-full">{pendingCount}</span>}
                         </button>
                     ))}
                 </div>
+                <span className="text-[11px] text-gray-400">{filtered.length} items</span>
             </div>
 
             {filtered.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-gray-200 text-center py-16 text-gray-400">
-                    <span className="text-4xl block mb-3">🛡️</span><p className="font-semibold">No {filter.toLowerCase()} approvals</p>
+                <div className="bg-white rounded-2xl border border-gray-200 text-center py-14 text-gray-400">
+                    <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-50 flex items-center justify-center"><FiShield size={24} className="text-gray-300" /></div>
+                    <p className="font-semibold text-sm text-gray-500">No {filter.toLowerCase()} approvals</p>
                 </div>
             ) : (
                 <div className="grid gap-3">
                     {filtered.map((a: any) => {
                         const info = getHistoryInfo(a.promotion_history_id);
                         return (
-                            <div key={a.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                            <div key={a.id} className={`bg-white rounded-xl border p-4 transition-all hover:shadow-md ${a.status === 'Pending' ? 'border-amber-200 border-l-4 border-l-amber-400' : 'border-gray-200'}`}>
                                 <div className="flex items-start justify-between">
                                     <div>
-                                        <h4 className="text-sm font-bold text-gray-800">{info?.studentName || `History #${a.promotion_history_id}`}</h4>
-                                        <p className="text-xs text-gray-500 mt-0.5">
-                                            {info?.action}: {info?.from} → {info?.to} {info?.avg ? `(Avg: ${Number(info.avg).toFixed(1)})` : ''}
+                                        <h4 className="text-[12px] font-bold text-gray-800">{info?.studentName || `History #${a.promotion_history_id}`}</h4>
+                                        <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
+                                            {info?.action}: {info?.from} <span className="text-purple-500">→</span> {info?.to} {info?.avg ? `(Avg: ${Number(info.avg).toFixed(1)})` : ''}
                                         </p>
-                                        <p className="text-xs text-gray-400 mt-1">Approver: {a.approver_type} • {new Date(a.created_at).toLocaleDateString()}</p>
-                                        {a.comments && <p className="text-xs text-gray-500 mt-1 italic">"{a.comments}"</p>}
+                                        <p className="text-[10px] text-gray-400 mt-1">Approver: {a.approver_type} • {new Date(a.created_at).toLocaleDateString()}</p>
+                                        {a.comments && <p className="text-[11px] text-gray-500 mt-1 italic">"{a.comments}"</p>}
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${a.status === 'Approved' ? 'bg-green-100 text-green-700' : a.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{a.status}</span>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${a.status === 'Approved' ? 'bg-green-100 text-green-700' : a.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{a.status}</span>
                                         {a.status === 'Pending' && (
                                             <>
-                                                <button onClick={() => handleApproval(a.id, 'Approved')} className="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Approve"><FiCheck size={16} /></button>
-                                                <button onClick={() => handleApproval(a.id, 'Rejected')} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Reject"><FiXIcon size={16} /></button>
+                                                <button onClick={() => handleApproval(a.id, 'Approved')} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Approve"><FiCheck size={14} /></button>
+                                                <button onClick={() => handleApproval(a.id, 'Rejected')} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Reject"><FiXIcon size={14} /></button>
                                             </>
                                         )}
                                     </div>

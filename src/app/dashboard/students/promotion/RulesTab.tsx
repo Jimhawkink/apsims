@@ -34,39 +34,47 @@ export default function RulesTab({ data }: { data: any }) {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-gray-700">Promotion Rules Engine</h3>
-                <button onClick={openAdd} className="px-3 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
-                    <FiPlus size={13} /> Add Rule
+                <div>
+                    <h3 className="text-sm font-bold text-gray-700">Promotion Rules Engine</h3>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Configure automated eligibility criteria for each form transition</p>
+                </div>
+                <button onClick={openAdd} className="px-3 py-2 text-[11px] font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md transition-all hover:shadow-lg hover:scale-[1.02]" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
+                    <FiPlus size={12} /> Add Rule
                 </button>
             </div>
 
             {rules.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-gray-200 text-center py-16 text-gray-400">
-                    <span className="text-4xl block mb-3">⚙️</span><p className="font-semibold">No promotion rules defined</p><p className="text-xs mt-1">Create rules to control promotion eligibility</p>
+                <div className="bg-white rounded-2xl border border-gray-200 text-center py-14 text-gray-400">
+                    <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-50 flex items-center justify-center"><FiSettings size={24} className="text-gray-300" /></div>
+                    <p className="font-semibold text-sm text-gray-500">No promotion rules defined</p>
+                    <p className="text-[11px] mt-1 text-gray-400">Create rules to control promotion eligibility</p>
                 </div>
             ) : (
                 <div className="grid gap-3">
                     {rules.map((r: any) => (
-                        <div key={r.id} className={`bg-white rounded-xl border p-4 ${r.is_active ? 'border-gray-200' : 'border-gray-200 opacity-50'}`}>
+                        <div key={r.id} className={`bg-white rounded-xl border p-4 transition-all hover:shadow-md ${r.is_active ? 'border-gray-200' : 'border-gray-200 opacity-50'}`}>
                             <div className="flex items-start justify-between">
                                 <div>
-                                    <h4 className="text-sm font-bold text-gray-800">{r.rule_name}</h4>
-                                    <p className="text-xs text-gray-500 mt-0.5">{getFormName(r.from_form_id)} → {getFormName(r.to_form_id)}</p>
+                                    <h4 className="text-[12px] font-bold text-gray-800">{r.rule_name}</h4>
+                                    <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">{getFormName(r.from_form_id)} <span className="text-purple-500">→</span> {getFormName(r.to_form_id)}</p>
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.auto_promote ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{r.auto_promote ? 'Auto' : 'Manual'}</span>
-                                    {r.require_approval && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Approval</span>}
-                                    <button onClick={() => openEdit(r)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><FiEdit2 size={13} /></button>
-                                    <button onClick={() => deleteRule(r.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><FiTrash2 size={13} /></button>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${r.auto_promote ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{r.auto_promote ? 'Auto' : 'Manual'}</span>
+                                    {r.require_approval && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Approval</span>}
+                                    <button onClick={() => openEdit(r)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={12} /></button>
+                                    <button onClick={() => deleteRule(r.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={12} /></button>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-                                <div className="bg-gray-50 rounded-lg p-2 text-center"><p className="text-lg font-bold text-gray-800">{r.min_average_score}</p><p className="text-[10px] text-gray-500 font-semibold">Min Avg Score</p></div>
-                                <div className="bg-gray-50 rounded-lg p-2 text-center"><p className="text-lg font-bold text-gray-800">{r.max_subject_failures}</p><p className="text-[10px] text-gray-500 font-semibold">Max Failures</p></div>
-                                <div className="bg-gray-50 rounded-lg p-2 text-center"><p className="text-lg font-bold text-gray-800">{r.failure_threshold}</p><p className="text-[10px] text-gray-500 font-semibold">Fail Threshold</p></div>
-                                <div className="bg-gray-50 rounded-lg p-2 text-center"><p className="text-lg font-bold text-gray-800">{r.attendance_min_percent}%</p><p className="text-[10px] text-gray-500 font-semibold">Min Attendance</p></div>
+                                {[{ val: r.min_average_score, label: 'Min Avg Score', max: 100, color: '#8b5cf6' }, { val: r.max_subject_failures, label: 'Max Failures', max: 10, color: '#ef4444' }, { val: r.failure_threshold, label: 'Fail Threshold', max: 100, color: '#f59e0b' }, { val: `${r.attendance_min_percent}%`, label: 'Min Attendance', max: 100, color: '#22c55e', rawVal: r.attendance_min_percent }].map((item, idx) => (
+                                    <div key={idx} className="bg-gray-50 rounded-lg p-2.5 text-center relative overflow-hidden">
+                                        <div className="absolute bottom-0 left-0 h-0.5 rounded-full transition-all" style={{ width: `${((item.rawVal ?? Number(item.val)) / item.max) * 100}%`, backgroundColor: item.color, opacity: 0.5 }} />
+                                        <p className="text-sm font-extrabold text-gray-800">{item.val}</p>
+                                        <p className="text-[9px] text-gray-400 font-semibold uppercase tracking-wider">{item.label}</p>
+                                    </div>
+                                ))}
                             </div>
-                            {r.description && <p className="text-xs text-gray-400 mt-2">{r.description}</p>}
+                            {r.description && <p className="text-[11px] text-gray-400 mt-2 italic">{r.description}</p>}
                         </div>
                     ))}
                 </div>

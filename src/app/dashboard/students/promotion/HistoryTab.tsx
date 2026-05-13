@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiRotateCcw, FiSearch, FiDownload, FiFileText } from 'react-icons/fi';
+import { FiRotateCcw, FiSearch, FiDownload, FiFileText, FiClock } from 'react-icons/fi';
 
 export default function HistoryTab({ data }: { data: any }) {
     const { history, students, forms, streams, getFormName, getStreamName, user, fetchAll, schoolDetails } = data;
@@ -52,63 +52,73 @@ export default function HistoryTab({ data }: { data: any }) {
 
     return (
         <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                <div className="flex items-end gap-3 flex-wrap">
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="p-4 flex items-end gap-3 flex-wrap">
                     <div className="flex-1 min-w-[200px]">
-                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Search</label>
-                        <div className="relative"><FiSearch className="absolute left-3 top-2.5 text-gray-400" size={14} /><input value={search} onChange={e => setSearch(e.target.value)} className="input-modern w-full text-sm pl-9" placeholder="Search by name or adm no..." /></div>
+                        <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Search</label>
+                        <div className="relative"><FiSearch className="absolute left-3 top-2.5 text-gray-400" size={12} /><input value={search} onChange={e => setSearch(e.target.value)} className="input-modern w-full text-[11px] pl-8" placeholder="Search by name or adm no..." /></div>
                     </div>
                     <div>
-                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Action Type</label>
-                        <select value={filterAction} onChange={e => setFilterAction(e.target.value)} className="select-modern text-sm"><option value="">All</option><option value="Promotion">Promotion</option><option value="Demotion">Demotion</option><option value="Graduation">Graduation</option><option value="Reversal">Reversal</option></select>
+                        <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Action Type</label>
+                        <select value={filterAction} onChange={e => setFilterAction(e.target.value)} className="select-modern text-[11px]">
+                            <option value="">All</option><option value="Promotion">Promotion</option><option value="Demotion">Demotion</option><option value="Graduation">Graduation</option><option value="Reversal">Reversal</option>
+                        </select>
                     </div>
+                </div>
+                <div className="border-t border-gray-100 px-4 py-2 bg-gray-50/50 flex items-center gap-3">
+                    <span className="text-[11px] font-bold text-gray-600">{filtered.length} Records</span>
+                    <div className="w-px h-4 bg-gray-200" />
+                    <span className="flex items-center gap-1 text-[11px]"><span className="w-2 h-2 rounded-full bg-green-500" />{history.filter((h:any) => h.action_type==='Promotion' && !h.reversed_at).length} Promotions</span>
+                    <span className="flex items-center gap-1 text-[11px]"><span className="w-2 h-2 rounded-full bg-blue-500" />{history.filter((h:any) => h.action_type==='Graduation').length} Graduations</span>
+                    <span className="flex items-center gap-1 text-[11px]"><span className="w-2 h-2 rounded-full bg-red-500" />{history.filter((h:any) => h.action_type==='Demotion').length} Demotions</span>
                 </div>
             </div>
 
             {filtered.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-gray-200 text-center py-16 text-gray-400">
-                    <span className="text-4xl block mb-3">📜</span><p className="font-semibold">No promotion history found</p>
+                <div className="bg-white rounded-2xl border border-gray-200 text-center py-14 text-gray-400">
+                    <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-50 flex items-center justify-center"><FiClock size={24} className="text-gray-300" /></div>
+                    <p className="font-semibold text-sm text-gray-500">No promotion history found</p>
                 </div>
             ) : (
                 <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead><tr className="bg-gray-50 border-b border-gray-200">
-                                <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Date</th>
-                                <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Action</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">From</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">To</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Avg</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Eligibility</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Approval</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">SMS</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Actions</th>
+                            <thead><tr className="bg-gray-50/80 border-b border-gray-200">
+                                <th className="px-2.5 py-2 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">Date</th>
+                                <th className="px-2.5 py-2 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">Student</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Action</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">From</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">To</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Avg</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Elig.</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Apprvl</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">SMS</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Actions</th>
                             </tr></thead>
                             <tbody>
                                 {filtered.map((h: any) => (
-                                    <tr key={h.id} className={`border-b border-gray-100 hover:bg-gray-50 ${h.reversed_at ? 'opacity-50 line-through' : ''}`}>
-                                        <td className="px-3 py-2.5 text-xs text-gray-500">{new Date(h.created_at).toLocaleDateString()}</td>
-                                        <td className="px-3 py-2.5 text-sm font-semibold text-gray-800">{getStudentName(h.student_id)}</td>
-                                        <td className="px-3 py-2.5 text-center">
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${h.action_type === 'Promotion' ? 'bg-green-100 text-green-700' : h.action_type === 'Demotion' ? 'bg-red-100 text-red-700' : h.action_type === 'Graduation' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>{h.action_type}</span>
+                                    <tr key={h.id} className={`border-b border-gray-100 hover:bg-gray-50/50 transition-all duration-150 ${h.reversed_at ? 'opacity-40' : ''}`}>
+                                        <td className="px-2.5 py-2 text-[11px] text-gray-500">{new Date(h.created_at).toLocaleDateString()}</td>
+                                        <td className="px-2.5 py-2 text-[11px] font-semibold text-gray-800">{getStudentName(h.student_id)}</td>
+                                        <td className="px-2.5 py-2 text-center">
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${h.action_type === 'Promotion' ? 'bg-green-100 text-green-700' : h.action_type === 'Demotion' ? 'bg-red-100 text-red-700' : h.action_type === 'Graduation' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>{h.action_type}</span>
                                         </td>
-                                        <td className="px-3 py-2.5 text-center text-xs">{getFormName(h.from_form_id)} {h.from_stream_id ? getStreamName(h.from_stream_id) : ''}</td>
-                                        <td className="px-3 py-2.5 text-center text-xs font-bold">{getFormName(h.to_form_id)} {h.to_stream_id ? getStreamName(h.to_stream_id) : ''}</td>
-                                        <td className="px-3 py-2.5 text-center text-xs">{h.average_score ? Number(h.average_score).toFixed(1) : '—'}</td>
-                                        <td className="px-3 py-2.5 text-center">
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${h.eligibility_status === 'Eligible' ? 'bg-green-100 text-green-700' : h.eligibility_status === 'Conditional' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{h.eligibility_status || '—'}</span>
+                                        <td className="px-2.5 py-2 text-center text-[11px] text-gray-500">{getFormName(h.from_form_id)}</td>
+                                        <td className="px-2.5 py-2 text-center text-[11px] font-bold text-gray-700">{getFormName(h.to_form_id)}</td>
+                                        <td className="px-2.5 py-2 text-center text-[11px]">{h.average_score ? Number(h.average_score).toFixed(1) : '—'}</td>
+                                        <td className="px-2.5 py-2 text-center">
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${h.eligibility_status === 'Eligible' ? 'bg-green-100 text-green-700' : h.eligibility_status === 'Conditional' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{h.eligibility_status || '—'}</span>
                                         </td>
-                                        <td className="px-3 py-2.5 text-center">
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${h.approval_status === 'Approved' || h.approval_status === 'Auto' ? 'bg-green-100 text-green-700' : h.approval_status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{h.approval_status}</span>
+                                        <td className="px-2.5 py-2 text-center">
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${h.approval_status === 'Approved' || h.approval_status === 'Auto' ? 'bg-green-100 text-green-700' : h.approval_status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{h.approval_status}</span>
                                         </td>
-                                        <td className="px-3 py-2.5 text-center text-xs">{h.sms_sent ? '✅' : '—'}</td>
-                                        <td className="px-3 py-2.5 text-center">
+                                        <td className="px-2.5 py-2 text-center text-[11px]">{h.sms_sent ? '✅' : '—'}</td>
+                                        <td className="px-2.5 py-2 text-center">
                                             <div className="flex items-center justify-center gap-1">
                                                 {!h.reversed_at && h.action_type !== 'Reversal' && (
-                                                    <button onClick={() => handleRollback(h)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg" title="Rollback"><FiRotateCcw size={13} /></button>
+                                                    <button onClick={() => handleRollback(h)} className="p-1 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Rollback"><FiRotateCcw size={11} /></button>
                                                 )}
-                                                <button onClick={() => generateLetter(h)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Generate Letter"><FiFileText size={13} /></button>
+                                                <button onClick={() => generateLetter(h)} className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Generate Letter"><FiFileText size={11} /></button>
                                             </div>
                                         </td>
                                     </tr>

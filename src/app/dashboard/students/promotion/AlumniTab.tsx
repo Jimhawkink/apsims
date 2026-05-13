@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiSearch, FiEdit2, FiSend } from 'react-icons/fi';
+import { FiSearch, FiEdit2, FiSend, FiAward } from 'react-icons/fi';
 
 export default function AlumniTab({ data }: { data: any }) {
     const { alumniList, students, forms, streams, getFormName, getStreamName, fetchAll } = data;
@@ -36,64 +36,59 @@ export default function AlumniTab({ data }: { data: any }) {
 
     return (
         <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-                    <p className="text-2xl font-bold text-blue-700">{totalAlumni}</p>
-                    <p className="text-xs font-semibold text-blue-600">Total Alumni</p>
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="p-4 grid grid-cols-3 gap-3">
+                    {[{ label: 'Total Alumni', value: totalAlumni, color: '#3b82f6', bg: '#eff6ff' }, { label: 'Active Contact', value: activeAlumni, color: '#22c55e', bg: '#f0fdf4' }, { label: 'In University', value: inUni, color: '#8b5cf6', bg: '#f3f0ff' }].map((k, i) => (
+                        <div key={i} className="rounded-xl p-3 text-center" style={{ backgroundColor: k.bg }}>
+                            <p className="text-xl font-extrabold" style={{ color: k.color }}>{k.value}</p>
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{k.label}</p>
+                        </div>
+                    ))}
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-                    <p className="text-2xl font-bold text-green-700">{activeAlumni}</p>
-                    <p className="text-xs font-semibold text-green-600">Active Contact</p>
-                </div>
-                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-center">
-                    <p className="text-2xl font-bold text-purple-700">{inUni}</p>
-                    <p className="text-xs font-semibold text-purple-600">In University</p>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                <div className="relative">
-                    <FiSearch className="absolute left-3 top-2.5 text-gray-400" size={14} />
-                    <input value={search} onChange={e => setSearch(e.target.value)} className="input-modern w-full text-sm pl-9" placeholder="Search alumni by name..." />
+                <div className="border-t border-gray-100 px-4 py-2.5 flex items-center gap-3">
+                    <div className="relative flex-1"><FiSearch className="absolute left-3 top-2 text-gray-400" size={12} /><input value={search} onChange={e => setSearch(e.target.value)} className="input-modern w-full text-[11px] pl-8" placeholder="Search alumni by name..." /></div>
+                    <span className="text-[11px] text-gray-400">{filtered.length} shown</span>
                 </div>
             </div>
 
             {filtered.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-gray-200 text-center py-16 text-gray-400">
-                    <span className="text-4xl block mb-3">🎓</span><p className="font-semibold">No alumni records</p><p className="text-xs mt-1">Graduated students will appear here</p>
+                <div className="bg-white rounded-2xl border border-gray-200 text-center py-14 text-gray-400">
+                    <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-50 flex items-center justify-center"><FiAward size={24} className="text-gray-300" /></div>
+                    <p className="font-semibold text-sm text-gray-500">No alumni records</p>
+                    <p className="text-[11px] mt-1 text-gray-400">Graduated students will appear here</p>
                 </div>
             ) : (
                 <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead><tr className="bg-gray-50 border-b border-gray-200">
-                                <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">#</th>
-                                <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
-                                <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Adm No</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Year</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Final Form</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Avg</th>
-                                <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">University</th>
-                                <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Occupation</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Status</th>
-                                <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Actions</th>
+                            <thead><tr className="bg-gray-50/80 border-b border-gray-200">
+                                <th className="px-2.5 py-2 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">#</th>
+                                <th className="px-2.5 py-2 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">Name</th>
+                                <th className="px-2.5 py-2 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">Adm No</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Year</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Final Form</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Avg</th>
+                                <th className="px-2.5 py-2 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">University</th>
+                                <th className="px-2.5 py-2 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">Occupation</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                                <th className="px-2.5 py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Act.</th>
                             </tr></thead>
                             <tbody>
                                 {filtered.map((a: any, i: number) => (
-                                    <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                        <td className="px-3 py-2.5 text-xs text-gray-400">{i + 1}</td>
-                                        <td className="px-3 py-2.5 text-sm font-semibold text-gray-800">{getStudentName(a.student_id)}</td>
-                                        <td className="px-3 py-2.5 text-sm font-bold text-blue-600">{getStudentAdm(a.student_id)}</td>
-                                        <td className="px-3 py-2.5 text-center text-sm">{a.graduation_year}</td>
-                                        <td className="px-3 py-2.5 text-center text-xs">{getFormName(a.final_form_id)}</td>
-                                        <td className="px-3 py-2.5 text-center text-sm font-bold">{a.final_average_score ? Number(a.final_average_score).toFixed(1) : '—'}</td>
-                                        <td className="px-3 py-2.5 text-xs text-gray-600">{a.university || '—'}</td>
-                                        <td className="px-3 py-2.5 text-xs text-gray-600">{a.current_occupation || '—'}</td>
-                                        <td className="px-3 py-2.5 text-center">
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.alumni_status === 'Active' ? 'bg-green-100 text-green-700' : a.alumni_status === 'Deceased' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700'}`}>{a.alumni_status}</span>
+                                    <tr key={a.id} className="border-b border-gray-100 hover:bg-green-50/30 transition-all duration-150">
+                                        <td className="px-2.5 py-2 text-[11px] text-gray-400">{i + 1}</td>
+                                        <td className="px-2.5 py-2 text-[11px] font-semibold text-gray-800">{getStudentName(a.student_id)}</td>
+                                        <td className="px-2.5 py-2 text-[11px] font-bold text-blue-600">{getStudentAdm(a.student_id)}</td>
+                                        <td className="px-2.5 py-2 text-center text-[11px]">{a.graduation_year}</td>
+                                        <td className="px-2.5 py-2 text-center text-[11px]">{getFormName(a.final_form_id)}</td>
+                                        <td className="px-2.5 py-2 text-center text-[11px] font-bold">{a.final_average_score ? Number(a.final_average_score).toFixed(1) : '—'}</td>
+                                        <td className="px-2.5 py-2 text-[10px] text-gray-600">{a.university || '—'}</td>
+                                        <td className="px-2.5 py-2 text-[10px] text-gray-600">{a.current_occupation || '—'}</td>
+                                        <td className="px-2.5 py-2 text-center">
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${a.alumni_status === 'Active' ? 'bg-green-100 text-green-700' : a.alumni_status === 'Deceased' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700'}`}>{a.alumni_status}</span>
                                         </td>
-                                        <td className="px-3 py-2.5 text-center">
-                                            <button onClick={() => openEdit(a)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><FiEdit2 size={13} /></button>
+                                        <td className="px-2.5 py-2 text-center">
+                                            <button onClick={() => openEdit(a)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={11} /></button>
                                         </td>
                                     </tr>
                                 ))}
