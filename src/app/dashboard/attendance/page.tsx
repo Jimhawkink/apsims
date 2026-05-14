@@ -236,7 +236,7 @@ export default function AttendancePage() {
         <div className="space-y-5 animate-fade-in">
             {/* ─── Ultra Premium Header ─── */}
             <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #4f46e5 1px, transparent 0)', backgroundSize: '20px 20px' }} />
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #4f46e5 1px, transparent 0)', backgroundSize: '20px 20px' }} />
                 <div className="relative p-5 flex items-start justify-between">
                     <div className="flex items-start gap-4">
                         <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200" style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
