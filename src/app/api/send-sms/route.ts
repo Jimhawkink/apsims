@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-// Africa's Talking SMS API
-const AT_USERNAME = process.env.AT_USERNAME || 'sandbox';
-const AT_API_KEY = process.env.AT_API_KEY || '';
-const AT_SENDER_ID = process.env.AT_SENDER_ID || 'APSIMS';
+// Fallback env vars (original pattern)
+const ENV_USERNAME = process.env.AT_USERNAME || 'sandbox';
+const ENV_API_KEY = process.env.AT_API_KEY || '';
+const ENV_SENDER_ID = process.env.AT_SENDER_ID || 'APSIMS';
 
 function formatPhone(phone: string): string {
     let cleaned = phone.replace(/\s+/g, '').replace(/[^\d+]/g, '');
@@ -15,6 +16,31 @@ function formatPhone(phone: string): string {
         cleaned = '+254' + cleaned;
     }
     return cleaned;
+}
+
+// Get SMS config from DB (school_details) or fallback to env vars
+async function getSmsConfig() {
+    try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!supabaseUrl || !supabaseKey) return { username: ENV_USERNAME, apiKey: ENV_API_KEY, senderId: ENV_SENDER_ID, isSandbox: ENV_USERNAME === 'sandbox' };
+
+        const sb = createClient(supabaseUrl, supabaseKey);
+        const { data } = await sb.from('school_details').select('sms_enabled, sms_api_key, sms_username, sms_sender_id, sms_is_sandbox').limit(1).single();
+
+        if (data?.sms_api_key) {
+            return {
+                enabled: data.sms_enabled !== false,
+                username: data.sms_username || 'sandbox',
+                apiKey: data.sms_api_key,
+                senderId: data.sms_sender_id || 'APSIMS',
+                isSandbox: data.sms_is_sandbox !== false,
+            };
+        }
+    } catch (e) {
+        console.log('[SMS] Could not read DB config, using env vars');
+    }
+    return { enabled: true, username: ENV_USERNAME, apiKey: ENV_API_KEY, senderId: ENV_SENDER_ID, isSandbox: ENV_USERNAME === 'sandbox' };
 }
 
 export async function POST(request: NextRequest) {
@@ -34,25 +60,32 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Phone and message are required' }, { status: 400 });
         }
 
-        if (!AT_API_KEY || AT_API_KEY === 'your_africastalking_api_key_here') {
+        // Get config from DB or env
+        const config = await getSmsConfig();
+
+        if (!config.apiKey || config.apiKey === 'your_africastalking_api_key_here') {
             console.log('[SMS] API key not configured. Message would be sent to:', phone);
             console.log('[SMS] Message:', message);
-            return NextResponse.json({ success: true, status: 'skipped', note: 'AT_API_KEY not configured - SMS not sent' });
+            return NextResponse.json({ success: true, status: 'skipped', note: 'SMS API key not configured - SMS not sent' });
+        }
+
+        if (!config.enabled) {
+            return NextResponse.json({ success: true, status: 'disabled', note: 'SMS is disabled in settings' });
         }
 
         const formattedPhone = formatPhone(phone);
 
         // Africa's Talking API endpoint
-        const url = AT_USERNAME === 'sandbox'
+        const url = config.isSandbox
             ? 'https://api.sandbox.africastalking.com/version1/messaging'
             : 'https://api.africastalking.com/version1/messaging';
 
         const params = new URLSearchParams();
-        params.append('username', AT_USERNAME);
+        params.append('username', config.username);
         params.append('to', formattedPhone);
         params.append('message', message);
-        if (AT_USERNAME !== 'sandbox' && AT_SENDER_ID) {
-            params.append('from', AT_SENDER_ID);
+        if (!config.isSandbox && config.senderId) {
+            params.append('from', config.senderId);
         }
 
         const response = await fetch(url, {
@@ -60,7 +93,7 @@ export async function POST(request: NextRequest) {
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'apiKey': AT_API_KEY,
+                'apiKey': config.apiKey,
             },
             body: params.toString(),
         });

@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiLink, FiUsers, FiInfo } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiLink, FiUsers, FiInfo, FiMessageCircle, FiEye, FiEyeOff, FiCopy, FiCheckCircle, FiRefreshCw, FiZap, FiSend } from 'react-icons/fi';
 import { counties, getSubCounties, nationalities } from '@/lib/kenyan-data';
 import RubricLevelBadge from '@/components/cbc/RubricLevelBadge';
 import PathwayBadge from '@/components/cbc/PathwayBadge';
 import { countElectivesForPathway } from '@/lib/cbc-utils';
 
-type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'cbc-pathways' | 'cbc-grading';
+type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'cbc-pathways' | 'cbc-grading' | 'sms';
 
 export default function SettingsPage() {
     const [tab, setTab] = useState<Tab>('school-details');
@@ -31,6 +31,12 @@ export default function SettingsPage() {
     const [rubricDraft, setRubricDraft] = useState<any[]>([]); // editable copy of rubric config
     const [loading, setLoading] = useState(true);
     const [savingInfo, setSavingInfo] = useState(false);
+    const [savingSMS, setSavingSMS] = useState(false);
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [testPhone, setTestPhone] = useState('');
+    const [testMessage, setTestMessage] = useState('');
+    const [sendingTest, setSendingTest] = useState(false);
+    const [testResult, setTestResult] = useState<any>(null);
     const [showModal, setShowModal] = useState(false);
     const [editId, setEditId] = useState<number | null>(null);
     const [formData, setFormData] = useState<any>({});
@@ -305,6 +311,7 @@ export default function SettingsPage() {
         { key: 'subject-teachers', label: 'Subject-Teacher', icon: '🔗', count: subjectTeachers.length },
         { key: 'cbc-pathways', label: 'CBC Pathways', icon: '🛤️', count: cbcPathways.length },
         { key: 'cbc-grading', label: 'CBC Grading', icon: '📊', count: cbcRubricConfig.length },
+        { key: 'sms', label: 'SMS & Notifications', icon: '💬', count: 0 },
     ];
 
     const openAdd = () => { if (tab === 'school-details') return; if (tab === 'forms') openAddForm(); else if (tab === 'streams') openAddStream(); else if (tab === 'subjects') openAddSubject(); else if (tab === 'classes') openAddClass(); else openAddSubjectTeacher(); };
@@ -884,6 +891,145 @@ export default function SettingsPage() {
                                     </div>
                                 </>
                             )}
+                        </div>
+                    )}
+
+                    {/* ========== SMS & NOTIFICATIONS (copied from ARMS pattern) ========== */}
+                    {tab === 'sms' && (
+                        <div className="p-6 space-y-8">
+                            <div className="p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200" style={{ borderRadius: 8 }}>
+                                <h3 className="font-bold text-amber-800 flex items-center gap-2 mb-1 text-base"><FiMessageCircle size={18} /> SMS & Notifications</h3>
+                                <p className="text-sm text-amber-600">Configure Africa&apos;s Talking SMS gateway for sending leave-out notifications, fee reminders, and bulk communication to parents</p>
+                            </div>
+
+                            {/* SMS Provider Config */}
+                            <div className="border border-gray-200 overflow-hidden" style={{ borderRadius: 8, borderLeft: '4px solid #f59e0b' }}>
+                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
+                                    <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">💬 Africa&apos;s Talking Configuration</h4>
+                                </div>
+                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">SMS Enabled</label>
+                                        <select value={schoolDetails.sms_enabled ? 'true' : 'false'} onChange={e => setSchoolDetails({ ...schoolDetails, sms_enabled: e.target.value === 'true' })}
+                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }}>
+                                            <option value="false">Disabled</option>
+                                            <option value="true">Enabled</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Provider</label>
+                                        <input type="text" value={schoolDetails.sms_provider || 'AfricasTalking'} onChange={e => setSchoolDetails({ ...schoolDetails, sms_provider: e.target.value })}
+                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }} placeholder="AfricasTalking" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">SMS Username</label>
+                                        <input type="text" value={schoolDetails.sms_username || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sms_username: e.target.value })}
+                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }} placeholder="sandbox or your AT username" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">🔑 SMS API Key</label>
+                                        <div className="relative">
+                                            <input type={showApiKey ? 'text' : 'password'} value={schoolDetails.sms_api_key || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sms_api_key: e.target.value })}
+                                                className="w-full px-4 py-3 pr-20 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }} placeholder="Your API Key" />
+                                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                                {schoolDetails.sms_api_key && (
+                                                    <button onClick={() => { navigator.clipboard.writeText(schoolDetails.sms_api_key); toast.success('Copied!'); }}
+                                                        className="p-1.5 rounded-lg text-gray-300 hover:text-amber-500 hover:bg-amber-50 transition"><FiCopy size={13} /></button>
+                                                )}
+                                                <button onClick={() => setShowApiKey(!showApiKey)} className="p-1.5 rounded-lg text-gray-300 hover:text-amber-500 hover:bg-amber-50 transition">
+                                                    {showApiKey ? <FiEyeOff size={13} /> : <FiEye size={13} />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Sender ID</label>
+                                        <input type="text" value={schoolDetails.sms_sender_id || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sms_sender_id: e.target.value })}
+                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }} placeholder="APSIMS" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Environment</label>
+                                        <select value={schoolDetails.sms_is_sandbox ? 'true' : 'false'} onChange={e => setSchoolDetails({ ...schoolDetails, sms_is_sandbox: e.target.value === 'true' })}
+                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }}>
+                                            <option value="true">🧪 Sandbox (Testing)</option>
+                                            <option value="false">🚀 Production (Live)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Test SMS Panel */}
+                            <div className="border border-gray-200 overflow-hidden" style={{ borderRadius: 8, borderLeft: '4px solid #22c55e' }}>
+                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
+                                    <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">🧪 Test SMS</h4>
+                                    <p className="text-xs text-gray-500 mt-0.5">Send a test message to verify your configuration</p>
+                                </div>
+                                <div className="p-5 space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Phone Number</label>
+                                            <input type="text" value={testPhone} onChange={e => setTestPhone(e.target.value)} placeholder="0712345678"
+                                                className="w-full px-4 py-2.5 border-2 border-gray-200 text-sm bg-white focus:border-green-400 outline-none transition-all" style={{ borderRadius: 6 }} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Message</label>
+                                            <input type="text" value={testMessage} onChange={e => setTestMessage(e.target.value)} placeholder="Test SMS from APSIMS"
+                                                className="w-full px-4 py-2.5 border-2 border-gray-200 text-sm bg-white focus:border-green-400 outline-none transition-all" style={{ borderRadius: 6 }} />
+                                        </div>
+                                    </div>
+                                    <button onClick={async () => {
+                                        if (!testPhone || !testMessage) { toast.error('Enter phone and message'); return; }
+                                        setSendingTest(true); setTestResult(null);
+                                        try {
+                                            const res = await fetch('/api/send-sms', {
+                                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ phone: testPhone, message: testMessage })
+                                            });
+                                            const data = await res.json();
+                                            setTestResult(data);
+                                            if (data.success) toast.success('✅ Test SMS sent!'); else toast.error(data.error || 'Failed');
+                                        } catch (e: any) { toast.error(e.message); setTestResult({ error: e.message }); }
+                                        setSendingTest(false);
+                                    }} disabled={sendingTest}
+                                        className="flex items-center gap-2 px-5 py-2.5 font-bold text-sm text-white transition-all shadow hover:shadow-lg disabled:opacity-60"
+                                        style={{ borderRadius: 6, background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
+                                        {sendingTest ? <FiRefreshCw size={14} className="animate-spin" /> : <FiSend size={14} />}
+                                        {sendingTest ? 'Sending...' : 'Send Test SMS'}
+                                    </button>
+                                    {testResult && (
+                                        <div className={`px-4 py-3 rounded-xl text-xs font-mono ${testResult.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                                            {JSON.stringify(testResult, null, 2)}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* SMS Info */}
+                            <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                                <FiInfo size={16} className="text-amber-500 mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <p className="text-sm font-bold text-amber-800">How SMS works in APSIMS</p>
+                                    <ul className="text-xs text-amber-700 mt-1 space-y-1 list-disc list-inside">
+                                        <li>Leave-out notifications auto-send to parents when a student is issued a leave pass</li>
+                                        <li>Fee reminders and demand letters can be sent via the Communication page</li>
+                                        <li>All sent messages are logged in the SMS Logs table</li>
+                                        <li>Use &apos;sandbox&apos; mode for testing — no real SMS is sent</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Save SMS Settings Button */}
+                            <div className="pt-2 flex justify-end">
+                                <button onClick={saveSchoolDetails} disabled={savingInfo}
+                                    className="flex items-center gap-2 px-8 py-3 text-white font-bold text-sm transition-all shadow-lg hover:shadow-xl disabled:opacity-60"
+                                    style={{ borderRadius: 6, background: savingInfo ? '#94a3b8' : 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+                                    {savingInfo ? (
+                                        <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
+                                    ) : (
+                                        <><FiSave size={16} /> Save SMS Settings</>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
