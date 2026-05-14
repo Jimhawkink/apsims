@@ -129,7 +129,7 @@ export default function ActiveLeavesTab({ activeLeaves, forms, streams, now, han
                                     </p>
                                 )}
 
-                                <p className="text-[10px] text-gray-400">Auth: <span className="font-semibold text-gray-600">{leave.authorized_by}</span></p>
+                                <p className="text-[10px] text-gray-400">Auth: <span className="font-semibold text-gray-600">{leave.teacher_name}</span></p>
 
                                 {/* Actions */}
                                 <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">

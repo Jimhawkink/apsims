@@ -73,7 +73,7 @@ export default function LeaveReportsTab({ leaveOuts, forms, streams, LEAVE_REASO
                 st?.admission_number||'', fn(st?.form_id), sn(st?.stream_id),
                 l.reason, l.reason_details||'', l.leave_days||0, l.status,
                 l.time_returned ? new Date(l.time_returned).toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'}) : '',
-                l.authorized_by||'', l.sms_sent ? 'Yes' : 'No'
+                l.teacher_name||'', l.sms_sent ? 'Yes' : 'No'
             ].join(',');
         });
         const csv = [headers.join(','), ...rows].join('\n');
@@ -238,7 +238,7 @@ export default function LeaveReportsTab({ leaveOuts, forms, streams, LEAVE_REASO
                                         <td className="px-4 py-2.5 text-center text-xs font-bold text-gray-700">{l.leave_days||0}</td>
                                         <td className="px-4 py-2.5 text-xs text-gray-600">{new Date(l.time_left).toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'})}</td>
                                         <td className="px-4 py-2.5 text-xs text-gray-600">{l.time_returned ? new Date(l.time_returned).toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
-                                        <td className="px-4 py-2.5 text-xs text-gray-600">{l.authorized_by}</td>
+                                        <td className="px-4 py-2.5 text-xs text-gray-600">{l.teacher_name}</td>
                                         <td className="px-4 py-2.5 text-center">{l.sms_sent ? <span className="text-green-500 text-xs">✓</span> : <span className="text-gray-300 text-xs">—</span>}</td>
                                         <td className="px-4 py-2.5 text-center">
                                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${l.status==='Out' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{l.status}</span>

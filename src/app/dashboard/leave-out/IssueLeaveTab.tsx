@@ -43,7 +43,7 @@ export default function IssueLeaveTab({ students, teachers, forms, streams, leav
         setIssuing(true);
         const now = new Date().toISOString();
         const { data, error } = await (supabase.from('school_leave_outs') as any)
-            .insert({ student_id: sel.id, reason, reason_details: details||null, leave_days: leaveDays||0, expected_return: expectedReturn||null, time_left: now, authorized_by: authBy, status: 'Out', sms_sent: false, sms_phone: sel.guardian_phone||'' })
+            .insert({ student_id: sel.id, reason, reason_details: details||null, leave_days: leaveDays||0, expected_return: expectedReturn||null, time_left: now, teacher_name: authBy, status: 'Out', sms_sent: false, sms_phone: sel.guardian_phone||'' })
             .select('*, school_students(id, first_name, last_name, admission_number, form_id, stream_id, guardian_phone, guardian_name)').single();
         if (error) { toast.error(`Failed: ${error.message}`); setIssuing(false); return; }
         toast.success(`✅ Leave issued for ${sel.first_name} ${sel.last_name}`, { duration: 4000 });
@@ -196,7 +196,7 @@ export default function IssueLeaveTab({ students, teachers, forms, streams, leav
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background:`${RC[lastIssued.reason]}15`, color:RC[lastIssued.reason] }}>{lastIssued.reason}</span>
                                 {lastIssued.leave_days > 0 && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-600">{lastIssued.leave_days} days</span>}
                             </div>
-                            <p className="text-[10px] text-gray-400 mt-1">Left: {new Date(lastIssued.time_left).toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'})} · Auth: {lastIssued.authorized_by}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Left: {new Date(lastIssued.time_left).toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'})} · Auth: {lastIssued.teacher_name}</p>
                             {lastIssued.sms_sent && <p className="text-[10px] text-green-600 font-bold flex items-center gap-1 mt-1"><FiMessageSquare size={10}/> SMS sent ✅</p>}
                         </div>
                     </div>
