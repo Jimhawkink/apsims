@@ -55,28 +55,34 @@ export default function DigitalTab({ data }: any) {
     return (
         <div className="space-y-4">
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-3">
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-indigo-600">{activeCards.length}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Total Active</p>
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="p-4 grid grid-cols-3 gap-3">
+                    {[{ label: 'Total Active', value: activeCards.length, color: '#4f46e5', bg: '#eef2ff' }, { label: 'Sent', value: sentCount, color: '#059669', bg: '#ecfdf5' }, { label: 'Unsent', value: unsentCount, color: '#d97706', bg: '#fffbeb' }].map((k, i) => (
+                        <div key={i} className="rounded-xl p-4 text-center" style={{ backgroundColor: k.bg }}>
+                            <p className="text-2xl font-extrabold" style={{ color: k.color }}>{k.value}</p>
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-0.5">{k.label}</p>
+                        </div>
+                    ))}
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-green-600">{sentCount}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Sent</p>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-amber-600">{unsentCount}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Unsent</p>
+                {/* Progress bar */}
+                <div className="px-4 pb-3">
+                    <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-500" style={{ width: `${activeCards.length > 0 ? (sentCount / activeCards.length * 100) : 0}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1 text-right">{activeCards.length > 0 ? Math.round(sentCount / activeCards.length * 100) : 0}% delivered</p>
                 </div>
             </div>
 
             {/* Bulk Send */}
             <div className="bg-white rounded-2xl border border-gray-200 p-4 flex items-center justify-between">
                 <div>
-                    <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2"><FiSmartphone className="text-green-500" /> Bulk Send via WhatsApp/SMS</h3>
+                    <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <FiSmartphone className="text-green-500" /> Bulk Send via WhatsApp/SMS
+                        {unsentCount > 0 && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
+                    </h3>
                     <p className="text-xs text-gray-400 mt-0.5">Send digital ID card info to {unsentCount} guardians</p>
                 </div>
-                <button onClick={sendBulk} disabled={unsentCount === 0} className="px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md disabled:opacity-40" style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}>
+                <button onClick={sendBulk} disabled={unsentCount === 0} className="px-4 py-2.5 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md disabled:opacity-40 transition-all hover:shadow-lg hover:scale-[1.02]" style={{ background: 'linear-gradient(135deg, #059669, #10b981)', boxShadow: unsentCount > 0 ? '0 4px 14px rgba(5,150,105,0.3)' : 'none' }}>
                     <FiSend size={13} /> Send All ({unsentCount})
                 </button>
             </div>
@@ -84,13 +90,13 @@ export default function DigitalTab({ data }: any) {
             {/* Card List */}
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 <div className="max-h-[400px] overflow-y-auto">
-                    <table className="w-full"><thead><tr className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                        <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Card No</th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Person</th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Type</th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Phone</th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
-                        <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Action</th>
+                    <table className="w-full"><thead><tr className="bg-gray-50/80 border-b border-gray-200 sticky top-0">
+                        <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Card No</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Person</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Phone</th>
+                        <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
                     </tr></thead><tbody>
                         {activeCards.map((c: any) => {
                             const person = c.person_type === 'Student'
@@ -98,19 +104,19 @@ export default function DigitalTab({ data }: any) {
                                 : data.staff.find((s: any) => s.id === c.person_id);
                             const phone = person?.guardian_phone || person?.phone || '-';
                             return (
-                                <tr key={c.id} className="border-b border-gray-100">
-                                    <td className="px-3 py-2 text-xs font-bold text-indigo-600">{c.card_number}</td>
-                                    <td className="px-3 py-2 text-xs font-semibold">{c.person_name}</td>
-                                    <td className="px-3 py-2 text-xs">{c.person_type}</td>
-                                    <td className="px-3 py-2 text-xs text-gray-500">{phone}</td>
-                                    <td className="px-3 py-2">
+                                <tr key={c.id} className="border-b border-gray-100 hover:bg-green-50/30 transition-all duration-150">
+                                    <td className="px-3 py-2.5 text-xs font-bold text-indigo-600">{c.card_number}</td>
+                                    <td className="px-3 py-2.5 text-xs font-semibold text-gray-800">{c.person_name}</td>
+                                    <td className="px-3 py-2.5 text-xs text-gray-600">{c.person_type}</td>
+                                    <td className="px-3 py-2.5 text-xs text-gray-500">{phone}</td>
+                                    <td className="px-3 py-2.5 text-center">
                                         {c.digital_sent
-                                            ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 flex items-center gap-1 w-fit"><FiCheck size={9} /> Sent</span>
-                                            : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Pending</span>
+                                            ? <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700 inline-flex items-center gap-1"><FiCheck size={10} /> Sent</span>
+                                            : <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">Pending</span>
                                         }
                                     </td>
-                                    <td className="px-3 py-2">
-                                        {!c.digital_sent && <button onClick={() => sendDigitalCard(c)} className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded hover:bg-green-100 flex items-center gap-1"><FiSend size={9} /> Send</button>}
+                                    <td className="px-3 py-2.5 text-center">
+                                        {!c.digital_sent && <button onClick={() => sendDigitalCard(c)} className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-lg hover:bg-green-100 transition-colors inline-flex items-center gap-1"><FiSend size={10} /> Send</button>}
                                     </td>
                                 </tr>
                             );

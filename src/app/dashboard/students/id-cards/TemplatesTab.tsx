@@ -76,50 +76,53 @@ export default function TemplatesTab({ data }: any) {
     return (
         <div className="space-y-4">
             {/* Template Designer */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FiLayout className="text-purple-500" /> {editing ? 'Edit Template' : 'Create Template'}</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div><label className="lbl">Name</label><input type="text" value={form.template_name} onChange={e => setForm({ ...form, template_name: e.target.value })} placeholder="e.g. Blue Classic" className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm focus:border-purple-400 outline-none" /></div>
-                    <div><label className="lbl">Card Type</label><select value={form.card_type} onChange={e => setForm({ ...form, card_type: e.target.value })} className="select-modern w-full text-sm"><option value="Student">Student</option><option value="Staff">Staff</option><option value="Visitor">Visitor</option><option value="BusPass">Bus Pass</option></select></div>
-                    <div><label className="lbl">Header Color</label><input type="color" value={form.header_bg} onChange={e => setForm({ ...form, header_bg: e.target.value })} className="w-full h-10 rounded-lg border-2 border-gray-200 cursor-pointer" /></div>
-                    <div><label className="lbl">Accent Color</label><input type="color" value={form.accent} onChange={e => setForm({ ...form, accent: e.target.value, photo_border: e.target.value })} className="w-full h-10 rounded-lg border-2 border-gray-200 cursor-pointer" /></div>
-                </div>
-                <div className="flex gap-2 mt-3">
-                    <button onClick={save} className="px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md" style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}>
-                        <FiSave size={13} /> {editing ? 'Update' : 'Create'} Template
-                    </button>
-                    {editing && <button onClick={() => { setEditing(null); setForm({ template_name: '', card_type: 'Student', header_bg: '#1e40af', accent: '#3b82f6', photo_border: '#3b82f6' }); }} className="px-4 py-2 text-xs font-bold rounded-xl border-2 border-gray-200 text-gray-600">Cancel</button>}
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="p-4">
+                    <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FiLayout className="text-purple-500" /> {editing ? 'Edit Template' : 'Create Template'}</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div><label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Name</label><input type="text" value={form.template_name} onChange={e => setForm({ ...form, template_name: e.target.value })} placeholder="e.g. Blue Classic" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-200 focus:border-purple-400 outline-none transition-all" /></div>
+                        <div><label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Card Type</label><select value={form.card_type} onChange={e => setForm({ ...form, card_type: e.target.value })} className="select-modern w-full text-sm"><option value="Student">Student</option><option value="Staff">Staff</option><option value="Visitor">Visitor</option><option value="BusPass">Bus Pass</option></select></div>
+                        <div><label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Header Color</label><div className="flex items-center gap-2"><input type="color" value={form.header_bg} onChange={e => setForm({ ...form, header_bg: e.target.value })} className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer" /><span className="text-xs font-mono text-gray-500">{form.header_bg}</span></div></div>
+                        <div><label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Accent Color</label><div className="flex items-center gap-2"><input type="color" value={form.accent} onChange={e => setForm({ ...form, accent: e.target.value, photo_border: e.target.value })} className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer" /><span className="text-xs font-mono text-gray-500">{form.accent}</span></div></div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                        <button onClick={save} className="px-4 py-2.5 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]" style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', boxShadow: '0 4px 14px rgba(124,58,237,0.3)' }}>
+                            <FiSave size={13} /> {editing ? 'Update' : 'Create'} Template
+                        </button>
+                        {editing && <button onClick={() => { setEditing(null); setForm({ template_name: '', card_type: 'Student', header_bg: '#1e40af', accent: '#3b82f6', photo_border: '#3b82f6' }); }} className="px-4 py-2.5 text-xs font-bold rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>}
+                    </div>
                 </div>
                 {/* Live Preview */}
-                <div className="mt-4 flex items-center gap-4">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Preview:</p>
-                    <div className="h-10 w-48 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{ background: `linear-gradient(135deg, ${form.header_bg}, ${form.accent})` }}>
+                <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50 flex items-center gap-4">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Preview:</p>
+                    <div className="h-10 w-48 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${form.header_bg}, ${form.accent})` }}>
                         Header Preview
                     </div>
                     <div className="h-10 w-20 rounded-lg border-2 flex items-center justify-center text-white text-xs font-bold" style={{ borderColor: form.photo_border, background: form.accent }}>
                         Photo
                     </div>
+                    <div className="ml-auto text-xs text-gray-400 font-semibold">{form.card_type} Card</div>
                 </div>
             </div>
 
             {/* Student Templates */}
             {studentTemplates.length > 0 && (
                 <div>
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Student Templates</h4>
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2"><span className="w-1.5 h-6 rounded-full bg-indigo-500" />Student Templates ({studentTemplates.length})</h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">{studentTemplates.map((t: any) => <TemplateCard key={t.id} t={t} />)}</div>
                 </div>
             )}
             {/* Staff Templates */}
             {staffTemplates.length > 0 && (
                 <div>
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Staff Templates</h4>
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2"><span className="w-1.5 h-6 rounded-full bg-red-500" />Staff Templates ({staffTemplates.length})</h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">{staffTemplates.map((t: any) => <TemplateCard key={t.id} t={t} />)}</div>
                 </div>
             )}
             {/* Other Templates */}
             {otherTemplates.length > 0 && (
                 <div>
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Other Templates</h4>
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2"><span className="w-1.5 h-6 rounded-full bg-gray-400" />Other Templates ({otherTemplates.length})</h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">{otherTemplates.map((t: any) => <TemplateCard key={t.id} t={t} />)}</div>
                 </div>
             )}

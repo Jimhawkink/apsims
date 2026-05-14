@@ -31,20 +31,13 @@ export default function BusPassTab({ data }: any) {
 
     return (
         <div className="space-y-4">
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-3">
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-cyan-600">{data.busPasses.filter((b: any) => b.status === 'Active').length}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Active Passes</p>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-gray-400">{data.busPasses.filter((b: any) => b.status === 'Cancelled').length}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Cancelled</p>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-cyan-800">{data.busPasses.length}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Total</p>
-                </div>
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 grid grid-cols-3 gap-3">
+                {[{ label: 'Active Passes', value: data.busPasses.filter((b: any) => b.status === 'Active').length, color: '#0891b2', bg: '#ecfeff' }, { label: 'Cancelled', value: data.busPasses.filter((b: any) => b.status === 'Cancelled').length, color: '#6b7280', bg: '#f9fafb' }, { label: 'Total', value: data.busPasses.length, color: '#164e63', bg: '#ecfeff' }].map((k, i) => (
+                    <div key={i} className="rounded-xl p-4 text-center" style={{ backgroundColor: k.bg }}>
+                        <p className="text-2xl font-extrabold" style={{ color: k.color }}>{k.value}</p>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-0.5">{k.label}</p>
+                    </div>
+                ))}
             </div>
 
             {/* Issue Bus Pass */}
@@ -75,25 +68,25 @@ export default function BusPassTab({ data }: any) {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="max-h-[400px] overflow-y-auto">
-                        <table className="w-full"><thead><tr className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Route</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Driver</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Card</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                        <table className="w-full"><thead><tr className="bg-gray-50/80 border-b border-gray-200 sticky top-0">
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Student</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Route</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Driver</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Card</th>
+                            <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr></thead><tbody>
                             {data.busPasses.map((b: any) => {
                                 const student = data.students.find((s: any) => s.id === b.student_id);
                                 return (
-                                    <tr key={b.id} className="border-b border-gray-100">
-                                        <td className="px-3 py-2 text-xs font-semibold">{student ? `${student.first_name} ${student.last_name}` : b.student_id}</td>
-                                        <td className="px-3 py-2 text-xs text-gray-500">{b.route_name || '-'}</td>
-                                        <td className="px-3 py-2 text-xs text-gray-500">{b.driver_name || '-'} {b.driver_phone ? `(${b.driver_phone})` : ''}</td>
-                                        <td className="px-3 py-2 text-xs font-bold text-cyan-600">{b.card_number || '-'}</td>
-                                        <td className="px-3 py-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${b.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{b.status}</span></td>
-                                        <td className="px-3 py-2">
-                                            {b.status === 'Active' && <button onClick={() => remove(b.id)} className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded hover:bg-red-100 flex items-center gap-1"><FiTrash2 size={9} /> Cancel</button>}
+                                    <tr key={b.id} className="border-b border-gray-100 hover:bg-cyan-50/30 transition-all duration-150">
+                                        <td className="px-3 py-2.5 text-xs font-semibold text-gray-800">{student ? `${student.first_name} ${student.last_name}` : b.student_id}</td>
+                                        <td className="px-3 py-2.5 text-xs text-gray-500">{b.route_name || '-'}</td>
+                                        <td className="px-3 py-2.5 text-xs text-gray-500">{b.driver_name || '-'} {b.driver_phone ? `(${b.driver_phone})` : ''}</td>
+                                        <td className="px-3 py-2.5 text-xs font-bold text-cyan-600">{b.card_number || '-'}</td>
+                                        <td className="px-3 py-2.5 text-center"><span className={`text-xs font-bold px-2.5 py-1 rounded-full ${b.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{b.status}</span></td>
+                                        <td className="px-3 py-2.5 text-center">
+                                            {b.status === 'Active' && <button onClick={() => remove(b.id)} className="text-xs font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1 mx-auto"><FiTrash2 size={10} /> Cancel</button>}
                                         </td>
                                     </tr>
                                 );

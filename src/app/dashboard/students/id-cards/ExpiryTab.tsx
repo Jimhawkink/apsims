@@ -54,24 +54,13 @@ export default function ExpiryTab({ data }: any) {
 
     return (
         <div className="space-y-4">
-            {/* Stats */}
-            <div className="grid grid-cols-4 gap-3">
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-red-600">{expiredCards.length}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Already Expired</p>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-amber-600">{expiringCards.filter((c: any) => { const d = getDaysLeft(c.expiry_date); return d > 0 && d <= 30; }).length}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Expiring 30d</p>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-yellow-600">{expiringCards.length}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Expiring {days}d</p>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-green-600">{data.issuedCards.filter((c: any) => c.status === 'Active' && c.expiry_date && getDaysLeft(c.expiry_date) > days).length}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Valid</p>
-                </div>
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 grid grid-cols-4 gap-3">
+                {[{ label: 'Expired', value: expiredCards.length, color: '#dc2626', bg: '#fef2f2' }, { label: 'Expiring 30d', value: expiringCards.filter((c: any) => { const d = getDaysLeft(c.expiry_date); return d > 0 && d <= 30; }).length, color: '#d97706', bg: '#fffbeb' }, { label: `Expiring ${days}d`, value: expiringCards.length, color: '#ca8a04', bg: '#fefce8' }, { label: 'Valid', value: data.issuedCards.filter((c: any) => c.status === 'Active' && c.expiry_date && getDaysLeft(c.expiry_date) > days).length, color: '#059669', bg: '#ecfdf5' }].map((k, i) => (
+                    <div key={i} className="rounded-xl p-4 text-center" style={{ backgroundColor: k.bg }}>
+                        <p className="text-2xl font-extrabold" style={{ color: k.color }}>{k.value}</p>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-0.5">{k.label}</p>
+                    </div>
+                ))}
             </div>
 
             {/* Filter */}
@@ -80,15 +69,11 @@ export default function ExpiryTab({ data }: any) {
                     <FiClock className="text-rose-500" />
                     <label className="text-xs font-bold text-gray-600">Show cards expiring within:</label>
                     <select value={days} onChange={e => setDays(Number(e.target.value))} className="select-modern text-sm">
-                        <option value={30}>30 days</option>
-                        <option value={60}>60 days</option>
-                        <option value={90}>90 days</option>
-                        <option value={180}>180 days</option>
-                        <option value={365}>1 year</option>
+                        <option value={30}>30 days</option><option value={60}>60 days</option><option value={90}>90 days</option><option value={180}>180 days</option><option value={365}>1 year</option>
                     </select>
                 </div>
                 {expiredCards.length > 0 && (
-                    <button onClick={renewAll} className="px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md" style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}>
+                    <button onClick={renewAll} className="px-4 py-2.5 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md transition-all hover:shadow-lg hover:scale-[1.02]" style={{ background: 'linear-gradient(135deg, #059669, #10b981)', boxShadow: '0 4px 14px rgba(5,150,105,0.3)' }}>
                         <FiRefreshCw size={13} /> Renew All Expired ({expiredCards.length})
                     </button>
                 )}
@@ -97,33 +82,36 @@ export default function ExpiryTab({ data }: any) {
             {/* Expiring Cards List */}
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 {expiringCards.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 text-sm flex flex-col items-center gap-2"><FiCheck size={32} className="text-green-400" /><p>No cards expiring within {days} days</p></div>
+                    <div className="p-10 text-center text-gray-400">
+                        <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-green-50 flex items-center justify-center"><FiCheck size={24} className="text-green-400" /></div>
+                        <p className="text-sm font-semibold text-gray-500">No cards expiring within {days} days</p>
+                    </div>
                 ) : (
                     <div className="max-h-[400px] overflow-y-auto">
-                        <table className="w-full"><thead><tr className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Card No</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Person</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Type</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Expiry</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Days Left</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Action</th>
+                        <table className="w-full"><thead><tr className="bg-gray-50/80 border-b border-gray-200 sticky top-0">
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Card No</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Person</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Expiry</th>
+                            <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Days Left</th>
+                            <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
                         </tr></thead><tbody>
                             {expiringCards.map((c: any) => {
                                 const daysLeft = getDaysLeft(c.expiry_date);
                                 const isExpired = daysLeft <= 0;
                                 return (
-                                    <tr key={c.id} className={`border-b border-gray-100 ${isExpired ? 'bg-red-50/50' : daysLeft <= 30 ? 'bg-amber-50/50' : ''}`}>
-                                        <td className="px-3 py-2 text-xs font-bold text-indigo-600">{c.card_number}</td>
-                                        <td className="px-3 py-2 text-xs font-semibold">{c.person_name}</td>
-                                        <td className="px-3 py-2 text-xs">{c.person_type}</td>
-                                        <td className="px-3 py-2 text-xs">{new Date(c.expiry_date).toLocaleDateString()}</td>
-                                        <td className="px-3 py-2">
-                                            <span className={`text-xs font-bold ${isExpired ? 'text-red-600' : daysLeft <= 30 ? 'text-amber-600' : 'text-yellow-600'}`}>
+                                    <tr key={c.id} className={`border-b border-gray-100 hover:bg-rose-50/30 transition-all duration-150 ${isExpired ? 'bg-red-50/50' : daysLeft <= 30 ? 'bg-amber-50/30' : ''}`}>
+                                        <td className="px-3 py-2.5 text-xs font-bold text-indigo-600">{c.card_number}</td>
+                                        <td className="px-3 py-2.5 text-xs font-semibold text-gray-800">{c.person_name}</td>
+                                        <td className="px-3 py-2.5 text-xs text-gray-600">{c.person_type}</td>
+                                        <td className="px-3 py-2.5 text-xs text-gray-500">{new Date(c.expiry_date).toLocaleDateString()}</td>
+                                        <td className="px-3 py-2.5 text-center">
+                                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${isExpired ? 'bg-red-100 text-red-700' : daysLeft <= 30 ? 'bg-amber-100 text-amber-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                                 {isExpired ? 'EXPIRED' : `${daysLeft}d`}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-2">
-                                            <button onClick={() => renewCard(c)} className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded hover:bg-green-100 flex items-center gap-1"><FiRefreshCw size={9} /> Renew</button>
+                                        <td className="px-3 py-2.5 text-center">
+                                            <button onClick={() => renewCard(c)} className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-1 mx-auto"><FiRefreshCw size={10} /> Renew</button>
                                         </td>
                                     </tr>
                                 );

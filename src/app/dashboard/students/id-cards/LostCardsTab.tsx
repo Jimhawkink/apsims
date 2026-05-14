@@ -59,55 +59,62 @@ export default function LostCardsTab({ data }: any) {
     return (
         <div className="space-y-4">
             {/* Report Lost Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FiAlertTriangle className="text-amber-500" /> Report Lost Card</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div><label className="lbl">Card</label><select value={report.card_id} onChange={e => setReport({ ...report, card_id: e.target.value })} className="select-modern w-full text-sm"><option value="">Select Card...</option>{activeCards.map((c: any) => <option key={c.id} value={c.id}>{c.card_number} — {c.person_name}</option>)}</select></div>
-                    <div><label className="lbl">Reported By</label><input type="text" value={report.reported_by} onChange={e => setReport({ ...report, reported_by: e.target.value })} placeholder="Name..." className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm focus:border-amber-400 outline-none" /></div>
-                    <div><label className="lbl">Description</label><input type="text" value={report.loss_description} onChange={e => setReport({ ...report, loss_description: e.target.value })} placeholder="How it was lost..." className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm focus:border-amber-400 outline-none" /></div>
-                    <div><label className="lbl">Replacement Fee (KES)</label><input type="number" value={report.replacement_fee} onChange={e => setReport({ ...report, replacement_fee: Number(e.target.value) })} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm focus:border-amber-400 outline-none" /></div>
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="p-4">
+                    <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FiAlertTriangle className="text-amber-500" /> Report Lost Card</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div><label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Card</label><select value={report.card_id} onChange={e => setReport({ ...report, card_id: e.target.value })} className="select-modern w-full text-sm"><option value="">Select Card...</option>{activeCards.map((c: any) => <option key={c.id} value={c.id}>{c.card_number} — {c.person_name}</option>)}</select></div>
+                        <div><label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Reported By</label><input type="text" value={report.reported_by} onChange={e => setReport({ ...report, reported_by: e.target.value })} placeholder="Name..." className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-200 focus:border-amber-400 outline-none transition-all" /></div>
+                        <div><label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Description</label><input type="text" value={report.loss_description} onChange={e => setReport({ ...report, loss_description: e.target.value })} placeholder="How it was lost..." className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-200 focus:border-amber-400 outline-none transition-all" /></div>
+                        <div><label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Fee (KES)</label><input type="number" value={report.replacement_fee} onChange={e => setReport({ ...report, replacement_fee: Number(e.target.value) })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-200 focus:border-amber-400 outline-none transition-all" /></div>
+                    </div>
+                    <button onClick={reportLost} className="mt-3 px-4 py-2.5 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]" style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)', boxShadow: '0 4px 14px rgba(217,119,6,0.3)' }}>
+                        <FiAlertTriangle size={13} /> Report Lost
+                    </button>
                 </div>
-                <button onClick={reportLost} className="mt-3 px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md" style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)' }}>
-                    <FiAlertTriangle size={13} /> Report Lost
-                </button>
             </div>
 
             {/* Lost Cards List */}
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-gray-700">Lost Card Records ({data.lostCards.length})</h3>
+                    <h3 className="text-sm font-bold text-gray-700">Lost Card Records</h3>
                     <div className="flex gap-2">
-                        <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{data.lostCards.filter((l: any) => l.status === 'Reported').length} Pending</span>
-                        <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{data.lostCards.filter((l: any) => l.replacement_issued).length} Replaced</span>
+                        <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />{data.lostCards.filter((l: any) => l.status === 'Reported').length} Pending</span>
+                        <span className="text-xs font-bold bg-green-100 text-green-700 px-2.5 py-1 rounded-full">{data.lostCards.filter((l: any) => l.replacement_issued).length} Replaced</span>
+                        <span className="text-xs font-bold bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{data.lostCards.length} Total</span>
                     </div>
                 </div>
                 {data.lostCards.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 text-sm">No lost card records</div>
+                    <div className="p-10 text-center text-gray-400">
+                        <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-50 flex items-center justify-center"><FiAlertTriangle size={24} className="text-gray-300" /></div>
+                        <p className="text-sm font-semibold text-gray-500">No lost card records</p>
+                        <p className="text-xs text-gray-400 mt-1">Lost cards will appear here when reported</p>
+                    </div>
                 ) : (
                     <div className="max-h-[400px] overflow-y-auto">
-                        <table className="w-full"><thead><tr className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Card No</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Person</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Reported</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Fee</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
-                            <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                        <table className="w-full"><thead><tr className="bg-gray-50/80 border-b border-gray-200 sticky top-0">
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Card No</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Person</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Reported</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Fee</th>
+                            <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-3 py-2.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr></thead><tbody>
                             {data.lostCards.map((l: any) => {
                                 const card = data.issuedCards.find((c: any) => c.id === l.card_id);
                                 return (
-                                    <tr key={l.id} className="border-b border-gray-100">
-                                        <td className="px-3 py-2 text-xs font-bold text-amber-700">{card?.card_number || '-'}</td>
-                                        <td className="px-3 py-2 text-xs font-semibold">{card?.person_name || '-'}</td>
-                                        <td className="px-3 py-2 text-xs text-gray-500">{l.reported_date ? new Date(l.reported_date).toLocaleDateString() : '-'}</td>
-                                        <td className="px-3 py-2 text-xs">
+                                    <tr key={l.id} className="border-b border-gray-100 hover:bg-amber-50/30 transition-all duration-150">
+                                        <td className="px-3 py-2.5 text-xs font-bold text-amber-700">{card?.card_number || '-'}</td>
+                                        <td className="px-3 py-2.5 text-xs font-semibold text-gray-800">{card?.person_name || '-'}</td>
+                                        <td className="px-3 py-2.5 text-xs text-gray-500">{l.reported_date ? new Date(l.reported_date).toLocaleDateString() : new Date(l.created_at).toLocaleDateString()}</td>
+                                        <td className="px-3 py-2.5 text-xs">
                                             <span className={`font-bold ${l.fee_paid ? 'text-green-600' : 'text-red-600'}`}>KES {l.replacement_fee || 0}</span>
-                                            {!l.fee_paid && <button onClick={() => markFeePaid(l.id)} className="ml-2 text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded hover:bg-green-100"><FiDollarSign size={9} className="inline" /> Pay</button>}
+                                            {!l.fee_paid && <button onClick={() => markFeePaid(l.id)} className="ml-2 text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-lg hover:bg-green-100 transition-colors inline-flex items-center gap-0.5"><FiDollarSign size={10} />Pay</button>}
                                         </td>
-                                        <td className="px-3 py-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${l.status === 'Reported' ? 'bg-amber-100 text-amber-700' : l.status === 'Replacement Issued' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{l.status}</span></td>
-                                        <td className="px-3 py-2">
+                                        <td className="px-3 py-2.5 text-center"><span className={`text-xs font-bold px-2.5 py-1 rounded-full ${l.status === 'Reported' ? 'bg-amber-100 text-amber-700' : l.status === 'Replacement Issued' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{l.status}</span></td>
+                                        <td className="px-3 py-2.5 text-center">
                                             {!l.replacement_issued && l.fee_paid && (
-                                                <button onClick={() => issueReplacement(l.id, l.card_id)} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded hover:bg-indigo-100 flex items-center gap-1"><FiRefreshCw size={10} /> Issue Replacement</button>
+                                                <button onClick={() => issueReplacement(l.id, l.card_id)} className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-1 mx-auto"><FiRefreshCw size={11} /> Replace</button>
                                             )}
                                         </td>
                                     </tr>

@@ -64,9 +64,9 @@ export default function StaffAttendancePage() {
                 supabase.from('school_subordinate_staff').select('id, first_name, last_name, staff_no, phone, role, department, status').eq('status', 'Active'),
             ]);
 
-            const teachers: StaffMember[] = (teachersRes.data || []).map(t => ({ ...t, _type: 'teacher', _typeLabel: 'TSC Teacher' }));
-            const support: StaffMember[] = (supportRes.data || []).map(s => ({ ...s, _type: 'support', _typeLabel: 'Support Teacher' }));
-            const subordinate: StaffMember[] = (subRes.data || []).map(s => ({ ...s, _type: 'subordinate', _typeLabel: 'Support Staff' }));
+            const teachers: StaffMember[] = (teachersRes.data || []).map((t: any) => ({ ...t, _type: 'teacher', _typeLabel: 'TSC Teacher' }));
+            const support: StaffMember[] = (supportRes.data || []).map((s: any) => ({ ...s, _type: 'support', _typeLabel: 'Support Teacher' }));
+            const subordinate: StaffMember[] = (subRes.data || []).map((s: any) => ({ ...s, _type: 'subordinate', _typeLabel: 'Support Staff' }));
 
             setAllStaff([...teachers, ...support, ...subordinate]);
         } catch (e) { console.error(e); }
@@ -181,9 +181,9 @@ export default function StaffAttendancePage() {
 
                 let error;
                 if (existing) {
-                    ({ error } = await supabase.from('school_staff_attendance').update(payload).eq('id', existing.id));
+                    ({ error } = await (supabase.from('school_staff_attendance') as any).update(payload).eq('id', (existing as any).id));
                 } else {
-                    ({ error } = await supabase.from('school_staff_attendance').insert([payload]));
+                    ({ error } = await (supabase.from('school_staff_attendance') as any).insert([payload]));
                 }
                 if (!error) saved++;
             }
