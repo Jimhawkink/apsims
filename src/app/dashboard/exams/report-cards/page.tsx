@@ -75,10 +75,14 @@ export default function ReportCardsPage() {
     const [loading, setLoading] = useState(true);
     const [loadingMarks, setLoadingMarks] = useState(false);
 
-    // All exam marks across CAT1, CAT2, End-Term for current selection
-    const [cat1Marks, setCat1Marks] = useState<any[]>([]);
-    const [cat2Marks, setCat2Marks] = useState<any[]>([]);
-    const [endTermMarks, setEndTermMarks] = useState<any[]>([]);
+    // Exam types from DB (school_exam_types table, filtered by term)
+    const [dbExamTypes, setDbExamTypes] = useState<any[]>([]);
+
+    // Which exam types the user has ticked to include in the report
+    const [selectedExamTypes, setSelectedExamTypes] = useState<string[]>([]);
+
+    // All exam marks keyed by exam_type name string
+    const [allExamMarks, setAllExamMarks] = useState<Record<string, any[]>>({});
 
     // Historical marks for trend (all terms, End-Term only)
     const [historicalMarks, setHistoricalMarks] = useState<any[]>([]);
@@ -143,36 +147,55 @@ export default function ReportCardsPage() {
         .filter(s => !selStream || String(s.stream_id) === selStream)
         .sort((a, b) => (a.admission_number || a.admission_no || '').localeCompare(b.admission_number || b.admission_no || ''));
 
-    // ── Load all 3 exam types + historical + discipline + fees ─────────────────
+    // ── When term changes: fetch exam types from DB for that term ───────────
     useEffect(() => {
-        if (!selForm || !selTerm) {
-            setCat1Marks([]); setCat2Marks([]); setEndTermMarks([]);
-            return;
-        }
+        if (!selTerm) { setDbExamTypes([]); setSelectedExamTypes([]); return; }
+        const load = async () => {
+            const { data } = await supabase
+                .from('school_exam_types')
+                .select('*')
+                .eq('term_id', Number(selTerm))
+                .eq('is_active', true)
+                .eq('is_combined', false)   // exclude auto-combined rows
+                .order('id');
+            const types = data || [];
+            setDbExamTypes(types);
+            // Default: select ALL exam types for this term
+            setSelectedExamTypes(types.map((t: any) => t.exam_name));
+        };
+        load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selTerm]);
+
+    // ── Load marks for all DB exam types + subject teachers ──────────────────
+    useEffect(() => {
+        if (!selForm || !selTerm || dbExamTypes.length === 0) { setAllExamMarks({}); return; }
         const studentIds = classStudents.map(s => s.id);
-        if (studentIds.length === 0) { setCat1Marks([]); setCat2Marks([]); setEndTermMarks([]); return; }
+        if (studentIds.length === 0) { setAllExamMarks({}); return; }
 
         const load = async () => {
             setLoadingMarks(true);
-            // Build subject teachers query — filter by form, and stream if selected
             let stQuery = supabase.from('school_subject_teachers').select('*').eq('form_id', Number(selForm));
             if (selStream) stQuery = stQuery.eq('stream_id', Number(selStream));
 
-            const [c1, c2, et, st] = await Promise.all([
-                supabase.from('school_exam_marks').select('*').eq('term_id', Number(selTerm)).eq('exam_type', 'CAT 1').in('student_id', studentIds),
-                supabase.from('school_exam_marks').select('*').eq('term_id', Number(selTerm)).eq('exam_type', 'CAT 2').in('student_id', studentIds),
-                supabase.from('school_exam_marks').select('*').eq('term_id', Number(selTerm)).eq('exam_type', 'End-Term').in('student_id', studentIds),
-                stQuery,
-            ]);
-            setCat1Marks(c1.data || []);
-            setCat2Marks(c2.data || []);
-            setEndTermMarks(et.data || []);
-            setSubjectTeachers(st.data || []);
+            // Fetch marks for every DB exam type in parallel
+            const examFetches = dbExamTypes.map((et: any) =>
+                supabase.from('school_exam_marks').select('*')
+                    .eq('term_id', Number(selTerm))
+                    .eq('exam_type', et.exam_name)
+                    .in('student_id', studentIds)
+            );
+
+            const results = await Promise.all([...examFetches, stQuery]);
+            const marksMap: Record<string, any[]> = {};
+            dbExamTypes.forEach((et: any, i: number) => { marksMap[et.exam_name] = results[i].data || []; });
+            setAllExamMarks(marksMap);
+            setSubjectTeachers(results[dbExamTypes.length].data || []);
             setLoadingMarks(false);
         };
         load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selForm, selStream, selTerm, students]);
+    }, [selForm, selStream, selTerm, students, dbExamTypes]);
 
     // ── Load historical + discipline + fees when a student is selected ────────
     useEffect(() => {
@@ -206,62 +229,57 @@ export default function ReportCardsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selStudent, selForm, selTerm]);
 
-    // ── Build student data with CAT1 + CAT2 + EndTerm merged ─────────────────
+    // ── Build student data from SELECTED exam types (equal weighting) ────────
     const buildStudentResults = (studentId: number) => {
         const subjectResults: {
             subId: number; subName: string;
-            cat1: number | null; cat2: number | null; endTerm: number | null;
-            cat1Grade: string; cat2Grade: string; endTermGrade: string;
-            cat1Points: number; cat2Points: number; endTermPoints: number;
-            // weighted combined (CAT1 30% + CAT2 30% + EndTerm 40% → out of 100)
+            examScores: Record<string, number | null>;   // per selected exam type
+            examGrades: Record<string, string>;
             combined: number; combinedGrade: string; combinedPoints: number;
             remarks: string;
             subjectTeacherRemark: string;
             teacherInitial: string;
         }[] = [];
 
+        // Only look at exam types the user selected AND that have data
+        const activeTypes = selectedExamTypes.filter(et => (allExamMarks[et] || []).length > 0 || selectedExamTypes.includes(et));
+
         subjects.forEach(sub => {
-            const c1 = cat1Marks.find(m => m.student_id === studentId && m.subject_id === sub.id);
-            const c2 = cat2Marks.find(m => m.student_id === studentId && m.subject_id === sub.id);
-            const et = endTermMarks.find(m => m.student_id === studentId && m.subject_id === sub.id);
+            const examScores: Record<string, number | null> = {};
+            const examGrades: Record<string, string> = {};
+            let hasAny = false;
 
-            if (!c1 && !c2 && !et) return;
+            activeTypes.forEach(et => {
+                const mark = (allExamMarks[et] || []).find((m: any) => m.student_id === studentId && m.subject_id === sub.id);
+                const score = mark ? Number(mark.score) : null;
+                examScores[et] = score;
+                examGrades[et] = score !== null ? getGrade(score).grade : '-';
+                if (score !== null) hasAny = true;
+            });
 
-            const c1Score = c1 ? Number(c1.score) : null;
-            const c2Score = c2 ? Number(c2.score) : null;
-            const etScore = et ? Number(et.score) : null;
+            if (!hasAny) return;
 
-            const c1g = c1Score !== null ? getGrade(c1Score) : { grade: '-', points: 0, remarks: '' };
-            const c2g = c2Score !== null ? getGrade(c2Score) : { grade: '-', points: 0, remarks: '' };
-            const etg = etScore !== null ? getGrade(etScore) : { grade: '-', points: 0, remarks: '' };
+            // Equal-weight average across selected exams that have data
+            const validScores = activeTypes.map(et => examScores[et]).filter((s): s is number => s !== null);
+            const combined = validScores.length > 0
+                ? validScores.reduce((a, b) => a + b, 0) / validScores.length
+                : 0;
 
-            // Combined: use pre-computed combined_score if exists, else weighted
-            let combined = 0;
-            let count = 0;
-            if (c1Score !== null) { combined += c1Score * 0.3; count++; }
-            if (c2Score !== null) { combined += c2Score * 0.3; count++; }
-            if (etScore !== null) { combined += etScore * 0.4; count++; }
-            // If only some exist, normalize
-            if (count === 1) combined = (c1Score ?? c2Score ?? etScore)!;
-            else if (count === 2) combined = combined / (count === 2 && c1Score !== null && c2Score !== null ? 0.6 : count === 2 && etScore !== null ? 0.7 : 0.6) * 0.6;
-
-            // Use End-Term combined_score if database has it
-            const dbCombined = et?.combined_score ? Number(et.combined_score) : null;
+            // If End-Term is selected and has a db combined_score, prefer it
+            const etMark = (allExamMarks['End-Term'] || []).find((m: any) => m.student_id === studentId && m.subject_id === sub.id);
+            const dbCombined = selectedExamTypes.includes('End-Term') && etMark?.combined_score ? Number(etMark.combined_score) : null;
             const finalCombined = dbCombined || combined;
             const combinedG = getGrade(finalCombined);
 
-            // Resolve teacher initial from school_subject_teachers
             const stEntry = subjectTeachers.find(st => st.subject_id === sub.id);
             const teacherInitial = stEntry?.teacher_initials || '';
 
             subjectResults.push({
                 subId: sub.id, subName: sub.subject_name,
-                cat1: c1Score, cat2: c2Score, endTerm: etScore,
-                cat1Grade: c1g.grade, cat2Grade: c2g.grade, endTermGrade: etg.grade,
-                cat1Points: c1g.points, cat2Points: c2g.points, endTermPoints: etg.points,
+                examScores, examGrades,
                 combined: finalCombined, combinedGrade: combinedG.grade,
                 combinedPoints: combinedG.points, remarks: combinedG.remarks,
-                subjectTeacherRemark: et?.subject_teacher_remark || '',
+                subjectTeacherRemark: etMark?.subject_teacher_remark || '',
                 teacherInitial,
             });
         });
@@ -481,6 +499,98 @@ export default function ReportCardsPage() {
                     </div>
                 </div>
 
+                {/* ── Exam Type Selector (from DB: school_exam_types filtered by term) ── */}
+                {selTerm && (
+                    <div className="mt-4 pt-3 border-t border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                                📋 Exams to Include in Report Card
+                                <span className="font-normal text-gray-400 normal-case">(tick one or more)</span>
+                            </label>
+                            {dbExamTypes.length > 0 && (
+                                <div className="flex gap-2">
+                                    <button onClick={() => setSelectedExamTypes(dbExamTypes.map((t: any) => t.exam_name))}
+                                        className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 underline">All</button>
+                                    <span className="text-gray-300">|</span>
+                                    <button onClick={() => setSelectedExamTypes([])}
+                                        className="text-[10px] font-bold text-gray-400 hover:text-gray-600 underline">None</button>
+                                </div>
+                            )}
+                        </div>
+
+                        {dbExamTypes.length === 0 ? (
+                            <p className="text-[11px] text-amber-600 font-semibold">
+                                ⚠️ No exam types found for this term. Please add exam types in the Exams setup first.
+                            </p>
+                        ) : (
+                            <div className="flex flex-wrap gap-2">
+                                {dbExamTypes.map((et: any) => {
+                                    const hasData = (allExamMarks[et.exam_name] || []).length > 0;
+                                    const isChecked = selectedExamTypes.includes(et.exam_name);
+                                    return (
+                                        <button
+                                            key={et.id}
+                                            onClick={() => setSelectedExamTypes(prev =>
+                                                prev.includes(et.exam_name)
+                                                    ? prev.filter(x => x !== et.exam_name)
+                                                    : [...prev, et.exam_name]
+                                            )}
+                                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-xs font-bold transition-all ${
+                                                isChecked
+                                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm'
+                                                    : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300 hover:text-gray-600'
+                                            }`}
+                                        >
+                                            {/* Checkbox */}
+                                            <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                                                isChecked ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 bg-white'
+                                            }`}>
+                                                {isChecked && (
+                                                    <svg viewBox="0 0 10 10" className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                        <path d="M1.5 5l2.5 2.5 4.5-4"/>
+                                                    </svg>
+                                                )}
+                                            </span>
+                                            {/* Exam name + weight */}
+                                            <span>{et.exam_name}</span>
+                                            {et.weight > 0 && (
+                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${isChecked ? 'bg-emerald-200 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                                                    {et.weight}%
+                                                </span>
+                                            )}
+                                            {/* Data availability badge */}
+                                            {loadingMarks
+                                                ? <span className="px-1.5 py-0.5 rounded text-[9px] bg-gray-100 text-gray-400 animate-pulse">...</span>
+                                                : hasData
+                                                    ? <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-100 text-blue-600 font-black">✓ data</span>
+                                                    : <span className="px-1.5 py-0.5 rounded text-[9px] bg-red-50 text-red-400">no data</span>
+                                            }
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Summary line */}
+                        <div className="mt-2.5 flex items-center gap-3">
+                            {selectedExamTypes.length === 0 ? (
+                                <p className="text-xs text-red-500 font-bold">⚠️ Select at least one exam type to generate the report</p>
+                            ) : (
+                                <p className="text-[11px] text-gray-500">
+                                    Combining: <span className="font-black text-emerald-700">{selectedExamTypes.join(' + ')}</span>
+                                    <span className="ml-2 text-gray-400">
+                                        → {selectedExamTypes.map(n => {
+                                            const obj = dbExamTypes.find((d: any) => d.exam_name === n);
+                                            const totalWeight = selectedExamTypes.reduce((s, x) => s + (dbExamTypes.find((d: any) => d.exam_name === x)?.weight || 0), 0);
+                                            return obj?.weight && totalWeight > 0 ? `${n} ${obj.weight}%` : null;
+                                        }).filter(Boolean).join(' · ') || `equal ${(100/selectedExamTypes.length).toFixed(0)}% each`}
+                                    </span>
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Student Navigator */}
                 {isReady && classStudents.length > 0 && (
                     <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
@@ -638,32 +748,35 @@ export default function ReportCardsPage() {
                         {/* ── MAIN MARKS GRID ── */}
                         <div className="px-4 py-4">
                             <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-2">
-                                <FiBarChart2 size={11} /> Academic Performance — Combined Assessment (CAT 1 · CAT 2 · End-Term)
+                                <FiBarChart2 size={11} /> Academic Performance — {selectedExamTypes.join(' · ')} (Equal Average)
                             </p>
                             <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
                                 <table className="w-full border-collapse text-[11px] rc-table min-w-[700px]">
                                     <thead>
-                                        {/* ── Header row 1: group labels ── */}
+                                        {/* ── Header row 1: one group per selected exam type ── */}
                                         <tr style={{ background: '#1e3a8a' }}>
                                             <th rowSpan={2} className="border border-blue-800 px-2 py-2 text-left text-white font-bold text-[10px] w-6">#</th>
                                             <th rowSpan={2} className="border border-blue-800 px-2 py-2 text-left text-white font-bold text-[10px]">SUBJECT</th>
-                                            <th colSpan={3} className="border border-blue-600 px-2 py-1.5 text-center text-blue-200 font-bold text-[10px] uppercase">CAT 1 (30%)</th>
-                                            <th colSpan={3} className="border border-blue-600 px-2 py-1.5 text-center text-blue-200 font-bold text-[10px] uppercase">CAT 2 (30%)</th>
-                                            <th colSpan={3} className="border border-blue-600 px-2 py-1.5 text-center text-blue-200 font-bold text-[10px] uppercase">END-TERM (40%)</th>
+                                            {selectedExamTypes.map(et => {
+                                                const etObj = dbExamTypes.find(d => d.exam_name === et);
+                                                const wt = etObj?.weight ? `${etObj.weight}%` : `${(100/selectedExamTypes.length).toFixed(0)}%`;
+                                                return (
+                                                    <th key={et} colSpan={2} className="border border-blue-600 px-2 py-1.5 text-center text-blue-200 font-bold text-[10px] uppercase">
+                                                        {et} ({wt})
+                                                    </th>
+                                                );
+                                            })}
                                             <th colSpan={4} className="border border-yellow-500 bg-yellow-600 px-2 py-1.5 text-center text-yellow-100 font-bold text-[10px] uppercase">OVERALL / COMBINED</th>
                                             <th rowSpan={2} className="border border-blue-800 px-2 py-2 text-center text-white font-bold text-[10px]">REMARKS</th>
                                             <th rowSpan={2} className="border border-blue-800 px-2 py-2 text-center text-white font-bold text-[10px]">INITIAL</th>
                                         </tr>
                                         <tr style={{ background: '#1e40af' }}>
-                                            <th className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">MKS</th>
-                                            <th className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">GR</th>
-                                            <th className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">STR</th>
-                                            <th className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">MKS</th>
-                                            <th className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">GR</th>
-                                            <th className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">STR</th>
-                                            <th className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">MKS</th>
-                                            <th className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">GR</th>
-                                            <th className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">STR</th>
+                                            {selectedExamTypes.map(et => (
+                                                <>
+                                                    <th key={et+'-mks'} className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">MKS</th>
+                                                    <th key={et+'-gr'} className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">GR</th>
+                                                </>
+                                            ))}
                                             <th className="border border-yellow-500 bg-yellow-600/80 px-1.5 py-1.5 text-center text-yellow-100 font-bold text-[9px]">SCORE</th>
                                             <th className="border border-yellow-500 bg-yellow-600/80 px-1.5 py-1.5 text-center text-yellow-100 font-bold text-[9px]">GR</th>
                                             <th className="border border-yellow-500 bg-yellow-600/80 px-1.5 py-1.5 text-center text-yellow-100 font-bold text-[9px]">STR</th>
@@ -679,30 +792,21 @@ export default function ReportCardsPage() {
                                                 <tr key={r.subId} className={i % 2 === 0 ? 'bg-white' : 'bg-blue-50/20'}>
                                                     <td className="border border-gray-200 px-2 py-1.5 text-gray-400 text-[10px]">{i + 1}</td>
                                                     <td className="border border-gray-200 px-2 py-1.5 font-semibold text-gray-800 text-[11px]">{r.subName}</td>
-                                                    {/* CAT 1 */}
-                                                    <td className="border border-gray-200 px-1.5 py-1.5 text-center font-bold text-gray-700">
-                                                        {r.cat1 !== null ? r.cat1 : <span className="text-gray-300">-</span>}
-                                                    </td>
-                                                    <td className="border border-gray-200 px-1 py-1 text-center">
-                                                        {r.cat1 !== null ? <GradeBadge grade={r.cat1Grade} size="xs" /> : <span className="text-gray-300 text-[9px]">-</span>}
-                                                    </td>
-                                                    <td className="border border-gray-200 px-1 py-1 text-center text-[9px] text-gray-500">-</td>
-                                                    {/* CAT 2 */}
-                                                    <td className="border border-gray-200 px-1.5 py-1.5 text-center font-bold text-gray-700">
-                                                        {r.cat2 !== null ? r.cat2 : <span className="text-gray-300">-</span>}
-                                                    </td>
-                                                    <td className="border border-gray-200 px-1 py-1 text-center">
-                                                        {r.cat2 !== null ? <GradeBadge grade={r.cat2Grade} size="xs" /> : <span className="text-gray-300 text-[9px]">-</span>}
-                                                    </td>
-                                                    <td className="border border-gray-200 px-1 py-1 text-center text-[9px] text-gray-500">-</td>
-                                                    {/* End-Term */}
-                                                    <td className="border border-gray-200 px-1.5 py-1.5 text-center font-bold text-gray-700">
-                                                        {r.endTerm !== null ? r.endTerm : <span className="text-gray-300">-</span>}
-                                                    </td>
-                                                    <td className="border border-gray-200 px-1 py-1 text-center">
-                                                        {r.endTerm !== null ? <GradeBadge grade={r.endTermGrade} size="xs" /> : <span className="text-gray-300 text-[9px]">-</span>}
-                                                    </td>
-                                                    <td className="border border-gray-200 px-1 py-1 text-center text-[9px] text-gray-500">-</td>
+                                                    {/* Dynamic columns — one MKS + GR per selected exam type */}
+                                                    {selectedExamTypes.map(et => {
+                                                        const score = r.examScores?.[et] ?? null;
+                                                        const grade = r.examGrades?.[et] ?? '-';
+                                                        return (
+                                                            <>
+                                                                <td key={et+'-mks'} className="border border-gray-200 px-1.5 py-1.5 text-center font-bold text-gray-700">
+                                                                    {score !== null ? score : <span className="text-gray-300">-</span>}
+                                                                </td>
+                                                                <td key={et+'-gr'} className="border border-gray-200 px-1 py-1 text-center">
+                                                                    {score !== null ? <GradeBadge grade={grade} size="xs" /> : <span className="text-gray-300 text-[9px]">-</span>}
+                                                                </td>
+                                                            </>
+                                                        );
+                                                    })}
                                                     {/* Combined */}
                                                     <td className="border border-yellow-200 bg-yellow-50 px-1.5 py-1.5 text-center font-black text-gray-800">
                                                         {r.combined.toFixed(1)}
@@ -716,7 +820,7 @@ export default function ReportCardsPage() {
                                                     <td className="border border-yellow-200 bg-yellow-50 px-1 py-1 text-center">
                                                         {sPos ? <PosBadge pos={sPos.formPos[r.subId] || 1} total={formStudentsWithSubject} color="#10b981" /> : '-'}
                                                     </td>
-                                                    {/* Remarks / Teacher remark */}
+                                                    {/* Teacher Remark */}
                                                     <td className="border border-gray-200 px-1.5 py-1.5 text-[9px] text-gray-600 max-w-[120px]">
                                                         {r.subjectTeacherRemark
                                                             ? <span className="text-blue-700 font-semibold italic">{r.subjectTeacherRemark}</span>
@@ -737,9 +841,9 @@ export default function ReportCardsPage() {
                                     <tfoot>
                                         <tr className="font-black border-t-2 border-blue-300" style={{ background: 'linear-gradient(90deg, #eff6ff, #dbeafe)' }}>
                                             <td colSpan={2} className="border border-blue-300 px-2 py-2.5 text-sm text-blue-900 uppercase font-black tracking-wide">TOTAL / MEAN</td>
-                                            <td colSpan={3} className="border border-blue-300 px-2 py-2 text-center text-[10px] text-blue-600 font-bold">—</td>
-                                            <td colSpan={3} className="border border-blue-300 px-2 py-2 text-center text-[10px] text-blue-600 font-bold">—</td>
-                                            <td colSpan={3} className="border border-blue-300 px-2 py-2 text-center text-[10px] text-blue-600 font-bold">—</td>
+                                            {selectedExamTypes.map(et => (
+                                                <td key={et+'-foot'} colSpan={2} className="border border-blue-300 px-2 py-2 text-center text-[10px] text-blue-600 font-bold">—</td>
+                                            ))}
                                             <td className="border border-yellow-300 bg-yellow-100 px-2 py-2 text-center text-sm font-black text-blue-900">
                                                 {selectedStudentData.avgCombined.toFixed(1)}
                                             </td>
