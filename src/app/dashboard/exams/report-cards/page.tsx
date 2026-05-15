@@ -86,6 +86,9 @@ export default function ReportCardsPage() {
     // Discipline records
     const [disciplineRecords, setDisciplineRecords] = useState<any[]>([]);
 
+    // Subject teachers (for initials)
+    const [subjectTeachers, setSubjectTeachers] = useState<any[]>([]);
+
     // Fee data
     const [feeStructure, setFeeStructure] = useState<any[]>([]);
     const [feePayments, setFeePayments] = useState<any[]>([]);
@@ -151,14 +154,20 @@ export default function ReportCardsPage() {
 
         const load = async () => {
             setLoadingMarks(true);
-            const [c1, c2, et] = await Promise.all([
+            // Build subject teachers query — filter by form, and stream if selected
+            let stQuery = supabase.from('school_subject_teachers').select('*').eq('form_id', Number(selForm));
+            if (selStream) stQuery = stQuery.eq('stream_id', Number(selStream));
+
+            const [c1, c2, et, st] = await Promise.all([
                 supabase.from('school_exam_marks').select('*').eq('term_id', Number(selTerm)).eq('exam_type', 'CAT 1').in('student_id', studentIds),
                 supabase.from('school_exam_marks').select('*').eq('term_id', Number(selTerm)).eq('exam_type', 'CAT 2').in('student_id', studentIds),
                 supabase.from('school_exam_marks').select('*').eq('term_id', Number(selTerm)).eq('exam_type', 'End-Term').in('student_id', studentIds),
+                stQuery,
             ]);
             setCat1Marks(c1.data || []);
             setCat2Marks(c2.data || []);
             setEndTermMarks(et.data || []);
+            setSubjectTeachers(st.data || []);
             setLoadingMarks(false);
         };
         load();
@@ -208,6 +217,7 @@ export default function ReportCardsPage() {
             combined: number; combinedGrade: string; combinedPoints: number;
             remarks: string;
             subjectTeacherRemark: string;
+            teacherInitial: string;
         }[] = [];
 
         subjects.forEach(sub => {
@@ -240,6 +250,10 @@ export default function ReportCardsPage() {
             const finalCombined = dbCombined || combined;
             const combinedG = getGrade(finalCombined);
 
+            // Resolve teacher initial from school_subject_teachers
+            const stEntry = subjectTeachers.find(st => st.subject_id === sub.id);
+            const teacherInitial = stEntry?.teacher_initials || '';
+
             subjectResults.push({
                 subId: sub.id, subName: sub.subject_name,
                 cat1: c1Score, cat2: c2Score, endTerm: etScore,
@@ -248,6 +262,7 @@ export default function ReportCardsPage() {
                 combined: finalCombined, combinedGrade: combinedG.grade,
                 combinedPoints: combinedG.points, remarks: combinedG.remarks,
                 subjectTeacherRemark: et?.subject_teacher_remark || '',
+                teacherInitial,
             });
         });
 
@@ -637,6 +652,7 @@ export default function ReportCardsPage() {
                                             <th colSpan={3} className="border border-blue-600 px-2 py-1.5 text-center text-blue-200 font-bold text-[10px] uppercase">END-TERM (40%)</th>
                                             <th colSpan={4} className="border border-yellow-500 bg-yellow-600 px-2 py-1.5 text-center text-yellow-100 font-bold text-[10px] uppercase">OVERALL / COMBINED</th>
                                             <th rowSpan={2} className="border border-blue-800 px-2 py-2 text-center text-white font-bold text-[10px]">REMARKS</th>
+                                            <th rowSpan={2} className="border border-blue-800 px-2 py-2 text-center text-white font-bold text-[10px]">INITIAL</th>
                                         </tr>
                                         <tr style={{ background: '#1e40af' }}>
                                             <th className="border border-blue-600 px-1.5 py-1.5 text-center text-blue-200 font-bold text-[9px]">MKS</th>
@@ -700,9 +716,19 @@ export default function ReportCardsPage() {
                                                     <td className="border border-yellow-200 bg-yellow-50 px-1 py-1 text-center">
                                                         {sPos ? <PosBadge pos={sPos.formPos[r.subId] || 1} total={formStudentsWithSubject} color="#10b981" /> : '-'}
                                                     </td>
-                                                    {/* Remarks / Teacher initial */}
-                                                    <td className="border border-gray-200 px-1.5 py-1.5 text-[9px] text-gray-600">
-                                                        {r.subjectTeacherRemark || r.remarks}
+                                                    {/* Remarks / Teacher remark */}
+                                                    <td className="border border-gray-200 px-1.5 py-1.5 text-[9px] text-gray-600 max-w-[120px]">
+                                                        {r.subjectTeacherRemark
+                                                            ? <span className="text-blue-700 font-semibold italic">{r.subjectTeacherRemark}</span>
+                                                            : <span className="text-gray-400">{r.remarks}</span>
+                                                        }
+                                                    </td>
+                                                    {/* Teacher Initial */}
+                                                    <td className="border border-gray-200 px-1 py-1.5 text-center">
+                                                        {r.teacherInitial
+                                                            ? <span className="inline-flex items-center justify-center w-8 h-6 rounded bg-blue-700 text-white text-[10px] font-black tracking-wide">{r.teacherInitial}</span>
+                                                            : <span className="text-gray-300 text-[9px]">—</span>
+                                                        }
                                                     </td>
                                                 </tr>
                                             );
@@ -727,6 +753,7 @@ export default function ReportCardsPage() {
                                                 <PosBadge pos={(selectedStudentData as any).formRank || 1} total={classStudents.length} color="#10b981" />
                                             </td>
                                             <td className="border border-blue-300 px-2 py-2 text-[10px] text-blue-700 font-bold">{selectedStudentData.meanGrade.remarks}</td>
+                                            <td className="border border-blue-300 px-2 py-2 text-center text-[10px] text-gray-400">—</td>
                                         </tr>
                                     </tfoot>
                                 </table>
