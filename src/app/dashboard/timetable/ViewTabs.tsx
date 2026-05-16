@@ -209,6 +209,7 @@ export function MasterViewTab() {
       <div className="rounded-lg p-1.5 mx-0.5" style={{ background: color.bg, border: `1.5px solid ${color.border}` }}>
         <div className="font-black text-[10px]" style={{ color: color.text }}>{getSubjectCode(e.subject_id)}</div>
         <div className="text-[8px] text-gray-600 mt-0.5 font-semibold">👤 {getTeacherShort(e.teacher_id)}</div>
+        <div className="text-[7px] font-bold mt-0.5" style={{ color: color.text, opacity: 0.7 }}>🏫 {getFormName(e.form_id)} {getStreamName(e.stream_id)}</div>
       </div>
     );
   };
@@ -219,7 +220,7 @@ export function MasterViewTab() {
       cells: activeClasses.map(c => {
         const e = termEntries.find(x => x.form_id === c.formId && x.stream_id === c.streamId && x.day_of_week === masterDay && x.period_id === p.id);
         const color = e?.subject_id ? getSubjectColor(e.subject_id, subjects) : undefined;
-        return { subj: e?.subject_id ? getSubjectCode(e.subject_id) : '', teacher: e?.teacher_id ? getTeacherShort(e.teacher_id) : '', room: '', color };
+        return { subj: e?.subject_id ? getSubjectCode(e.subject_id) : '', teacher: e?.teacher_id ? getTeacherShort(e.teacher_id) : '', room: '', color, classLabel: e ? `${getFormName(e.form_id)} ${getStreamName(e.stream_id)}` : '' };
       })
     }));
     const dayHeaders = activeClasses.map(c => `${c.formName} ${c.streamName}`);
@@ -230,7 +231,7 @@ export function MasterViewTab() {
       const cells = r.cells.map((c: any) => {
         if (!c.subj) return `<td style="padding:4px;border:1px solid #e5e7eb;text-align:center;min-width:80px"><span style="color:#d1d5db">—</span></td>`;
         const bg = c.color?.bg || '#dbeafe'; const txt = c.color?.text || '#1e40af'; const brd = c.color?.border || '#93c5fd';
-        return `<td style="padding:2px;border:1px solid #e5e7eb;text-align:center;min-width:80px"><div style="background:${bg};border:1.5px solid ${brd};border-radius:6px;padding:5px 2px"><div style="font-weight:900;color:${txt};font-size:10px">${c.subj}</div><div style="font-size:8px;color:#6b7280;margin-top:2px">👤 ${c.teacher}</div></div></td>`;
+        return `<td style="padding:2px;border:1px solid #e5e7eb;text-align:center;min-width:80px"><div style="background:${bg};border:1.5px solid ${brd};border-radius:6px;padding:5px 2px"><div style="font-weight:900;color:${txt};font-size:10px">${c.subj}</div><div style="font-size:8px;color:#6b7280;margin-top:2px">👤 ${c.teacher}</div><div style="font-size:7px;color:${txt};margin-top:1px;opacity:0.7;font-weight:700">🏫 ${c.classLabel || ''}</div></div></td>`;
       }).join('');
       return `<tr><td style="background:#f8fafc;padding:8px;font-size:9px;font-weight:700;border:1px solid #e5e7eb;white-space:nowrap">${r.period}<br><span style="font-size:8px;color:#9ca3af">${r.time}</span></td>${cells}</tr>`;
     }).join('');
