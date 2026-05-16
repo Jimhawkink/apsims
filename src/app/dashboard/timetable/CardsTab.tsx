@@ -201,66 +201,67 @@ export default function CardsTab() {
             {classRequirements.map(req => {
               const color = getSubjectColor(req.subject_id, subjects);
               const placed = termEntries.filter(e => e.form_id === req.form_id && e.stream_id === req.stream_id && e.subject_id === req.subject_id).length;
-              const pct = Math.round(placed / req.lessons_per_week * 100);
+              const pct = req.lessons_per_week ? Math.round(placed / req.lessons_per_week * 100) : 0;
               const isComplete = placed >= req.lessons_per_week;
-
-              // Get teachers linked to this subject for this class from Settings
-              const linkedTeachers = classAssignments
-                .filter(a => a.subject_id === req.subject_id)
-                .map(a => ({ id: a.teacher_id, name: getTeacherName(a.teacher_id) }));
+              const linkedTeachers = classAssignments.filter(a => a.subject_id === req.subject_id).map(a => ({ id: a.teacher_id, name: getTeacherName(a.teacher_id) }));
+              const assignedTeacherName = req.teacher_id ? getTeacherName(req.teacher_id) : null;
 
               return (
-                <div key={req.id} className="group relative rounded-2xl border-2 p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1" style={{ borderColor: color.border, background: `linear-gradient(135deg, ${color.bg}, white)` }}>
-                  {/* Top accent */}
-                  <div className="absolute top-0 left-4 right-4 h-1 rounded-b-full" style={{ background: color.text }} />
-
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4 mt-1">
-                    <div>
-                      <h4 className="font-black text-base leading-tight" style={{ color: color.text }}>{getSubjectName(req.subject_id)}</h4>
-                      <p className="text-xs mt-1 font-bold opacity-60" style={{ color: color.text }}>{getSubjectCode(req.subject_id)}</p>
+                <div key={req.id} className="group relative rounded-2xl border-2 p-0 overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1" style={{ borderColor: color.border, background: `linear-gradient(135deg, ${color.bg}, white)` }}>
+                  {/* Color Header Bar */}
+                  <div className="px-4 py-3 flex items-center gap-3" style={{ background: `linear-gradient(135deg, ${color.text}15, ${color.text}08)`, borderBottom: `2px solid ${color.border}` }}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm text-white shadow-lg flex-shrink-0" style={{ background: `linear-gradient(135deg, ${color.text}, ${color.text}cc)` }}>
+                      {getSubjectCode(req.subject_id).substring(0,3)}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {/* Progress Ring */}
-                      <div className="relative w-12 h-12">
-                        <svg viewBox="0 0 36 36" className="w-12 h-12 -rotate-90">
-                          <circle cx="18" cy="18" r="14" fill="none" stroke={color.border} strokeWidth="2.5" opacity="0.3" />
-                          <circle cx="18" cy="18" r="14" fill="none" stroke={isComplete ? '#22c55e' : color.text} strokeWidth="2.5" strokeDasharray={`${Math.min(pct, 100) * 0.88} 88`} strokeLinecap="round" />
-                        </svg>
-                        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black" style={{ color: isComplete ? '#22c55e' : color.text }}>{placed}/{req.lessons_per_week}</span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-black text-sm leading-tight truncate" style={{ color: color.text }}>{getSubjectName(req.subject_id)}</h4>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="px-2 py-0.5 rounded-full text-[8px] font-bold bg-white/80 border" style={{ borderColor: color.border, color: color.text }}>🏫 {getFormName(fId)} {getStreamName(sId)}</span>
+                        {isComplete && <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black bg-emerald-100 text-emerald-700">✅</span>}
                       </div>
-                      <button onClick={() => handleDeleteRequirement(req.id!)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-all"><FiTrash2 size={14} /></button>
+                    </div>
+                    {/* Progress Ring */}
+                    <div className="relative w-11 h-11 flex-shrink-0">
+                      <svg viewBox="0 0 36 36" className="w-11 h-11 -rotate-90">
+                        <circle cx="18" cy="18" r="14" fill="none" stroke={color.border} strokeWidth="2.5" opacity="0.3" />
+                        <circle cx="18" cy="18" r="14" fill="none" stroke={isComplete ? '#22c55e' : color.text} strokeWidth="2.5" strokeDasharray={`${Math.min(pct, 100) * 0.88} 88`} strokeLinecap="round" />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black" style={{ color: isComplete ? '#22c55e' : color.text }}>{placed}/{req.lessons_per_week}</span>
                     </div>
                   </div>
 
-                  {/* Editable Lessons/Week */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex items-center gap-1.5 bg-white/70 rounded-xl px-3 py-2 border border-white/50 backdrop-blur-sm shadow-sm">
-                      <button onClick={() => handleUpdateReqLessons(req, req.lessons_per_week - 1)} className="w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><FiChevronDown size={12} /></button>
-                      <span className="text-lg font-black min-w-[28px] text-center" style={{ color: color.text }}>{req.lessons_per_week}</span>
-                      <button onClick={() => handleUpdateReqLessons(req, req.lessons_per_week + 1)} className="w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><FiChevronUp size={12} /></button>
-                      <span className="text-[10px] text-gray-500 font-bold ml-1">L/wk</span>
+                  <div className="p-4 space-y-3">
+                    {/* Teacher Badge */}
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white/80 border border-white/50 shadow-sm">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
+                        {assignedTeacherName ? assignedTeacherName.charAt(0) : '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-bold text-gray-400 uppercase">Assigned Teacher</p>
+                        <p className="text-xs font-bold text-gray-800 truncate">{assignedTeacherName || 'Not assigned'}</p>
+                      </div>
+                      {linkedTeachers.length > 0 && <span className="px-1.5 py-0.5 rounded text-[7px] font-bold bg-emerald-100 text-emerald-700 flex-shrink-0">Settings ✓</span>}
                     </div>
 
-                    {/* Editable Max/Day */}
-                    <div className="flex items-center gap-1 bg-white/70 rounded-xl px-2.5 py-2 border border-white/50 backdrop-blur-sm shadow-sm">
-                      <button onClick={() => handleUpdateMaxPerDay(req, req.max_per_day - 1)} className="w-5 h-5 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><FiChevronDown size={10} /></button>
-                      <span className="text-sm font-black min-w-[18px] text-center" style={{ color: color.text }}>{req.max_per_day}</span>
-                      <button onClick={() => handleUpdateMaxPerDay(req, req.max_per_day + 1)} className="w-5 h-5 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><FiChevronUp size={10} /></button>
-                      <span className="text-[9px] text-gray-500 font-bold ml-0.5">max/day</span>
+                    {/* Lessons/Week + Max/Day Controls */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 bg-white/70 rounded-xl px-3 py-2 border border-white/50 shadow-sm flex-1">
+                        <button onClick={() => handleUpdateReqLessons(req, req.lessons_per_week - 1)} className="w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><FiChevronDown size={12} /></button>
+                        <span className="text-lg font-black min-w-[24px] text-center" style={{ color: color.text }}>{req.lessons_per_week}</span>
+                        <button onClick={() => handleUpdateReqLessons(req, req.lessons_per_week + 1)} className="w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><FiChevronUp size={12} /></button>
+                        <span className="text-[9px] text-gray-500 font-bold ml-1">L/wk</span>
+                      </div>
+                      <div className="flex items-center gap-1 bg-white/70 rounded-xl px-2.5 py-2 border border-white/50 shadow-sm">
+                        <button onClick={() => handleUpdateMaxPerDay(req, req.max_per_day - 1)} className="w-5 h-5 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><FiChevronDown size={10} /></button>
+                        <span className="text-sm font-black min-w-[16px] text-center" style={{ color: color.text }}>{req.max_per_day}</span>
+                        <button onClick={() => handleUpdateMaxPerDay(req, req.max_per_day + 1)} className="w-5 h-5 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><FiChevronUp size={10} /></button>
+                        <span className="text-[8px] text-gray-500 font-bold">max/d</span>
+                      </div>
                     </div>
 
-                    {isComplete && <div className="px-2.5 py-1.5 bg-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black">✅ Done</div>}
-                  </div>
-
-                  {/* Teacher — auto-filled from Settings, editable */}
-                  <div>
-                    <label className="text-[9px] font-bold uppercase text-gray-500 block mb-1.5">
-                      👤 Teacher {linkedTeachers.length > 0 && <span className="text-emerald-600 normal-case">(from Settings)</span>}
-                    </label>
-                    <select value={req.teacher_id || ''} onChange={e => handleUpdateReqTeacher(req, e.target.value)} className="w-full px-3 py-2 rounded-xl text-xs border-2 border-white/50 bg-white/80 backdrop-blur-sm font-medium focus:border-blue-300 outline-none">
-                      <option value="">— Any Available —</option>
-                      {/* Show linked teachers from Settings first, highlighted */}
+                    {/* Teacher Selector */}
+                    <select value={req.teacher_id || ''} onChange={e => handleUpdateReqTeacher(req, e.target.value)} className="w-full px-3 py-2 rounded-xl text-xs border-2 bg-white/80 font-medium focus:border-blue-300 outline-none" style={{ borderColor: color.border + '60' }}>
+                      <option value="">— Any Available Teacher —</option>
                       {linkedTeachers.length > 0 && <optgroup label="✅ From Settings">
                         {linkedTeachers.map(t => <option key={t.id} value={t.id}>✅ {t.name}</option>)}
                       </optgroup>}
@@ -268,12 +269,13 @@ export default function CardsTab() {
                         {teachers.filter(t => !linkedTeachers.some(lt => lt.id === t.id)).map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
                       </optgroup>
                     </select>
-                  </div>
 
-                  {/* Progress bar */}
-                  <div className="mt-4">
-                    <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(pct, 100)}%`, background: isComplete ? '#22c55e' : color.text }} />
+                    {/* Progress bar + Delete */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-white/50 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(pct, 100)}%`, background: isComplete ? '#22c55e' : color.text }} />
+                      </div>
+                      <button onClick={() => handleDeleteRequirement(req.id!)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-all" title="Remove"><FiTrash2 size={12} /></button>
                     </div>
                   </div>
                 </div>
