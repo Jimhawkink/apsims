@@ -6,21 +6,44 @@ import type { Entry, Period } from './timetable-types';
 import { FiPrinter } from 'react-icons/fi';
 
 // ═══ Shared Grid Renderer ═══════════════════════════════════════
-function UltraGrid({ filterFn, showClass, onClickCell }: {
+// viewMode: 'class' = viewing a specific class (show teacher prominently)
+//           'teacher' = viewing a teacher's schedule (show class prominently)
+//           'room' = viewing a room (show class + teacher)
+function UltraGrid({ filterFn, viewMode = 'class', onClickCell }: {
   filterFn: (day: string, p: Period) => Entry | undefined;
-  showClass?: boolean;
+  viewMode?: 'class' | 'teacher' | 'room';
   onClickCell?: (day: string, pId: number) => void;
 }) {
-  const { allPeriodsSorted, subjects, getSubjectCode, getTeacherShort, getFormName, getStreamName } = useTimetable();
+  const { allPeriodsSorted, subjects, getSubjectCode, getSubjectName, getTeacherShort, getFormName, getStreamName } = useTimetable();
 
-  const renderCell = (e: Entry | undefined, sc?: boolean) => {
+  const renderCell = (e: Entry | undefined) => {
     if (!e || !e.subject_id) return <span className="text-gray-200">—</span>;
     const color = getSubjectColor(e.subject_id, subjects);
+    const classLabel = `${getFormName(e.form_id)} ${getStreamName(e.stream_id)}`;
+    const teacherLabel = getTeacherShort(e.teacher_id);
     return (
       <div className="rounded-xl p-2 mx-0.5 transition-all hover:scale-[1.03]" style={{ background: color.bg, border: `2px solid ${color.border}` }}>
         <div className="font-black text-[11px] leading-tight" style={{ color: color.text }}>{getSubjectCode(e.subject_id)}</div>
-        <div className="text-[9px] text-gray-500 mt-0.5 font-medium">{sc ? `${getFormName(e.form_id)} ${getStreamName(e.stream_id)}` : getTeacherShort(e.teacher_id)}</div>
-        {e.room && <div className="text-[8px] text-gray-400">📍 {e.room}</div>}
+        {viewMode === 'class' ? (
+          /* Class View: teacher is key info, class is already known */
+          <>
+            <div className="text-[9px] text-gray-600 mt-0.5 font-semibold">👤 {teacherLabel}</div>
+            {e.room && <div className="text-[8px] text-gray-400">📍 {e.room}</div>}
+          </>
+        ) : viewMode === 'teacher' ? (
+          /* Teacher View: class is key info, teacher is already known */
+          <>
+            <div className="text-[9px] font-bold mt-0.5" style={{ color: color.text, opacity: 0.8 }}>🏫 {classLabel}</div>
+            {e.room && <div className="text-[8px] text-gray-400">📍 {e.room}</div>}
+          </>
+        ) : (
+          /* Room View: show BOTH teacher AND class */
+          <>
+            <div className="text-[9px] font-bold mt-0.5" style={{ color: color.text, opacity: 0.8 }}>🏫 {classLabel}</div>
+            <div className="text-[8px] text-gray-500">👤 {teacherLabel}</div>
+            {e.room && <div className="text-[7px] text-gray-400">📍 {e.room}</div>}
+          </>
+        )}
       </div>
     );
   };
@@ -47,9 +70,9 @@ function UltraGrid({ filterFn, showClass, onClickCell }: {
                 {DAYS.map(day => {
                   const e = filterFn(day, p);
                   return (
-                    <td key={day} className="border border-gray-200 text-center p-0.5 cursor-pointer hover:bg-blue-50 transition-colors" style={{ minWidth: 125 }}
+                    <td key={day} className="border border-gray-200 text-center p-0.5 cursor-pointer hover:bg-blue-50 transition-colors" style={{ minWidth: 135 }}
                       onClick={() => onClickCell?.(day, p.id)}>
-                      {renderCell(e, showClass)}
+                      {renderCell(e)}
                     </td>
                   );
                 })}
@@ -90,7 +113,7 @@ export function ClassViewTab() {
         <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
           <h3 className="font-black text-lg text-gray-800">📅 {getFormName(Number(cForm))} {getStreamName(Number(cStream))} — {bTerm} {bYear}</h3>
         </div>
-        <UltraGrid filterFn={(day, p) => entries.find(e => e.day_of_week === day && e.period_id === p.id && e.form_id === Number(cForm) && e.stream_id === Number(cStream) && e.term === bTerm && e.year === bYear)} />
+        <UltraGrid viewMode="class" filterFn={(day, p) => entries.find(e => e.day_of_week === day && e.period_id === p.id && e.form_id === Number(cForm) && e.stream_id === Number(cStream) && e.term === bTerm && e.year === bYear)} />
       </div>
 
       {/* Subject Legend */}
@@ -145,7 +168,7 @@ export function TeacherViewTab() {
           <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
             <h3 className="font-black text-lg text-gray-800">👤 {getTeacherName(Number(tTeacher))} — {bTerm} {bYear}</h3>
           </div>
-          <UltraGrid filterFn={(day, p) => termEntries.find(x => x.teacher_id === Number(tTeacher) && x.day_of_week === day && x.period_id === p.id)} showClass />
+          <UltraGrid viewMode="teacher" filterFn={(day, p) => termEntries.find(x => x.teacher_id === Number(tTeacher) && x.day_of_week === day && x.period_id === p.id)} />
         </div>
       )}
     </div>
@@ -170,7 +193,7 @@ export function RoomViewTab() {
           <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
             <h3 className="font-black text-lg text-gray-800">🚪 {viewRoom} — {bTerm} {bYear}</h3>
           </div>
-          <UltraGrid filterFn={(day, p) => termEntries.find(x => x.room === viewRoom && x.day_of_week === day && x.period_id === p.id)} showClass />
+          <UltraGrid viewMode="room" filterFn={(day, p) => termEntries.find(x => x.room === viewRoom && x.day_of_week === day && x.period_id === p.id)} />
         </div>
       )}
     </div>
@@ -191,7 +214,7 @@ export function MasterViewTab() {
     return (
       <div className="rounded-lg p-1.5 mx-0.5" style={{ background: color.bg, border: `1.5px solid ${color.border}` }}>
         <div className="font-black text-[10px]" style={{ color: color.text }}>{getSubjectCode(e.subject_id)}</div>
-        <div className="text-[8px] text-gray-500 mt-0.5">{getTeacherShort(e.teacher_id)}</div>
+        <div className="text-[8px] text-gray-600 mt-0.5 font-semibold">👤 {getTeacherShort(e.teacher_id)}</div>
       </div>
     );
   };
