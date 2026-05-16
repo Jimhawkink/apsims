@@ -6,11 +6,15 @@ import type { TTab, Period, Form, Stream, Subject, Teacher, Requirement, Entry, 
 import { DAYS, getSubjectColor, SUBJECT_COLORS } from './timetable-colors';
 import { autoGenerateTimetable, verifyTimetable } from './timetable-generator';
 
+// Subject-Teacher assignment from Settings
+export interface SubjectTeacherLink { id: number; subject_id: number; teacher_id: number; form_id: number | null; stream_id: number | null; }
+
 interface TimetableCtx {
   tab: TTab; setTab: (t: TTab) => void;
   periods: Period[]; entries: Entry[]; forms: Form[]; streams: Stream[];
   subjects: Subject[]; teachers: Teacher[]; requirements: Requirement[];
   classrooms: Classroom[]; substitutions: Substitution[]; availabilities: Availability[];
+  subjectTeachers: SubjectTeacherLink[];
   loading: boolean; fetchAll: () => Promise<void>;
   bTerm: string; setBTerm: (t: string) => void;
   bYear: number; setBYear: (y: number) => void;
@@ -25,6 +29,10 @@ interface TimetableCtx {
   getStreamName: (id: any) => string;
   getEntry: (day: string, periodId: number, formId?: number, streamId?: number) => Entry | undefined;
   isTeacherBusy: (tid: number, day: string, pid: number, exF?: number, exS?: number) => Entry | undefined;
+  /** Get subject-teacher assignments relevant to a specific class (form+stream) */
+  getAssignmentsForClass: (formId: number, streamId: number) => SubjectTeacherLink[];
+  /** Get teacher assigned to a subject for a given class */
+  getTeacherForSubjectClass: (subjectId: number, formId: number, streamId: number) => number | null;
   // Analytics
   teacherLoads: { id: number; name: string; count: number }[];
   classStats: { formId: number; streamId: number; formName: string; streamName: string; filled: number; required: number; pct: number }[];
@@ -55,13 +63,14 @@ export function TimetableProvider({ children }: { children: ReactNode }) {
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [substitutions, setSubstitutions] = useState<Substitution[]>([]);
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
+  const [subjectTeachers, setSubjectTeachers] = useState<SubjectTeacherLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [bTerm, setBTerm] = useState('Term 1');
   const [bYear, setBYear] = useState(new Date().getFullYear());
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [p, e, f, st, su, t, req, cr, sub, avl] = await Promise.all([
+    const [p, e, f, st, su, t, req, cr, sub, avl, stLinks] = await Promise.all([
       supabase.from('school_timetable_periods').select('*').order('period_number'),
       supabase.from('school_timetable_entries').select('*').order('day_of_week'),
       supabase.from('school_forms').select('*').order('form_level'),
@@ -72,11 +81,13 @@ export function TimetableProvider({ children }: { children: ReactNode }) {
       supabase.from('school_classrooms').select('*').order('room_name'),
       supabase.from('school_substitutions').select('*').order('substitution_date', { ascending: false }),
       supabase.from('school_teacher_availability').select('*'),
+      supabase.from('school_subject_teachers').select('*'),
     ]);
     setPeriods(p.data || []); setEntries(e.data || []); setForms(f.data || []);
     setStreams(st.data || []); setSubjects(su.data || []); setTeachers(t.data || []);
     setRequirements(req.data || []); setClassrooms(cr.data || []);
     setSubstitutions(sub.data || []); setAvailabilities(avl.data || []);
+    setSubjectTeachers(stLinks.data || []);
     setLoading(false);
   }, []);
 
@@ -103,6 +114,27 @@ export function TimetableProvider({ children }: { children: ReactNode }) {
   };
   const isTeacherBusy = (teacherId: number, day: string, periodId: number, excludeFormId?: number, excludeStreamId?: number) => {
     return entries.find(e => e.teacher_id === teacherId && e.day_of_week === day && e.period_id === periodId && e.term === bTerm && e.year === bYear && !(e.form_id === excludeFormId && e.stream_id === excludeStreamId));
+  };
+
+  // Subject-Teacher assignment helpers
+  const getAssignmentsForClass = (formId: number, streamId: number): SubjectTeacherLink[] => {
+    return subjectTeachers.filter(st =>
+      // Exact match: form+stream
+      (st.form_id === formId && st.stream_id === streamId) ||
+      // Form match, all streams
+      (st.form_id === formId && !st.stream_id) ||
+      // All forms (global assignment)
+      (!st.form_id)
+    );
+  };
+  const getTeacherForSubjectClass = (subjectId: number, formId: number, streamId: number): number | null => {
+    // Priority: exact form+stream > form only > global
+    const exact = subjectTeachers.find(st => st.subject_id === subjectId && st.form_id === formId && st.stream_id === streamId);
+    if (exact) return exact.teacher_id;
+    const formOnly = subjectTeachers.find(st => st.subject_id === subjectId && st.form_id === formId && !st.stream_id);
+    if (formOnly) return formOnly.teacher_id;
+    const global = subjectTeachers.find(st => st.subject_id === subjectId && !st.form_id);
+    return global?.teacher_id || null;
   };
 
   // Analytics
@@ -182,11 +214,11 @@ export function TimetableProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{
       tab, setTab, periods, entries, forms, streams, subjects, teachers, requirements,
-      classrooms, substitutions, availabilities, loading, fetchAll,
+      classrooms, substitutions, availabilities, subjectTeachers, loading, fetchAll,
       bTerm, setBTerm, bYear, setBYear,
       lessonPeriods, allPeriodsSorted, termEntries, termReqs,
       getSubjectName, getSubjectCode, getTeacherName, getTeacherShort, getFormName, getStreamName,
-      getEntry, isTeacherBusy,
+      getEntry, isTeacherBusy, getAssignmentsForClass, getTeacherForSubjectClass,
       teacherLoads, classStats, classKeys, totalAvailableSlots,
       handleGenerate, runVerification, toggleAvailability, isAvailable,
       printTimetable, buildPrintRows,
