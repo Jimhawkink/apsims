@@ -10,7 +10,7 @@ import {
     FiBarChart2, FiTrendingUp, FiTrendingDown, FiMinus, FiUsers,
     FiBook, FiTarget, FiZap, FiDownload, FiRefreshCw, FiFilter,
     FiActivity, FiAward, FiAlertTriangle, FiCheckCircle, FiSearch,
-    FiChevronUp, FiChevronDown, FiPrinter, FiEye,
+    FiChevronUp, FiChevronDown, FiPrinter, FiEye, FiStar, FiLayers, FiGrid,
 } from 'react-icons/fi';
 import { HiSparkles, HiAcademicCap } from 'react-icons/hi2';
 import {
@@ -49,31 +49,49 @@ export interface StreamPerf {
     id: number; stream_name: string; avg: number; count: number;
     passRate: number; meanGrade: GradeEntry; studentCount: number;
 }
-export type TabKey = 'overview' | 'subjects' | 'streams' | 'trends' | 'individual' | 'comparison' | 'gradesheet' | 'atrisk' | 'cbc';
+export interface TeacherPerf {
+    id: number; name: string; tscNo: string;
+    subjects: { id: number; name: string; code: string; formId: number; formName: string }[];
+    avgScore: number; passRate: number; aRate: number; eRate: number;
+    totalEntries: number; studentCount: number;
+    meanGrade: GradeEntry; highest: number; lowest: number; sd: number;
+    tpi: number; valueAdded: number;
+    subjectBreakdown: { subjectName: string; avg: number; passRate: number; count: number; grade: GradeEntry }[];
+    formBreakdown: { formName: string; avg: number; passRate: number; count: number }[];
+}
+export interface FormPerf {
+    id: number; formName: string; formLevel: number;
+    avg: number; passRate: number; aRate: number; eRate: number;
+    totalEntries: number; studentCount: number;
+    meanGrade: GradeEntry; highest: number; lowest: number; sd: number;
+    streamBreakdown: { streamName: string; avg: number; passRate: number; count: number; studentCount: number; grade: GradeEntry }[];
+    subjectBreakdown: { subjectName: string; avg: number; passRate: number; count: number; grade: GradeEntry }[];
+}
+export type TabKey = 'overview' | 'subjects' | 'streams' | 'trends' | 'individual' | 'comparison' | 'gradesheet' | 'atrisk' | 'cbc' | 'teachers' | 'forms' | 'departmental';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 export const EXAM_TYPES = ['CAT 1', 'CAT 2', 'Mid-Term', 'End-Term', 'Mock', 'KCSE Trial'];
 
 export const GRADE_COLORS: Record<string, { bg: string; text: string; light: string }> = {
-    'A':  { bg: '#059669', text: '#fff', light: '#d1fae5' },
+    'A': { bg: '#059669', text: '#fff', light: '#d1fae5' },
     'A-': { bg: '#10b981', text: '#fff', light: '#d1fae5' },
     'B+': { bg: '#0ea5e9', text: '#fff', light: '#e0f2fe' },
-    'B':  { bg: '#3b82f6', text: '#fff', light: '#dbeafe' },
+    'B': { bg: '#3b82f6', text: '#fff', light: '#dbeafe' },
     'B-': { bg: '#6366f1', text: '#fff', light: '#e0e7ff' },
     'C+': { bg: '#8b5cf6', text: '#fff', light: '#ede9fe' },
-    'C':  { bg: '#a78bfa', text: '#fff', light: '#ede9fe' },
+    'C': { bg: '#a78bfa', text: '#fff', light: '#ede9fe' },
     'C-': { bg: '#f59e0b', text: '#fff', light: '#fef3c7' },
     'D+': { bg: '#f97316', text: '#fff', light: '#ffedd5' },
-    'D':  { bg: '#ef4444', text: '#fff', light: '#fee2e2' },
+    'D': { bg: '#ef4444', text: '#fff', light: '#fee2e2' },
     'D-': { bg: '#dc2626', text: '#fff', light: '#fee2e2' },
-    'E':  { bg: '#991b1b', text: '#fff', light: '#fee2e2' },
+    'E': { bg: '#991b1b', text: '#fff', light: '#fee2e2' },
 };
 export const gc = (g: string) => GRADE_COLORS[g] || { bg: '#64748b', text: '#fff', light: '#f1f5f9' };
 
 export const CHART_PALETTE = [
-    '#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6',
-    '#06b6d4','#f97316','#ec4899','#14b8a6','#6366f1',
-    '#84cc16','#a855f7',
+    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+    '#06b6d4', '#f97316', '#ec4899', '#14b8a6', '#6366f1',
+    '#84cc16', '#a855f7',
 ];
 
 // ─── Helper: standard deviation ───────────────────────────────────────────────
@@ -93,6 +111,8 @@ export function useAnalysisData() {
     const [terms, setTerms] = useState<any[]>([]);
     const [grading, setGrading] = useState<GradeEntry[]>([]);
     const [allMarks, setAllMarks] = useState<any[]>([]);
+    const [teachers, setTeachers] = useState<any[]>([]);
+    const [subjectTeachers, setSubjectTeachers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshKey, setRefreshKey] = useState(0);
 
@@ -107,13 +127,13 @@ export function useAnalysisData() {
     const [subjectSearch, setSubjectSearch] = useState('');
     const [studentSearch, setStudentSearch] = useState('');
     const [sortField, setSortField] = useState<string>('avg');
-    const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [showBest7, setShowBest7] = useState(true);
-    const [curriculumMode, setCurriculumMode] = useState<'844'|'CBC'>('844');
+    const [curriculumMode, setCurriculumMode] = useState<'844' | 'CBC'>('844');
 
     const fetchBase = useCallback(async () => {
         setLoading(true);
-        const [f, st, sub, s, t, gr, am] = await Promise.all([
+        const [f, st, sub, s, t, gr, am, tc, stl] = await Promise.all([
             supabase.from('school_forms').select('*').order('form_level'),
             supabase.from('school_streams').select('*').order('stream_name'),
             supabase.from('school_subjects').select('*').eq('is_active', true).order('subject_name'),
@@ -121,6 +141,8 @@ export function useAnalysisData() {
             supabase.from('school_terms').select('*').order('id', { ascending: false }),
             supabase.from('school_grading_system').select('*').order('points', { ascending: false }),
             supabase.from('school_exam_marks').select('*'),
+            supabase.from('school_teachers').select('*').order('first_name'),
+            supabase.from('school_subject_teachers').select('*'),
         ]);
         setForms(f.data || []);
         setStreams(st.data || []);
@@ -129,6 +151,8 @@ export function useAnalysisData() {
         setTerms(t.data || []);
         setGrading(gr.data || []);
         setAllMarks(am.data || []);
+        setTeachers(tc.data || []);
+        setSubjectTeachers(stl.data || []);
         const cur = ((t.data || []) as any[]).find((x: any) => x.is_current);
         if (cur) setSelTerm(String(cur.id));
         setLoading(false);
@@ -258,7 +282,7 @@ export function useAnalysisData() {
         const passRate = (scores.filter(s => s >= 50).length / scores.length) * 100;
         return { term: term.term_name, termId: term.id, avg, passRate, count: tm.length };
     }).filter(Boolean) as { term: string; termId: number; avg: number; passRate: number; count: number }[],
-    [terms, allMarks, selExamType, classStudentIds]);
+        [terms, allMarks, selExamType, classStudentIds]);
 
     // ── Exam type comparison (same term) ──────────────────────────────────────
     const examTypeComparison = useMemo(() => EXAM_TYPES.map(et => {
@@ -322,6 +346,95 @@ export function useAnalysisData() {
     const bottomPerformers = useMemo(() => [...studentPerf].sort((a, b) => a.avg - b.avg).slice(0, 10), [studentPerf]);
     const atRiskStudents = useMemo(() => studentPerf.filter(sp => sp.avg < 40), [studentPerf]);
 
+    // ── Teacher Performance Index ──────────────────────────────────────────────
+    const teacherPerf: TeacherPerf[] = useMemo(() => {
+        if (!teachers.length || !subjectTeachers.length) return [];
+        const schoolAvg = overallStats?.avg || 0;
+        return teachers.map(teacher => {
+            const links = subjectTeachers.filter(st => st.teacher_id === teacher.id);
+            if (!links.length) return null;
+            const subjectInfo = links.map(l => {
+                const sub = subjects.find(s => s.id === l.subject_id);
+                const form = forms.find(f => f.id === l.form_id);
+                return sub ? { id: l.subject_id, name: sub.subject_name, code: sub.subject_code || '', formId: l.form_id, formName: form?.form_name || '' } : null;
+            }).filter(Boolean) as any[];
+            const tMarks: any[] = [];
+            links.forEach(l => {
+                const sids = students.filter(s => s.form_id === l.form_id && (!l.stream_id || s.stream_id === l.stream_id)).map(s => s.id);
+                tMarks.push(...termMarks.filter(m => m.subject_id === l.subject_id && sids.includes(m.student_id)));
+            });
+            if (!tMarks.length) return null;
+            const scores = tMarks.map(m => Number(m.score));
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            const pr = (scores.filter(s => s >= 50).length / scores.length) * 100;
+            const ar = (scores.filter(s => s >= 75).length / scores.length) * 100;
+            const er = (scores.filter(s => s < 30).length / scores.length) * 100;
+            const sd2 = stdDev(scores);
+            const consistency = Math.max(0, Math.min(1, 1 - sd2 / 50));
+            const tpi = Math.round((avg / 100) * 40 + (pr / 100) * 25 + (ar / 100) * 15 + ((100 - er) / 100) * 10 + consistency * 10);
+            const subBreak = Array.from(new Set(links.map(l => l.subject_id))).map(sid => {
+                const sub = subjects.find(s => s.id === sid);
+                const sm = tMarks.filter(m => m.subject_id === sid);
+                if (!sm.length) return null;
+                const sc = sm.map(m => Number(m.score));
+                const sa = sc.reduce((a, b) => a + b, 0) / sc.length;
+                return { subjectName: sub?.subject_name || '', avg: sa, passRate: (sc.filter(s => s >= 50).length / sc.length) * 100, count: sc.length, grade: getGrade(sa) };
+            }).filter(Boolean) as any[];
+            const formBreak = Array.from(new Set(links.map(l => l.form_id))).filter(Boolean).map(fid => {
+                const form = forms.find(f => f.id === fid);
+                const fm = tMarks.filter(m => { const st = students.find(s => s.id === m.student_id); return st?.form_id === fid; });
+                if (!fm.length) return null;
+                const sc = fm.map(m => Number(m.score));
+                return { formName: form?.form_name || '', avg: sc.reduce((a, b) => a + b, 0) / sc.length, passRate: (sc.filter(s => s >= 50).length / sc.length) * 100, count: sc.length };
+            }).filter(Boolean) as any[];
+            return {
+                id: teacher.id, name: `${teacher.first_name || ''} ${teacher.middle_name || ''} ${teacher.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+                tscNo: teacher.tsc_number || teacher.employee_number || '', subjects: subjectInfo,
+                avgScore: avg, passRate: pr, aRate: ar, eRate: er, totalEntries: tMarks.length,
+                studentCount: new Set(tMarks.map(m => m.student_id)).size, meanGrade: getGrade(avg),
+                highest: Math.max(...scores), lowest: Math.min(...scores), sd: sd2, tpi, valueAdded: avg - schoolAvg,
+                subjectBreakdown: subBreak, formBreakdown: formBreak,
+            };
+        }).filter(Boolean).sort((a: any, b: any) => b.tpi - a.tpi) as TeacherPerf[];
+    }, [teachers, subjectTeachers, subjects, forms, students, termMarks, overallStats, getGrade]);
+
+    // ── Form Performance ───────────────────────────────────────────────────────
+    const formPerf: FormPerf[] = useMemo(() => {
+        return forms.map(form => {
+            const fStudents = students.filter(s => s.form_id === form.id);
+            const fIds = new Set(fStudents.map(s => s.id));
+            const fm = termMarks.filter(m => fIds.has(m.student_id));
+            if (!fm.length) return null;
+            const scores = fm.map(m => Number(m.score));
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            const pr = (scores.filter(s => s >= 50).length / scores.length) * 100;
+            const ar = (scores.filter(s => s >= 75).length / scores.length) * 100;
+            const er = (scores.filter(s => s < 30).length / scores.length) * 100;
+            const streamBreak = streams.map(stream => {
+                const sids = fStudents.filter(s => s.stream_id === stream.id).map(s => s.id);
+                const sm = fm.filter(m => sids.includes(m.student_id));
+                if (!sm.length) return null;
+                const sc = sm.map(m => Number(m.score));
+                const sa = sc.reduce((a, b) => a + b, 0) / sc.length;
+                return { streamName: stream.stream_name, avg: sa, passRate: (sc.filter(s => s >= 50).length / sc.length) * 100, count: sc.length, studentCount: sids.length, grade: getGrade(sa) };
+            }).filter(Boolean) as any[];
+            const subBreak = subjects.map(sub => {
+                const sm = fm.filter(m => m.subject_id === sub.id);
+                if (!sm.length) return null;
+                const sc = sm.map(m => Number(m.score));
+                const sa = sc.reduce((a, b) => a + b, 0) / sc.length;
+                return { subjectName: sub.subject_name, avg: sa, passRate: (sc.filter(s => s >= 50).length / sc.length) * 100, count: sc.length, grade: getGrade(sa) };
+            }).filter(Boolean) as any[];
+            return {
+                id: form.id, formName: form.form_name, formLevel: form.form_level || 0,
+                avg, passRate: pr, aRate: ar, eRate: er, totalEntries: fm.length,
+                studentCount: fStudents.length, meanGrade: getGrade(avg),
+                highest: Math.max(...scores), lowest: Math.min(...scores), sd: stdDev(scores),
+                streamBreakdown: streamBreak, subjectBreakdown: subBreak,
+            };
+        }).filter(Boolean).sort((a: any, b: any) => b.avg - a.avg) as FormPerf[];
+    }, [forms, students, streams, subjects, termMarks, getGrade]);
+
     // ── Export CSV ─────────────────────────────────────────────────────────────
     const exportCSV = useCallback((data: any[], filename: string) => {
         if (data.length === 0) return;
@@ -337,6 +450,7 @@ export function useAnalysisData() {
     return {
         // Raw data
         forms, streams, subjects, students, terms, grading, allMarks, loading,
+        teachers, subjectTeachers,
         // Filter state
         selForm, setSelForm, selStream, setSelStream, selTerm, setSelTerm,
         selExamType, setSelExamType, selStudent, setSelStudent,
@@ -349,12 +463,12 @@ export function useAnalysisData() {
         overallStats, trendData, examTypeComparison,
         individualStudent, individualData,
         gradeSheetData, topPerformers, bottomPerformers, atRiskStudents,
+        teacherPerf, formPerf,
         // Helpers
         getGrade, exportCSV,
         refresh: () => setRefreshKey(k => k + 1),
     };
 }
-
 // ════════════════════════════════════════════════════════════════════════════
 //  PART 2 — ALL UI COMPONENTS
 // ════════════════════════════════════════════════════════════════════════════
@@ -364,7 +478,7 @@ function StatCard({
     icon, label, value, sub, accent, trend, trendVal,
 }: {
     icon: React.ReactNode; label: string; value: string | number | React.ReactNode;
-    sub?: string; accent?: string; trend?: 'up'|'down'|'flat'; trendVal?: string;
+    sub?: string; accent?: string; trend?: 'up' | 'down' | 'flat'; trendVal?: string;
 }) {
     const trendColor = trend === 'up' ? '#10b981' : trend === 'down' ? '#ef4444' : '#94a3b8';
     return (
@@ -397,9 +511,9 @@ function StatCard({
 }
 
 // ─── GRADE BADGE ──────────────────────────────────────────────────────────────
-function GradeBadge({ grade, size = 'md' }: { grade: string; size?: 'xs'|'sm'|'md'|'lg' }) {
+function GradeBadge({ grade, size = 'md' }: { grade: string; size?: 'xs' | 'sm' | 'md' | 'lg' }) {
     const c = gc(grade);
-    const s = { xs: { w:22,h:16,fs:8 }, sm: { w:28,h:20,fs:9 }, md: { w:36,h:26,fs:11 }, lg: { w:46,h:34,fs:15 } }[size];
+    const s = { xs: { w: 22, h: 16, fs: 8 }, sm: { w: 28, h: 20, fs: 9 }, md: { w: 36, h: 26, fs: 11 }, lg: { w: 46, h: 34, fs: 15 } }[size];
     return (
         <span style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -493,7 +607,7 @@ function SubjectTable({
 }: {
     data: SubjectPerf[]; getGrade: (s: number) => GradeEntry;
     search: string; onSearch: (v: string) => void;
-    sortField: string; sortDir: 'asc'|'desc'; onSort: (f: string) => void;
+    sortField: string; sortDir: 'asc' | 'desc'; onSort: (f: string) => void;
 }) {
     const filtered = data.filter(s => s.subject_name.toLowerCase().includes(search.toLowerCase()));
     const sorted = [...filtered].sort((a: any, b: any) => {
@@ -605,7 +719,7 @@ function StudentTable({
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ background: '#f8fafc' }}>
-                            {['Rank','Student','Adm No','Form','Stream','Avg','Grade','Best Subject','Weak Subject','Action'].map(h => (
+                            {['Rank', 'Student', 'Adm No', 'Form', 'Stream', 'Avg', 'Grade', 'Best Subject', 'Weak Subject', 'Action'].map(h => (
                                 <th key={h} style={{ padding: '9px 12px', textAlign: h === 'Student' ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                         </tr>
@@ -1071,7 +1185,7 @@ function AtRiskPanel({ atRiskStudents, studentPerf, forms, streams, subjects, ge
     onSelectStudent: (id: string) => void;
 }) {
     const [riskSearch, setRiskSearch] = useState('');
-    const [riskSort, setRiskSort] = useState<'avg'|'count'>('avg');
+    const [riskSort, setRiskSort] = useState<'avg' | 'count'>('avg');
 
     const filtered = atRiskStudents
         .filter(sp => `${sp.student.first_name} ${sp.student.last_name}`.toLowerCase().includes(riskSearch.toLowerCase()))
@@ -1129,7 +1243,7 @@ function AtRiskPanel({ atRiskStudents, studentPerf, forms, streams, subjects, ge
                             {filtered.map((sp, i) => {
                                 const tier = sp.avg < 25 ? { label: 'CRITICAL', color: '#991b1b', bg: '#fee2e2' } :
                                     sp.avg < 35 ? { label: 'SERIOUS', color: '#c2410c', bg: '#ffedd5' } :
-                                    { label: 'MODERATE', color: '#b45309', bg: '#fef3c7' };
+                                        { label: 'MODERATE', color: '#b45309', bg: '#fef3c7' };
                                 const formName = forms.find(f => f.id === sp.student.form_id)?.form_name || '-';
                                 const streamName = streams.find(s => s.id === sp.student.stream_id)?.stream_name || '-';
                                 return (
@@ -1183,7 +1297,7 @@ function AdvancedComparisonTab({ examTypeComparison, subjectPerf, trendData, str
     examTypeComparison: any[]; subjectPerf: SubjectPerf[];
     trendData: any[]; streamPerf: StreamPerf[]; overallStats: any;
 }) {
-    const [compView, setCompView] = useState<'examtype'|'subject_rank'|'distribution'>('examtype');
+    const [compView, setCompView] = useState<'examtype' | 'subject_rank' | 'distribution'>('examtype');
     const top5 = [...subjectPerf].sort((a, b) => b.avg - a.avg).slice(0, 5);
     const bottom5 = [...subjectPerf].sort((a, b) => a.avg - b.avg).slice(0, 5);
 
@@ -1256,7 +1370,7 @@ function AdvancedComparisonTab({ examTypeComparison, subjectPerf, trendData, str
                         <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                             {top5.map((sub, i) => (
                                 <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <span style={{ fontSize: 16, fontWeight: 900, color: i === 0 ? '#f59e0b' : '#94a3b8', width: 24 }}>{['🥇','🥈','🥉','4th','5th'][i]}</span>
+                                    <span style={{ fontSize: 16, fontWeight: 900, color: i === 0 ? '#f59e0b' : '#94a3b8', width: 24 }}>{['🥇', '🥈', '🥉', '4th', '5th'][i]}</span>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                                             <span style={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>{sub.subject_name}</span>
@@ -1363,7 +1477,7 @@ function AdvancedComparisonTab({ examTypeComparison, subjectPerf, trendData, str
                             <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1e293b' }}>Grade Distribution — All Grades</h3>
                         </div>
                         <div style={{ padding: '20px 24px' }}>
-                            <GradeDistBars gradeDist={overallStats.gradeDist} total={overallStats.n} filterGrade="" onFilter={() => {}} />
+                            <GradeDistBars gradeDist={overallStats.gradeDist} total={overallStats.n} filterGrade="" onFilter={() => { }} />
                         </div>
                     </div>
                     {streamPerf.length >= 3 && (
@@ -1481,7 +1595,7 @@ function OverviewTab({ overallStats, subjectPerf, streamPerf, topPerformers, atR
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {topPerformers.slice(0, 5).map((sp: StudentPerf, i: number) => (
                             <div key={sp.student.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <span style={{ fontSize: 16, width: 26 }}>{['🥇','🥈','🥉','4','5'][i]}</span>
+                                <span style={{ fontSize: 16, width: 26 }}>{['🥇', '🥈', '🥉', '4', '5'][i]}</span>
                                 <div style={{ width: 32, height: 32, borderRadius: '50%', background: `hsl(${sp.student.id * 47 % 360},60%,82%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: `hsl(${sp.student.id * 47 % 360},45%,30%)`, flexShrink: 0 }}>
                                     {sp.student.first_name?.[0]}{sp.student.last_name?.[0]}
                                 </div>
@@ -1516,6 +1630,449 @@ function OverviewTab({ overallStats, subjectPerf, streamPerf, topPerformers, atR
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+//  PART 4 — TEACHER PERFORMANCE TAB
+// ════════════════════════════════════════════════════════════════════════════
+function TeachersTab({ teacherPerf }: { teacherPerf: TeacherPerf[] }) {
+    const [search, setSearch] = useState('');
+    const [view, setView] = useState<'cards' | 'table'>('cards');
+
+    const filtered = teacherPerf.filter(t =>
+        t.name.toLowerCase().includes(search.toLowerCase()) ||
+        t.tscNo.toLowerCase().includes(search.toLowerCase()) ||
+        t.subjects.some(s => s.name.toLowerCase().includes(search.toLowerCase()))
+    );
+
+    if (teacherPerf.length === 0) {
+        return (
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+                <FiUsers size={40} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
+                <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>No teacher-subject assignments found</p>
+                <p style={{ fontSize: 12, marginTop: 8 }}>Ensure teachers are linked to subjects in school settings</p>
+            </div>
+        );
+    }
+
+    const best = filtered.length > 0 ? filtered[0] : null;
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Summary row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12 }}>
+                <StatCard icon={<FiUsers size={16} />} label="Teachers Tracked" value={teacherPerf.length} sub="with subject links" accent="#6366f1" />
+                <StatCard icon={<FiAward size={16} />} label="Top Teacher" value={best?.name.split(' ')[0] || '—'} sub={best ? `TPI ${best.tpi}` : ''} accent="#f59e0b" />
+                <StatCard icon={<FiBarChart2 size={16} />} label="Avg TPI Score" value={teacherPerf.length > 0 ? `${(teacherPerf.reduce((a, t) => a + t.tpi, 0) / teacherPerf.length).toFixed(0)}` : '—'} sub="Teacher Performance Index" accent="#10b981" />
+                <StatCard icon={<FiTarget size={16} />} label="Overall Pass Rate" value={teacherPerf.length > 0 ? `${(teacherPerf.reduce((a, t) => a + t.passRate, 0) / teacherPerf.length).toFixed(0)}%` : '—'} sub="Avg across all teachers" accent="#3b82f6" />
+            </div>
+
+            {/* Controls */}
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }} className="no-print">
+                <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+                    <FiSearch size={12} color="#94a3b8" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search teacher, TSC No, or subject…"
+                        style={{ width: '100%', padding: '8px 10px 8px 28px', border: '1px solid #e2e8f0', borderRadius: 9, fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3, gap: 2 }}>
+                    {(['cards', 'table'] as const).map(v => (
+                        <button key={v} onClick={() => setView(v)} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', background: view === v ? '#fff' : 'transparent', color: view === v ? '#1e293b' : '#64748b', boxShadow: view === v ? '0 1px 4px rgba(0,0,0,.08)' : 'none', transition: 'all 0.15s' }}>
+                            {v === 'cards' ? <><FiGrid size={11} style={{ marginRight: 4 }} /> Cards</> : <><FiLayers size={11} style={{ marginRight: 4 }} /> Table</>}
+                        </button>
+                    ))}
+                </div>
+                <span style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap' }}>{filtered.length} teachers</span>
+            </div>
+
+            {view === 'cards' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 16 }}>
+                    {filtered.map((t, idx) => {
+                        const tpiColor = t.tpi >= 80 ? '#10b981' : t.tpi >= 60 ? '#3b82f6' : t.tpi >= 40 ? '#f59e0b' : '#ef4444';
+                        const c = gc(t.meanGrade.grade);
+                        return (
+                            <div key={t.id} style={{ background: '#fff', border: `1px solid #e2e8f0`, borderRadius: 18, overflow: 'hidden', borderTop: `4px solid ${CHART_PALETTE[idx % CHART_PALETTE.length]}` }}>
+                                <div style={{ padding: '16px 18px', borderBottom: '1px solid #f1f5f9' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <div style={{ width: 46, height: 46, borderRadius: '50%', background: `hsl(${t.id * 57 % 360},60%,82%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, color: `hsl(${t.id * 57 % 360},45%,30%)`, flexShrink: 0 }}>
+                                            {t.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</p>
+                                            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>TSC: {t.tscNo || '—'} · {t.studentCount} students</p>
+                                        </div>
+                                        <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                                            <div style={{ fontSize: 22, fontWeight: 900, color: tpiColor, lineHeight: 1 }}>{t.tpi}</div>
+                                            <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>TPI</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ padding: '12px 18px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+                                        {[
+                                            { label: 'Avg Score', value: `${t.avgScore.toFixed(1)}%`, color: '#6366f1' },
+                                            { label: 'Pass Rate', value: `${t.passRate.toFixed(0)}%`, color: t.passRate >= 50 ? '#10b981' : '#ef4444' },
+                                            { label: 'A Rate', value: `${t.aRate.toFixed(0)}%`, color: '#f59e0b' },
+                                        ].map(item => (
+                                            <div key={item.label} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 10, padding: '8px 4px' }}>
+                                                <div style={{ fontSize: 15, fontWeight: 900, color: item.color }}>{item.value}</div>
+                                                <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>{item.label}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <ScoreBar value={t.avgScore} color={c.bg} />
+                                    <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                        {t.subjects.slice(0, 4).map(s => (
+                                            <span key={s.id} style={{ fontSize: 10, fontWeight: 700, background: '#f1f5f9', color: '#475569', borderRadius: 6, padding: '2px 8px' }}>{s.name}</span>
+                                        ))}
+                                        {t.subjects.length > 4 && <span style={{ fontSize: 10, color: '#94a3b8', padding: '2px 4px' }}>+{t.subjects.length - 4} more</span>}
+                                    </div>
+                                    {/* Value added indicator */}
+                                    <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: t.valueAdded >= 0 ? '#f0fdf4' : '#fef2f2', borderRadius: 8 }}>
+                                        {t.valueAdded >= 0 ? <FiTrendingUp size={12} color="#10b981" /> : <FiTrendingDown size={12} color="#ef4444" />}
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: t.valueAdded >= 0 ? '#10b981' : '#ef4444' }}>
+                                            {t.valueAdded >= 0 ? '+' : ''}{t.valueAdded.toFixed(1)}% vs school avg
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <SectionCard title="Teacher Performance Table" subtitle="Sorted by Teacher Performance Index (TPI)" noPad>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
+                            <thead>
+                                <tr style={{ background: '#f8fafc' }}>
+                                    {['#', 'Teacher', 'TSC No', 'Subjects', 'Students', 'Avg Score', 'Grade', 'Pass Rate', 'A Rate', 'Value Added', 'TPI'].map(h => (
+                                        <th key={h} style={{ padding: '10px 12px', textAlign: h === 'Teacher' || h === 'Subjects' ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtered.map((t, i) => {
+                                    const tpiColor = t.tpi >= 80 ? '#10b981' : t.tpi >= 60 ? '#3b82f6' : t.tpi >= 40 ? '#f59e0b' : '#ef4444';
+                                    return (
+                                        <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafbff' }}>
+                                            <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{i + 1}</td>
+                                            <td style={{ padding: '10px 12px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: `hsl(${t.id * 57 % 360},60%,82%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: `hsl(${t.id * 57 % 360},45%,30%)`, flexShrink: 0 }}>
+                                                        {t.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                                                    </div>
+                                                    <span style={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>{t.name}</span>
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: '#64748b' }}>{t.tscNo || '—'}</td>
+                                            <td style={{ padding: '10px 12px', maxWidth: 180 }}>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                                                    {t.subjects.slice(0, 3).map(s => <span key={s.id} style={{ fontSize: 9, background: '#f1f5f9', color: '#475569', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>{s.name.substring(0, 10)}</span>)}
+                                                    {t.subjects.length > 3 && <span style={{ fontSize: 9, color: '#94a3b8' }}>+{t.subjects.length - 3}</span>}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 12, color: '#64748b' }}>{t.studentCount}</td>
+                                            <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 800, color: '#6366f1' }}>{t.avgScore.toFixed(1)}%</td>
+                                            <td style={{ padding: '10px 12px', textAlign: 'center' }}><GradeBadge grade={t.meanGrade.grade} size="sm" /></td>
+                                            <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: t.passRate >= 50 ? '#10b981' : '#ef4444' }}>{t.passRate.toFixed(0)}%</td>
+                                            <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{t.aRate.toFixed(0)}%</td>
+                                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                                <span style={{ fontSize: 11, fontWeight: 700, color: t.valueAdded >= 0 ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                                                    {t.valueAdded >= 0 ? <FiTrendingUp size={11} /> : <FiTrendingDown size={11} />}
+                                                    {t.valueAdded >= 0 ? '+' : ''}{t.valueAdded.toFixed(1)}%
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                                <span style={{ display: 'inline-block', fontSize: 14, fontWeight: 900, color: tpiColor, background: `${tpiColor}15`, borderRadius: 8, padding: '3px 10px', border: `1px solid ${tpiColor}33` }}>{t.tpi}</span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                        {filtered.length === 0 && <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No teachers match your search</div>}
+                    </div>
+                </SectionCard>
+            )}
+
+            {/* TPI Legend */}
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '14px 18px' }}>
+                <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: '#1e293b' }}>TPI (Teacher Performance Index) — Scoring Guide</p>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {[
+                        { range: '80–100', label: 'Excellent', color: '#10b981' },
+                        { range: '60–79', label: 'Good', color: '#3b82f6' },
+                        { range: '40–59', label: 'Average', color: '#f59e0b' },
+                        { range: '0–39', label: 'Needs Support', color: '#ef4444' },
+                    ].map(item => (
+                        <div key={item.range} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: 11, color: '#64748b' }}><strong style={{ color: item.color }}>{item.range}</strong> — {item.label}</span>
+                        </div>
+                    ))}
+                </div>
+                <p style={{ margin: '8px 0 0', fontSize: 10, color: '#94a3b8' }}>TPI = Avg Score (40%) + Pass Rate (25%) + A Rate (15%) + Non-Fail Rate (10%) + Consistency (10%)</p>
+            </div>
+        </div>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  PART 5 — FORMS (CLASS LEVEL) TAB
+// ════════════════════════════════════════════════════════════════════════════
+function FormsTab({ formPerf, subjects }: { formPerf: FormPerf[]; subjects: any[] }) {
+    if (formPerf.length === 0) {
+        return (
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+                <FiBook size={40} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
+                <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>No form data available for selected filters</p>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Form summary cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 16 }}>
+                {formPerf.map((form, i) => {
+                    const c = gc(form.meanGrade.grade);
+                    return (
+                        <div key={form.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, overflow: 'hidden', borderTop: `4px solid ${CHART_PALETTE[i % CHART_PALETTE.length]}` }}>
+                            <div style={{ padding: '16px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#0f172a' }}>{form.formName}</h3>
+                                    <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>{form.studentCount} students · {form.totalEntries} entries</p>
+                                </div>
+                                <GradeBadge grade={form.meanGrade.grade} size="lg" />
+                            </div>
+                            <div style={{ padding: '14px 18px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                                    {[
+                                        { label: 'Mean Score', value: `${form.avg.toFixed(1)}%`, color: '#6366f1' },
+                                        { label: 'Pass Rate', value: `${form.passRate.toFixed(0)}%`, color: form.passRate >= 50 ? '#10b981' : '#ef4444' },
+                                        { label: 'A Rate', value: `${form.aRate.toFixed(0)}%`, color: '#f59e0b' },
+                                        { label: 'Fail Rate', value: `${form.eRate.toFixed(0)}%`, color: '#ef4444' },
+                                    ].map(item => (
+                                        <div key={item.label} style={{ background: '#f8fafc', borderRadius: 10, padding: '8px 10px' }}>
+                                            <div style={{ fontSize: 15, fontWeight: 900, color: item.color }}>{item.value}</div>
+                                            <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>{item.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <ScoreBar value={form.avg} color={c.bg} />
+                                <div style={{ marginTop: 10, display: 'flex', gap: 8, fontSize: 10, color: '#64748b' }}>
+                                    <span>High: <strong style={{ color: '#10b981' }}>{form.highest}</strong></span>
+                                    <span>Low: <strong style={{ color: '#ef4444' }}>{form.lowest}</strong></span>
+                                    <span>SD: <strong style={{ color: '#6366f1' }}>±{form.sd.toFixed(1)}</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Form comparison chart */}
+            {formPerf.length > 1 && (
+                <SectionCard title="Form-Level Comparison" subtitle="Average scores and pass rates across all forms">
+                    <div style={{ height: 320 }}>
+                        <Bar
+                            data={{
+                                labels: formPerf.map(f => f.formName),
+                                datasets: [
+                                    { label: 'Avg Score', data: formPerf.map(f => f.avg), backgroundColor: CHART_PALETTE, borderRadius: 10, borderWidth: 0 },
+                                    { label: 'Pass Rate', data: formPerf.map(f => f.passRate), backgroundColor: formPerf.map(f => f.passRate >= 50 ? '#10b98155' : '#ef444455'), borderRadius: 10, borderWidth: 0 },
+                                ],
+                            }}
+                            options={{ responsive: true, maintainAspectRatio: false, scales: { y: { max: 100, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }, plugins: { legend: { position: 'top' } } }}
+                        />
+                    </div>
+                </SectionCard>
+            )}
+
+            {/* Per-form stream breakdown */}
+            {formPerf.map(form => form.streamBreakdown.length > 1 && (
+                <SectionCard key={form.id} title={`${form.formName} — Stream Breakdown`} subtitle={`${form.streamBreakdown.length} streams`}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 10 }}>
+                        {[...form.streamBreakdown].sort((a, b) => b.avg - a.avg).map((s, si) => (
+                            <div key={s.streamName} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 14px', borderTop: `3px solid ${CHART_PALETTE[si % CHART_PALETTE.length]}` }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                    <span style={{ fontWeight: 800, fontSize: 13, color: '#1e293b' }}>{s.streamName}</span>
+                                    <GradeBadge grade={s.grade.grade} size="xs" />
+                                </div>
+                                <p style={{ fontSize: 22, fontWeight: 900, margin: '0 0 6px', color: '#0f172a', letterSpacing: '-0.02em' }}>{s.avg.toFixed(1)}%</p>
+                                <ScoreBar value={s.avg} color={CHART_PALETTE[si % CHART_PALETTE.length]} />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: '#94a3b8' }}>
+                                    <span>Pass: <strong style={{ color: s.passRate >= 50 ? '#10b981' : '#ef4444' }}>{s.passRate.toFixed(0)}%</strong></span>
+                                    <span>{s.studentCount} students</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </SectionCard>
+            ))}
+
+            {/* Per-form subject breakdown */}
+            {formPerf.map(form => form.subjectBreakdown.length > 0 && (
+                <SectionCard key={`sub-${form.id}`} title={`${form.formName} — Subject Performance`} subtitle="All subjects sorted by average">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {[...form.subjectBreakdown].sort((a, b) => b.avg - a.avg).map(s => (
+                            <div key={s.subjectName} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', background: `${gc(s.grade.grade).light}66`, borderRadius: 10 }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: '#1e293b', flex: 1, minWidth: 140 }}>{s.subjectName}</span>
+                                <div style={{ flex: 3, height: 7, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${s.avg}%`, background: gc(s.grade.grade).bg, borderRadius: 4, transition: 'width 0.5s ease' }} />
+                                </div>
+                                <span style={{ fontSize: 13, fontWeight: 900, color: gc(s.grade.grade).bg, width: 50, textAlign: 'right' }}>{s.avg.toFixed(1)}%</span>
+                                <GradeBadge grade={s.grade.grade} size="sm" />
+                                <span style={{ fontSize: 10, color: s.passRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 700, width: 42, textAlign: 'right' }}>{s.passRate.toFixed(0)}%</span>
+                            </div>
+                        ))}
+                    </div>
+                </SectionCard>
+            ))}
+        </div>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  PART 6 — DEPARTMENTAL ANALYSIS TAB
+// ════════════════════════════════════════════════════════════════════════════
+function DepartmentalTab({ subjectPerf, teacherPerf }: { subjectPerf: SubjectPerf[]; teacherPerf: TeacherPerf[] }) {
+    // Group subjects by CBC learning area
+    const areaMap: Record<string, SubjectPerf[]> = {};
+    subjectPerf.forEach(sp => {
+        const area = getCBCArea(sp.subject_name);
+        if (!areaMap[area]) areaMap[area] = [];
+        areaMap[area].push(sp);
+    });
+
+    const areas = Object.entries(areaMap).sort((a, b) => {
+        const avgA = a[1].reduce((x, s) => x + s.avg, 0) / a[1].length;
+        const avgB = b[1].reduce((x, s) => x + s.avg, 0) / b[1].length;
+        return avgB - avgA;
+    });
+
+    if (areas.length === 0) {
+        return (
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+                <FiLayers size={40} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
+                <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>No subject data for departmental analysis</p>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Department summary cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
+                {areas.map(([area, subs]) => {
+                    const avg = subs.reduce((a, s) => a + s.avg, 0) / subs.length;
+                    const passRate = subs.reduce((a, s) => a + s.passRate, 0) / subs.length;
+                    const areaColor = CBC_AREA_COLORS[area] || '#64748b';
+                    return (
+                        <div key={area} style={{ background: '#fff', border: `1px solid ${areaColor}33`, borderRadius: 16, overflow: 'hidden', borderTop: `4px solid ${areaColor}` }}>
+                            <div style={{ padding: '14px 16px', borderBottom: `1px solid ${areaColor}20` }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: areaColor }}>{area}</h3>
+                                        <p style={{ margin: '2px 0 0', fontSize: 10, color: '#94a3b8' }}>{subs.length} subject{subs.length > 1 ? 's' : ''}</p>
+                                    </div>
+                                    <GradeBadge grade={subs[0]?.meanGrade?.grade || 'E'} size="sm" />
+                                </div>
+                            </div>
+                            <div style={{ padding: '12px 16px' }}>
+                                <p style={{ fontSize: 26, fontWeight: 900, color: '#0f172a', margin: '0 0 6px', letterSpacing: '-0.02em' }}>{avg.toFixed(1)}%</p>
+                                <ScoreBar value={avg} color={areaColor} />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: '#94a3b8' }}>
+                                    <span>Pass: <strong style={{ color: passRate >= 50 ? '#10b981' : '#ef4444' }}>{passRate.toFixed(0)}%</strong></span>
+                                    <span>{subs.reduce((a, s) => a + s.count, 0)} entries</span>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Department radar chart */}
+            {areas.length >= 3 && (
+                <SectionCard title="Department Competency Radar" subtitle="Comparative strengths across learning areas">
+                    <div style={{ height: 360 }}>
+                        <Radar
+                            data={{
+                                labels: areas.map(([area]) => area),
+                                datasets: [
+                                    {
+                                        label: 'Avg Score',
+                                        data: areas.map(([, subs]) => subs.reduce((a, s) => a + s.avg, 0) / subs.length),
+                                        backgroundColor: 'rgba(99,102,241,0.15)',
+                                        borderColor: '#6366f1',
+                                        borderWidth: 2,
+                                        pointBackgroundColor: '#6366f1',
+                                        pointRadius: 5,
+                                    },
+                                    {
+                                        label: 'Pass Rate',
+                                        data: areas.map(([, subs]) => subs.reduce((a, s) => a + s.passRate, 0) / subs.length),
+                                        backgroundColor: 'rgba(16,185,129,0.1)',
+                                        borderColor: '#10b981',
+                                        borderWidth: 2,
+                                        pointBackgroundColor: '#10b981',
+                                        pointRadius: 5,
+                                        borderDash: [4, 3],
+                                    },
+                                ],
+                            }}
+                            options={{
+                                responsive: true, maintainAspectRatio: false,
+                                scales: { r: { min: 0, max: 100, ticks: { stepSize: 20, font: { size: 10 } }, grid: { color: '#f1f5f9' }, pointLabels: { font: { size: 12, weight: 'bold' } } } },
+                                plugins: { legend: { position: 'bottom' } },
+                            }}
+                        />
+                    </div>
+                </SectionCard>
+            )}
+
+            {/* Department bar comparison */}
+            <SectionCard title="Department Performance Comparison" subtitle="Average score and pass rate by learning area">
+                <div style={{ height: 300 }}>
+                    <Bar
+                        data={{
+                            labels: areas.map(([area]) => area),
+                            datasets: [
+                                { label: 'Avg Score', data: areas.map(([, subs]) => subs.reduce((a, s) => a + s.avg, 0) / subs.length), backgroundColor: areas.map(([area]) => CBC_AREA_COLORS[area] || '#64748b'), borderRadius: 10, borderWidth: 0 },
+                                { label: 'Pass Rate', data: areas.map(([, subs]) => subs.reduce((a, s) => a + s.passRate, 0) / subs.length), backgroundColor: areas.map(([, subs]) => { const pr = subs.reduce((a, s) => a + s.passRate, 0) / subs.length; return pr >= 50 ? '#10b98155' : '#ef444455'; }), borderRadius: 10, borderWidth: 0 },
+                            ],
+                        }}
+                        options={{ responsive: true, maintainAspectRatio: false, scales: { y: { max: 100, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }, plugins: { legend: { position: 'top' } } }}
+                    />
+                </div>
+            </SectionCard>
+
+            {/* Per-department subject breakdown */}
+            {areas.map(([area, subs]) => {
+                const areaColor = CBC_AREA_COLORS[area] || '#64748b';
+                return (
+                    <div key={area} style={{ background: '#fff', border: `1px solid ${areaColor}33`, borderRadius: 18, overflow: 'hidden', borderTop: `3px solid ${areaColor}` }}>
+                        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${areaColor}20` }}>
+                            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: areaColor }}>{area} Department — Subject Breakdown</h3>
+                        </div>
+                        <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {[...subs].sort((a, b) => b.avg - a.avg).map(sub => (
+                                <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', background: '#f8fafc', borderRadius: 10 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: '#1e293b', flex: 1 }}>{sub.subject_name}</span>
+                                    <div style={{ flex: 3, height: 7, background: '#e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', width: `${sub.avg}%`, background: areaColor, borderRadius: 4, transition: 'width 0.5s' }} />
+                                    </div>
+                                    <span style={{ fontSize: 13, fontWeight: 900, color: areaColor, width: 50, textAlign: 'right' }}>{sub.avg.toFixed(1)}%</span>
+                                    <GradeBadge grade={sub.meanGrade.grade} size="sm" />
+                                    <span style={{ fontSize: 10, color: '#94a3b8', width: 34, textAlign: 'right' }}>{sub.count}</span>
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: sub.passRate >= 50 ? '#10b981' : '#ef4444', width: 42, textAlign: 'right' }}>{sub.passRate.toFixed(0)}%</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 //  MAIN PAGE — DEFAULT EXPORT
 // ════════════════════════════════════════════════════════════════════════════
 export default function AnalysisPage() {
@@ -1523,8 +2080,6 @@ export default function AnalysisPage() {
 
     const [filterGrade, setFilterGrade] = useState('');
     const [printReady, setPrintReady] = useState(false);
-    const [showAtRisk, setShowAtRisk] = useState(false);
-    const [cbcSubTab, setCbcSubTab] = useState<'overview'|'cbc'>('overview');
 
     const selTermLabel = D.terms.find((t: any) => String(t.id) === D.selTerm)?.term_name || 'All Terms';
     const selFormLabel = D.forms.find((f: any) => String(f.id) === D.selForm)?.form_name || 'All Forms';
@@ -1560,6 +2115,9 @@ export default function AnalysisPage() {
         { key: 'gradesheet', label: 'Grade Sheet', icon: <FiPrinter size={13} /> },
         { key: 'atrisk', label: 'At-Risk', icon: <FiAlertTriangle size={13} />, badge: D.atRiskStudents.length },
         { key: 'cbc', label: 'CBC Mode', icon: <HiAcademicCap size={13} /> },
+        { key: 'teachers', label: 'Teachers', icon: <FiStar size={13} />, badge: D.teacherPerf.length },
+        { key: 'forms', label: 'Forms', icon: <FiLayers size={13} /> },
+        { key: 'departmental', label: 'Departments', icon: <FiGrid size={13} /> },
     ];
 
     if (D.loading) {
@@ -1597,9 +2155,10 @@ export default function AnalysisPage() {
                                 {[
                                     { label: selFormLabel, color: '#6366f1' },
                                     { label: selTermLabel, color: '#3b82f6' },
-                                    { label: D.selExamType, color: '#10b981' },
+                                    { label: D.selExamType || 'All Exams', color: '#10b981' },
                                     { label: `${D.classStudents.length} students`, color: '#f59e0b' },
                                     { label: `${D.subjectPerf.length} subjects`, color: '#8b5cf6' },
+                                    { label: `${D.teacherPerf.length} teachers`, color: '#06b6d4' },
                                 ].map(tag => (
                                     <span key={tag.label} style={{ fontSize: 10, fontWeight: 700, color: tag.color, background: `${tag.color}22`, borderRadius: 20, padding: '3px 10px', border: `1px solid ${tag.color}44` }}>
                                         {tag.label}
@@ -1748,7 +2307,7 @@ export default function AnalysisPage() {
                                 data={D.subjectPerf} getGrade={D.getGrade}
                                 search={D.subjectSearch} onSearch={D.setSubjectSearch}
                                 sortField={D.sortField} sortDir={D.sortDir}
-                                onSort={(f: string) => { if (D.sortField === f) D.setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { D.setSortField(f); D.setSortDir('desc'); } }}
+                                onSort={(f: string) => { if (D.sortField === f) D.setSortDir((d: 'asc' | 'desc') => d === 'asc' ? 'desc' : 'asc'); else { D.setSortField(f); D.setSortDir('desc'); } }}
                             />
                         </SectionCard>
                     </div>
@@ -1793,7 +2352,6 @@ export default function AnalysisPage() {
                                 </div>
                             </SectionCard>
                         )}
-                        {/* Top 3 per stream */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
                             {D.streamPerf.map((stream: StreamPerf, si: number) => {
                                 const streamStudents = D.studentPerf.filter(sp => sp.student.stream_id === stream.id).sort((a, b) => b.avg - a.avg).slice(0, 3);
@@ -1801,7 +2359,7 @@ export default function AnalysisPage() {
                                     <SectionCard key={stream.id} title={`${stream.stream_name} — Top 3`} subtitle={`Mean: ${stream.avg.toFixed(1)}%`}>
                                         {streamStudents.length === 0 ? <p style={{ color: '#94a3b8', fontSize: 12 }}>No data</p> : streamStudents.map((sp, i) => (
                                             <div key={sp.student.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: i < 2 ? 10 : 0 }}>
-                                                <span style={{ fontSize: 14, width: 22 }}>{['🥇','🥈','🥉'][i]}</span>
+                                                <span style={{ fontSize: 14, width: 22 }}>{['🥇', '🥈', '🥉'][i]}</span>
                                                 <span style={{ fontSize: 12, fontWeight: 700, color: '#1e293b', flex: 1 }}>{sp.student.first_name} {sp.student.last_name}</span>
                                                 <span style={{ fontSize: 13, fontWeight: 900, color: CHART_PALETTE[si] }}>{sp.avg.toFixed(1)}%</span>
                                                 <GradeBadge grade={sp.meanGrade.grade} size="xs" />
@@ -2084,6 +2642,21 @@ export default function AnalysisPage() {
                             studentPerf={D.studentPerf}
                         />
                     </div>
+                )}
+
+                {/* ──────────────── TAB: TEACHERS ──────────────── */}
+                {D.tab === 'teachers' && (
+                    <TeachersTab teacherPerf={D.teacherPerf} />
+                )}
+
+                {/* ──────────────── TAB: FORMS ──────────────── */}
+                {D.tab === 'forms' && (
+                    <FormsTab formPerf={D.formPerf} subjects={D.subjects} />
+                )}
+
+                {/* ──────────────── TAB: DEPARTMENTAL ──────────────── */}
+                {D.tab === 'departmental' && (
+                    <DepartmentalTab subjectPerf={D.subjectPerf} teacherPerf={D.teacherPerf} />
                 )}
 
                 {/* ── FOOTER ── */}
