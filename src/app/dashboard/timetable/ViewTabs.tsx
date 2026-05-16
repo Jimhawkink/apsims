@@ -15,17 +15,12 @@ function UltraGrid({ filterFn, viewMode = 'class' }: {
     if (!e || !e.subject_id) return <span className="text-gray-200">—</span>;
     const color = getSubjectColor(e.subject_id, subjects);
     const classLabel = `${getFormName(e.form_id)} ${getStreamName(e.stream_id)}`;
+    const teacherLabel = getTeacherShort(e.teacher_id);
     return (
       <div className="rounded-xl p-2 mx-0.5 transition-all hover:scale-[1.03]" style={{ background: color.bg, border: `2px solid ${color.border}` }}>
         <div className="font-black text-[11px] leading-tight" style={{ color: color.text }}>{getSubjectCode(e.subject_id)}</div>
-        {viewMode === 'class' ? (
-          <div className="text-[9px] text-gray-600 mt-0.5 font-semibold">👤 {getTeacherShort(e.teacher_id)}</div>
-        ) : viewMode === 'teacher' ? (
-          <div className="text-[9px] font-bold mt-0.5" style={{ color: color.text, opacity: 0.8 }}>🏫 {classLabel}</div>
-        ) : (
-          <><div className="text-[9px] font-bold mt-0.5" style={{ color: color.text, opacity: 0.8 }}>🏫 {classLabel}</div>
-          <div className="text-[8px] text-gray-500">👤 {getTeacherShort(e.teacher_id)}</div></>
-        )}
+        <div className="text-[9px] text-gray-600 mt-0.5 font-semibold">👤 {teacherLabel}</div>
+        <div className="text-[8px] font-bold mt-0.5" style={{ color: color.text, opacity: 0.7 }}>🏫 {classLabel}</div>
       </div>
     );
   };

@@ -285,6 +285,7 @@ export default function EditorTab() {
                                     <div>
                                       <div className="font-black text-[11px]" style={{ color: clr.text }}>{getSubjectName(Number(selectedSubject))}</div>
                                       <div className="text-[9px] text-gray-600">👤 {getTeacherName(Number(selectedTeacher))}</div>
+                                      <div className="text-[8px] font-bold" style={{ color: clr.text, opacity: 0.7 }}>🏫 {getFormName(fId)} {getStreamName(sId)}</div>
                                     </div>
                                   </div>
                                 );
@@ -306,6 +307,7 @@ export default function EditorTab() {
                                 <div className="rounded-xl p-2 mx-0.5 transition-transform group-hover:scale-[1.02]" style={{ background: color?.bg, border: `2px solid ${color?.border}` }}>
                                   <div className="font-black text-[11px] leading-tight" style={{ color: color?.text }}>{getSubjectCode(entry.subject_id)}</div>
                                   <div className="text-[9px] text-gray-600 mt-0.5 font-semibold">👤 {getTeacherShort(entry.teacher_id)}</div>
+                                  <div className="text-[8px] font-bold mt-0.5" style={{ color: color?.text, opacity: 0.7 }}>🏫 {getFormName(entry.form_id)} {getStreamName(entry.stream_id)}</div>
                                 </div>
                               ) : <span className="text-gray-300 text-xl group-hover:text-blue-400 transition-colors">+</span>}
                             </button>

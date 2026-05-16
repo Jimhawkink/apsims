@@ -192,7 +192,7 @@ export function TimetableProvider({ children }: { children: ReactNode }) {
       const cells = r.cells.map((c: any) => {
         if (!c.subj) return `<td style="padding:8px;border:1px solid #e5e7eb;text-align:center;min-width:110px"><span style="color:#d1d5db">—</span></td>`;
         const bg = c.color?.bg || '#dbeafe'; const txt = c.color?.text || '#1e40af'; const brd = c.color?.border || '#93c5fd';
-        return `<td style="padding:4px;border:1px solid #e5e7eb;text-align:center;min-width:110px"><div style="background:${bg};border:2px solid ${brd};border-radius:8px;padding:8px 4px;box-shadow:0 1px 3px rgba(0,0,0,0.05)"><div style="font-weight:800;color:${txt};font-size:11px;letter-spacing:0.3px">${c.subj}</div><div style="font-size:9px;color:#6b7280;margin-top:3px">${c.teacher}</div>${c.room ? `<div style="font-size:8px;color:#9ca3af;margin-top:1px">📍 ${c.room}</div>` : ''}</div></td>`;
+        return `<td style="padding:4px;border:1px solid #e5e7eb;text-align:center;min-width:110px"><div style="background:${bg};border:2px solid ${brd};border-radius:8px;padding:8px 4px;box-shadow:0 1px 3px rgba(0,0,0,0.05)"><div style="font-weight:800;color:${txt};font-size:11px;letter-spacing:0.3px">${c.subj}</div><div style="font-size:9px;color:#6b7280;margin-top:3px">${c.teacher}</div><div style="font-size:8px;color:${txt};margin-top:2px;opacity:0.7;font-weight:700">${c.classLabel || ''}</div>${c.room ? `<div style="font-size:8px;color:#9ca3af;margin-top:1px">📍 ${c.room}</div>` : ''}</div></td>`;
       }).join('');
       return `<tr><td style="background:#f8fafc;padding:10px;font-size:10px;font-weight:700;border:1px solid #e5e7eb;white-space:nowrap">${r.period}</td><td style="background:#f8fafc;padding:10px;font-size:9px;color:#6b7280;border:1px solid #e5e7eb;white-space:nowrap">${r.time}</td>${cells}</tr>`;
     }).join('');
@@ -206,7 +206,7 @@ export function TimetableProvider({ children }: { children: ReactNode }) {
       cells: DAYS.map(day => {
         const e = filterFn(day, p);
         const color = e?.subject_id ? getSubjectColor(e.subject_id, subjects) : undefined;
-        return { subj: e?.subject_id ? getSubjectName(e.subject_id) : '', teacher: e?.teacher_id ? getTeacherShort(e.teacher_id) : '', room: e?.room || '', color };
+        return { subj: e?.subject_id ? getSubjectName(e.subject_id) : '', teacher: e?.teacher_id ? getTeacherShort(e.teacher_id) : '', room: e?.room || '', color, classLabel: e ? `🏫 ${getFormName(e.form_id)} ${getStreamName(e.stream_id)}` : '' };
       })
     }));
   };
