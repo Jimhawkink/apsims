@@ -1,4 +1,5 @@
-// ─── ASC Timetable Types ──────────────────────────────────────────
+// ─── APSIMS ULTRA TIMETABLE — TYPE DEFINITIONS ───────────────────
+// Kenya Secondary School Timetable Engine — Defeating Zeraki & ASC
 
 export type TTab =
   | 'dashboard' | 'cards' | 'availability' | 'classrooms'
@@ -61,4 +62,34 @@ export interface ConflictItem {
   details: string;
   day?: string;
   period?: string;
+}
+
+// ─── ULTRA Analytics Types ──────────────────────────────────────
+export interface TeacherLoadData {
+  id: number;
+  name: string;
+  count: number;
+  subjects: string[];
+  classes: string[];
+  freePeriodsPerDay: Record<string, number>;
+  avgLoadPerDay: number;
+  maxDayLoad: number;
+}
+
+export interface ClassCompletionData {
+  formId: number;
+  streamId: number;
+  formName: string;
+  streamName: string;
+  filled: number;
+  required: number;
+  pct: number;
+  subjectBreakdown: { subject: string; placed: number; required: number }[];
+}
+
+export interface HeatmapCell {
+  day: string;
+  periodId: number;
+  value: number;
+  label: string;
 }
