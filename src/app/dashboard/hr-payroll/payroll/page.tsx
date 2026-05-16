@@ -25,28 +25,17 @@ const KE_PAYE_BANDS = [
     { max: 800000, rate: 0.325 },
     { max: Infinity, rate: 0.35 },
 ];
-const PERSONAL_RELIEF = 2400; // KES/month
+const PERSONAL_RELIEF = 2400;
 const NHIF_RATES = [
-    { max: 5999, amt: 150 },
-    { max: 7999, amt: 300 },
-    { max: 11999, amt: 400 },
-    { max: 14999, amt: 500 },
-    { max: 19999, amt: 600 },
-    { max: 24999, amt: 750 },
-    { max: 29999, amt: 850 },
-    { max: 34999, amt: 900 },
-    { max: 39999, amt: 950 },
-    { max: 44999, amt: 1000 },
-    { max: 49999, amt: 1100 },
-    { max: 59999, amt: 1200 },
-    { max: 69999, amt: 1300 },
-    { max: 79999, amt: 1400 },
-    { max: 89999, amt: 1500 },
-    { max: 99999, amt: 1600 },
-    { max: Infinity, amt: 1700 },
+    { max: 5999, amt: 150 }, { max: 7999, amt: 300 }, { max: 11999, amt: 400 },
+    { max: 14999, amt: 500 }, { max: 19999, amt: 600 }, { max: 24999, amt: 750 },
+    { max: 29999, amt: 850 }, { max: 34999, amt: 900 }, { max: 39999, amt: 950 },
+    { max: 44999, amt: 1000 }, { max: 49999, amt: 1100 }, { max: 59999, amt: 1200 },
+    { max: 69999, amt: 1300 }, { max: 79999, amt: 1400 }, { max: 89999, amt: 1500 },
+    { max: 99999, amt: 1600 }, { max: Infinity, amt: 1700 },
 ];
-const NSSF_EMPLOYEE = 200; // Tier I + II simplified flat for now
-const HOUSING_LEVY_RATE = 0.015; // 1.5% of gross
+const NSSF_EMPLOYEE = 200;
+const HOUSING_LEVY_RATE = 0.015;
 
 function calcPAYE(taxable: number): number {
     let tax = 0; let prev = 0;
@@ -76,15 +65,9 @@ interface TaxBreakdown {
 }
 
 function computePayroll(
-    basicSalary: number,
-    houseAllowance: number,
-    transportAllowance: number,
-    medicalAllowance: number,
-    otherAllowances: number,
-    loanDeductions: number,
-    advanceDeductions: number,
-    saccoDeductions: number,
-    otherDeductions: number,
+    basicSalary: number, houseAllowance: number, transportAllowance: number,
+    medicalAllowance: number, otherAllowances: number, loanDeductions: number,
+    advanceDeductions: number, saccoDeductions: number, otherDeductions: number,
 ): TaxBreakdown {
     const grossPay = basicSalary + houseAllowance + transportAllowance + medicalAllowance + otherAllowances;
     const nssfDeduction = NSSF_EMPLOYEE;
@@ -97,13 +80,12 @@ function computePayroll(
     const netPay = Math.max(0, grossPay - totalDeductions);
     return {
         grossPay, taxable, paye, nhif, nssf: nssfDeduction, housingLevy,
-        loanDeductions, advanceDeductions, saccoDeductions, otherDeductions,
-        totalDeductions, netPay
+        loanDeductions, advanceDeductions, saccoDeductions, otherDeductions, totalDeductions, netPay
     };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FORMAT HELPERS
+// HELPERS & CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 const fmt = (n: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(n);
 const fmtNum = (n: number) => new Intl.NumberFormat('en-KE', { maximumFractionDigits: 0 }).format(n);
@@ -141,57 +123,195 @@ interface SalaryAdvance {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MODAL COMPONENT
+// DESIGN TOKENS (matching Alpha Analysis font system)
+// ─────────────────────────────────────────────────────────────────────────────
+const T = {
+    // Font system — matches Alpha Analysis page exactly
+    fontBase: "'Inter','Segoe UI',sans-serif",
+    fontMono: "'DM Mono','Courier New',monospace",
+    // Text colors (Slate palette — identical to analysis page)
+    text: { primary: '#0f172a', heading: '#1e293b', body: '#334155', muted: '#64748b', faint: '#94a3b8' },
+    // Status colors
+    status: { Draft: '#94a3b8', Pending: '#f59e0b', Approved: '#3b82f6', Paid: '#22c55e', Rejected: '#ef4444' },
+    statusBg: { Draft: '#f8fafc', Pending: '#fffbeb', Approved: '#eff6ff', Paid: '#f0fdf4', Rejected: '#fef2f2' },
+    statusText: { Draft: '#475569', Pending: '#92400e', Approved: '#1e40af', Paid: '#14532d', Rejected: '#991b1b' },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODAL
 // ─────────────────────────────────────────────────────────────────────────────
 function Modal({ open, onClose, title, children, size = 'md' }: {
     open: boolean; onClose: () => void; title: string;
     children: React.ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
 }) {
     if (!open) return null;
-    const sizeMap = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl', full: 'max-w-7xl' };
+    const maxW = { sm: '480px', md: '600px', lg: '800px', xl: '1000px', full: '1300px' }[size];
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}>
-            <div className={`bg-white rounded-3xl shadow-2xl w-full ${sizeMap[size]} flex flex-col max-h-[92vh] animate-modal`}>
-                <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-                    <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">{title}</h2>
-                    <button onClick={onClose} className="w-9 h-9 rounded-full bg-gray-100 hover:bg-red-100 flex items-center justify-center text-gray-500 hover:text-red-600 transition-all">
-                        <FiXCircle size={18} />
+        <div style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+            background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)',
+        }}>
+            <div style={{
+                background: '#fff', borderRadius: 24, width: '100%', maxWidth: maxW,
+                display: 'flex', flexDirection: 'column', maxHeight: '92vh',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.08)',
+                animation: 'modalIn 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                fontFamily: T.fontBase,
+            }}>
+                {/* Modal header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
+                    <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: T.text.heading, letterSpacing: '-0.01em' }}>{title}</h2>
+                    <button onClick={onClose} style={{
+                        width: 32, height: 32, borderRadius: 10, border: 'none',
+                        background: '#f1f5f9', color: T.text.muted, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.15s',
+                    }}
+                        onMouseEnter={e => { (e.target as HTMLElement).closest('button')!.style.background = '#fee2e2'; (e.target as HTMLElement).closest('button')!.style.color = '#ef4444'; }}
+                        onMouseLeave={e => { (e.target as HTMLElement).closest('button')!.style.background = '#f1f5f9'; (e.target as HTMLElement).closest('button')!.style.color = T.text.muted; }}
+                    >
+                        <FiXCircle size={16} />
                     </button>
                 </div>
-                <div className="overflow-y-auto flex-1 px-6 py-5">{children}</div>
+                <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>{children}</div>
             </div>
         </div>
     );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STAT CARD
+// ULTRA STAT CARD — glassmorphic + glowing accent edge
 // ─────────────────────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon: Icon, color, sub, trend }: {
     label: string; value: string; icon: any; color: string; sub?: string; trend?: 'up' | 'down';
 }) {
     return (
-        <div className="relative bg-white rounded-2xl border border-gray-100 p-5 overflow-hidden group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <div className="absolute top-0 right-0 w-28 h-28 rounded-full opacity-5 -mr-8 -mt-8" style={{ background: color }} />
-            <div className="flex items-start justify-between">
-                <div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</p>
-                    <p className="text-2xl font-black text-gray-900 tracking-tight">{value}</p>
-                    {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
+        <div style={{
+            background: '#fff',
+            border: '1px solid #e2e8f0',
+            borderRadius: 20,
+            padding: '18px 20px',
+            position: 'relative',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            borderTop: `3px solid ${color}`,
+            boxShadow: `0 4px 24px rgba(0,0,0,0.04), 0 0 0 0 ${color}00`,
+            transition: 'box-shadow 0.25s, transform 0.25s',
+            cursor: 'default',
+            fontFamily: T.fontBase,
+        }}
+            onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.boxShadow = `0 8px 32px rgba(0,0,0,0.08), 0 0 0 3px ${color}22`;
+                el.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.boxShadow = '0 4px 24px rgba(0,0,0,0.04)';
+                el.style.transform = 'none';
+            }}
+        >
+            {/* Subtle glow orb */}
+            <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: `${color}12`, pointerEvents: 'none' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{
+                    width: 38, height: 38, borderRadius: 12,
+                    background: `${color}12`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color, flexShrink: 0,
+                }}>
+                    <Icon size={18} />
                 </div>
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: color + '18' }}>
-                    <Icon size={20} style={{ color }} />
-                </div>
+                {trend && (
+                    <span style={{
+                        fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+                        color: trend === 'up' ? '#10b981' : '#ef4444',
+                        background: trend === 'up' ? '#f0fdf4' : '#fef2f2',
+                        border: `1px solid ${trend === 'up' ? '#bbf7d0' : '#fecaca'}`,
+                        borderRadius: 20, padding: '3px 8px',
+                        display: 'flex', alignItems: 'center', gap: 3,
+                    }}>
+                        {trend === 'up' ? <FiTrendingUp size={9} /> : <FiTrendingDown size={9} />}
+                        {trend === 'up' ? 'Up' : 'Down'}
+                    </span>
+                )}
             </div>
-            {trend && (
-                <div className={`flex items-center gap-1 mt-2 text-xs font-semibold ${trend === 'up' ? 'text-emerald-600' : 'text-red-500'}`}>
-                    {trend === 'up' ? <FiTrendingUp size={12} /> : <FiTrendingDown size={12} />}
-                    {trend === 'up' ? 'Up this month' : 'Down this month'}
-                </div>
-            )}
+
+            <div>
+                <p style={{ fontSize: 10, fontWeight: 700, color: T.text.faint, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>{label}</p>
+                <p style={{ fontSize: 24, fontWeight: 900, color: T.text.primary, margin: '4px 0 0', lineHeight: 1, letterSpacing: '-0.02em' }}>{value}</p>
+                {sub && <p style={{ fontSize: 11, color: T.text.muted, margin: '5px 0 0' }}>{sub}</p>}
+            </div>
         </div>
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATUS BADGE
+// ─────────────────────────────────────────────────────────────────────────────
+function StatusBadge({ status }: { status: string }) {
+    const bg = (T.statusBg as any)[status] || '#f8fafc';
+    const txt = (T.statusText as any)[status] || '#475569';
+    const dot = (T.status as any)[status] || '#94a3b8';
+    return (
+        <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            padding: '3px 10px', borderRadius: 20,
+            background: bg, color: txt,
+            fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+            fontFamily: T.fontBase,
+        }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: dot, display: 'inline-block', flexShrink: 0 }} />
+            {status}
+        </span>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION CARD — sleek inset surface card
+// ─────────────────────────────────────────────────────────────────────────────
+function SectionCard({ title, subtitle, action, children, accent }: {
+    title: string; subtitle?: string; action?: React.ReactNode;
+    children: React.ReactNode; accent?: string;
+}) {
+    return (
+        <div style={{
+            background: '#fff', border: '1px solid #e2e8f0',
+            borderRadius: 20, overflow: 'hidden',
+            fontFamily: T.fontBase,
+            ...(accent ? { borderLeft: `3px solid ${accent}` } : {}),
+        }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div>
+                    <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.text.heading }}>{title}</h3>
+                    {subtitle && <p style={{ margin: '2px 0 0', fontSize: 11, color: T.text.faint }}>{subtitle}</p>}
+                </div>
+                {action}
+            </div>
+            <div style={{ padding: '16px 20px' }}>{children}</div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INPUT STYLE HELPER
+// ─────────────────────────────────────────────────────────────────────────────
+const inputStyle: React.CSSProperties = {
+    width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12,
+    padding: '10px 14px', fontSize: 12, fontWeight: 600, color: T.text.heading,
+    outline: 'none', fontFamily: "'Inter','Segoe UI',sans-serif", boxSizing: 'border-box',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+};
+const labelStyle: React.CSSProperties = {
+    fontSize: 10, fontWeight: 700, color: T.text.faint,
+    textTransform: 'uppercase', letterSpacing: '0.06em',
+    display: 'block', marginBottom: 5,
+    fontFamily: "'Inter','Segoe UI',sans-serif",
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PAYSLIP VIEWER
@@ -202,32 +322,29 @@ function PayslipViewer({ record, onClose }: { record: PayrollRecord; onClose: ()
         if (!w) return;
         w.document.write(`<html><head><title>Payslip - ${record.staff_name}</title>
         <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-            body { padding: 40px; color: #1a1a2e; background: #fff; }
-            .header { text-align: center; border-bottom: 3px solid #1e3a5f; padding-bottom: 20px; margin-bottom: 24px; }
-            .logo { font-size: 28px; font-weight: 900; color: #1e3a5f; letter-spacing: -1px; }
-            .sub { font-size: 13px; color: #666; margin-top: 4px; }
-            .payslip-title { background: #1e3a5f; color: white; text-align: center; padding: 10px; font-weight: 700; font-size: 15px; border-radius: 8px; margin-bottom: 20px; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-            .info-item { background: #f8fafc; padding: 12px; border-radius: 8px; }
-            .info-label { font-size: 10px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-            .info-value { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-top: 2px; }
-            .earnings-deductions { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; }
-            th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #1e3a5f; padding: 8px; text-align: left; border-bottom: 2px solid #e2e8f0; }
-            td { font-size: 13px; padding: 8px; border-bottom: 1px solid #f1f5f9; }
-            td:last-child { text-align: right; font-weight: 600; }
-            .total-row td { font-weight: 800; font-size: 14px; border-top: 2px solid #1e3a5f; color: #1e3a5f; }
-            .net-box { background: linear-gradient(135deg, #1e3a5f, #2d6a4f); color: white; padding: 16px 24px; border-radius: 12px; text-align: center; margin-top: 20px; }
-            .net-label { font-size: 12px; opacity: 0.8; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-            .net-amount { font-size: 32px; font-weight: 900; margin-top: 4px; letter-spacing: -1px; }
-            .section-title { font-size: 12px; font-weight: 800; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding: 6px 8px; background: #eff6ff; border-radius: 6px; }
-            .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #aaa; border-top: 1px solid #eee; padding-top: 16px; }
+            * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
+            body { padding:40px; color:#1a1a2e; background:#fff; }
+            .header { text-align:center; border-bottom:3px solid #1e3a5f; padding-bottom:20px; margin-bottom:24px; }
+            .logo { font-size:28px; font-weight:900; color:#1e3a5f; letter-spacing:-1px; }
+            .sub { font-size:13px; color:#666; margin-top:4px; }
+            .payslip-title { background:#1e3a5f; color:white; text-align:center; padding:10px; font-weight:700; font-size:15px; border-radius:8px; margin-bottom:20px; }
+            .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+            .info-item { background:#f8fafc; padding:12px; border-radius:8px; }
+            .info-label { font-size:10px; color:#888; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+            .info-value { font-size:14px; font-weight:700; color:#1a1a2e; margin-top:2px; }
+            .earnings-deductions { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+            table { width:100%; border-collapse:collapse; }
+            th { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#1e3a5f; padding:8px; text-align:left; border-bottom:2px solid #e2e8f0; }
+            td { font-size:13px; padding:8px; border-bottom:1px solid #f1f5f9; }
+            td:last-child { text-align:right; font-weight:600; }
+            .total-row td { font-weight:800; font-size:14px; border-top:2px solid #1e3a5f; color:#1e3a5f; }
+            .net-box { background:linear-gradient(135deg,#1e3a5f,#2d6a4f); color:white; padding:16px 24px; border-radius:12px; text-align:center; margin-top:20px; }
+            .net-label { font-size:12px; opacity:0.8; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+            .net-amount { font-size:32px; font-weight:900; margin-top:4px; letter-spacing:-1px; }
+            .section-title { font-size:12px; font-weight:800; color:#1e3a5f; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; padding:6px 8px; background:#eff6ff; border-radius:6px; }
+            .footer { text-align:center; margin-top:24px; font-size:11px; color:#aaa; border-top:1px solid #eee; padding-top:16px; }
         </style></head><body>
-        <div class="header">
-            <div class="logo">ALPHA SCHOOL</div>
-            <div class="sub">HR & Payroll Department • Payslip</div>
-        </div>
+        <div class="header"><div class="logo">ALPHA SCHOOL</div><div class="sub">HR & Payroll Department • Payslip</div></div>
         <div class="payslip-title">EMPLOYEE PAY ADVICE — ${MONTHS[record.month - 1].toUpperCase()} ${record.year}</div>
         <div class="info-grid">
             <div class="info-item"><div class="info-label">Employee Name</div><div class="info-value">${record.staff_name}</div></div>
@@ -275,99 +392,79 @@ function PayslipViewer({ record, onClose }: { record: PayrollRecord; onClose: ()
         w.document.close(); w.print();
     };
 
+    const row = (label: string, val: number, accent?: string) => (
+        <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9', fontFamily: T.fontBase }}>
+            <span style={{ fontSize: 12, color: T.text.body }}>{label}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: accent || T.text.heading }}>{fmt(val)}</span>
+        </div>
+    );
+
     return (
-        <div className="space-y-5">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl p-5 text-white">
-                <div className="flex items-center justify-between">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, fontFamily: T.fontBase }}>
+            {/* Pay advice header */}
+            <div style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#1e293b 100%)', borderRadius: 18, padding: '20px 24px', color: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                        <p className="text-xs opacity-60 font-semibold uppercase tracking-widest mb-1">Pay Advice</p>
-                        <p className="text-xl font-black">{record.staff_name}</p>
-                        <p className="text-sm opacity-70 mt-1">{record.staff_type} · {record.pay_period}</p>
+                        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pay Advice</p>
+                        <p style={{ margin: '6px 0 2px', fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em' }}>{record.staff_name}</p>
+                        <p style={{ margin: 0, fontSize: 11, color: '#94a3b8' }}>{record.staff_type} · {record.pay_period}</p>
                     </div>
-                    <div className="text-right">
-                        <p className="text-xs opacity-60">Status</p>
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold mt-1 ${record.status === 'Paid' ? 'bg-emerald-500' :
-                            record.status === 'Approved' ? 'bg-blue-500' :
-                                record.status === 'Pending' ? 'bg-amber-500' : 'bg-gray-500'
-                            }`}>{record.status}</span>
-                    </div>
+                    <StatusBadge status={record.status} />
                 </div>
             </div>
 
-            {/* Earnings & Deductions Grid */}
-            <div className="grid grid-cols-2 gap-4">
-                {/* Earnings */}
+            {/* Earnings / Deductions */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
-                    <h4 className="text-xs font-black text-emerald-700 uppercase tracking-widest mb-2 flex items-center gap-1">
-                        <FiTrendingUp size={11} /> Earnings
-                    </h4>
-                    <div className="space-y-1">
-                        {[
-                            ['Basic Salary', record.basic_salary],
-                            ['House Allowance', record.house_allowance],
-                            ['Transport Allowance', record.transport_allowance],
-                            ['Medical Allowance', record.medical_allowance],
-                            ['Other Allowances', record.other_allowances],
-                        ].map(([l, v]) => (
-                            <div key={l as string} className="flex justify-between text-sm py-1.5 border-b border-gray-50">
-                                <span className="text-gray-600">{l}</span>
-                                <span className="font-semibold text-gray-800">{fmt(Number(v))}</span>
-                            </div>
-                        ))}
-                        <div className="flex justify-between py-2 bg-emerald-50 px-3 rounded-xl mt-2">
-                            <span className="text-xs font-black text-emerald-800 uppercase">Gross Pay</span>
-                            <span className="font-black text-emerald-700">{fmt(record.gross_pay)}</span>
-                        </div>
+                    <p style={{ ...labelStyle, color: '#10b981', marginBottom: 10 }}>↑ Earnings</p>
+                    {row('Basic Salary', record.basic_salary)}
+                    {row('House Allowance', record.house_allowance)}
+                    {row('Transport Allowance', record.transport_allowance)}
+                    {row('Medical Allowance', record.medical_allowance)}
+                    {row('Other Allowances', record.other_allowances)}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: '#f0fdf4', borderRadius: 10, marginTop: 8, fontFamily: T.fontBase }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: '#14532d', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Gross Pay</span>
+                        <span style={{ fontSize: 13, fontWeight: 900, color: '#059669', letterSpacing: '-0.01em' }}>{fmt(record.gross_pay)}</span>
                     </div>
                 </div>
-                {/* Deductions */}
                 <div>
-                    <h4 className="text-xs font-black text-red-600 uppercase tracking-widest mb-2 flex items-center gap-1">
-                        <FiTrendingDown size={11} /> Deductions
-                    </h4>
-                    <div className="space-y-1">
-                        {[
-                            ['PAYE Tax', record.paye],
-                            ['NHIF', record.nhif],
-                            ['NSSF', record.nssf],
-                            ['Housing Levy (1.5%)', record.housing_levy],
-                            ['Loans', record.loan_deductions],
-                            ['Advances', record.advance_deductions],
-                            ['SACCO', record.sacco_deductions],
-                            ['Other', record.other_deductions],
-                        ].map(([l, v]) => (
-                            <div key={l as string} className="flex justify-between text-sm py-1.5 border-b border-gray-50">
-                                <span className="text-gray-600">{l}</span>
-                                <span className="font-semibold text-red-600">-{fmt(Number(v))}</span>
-                            </div>
-                        ))}
-                        <div className="flex justify-between py-2 bg-red-50 px-3 rounded-xl mt-2">
-                            <span className="text-xs font-black text-red-800 uppercase">Total Deductions</span>
-                            <span className="font-black text-red-600">-{fmt(record.total_deductions)}</span>
-                        </div>
+                    <p style={{ ...labelStyle, color: '#ef4444', marginBottom: 10 }}>↓ Deductions</p>
+                    {row('PAYE Tax', record.paye, '#ef4444')}
+                    {row('NHIF', record.nhif, '#ef4444')}
+                    {row('NSSF', record.nssf, '#ef4444')}
+                    {row('Housing Levy (1.5%)', record.housing_levy, '#ef4444')}
+                    {row('Loans', record.loan_deductions, '#f97316')}
+                    {row('Advances', record.advance_deductions, '#f97316')}
+                    {row('SACCO', record.sacco_deductions, '#f97316')}
+                    {row('Other', record.other_deductions, '#f97316')}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: '#fef2f2', borderRadius: 10, marginTop: 8, fontFamily: T.fontBase }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Deductions</span>
+                        <span style={{ fontSize: 13, fontWeight: 900, color: '#ef4444', letterSpacing: '-0.01em' }}>-{fmt(record.total_deductions)}</span>
                     </div>
                 </div>
             </div>
 
             {/* Net Pay */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white text-center">
-                <p className="text-xs opacity-70 font-semibold uppercase tracking-widest">Net Pay (Take Home)</p>
-                <p className="text-4xl font-black mt-1 tracking-tight">{fmt(record.net_pay)}</p>
-                <p className="text-xs opacity-60 mt-2">Payment: {record.payment_method || 'Bank Transfer'}</p>
+            <div style={{ background: 'linear-gradient(135deg,#2563eb,#4f46e5)', borderRadius: 18, padding: '20px 24px', textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net Pay (Take Home)</p>
+                <p style={{ margin: '8px 0 4px', fontSize: 36, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{fmt(record.net_pay)}</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Payment: {record.payment_method || 'Bank Transfer'} {record.payment_ref ? `· Ref: ${record.payment_ref}` : ''}</p>
             </div>
 
-            {/* Print Button */}
-            <button onClick={handlePrint}
-                className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl py-3 font-bold text-sm transition-all">
-                <FiPrinter size={16} /> Print / Download Payslip
+            <button onClick={handlePrint} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: '#0f172a', color: '#fff', border: 'none', borderRadius: 14,
+                padding: '12px 24px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: T.fontBase, letterSpacing: '-0.01em', transition: 'background 0.15s',
+            }}>
+                <FiPrinter size={15} /> Print / Download Payslip
             </button>
         </div>
     );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PAYROLL FORM (Add / Edit)
+// PAYROLL FORM
 // ─────────────────────────────────────────────────────────────────────────────
 function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
     staff: StaffMember[]; advances: SalaryAdvance[];
@@ -393,7 +490,6 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
     const selectedStaff = staff.find(s => s.id === selectedStaffId);
     const basicSalary = selectedStaff?.basic_salary ?? 0;
 
-    // Auto-fill advance deduction from active advances
     useEffect(() => {
         if (!selectedStaffId) return;
         const activeAdvance = advances.find(a => a.staff_id === selectedStaffId && a.status === 'Active');
@@ -410,8 +506,7 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
         await onSave({
             staff_id: selectedStaffId,
             staff_name: `${s.first_name} ${s.last_name}`,
-            staff_type: s._type,
-            month, year,
+            staff_type: s._type, month, year,
             pay_period: `${MONTHS[month - 1]} ${year}`,
             basic_salary: basicSalary,
             house_allowance: houseAllow, transport_allowance: transportAllow,
@@ -425,15 +520,17 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
         setSaving(false);
     };
 
-    const inp = "w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all";
+    const fStyle = { ...inputStyle };
+
+    const FieldLabel = ({ children }: { children: string }) => <label style={labelStyle}>{children}</label>;
 
     return (
-        <div className="space-y-5">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, fontFamily: T.fontBase }}>
             {/* Staff + Period */}
-            <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-3">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Staff Member *</label>
-                    <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} className={inp}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                <div style={{ gridColumn: '1 / -1' }}>
+                    <FieldLabel>Staff Member *</FieldLabel>
+                    <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} style={fStyle}>
                         <option value="">— Select Staff —</option>
                         {staff.filter(s => s.status === 'Active').map(s => (
                             <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s._type}) — Basic: {fmt(s.basic_salary)}</option>
@@ -441,29 +538,27 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                     </select>
                 </div>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Month</label>
-                    <select value={month} onChange={e => setMonth(Number(e.target.value))} className={inp}>
+                    <FieldLabel>Month</FieldLabel>
+                    <select value={month} onChange={e => setMonth(Number(e.target.value))} style={fStyle}>
                         {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                     </select>
                 </div>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Year</label>
-                    <select value={year} onChange={e => setYear(Number(e.target.value))} className={inp}>
+                    <FieldLabel>Year</FieldLabel>
+                    <select value={year} onChange={e => setYear(Number(e.target.value))} style={fStyle}>
                         {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                 </div>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Basic Salary</label>
-                    <input type="text" value={fmt(basicSalary)} disabled className={inp + ' bg-slate-100 text-slate-500'} />
+                    <FieldLabel>Basic Salary</FieldLabel>
+                    <input type="text" value={fmt(basicSalary)} disabled style={{ ...fStyle, background: '#f1f5f9', color: T.text.muted }} />
                 </div>
             </div>
 
             {/* Allowances */}
             <div>
-                <h4 className="text-xs font-black text-emerald-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                    <FiTrendingUp size={12} /> Allowances
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
+                <p style={{ ...labelStyle, color: '#10b981', marginBottom: 10 }}>↑ Allowances</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     {[
                         ['House Allowance', houseAllow, setHouseAllow],
                         ['Transport Allowance', transportAllow, setTransportAllow],
@@ -471,9 +566,8 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                         ['Other Allowances', otherAllow, setOtherAllow],
                     ].map(([l, v, set]) => (
                         <div key={l as string}>
-                            <label className="text-xs font-semibold text-gray-500 mb-1 block">{l as string}</label>
-                            <input type="number" min="0" value={v as number}
-                                onChange={e => (set as any)(Number(e.target.value))} className={inp} />
+                            <FieldLabel>{l as string}</FieldLabel>
+                            <input type="number" min="0" value={v as number} onChange={e => (set as any)(Number(e.target.value))} style={fStyle} />
                         </div>
                     ))}
                 </div>
@@ -481,10 +575,8 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
 
             {/* Deductions */}
             <div>
-                <h4 className="text-xs font-black text-red-600 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                    <FiTrendingDown size={12} /> Extra Deductions
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
+                <p style={{ ...labelStyle, color: '#ef4444', marginBottom: 10 }}>↓ Extra Deductions</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     {[
                         ['Loan Deductions', loanDeduct, setLoanDeduct],
                         ['Advance Deductions', advanceDeduct, setAdvanceDeduct],
@@ -492,63 +584,75 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                         ['Other Deductions', otherDeduct, setOtherDeduct],
                     ].map(([l, v, set]) => (
                         <div key={l as string}>
-                            <label className="text-xs font-semibold text-gray-500 mb-1 block">{l as string}</label>
-                            <input type="number" min="0" value={v as number}
-                                onChange={e => (set as any)(Number(e.target.value))} className={inp} />
+                            <FieldLabel>{l as string}</FieldLabel>
+                            <input type="number" min="0" value={v as number} onChange={e => (set as any)(Number(e.target.value))} style={fStyle} />
                         </div>
                     ))}
                 </div>
             </div>
 
-            {/* Live Tax Preview */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 text-white">
-                <p className="text-xs font-black uppercase tracking-widest opacity-60 mb-3">🧮 Live KRA Tax Computation</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+            {/* Live tax computation — dark card */}
+            <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', borderRadius: 18, padding: '18px 20px' }}>
+                <p style={{ margin: '0 0 14px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>🧮 Live KRA Tax Computation</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     {[
-                        ['Gross Pay', fmt(calc.grossPay), 'text-emerald-400'],
-                        ['Taxable Income', fmt(calc.taxable), 'text-blue-300'],
-                        ['PAYE Tax', fmt(calc.paye), 'text-red-400'],
-                        ['NHIF', fmt(calc.nhif), 'text-red-400'],
-                        ['NSSF', fmt(calc.nssf), 'text-red-400'],
-                        ['Housing Levy (1.5%)', fmt(calc.housingLevy), 'text-red-400'],
-                        ['Total Deductions', fmt(calc.totalDeductions), 'text-orange-400'],
+                        ['Gross Pay', fmt(calc.grossPay), '#34d399'],
+                        ['Taxable Income', fmt(calc.taxable), '#93c5fd'],
+                        ['PAYE Tax', fmt(calc.paye), '#f87171'],
+                        ['NHIF', fmt(calc.nhif), '#f87171'],
+                        ['NSSF', fmt(calc.nssf), '#f87171'],
+                        ['Housing Levy (1.5%)', fmt(calc.housingLevy), '#f87171'],
+                        ['Total Deductions', fmt(calc.totalDeductions), '#fb923c'],
                     ].map(([l, v, c]) => (
-                        <div key={l as string} className="flex justify-between">
-                            <span className="opacity-70">{l}</span>
-                            <span className={`font-bold ${c}`}>{v}</span>
+                        <div key={l as string} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.fontBase }}>
+                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>{l}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: c as string }}>{v}</span>
                         </div>
                     ))}
                 </div>
-                <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center">
-                    <span className="text-sm opacity-70 font-semibold">NET PAY</span>
-                    <span className="text-2xl font-black text-emerald-400">{fmt(calc.netPay)}</span>
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: T.fontBase }}>
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>NET PAY</span>
+                    <span style={{ fontSize: 26, fontWeight: 900, color: '#34d399', letterSpacing: '-0.02em' }}>{fmt(calc.netPay)}</span>
                 </div>
             </div>
 
-            {/* Payment Method */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Payment method */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Payment Method</label>
-                    <select value={payMethod} onChange={e => setPayMethod(e.target.value)} className={inp}>
+                    <FieldLabel>Payment Method</FieldLabel>
+                    <select value={payMethod} onChange={e => setPayMethod(e.target.value)} style={fStyle}>
                         {['Bank Transfer', 'M-Pesa', 'Cash', 'Cheque'].map(m => <option key={m}>{m}</option>)}
                     </select>
                 </div>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Payment Reference</label>
-                    <input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="e.g. TXN12345" className={inp} />
+                    <FieldLabel>Payment Reference</FieldLabel>
+                    <input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="e.g. TXN12345" style={fStyle} />
                 </div>
             </div>
             <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Notes</label>
+                <FieldLabel>Notes</FieldLabel>
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                    placeholder="Any notes for this payroll entry..." className={inp + ' resize-none'} />
+                    placeholder="Any notes for this payroll entry..."
+                    style={{ ...fStyle, resize: 'none' }} />
             </div>
 
-            <div className="flex gap-3 pt-2">
-                <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
-                <button onClick={handleSave} disabled={saving}
-                    className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                    {saving ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving...</> : <><FiCheck size={15} /> Save Payroll</>}
+            <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={onClose} style={{
+                    flex: 1, padding: '12px', borderRadius: 14, border: '1px solid #e2e8f0',
+                    background: '#f8fafc', color: T.text.body, cursor: 'pointer',
+                    fontSize: 12, fontWeight: 700, fontFamily: T.fontBase, transition: 'all 0.15s',
+                }}>Cancel</button>
+                <button onClick={handleSave} disabled={saving} style={{
+                    flex: 2, padding: '12px', borderRadius: 14, border: 'none',
+                    background: saving ? '#a5b4fc' : 'linear-gradient(135deg,#4f46e5,#2563eb)',
+                    color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
+                    fontSize: 12, fontWeight: 800, fontFamily: T.fontBase,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    letterSpacing: '-0.01em', transition: 'all 0.15s',
+                }}>
+                    {saving
+                        ? <><div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Saving...</>
+                        : <><FiCheck size={14} /> Save Payroll Record</>}
                 </button>
             </div>
         </div>
@@ -578,59 +682,49 @@ function AdvanceForm({ staff, onSave, onClose }: {
         await onSave({
             staff_id: staffId,
             staff_name: `${selectedStaff?.first_name} ${selectedStaff?.last_name}`,
-            amount, reason, monthly_deduction: monthly,
-            balance: amount, status: 'Pending',
+            amount, reason, monthly_deduction: monthly, balance: amount, status: 'Pending',
         });
         setSaving(false);
     };
 
-    const inp = "w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all";
-
     return (
-        <div className="space-y-4">
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 font-semibold">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: T.fontBase }}>
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '12px 14px', fontSize: 11, color: '#92400e', fontWeight: 600 }}>
                 ⚠️ Salary advances will be automatically deducted from monthly payroll when approved and set to Active.
             </div>
             <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Staff Member *</label>
-                <select value={staffId} onChange={e => setStaffId(e.target.value)} className={inp}>
+                <label style={labelStyle}>Staff Member *</label>
+                <select value={staffId} onChange={e => setStaffId(e.target.value)} style={inputStyle}>
                     <option value="">— Select Staff —</option>
                     {staff.filter(s => s.status === 'Active').map(s => (
                         <option key={s.id} value={s.id}>{s.first_name} {s.last_name} — Basic: {fmt(s.basic_salary)}</option>
                     ))}
                 </select>
             </div>
-            {selectedStaff && (
-                <div className="bg-slate-50 rounded-xl p-3 text-xs">
-                    <p className="text-gray-500">Basic Salary: <strong className="text-gray-800">{fmt(selectedStaff.basic_salary)}</strong></p>
-                    <p className="text-gray-500 mt-1">Recommended max advance: <strong className="text-gray-800">{fmt(selectedStaff.basic_salary * 3)}</strong> (3 months)</p>
-                </div>
-            )}
-            <div className="grid grid-cols-2 gap-3">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Advance Amount (KES) *</label>
-                    <input type="number" min="0" value={amount || ''} onChange={e => setAmount(Number(e.target.value))} className={inp} placeholder="0" />
+                    <label style={labelStyle}>Advance Amount (KES) *</label>
+                    <input type="number" min="0" value={amount} onChange={e => setAmount(Number(e.target.value))} style={inputStyle} />
                 </div>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Monthly Deduction (KES) *</label>
-                    <input type="number" min="0" value={monthly || ''} onChange={e => setMonthly(Number(e.target.value))} className={inp} placeholder="0" />
+                    <label style={labelStyle}>Monthly Deduction (KES) *</label>
+                    <input type="number" min="0" value={monthly} onChange={e => setMonthly(Number(e.target.value))} style={inputStyle} />
                 </div>
             </div>
             {months > 0 && (
-                <div className="bg-blue-50 rounded-xl p-3 text-xs text-blue-800 font-semibold flex justify-between">
-                    <span>Repayment Period:</span>
-                    <span className="font-black">{months} months</span>
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '10px 14px', fontSize: 11, color: '#1e40af', fontWeight: 600 }}>
+                    📅 Repayment duration: approx. <strong>{months} month{months !== 1 ? 's' : ''}</strong>
                 </div>
             )}
             <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Reason / Purpose *</label>
-                <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} className={inp + ' resize-none'} placeholder="Reason for salary advance..." />
+                <label style={labelStyle}>Reason / Purpose</label>
+                <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2}
+                    placeholder="Reason for advance request..." style={{ ...inputStyle, resize: 'none' }} />
             </div>
-            <div className="flex gap-3 pt-2">
-                <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
-                <button onClick={handleSave} disabled={saving}
-                    className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-black transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                    {saving ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving...</> : <><FiCheck size={15} /> Submit Advance</>}
+            <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 14, border: '1px solid #e2e8f0', background: '#f8fafc', color: T.text.body, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: T.fontBase }}>Cancel</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: '12px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 800, fontFamily: T.fontBase, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    {saving ? 'Submitting...' : <><FiCheck size={14} /> Submit Advance Request</>}
                 </button>
             </div>
         </div>
@@ -646,154 +740,140 @@ function BulkPayrollRunner({ staff, advances, onComplete, onClose }: {
 }) {
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
-    const [houseRate, setHouseRate] = useState(15); // % of basic
+    const [houseRate, setHouseRate] = useState(15);
     const [transportFlat, setTransportFlat] = useState(3000);
-    const [medicalFlat, setMedicalFlat] = useState(0);
+    const [medicalFlat, setMedicalFlat] = useState(2000);
     const [running, setRunning] = useState(false);
     const [progress, setProgress] = useState(0);
     const [done, setDone] = useState(false);
 
     const activeStaff = staff.filter(s => s.status === 'Active');
+
     const preview = activeStaff.map(s => {
-        const house = Math.round(s.basic_salary * houseRate / 100);
-        const advance = advances.find(a => a.staff_id === s.id && a.status === 'Active');
-        const calc = computePayroll(s.basic_salary, house, transportFlat, medicalFlat, 0, 0, advance?.monthly_deduction ?? 0, 0, 0);
-        return { ...s, calc };
+        const houseAllow = Math.round(s.basic_salary * houseRate / 100);
+        const activeAdv = advances.find(a => a.staff_id === s.id && a.status === 'Active');
+        const advDeduct = activeAdv?.monthly_deduction ?? 0;
+        const calc = computePayroll(s.basic_salary, houseAllow, transportFlat, medicalFlat, 0, 0, advDeduct, 0, 0);
+        return { ...s, calc, houseAllow };
     });
+
     const totalGross = preview.reduce((s, p) => s + p.calc.grossPay, 0);
     const totalNet = preview.reduce((s, p) => s + p.calc.netPay, 0);
     const totalPAYE = preview.reduce((s, p) => s + p.calc.paye, 0);
 
     const handleRun = async () => {
+        if (!confirm(`Process payroll for ${activeStaff.length} staff members for ${MONTHS[month - 1]} ${year}?`)) return;
         setRunning(true);
         for (let i = 0; i < preview.length; i++) {
             const s = preview[i];
-            const house = Math.round(s.basic_salary * houseRate / 100);
-            const advance = advances.find(a => a.staff_id === s.id && a.status === 'Active');
-            const calc = computePayroll(s.basic_salary, house, transportFlat, medicalFlat, 0, 0, advance?.monthly_deduction ?? 0, 0, 0);
-            await supabase.from('school_payroll').upsert({
-                staff_id: s.id,
-                staff_name: `${s.first_name} ${s.last_name}`,
-                staff_type: s._type,
-                month, year,
-                pay_period: `${MONTHS[month - 1]} ${year}`,
-                basic_salary: s.basic_salary,
-                house_allowance: house, transport_allowance: transportFlat,
-                medical_allowance: medicalFlat, other_allowances: 0,
-                paye: calc.paye, nhif: calc.nhif, nssf: calc.nssf, housing_levy: calc.housingLevy,
-                loan_deductions: 0, advance_deductions: advance?.monthly_deduction ?? 0,
+            await supabase.from('school_payroll').insert({
+                staff_id: s.id, staff_name: `${s.first_name} ${s.last_name}`, staff_type: s._type,
+                month, year, pay_period: `${MONTHS[month - 1]} ${year}`,
+                basic_salary: s.basic_salary, house_allowance: s.houseAllow,
+                transport_allowance: transportFlat, medical_allowance: medicalFlat, other_allowances: 0,
+                paye: s.calc.paye, nhif: s.calc.nhif, nssf: s.calc.nssf, housing_levy: s.calc.housingLevy,
+                loan_deductions: 0, advance_deductions: s.calc.advanceDeductions,
                 sacco_deductions: 0, other_deductions: 0,
-                gross_pay: calc.grossPay, total_deductions: calc.totalDeductions, net_pay: calc.netPay,
+                gross_pay: s.calc.grossPay, total_deductions: s.calc.totalDeductions, net_pay: s.calc.netPay,
                 status: 'Pending',
-            }, { onConflict: 'staff_id,month,year' });
+            });
             setProgress(Math.round(((i + 1) / preview.length) * 100));
-            await new Promise(r => setTimeout(r, 80));
         }
-        setDone(true); setRunning(false); onComplete();
+        setRunning(false); setDone(true);
+        onComplete();
     };
 
-    const inp = "w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all";
+    if (done) return (
+        <div style={{ textAlign: 'center', padding: '40px 20px', fontFamily: T.fontBase }}>
+            <div style={{ width: 64, height: 64, background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <FiCheckCircle size={32} color="#22c55e" />
+            </div>
+            <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 900, color: T.text.heading, letterSpacing: '-0.02em' }}>Payroll Processed!</h3>
+            <p style={{ margin: 0, fontSize: 12, color: T.text.muted }}>{preview.length} staff members processed for {MONTHS[month - 1]} {year}</p>
+            <button onClick={onClose} style={{ marginTop: 24, padding: '12px 32px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: T.fontBase }}>Done</button>
+        </div>
+    );
 
     return (
-        <div className="space-y-5">
-            {done ? (
-                <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <FiCheckCircle size={32} className="text-emerald-500" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: T.fontBase }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                {[['Month', month, setMonth, 'select-month'], ['Year', year, setYear, 'select-year'], ['House Allow %', houseRate, setHouseRate, 'number'], ['Transport (KES flat)', transportFlat, setTransportFlat, 'number'], ['Medical (KES flat)', medicalFlat, setMedicalFlat, 'number']].map(([l, v, set, type]) => (
+                    <div key={l as string}>
+                        <label style={labelStyle}>{l as string}</label>
+                        {type === 'select-month'
+                            ? <select value={v as number} onChange={e => (set as any)(Number(e.target.value))} style={inputStyle}>{MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select>
+                            : type === 'select-year'
+                                ? <select value={v as number} onChange={e => (set as any)(Number(e.target.value))} style={inputStyle}>{[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}</select>
+                                : <input type="number" min="0" value={v as number} onChange={e => (set as any)(Number(e.target.value))} style={inputStyle} />}
                     </div>
-                    <h3 className="text-xl font-black text-gray-900">Payroll Processed!</h3>
-                    <p className="text-gray-500 text-sm mt-2">{preview.length} staff members processed for {MONTHS[month - 1]} {year}</p>
-                    <button onClick={onClose} className="mt-6 px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm">Done</button>
-                </div>
-            ) : (
-                <>
-                    <div className="grid grid-cols-3 gap-3">
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Month</label>
-                            <select value={month} onChange={e => setMonth(Number(e.target.value))} className={inp}>
-                                {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Year</label>
-                            <select value={year} onChange={e => setYear(Number(e.target.value))} className={inp}>
-                                {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">House Allow %</label>
-                            <input type="number" min="0" max="100" value={houseRate} onChange={e => setHouseRate(Number(e.target.value))} className={inp} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Transport (KES flat)</label>
-                            <input type="number" min="0" value={transportFlat} onChange={e => setTransportFlat(Number(e.target.value))} className={inp} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Medical (KES flat)</label>
-                            <input type="number" min="0" value={medicalFlat} onChange={e => setMedicalFlat(Number(e.target.value))} className={inp} />
-                        </div>
-                    </div>
+                ))}
+            </div>
 
-                    {/* Summary */}
-                    <div className="grid grid-cols-3 gap-3">
-                        {[
-                            ['Total Staff', `${activeStaff.length}`, '#6366f1'],
-                            ['Total Gross', fmt(totalGross), '#059669'],
-                            ['Total Net', fmt(totalNet), '#0284c7'],
-                            ['Total PAYE', fmt(totalPAYE), '#dc2626'],
-                        ].map(([l, v, c]) => (
-                            <div key={l} className="bg-gray-50 rounded-xl p-3 text-center">
-                                <p className="text-xs text-gray-400 font-bold uppercase">{l}</p>
-                                <p className="text-base font-black mt-1" style={{ color: c }}>{v}</p>
-                            </div>
+            {/* Summary mini-cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
+                {[
+                    ['Total Staff', `${activeStaff.length}`, '#6366f1'],
+                    ['Total Gross', fmt(totalGross), '#059669'],
+                    ['Total Net', fmt(totalNet), '#0284c7'],
+                    ['Total PAYE', fmt(totalPAYE), '#dc2626'],
+                ].map(([l, v, c]) => (
+                    <div key={l as string} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 14, padding: '12px 14px', textAlign: 'center', borderTop: `3px solid ${c as string}` }}>
+                        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: T.text.faint, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{l}</p>
+                        <p style={{ margin: '4px 0 0', fontSize: 14, fontWeight: 900, color: c as string, letterSpacing: '-0.01em' }}>{v}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Preview table */}
+            <div style={{ maxHeight: 220, overflowY: 'auto', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: T.fontBase }}>
+                    <thead style={{ background: '#f8fafc', position: 'sticky', top: 0 }}>
+                        <tr>
+                            {['Name', 'Type', 'Basic', 'Gross', 'PAYE', 'Net'].map(h => (
+                                <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: T.text.faint, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {preview.map(s => (
+                            <tr key={s.id} style={{ borderTop: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '8px 12px', fontWeight: 600, color: T.text.heading }}>{s.first_name} {s.last_name}</td>
+                                <td style={{ padding: '8px 12px', color: T.text.muted }}>{s._type}</td>
+                                <td style={{ padding: '8px 12px' }}>{fmt(s.basic_salary)}</td>
+                                <td style={{ padding: '8px 12px', color: '#059669', fontWeight: 700 }}>{fmt(s.calc.grossPay)}</td>
+                                <td style={{ padding: '8px 12px', color: '#ef4444', fontWeight: 700 }}>{fmt(s.calc.paye)}</td>
+                                <td style={{ padding: '8px 12px', color: '#2563eb', fontWeight: 900 }}>{fmt(s.calc.netPay)}</td>
+                            </tr>
                         ))}
-                    </div>
+                    </tbody>
+                </table>
+            </div>
 
-                    {/* Preview table */}
-                    <div className="max-h-52 overflow-y-auto rounded-xl border border-gray-100">
-                        <table className="w-full text-xs">
-                            <thead className="bg-gray-50 sticky top-0">
-                                <tr>
-                                    {['Name', 'Type', 'Basic', 'Gross', 'PAYE', 'Net'].map(h => (
-                                        <th key={h} className="px-3 py-2 text-left font-black text-gray-500 uppercase tracking-wider">{h}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {preview.map(s => (
-                                    <tr key={s.id} className="border-t border-gray-50 hover:bg-gray-50">
-                                        <td className="px-3 py-2 font-semibold text-gray-800">{s.first_name} {s.last_name}</td>
-                                        <td className="px-3 py-2 text-gray-500">{s._type}</td>
-                                        <td className="px-3 py-2">{fmt(s.basic_salary)}</td>
-                                        <td className="px-3 py-2 text-emerald-700 font-bold">{fmt(s.calc.grossPay)}</td>
-                                        <td className="px-3 py-2 text-red-600 font-bold">{fmt(s.calc.paye)}</td>
-                                        <td className="px-3 py-2 text-blue-700 font-black">{fmt(s.calc.netPay)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+            {running && (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, fontWeight: 700, color: T.text.muted }}>
+                        <span>Processing payroll...</span><span>{progress}%</span>
                     </div>
-
-                    {running && (
-                        <div>
-                            <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
-                                <span>Processing payroll...</span><span>{progress}%</span>
-                            </div>
-                            <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="flex gap-3">
-                        <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
-                        <button onClick={handleRun} disabled={running}
-                            className="flex-2 flex-grow py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white text-sm font-black transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-                            {running ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Processing {progress}%...</> : <><FiZap size={15} /> Run Bulk Payroll for {activeStaff.length} Staff</>}
-                        </button>
+                    <div style={{ height: 8, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg,#4f46e5,#2563eb)', borderRadius: 99, transition: 'width 0.3s' }} />
                     </div>
-                </>
+                </div>
             )}
+
+            <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 14, border: '1px solid #e2e8f0', background: '#f8fafc', color: T.text.body, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: T.fontBase }}>Cancel</button>
+                <button onClick={handleRun} disabled={running} style={{
+                    flex: 2, padding: '12px', borderRadius: 14, border: 'none',
+                    background: running ? '#a5b4fc' : 'linear-gradient(135deg,#4f46e5,#2563eb)',
+                    color: '#fff', cursor: running ? 'not-allowed' : 'pointer',
+                    fontSize: 12, fontWeight: 800, fontFamily: T.fontBase,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}>
+                    {running
+                        ? <><div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Processing {progress}%...</>
+                        : <><FiZap size={14} /> Run Bulk Payroll for {activeStaff.length} Staff</>}
+                </button>
+            </div>
         </div>
     );
 }
@@ -812,7 +892,7 @@ export default function PayrollPage() {
     const [staff, setStaff] = useState<StaffMember[]>([]);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
-    const [monthFilter, setMonthFilter] = useState<number>(0); // 0 = all
+    const [monthFilter, setMonthFilter] = useState<number>(0);
     const [yearFilter, setYearFilter] = useState<number>(now.getFullYear());
     const [sortField, setSortField] = useState<string>('created_at');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -823,7 +903,6 @@ export default function PayrollPage() {
     const [showBulk, setShowBulk] = useState(false);
     const [showAdvanceForm, setShowAdvanceForm] = useState(false);
 
-    // ─── Fetch ───────────────────────────────────────────────────────────────
     const fetchAll = useCallback(async () => {
         setLoading(true);
         try {
@@ -839,16 +918,13 @@ export default function PayrollPage() {
                 ...(supportRes.data || []).map((s: any) => ({ ...s, _type: 'Support Teacher' as const })),
                 ...(subRes.data || []).map((s: any) => ({ ...s, _type: 'Subordinate' as const })),
             ];
-            setStaff(allStaff);
-            setPayrolls(payrollRes.data || []);
-            setAdvances(advRes.data || []);
+            setStaff(allStaff); setPayrolls(payrollRes.data || []); setAdvances(advRes.data || []);
         } catch (e) { console.error(e); }
         setLoading(false);
     }, []);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    // ─── Stats ───────────────────────────────────────────────────────────────
     const stats = useMemo(() => {
         const paid = payrolls.filter(p => p.status === 'Paid');
         const pending = payrolls.filter(p => p.status === 'Pending');
@@ -862,7 +938,6 @@ export default function PayrollPage() {
         return { paid: paid.length, pending: pending.length, totalGross, totalNet, totalPAYE, totalNHIF, pendingAdvances, totalAdvanceBalance };
     }, [payrolls, advances]);
 
-    // ─── Filtered Payrolls ───────────────────────────────────────────────────
     const filteredPayrolls = useMemo(() => {
         let res = [...payrolls];
         if (search) {
@@ -880,7 +955,6 @@ export default function PayrollPage() {
         return res;
     }, [payrolls, search, statusFilter, monthFilter, yearFilter, sortField, sortDir]);
 
-    // ─── Bulk actions ─────────────────────────────────────────────────────────
     const handleBulkStatus = async (status: PayrollRecord['status']) => {
         if (selected.size === 0) return;
         if (!confirm(`Mark ${selected.size} records as ${status}?`)) return;
@@ -893,11 +967,8 @@ export default function PayrollPage() {
         await fetchAll();
     };
     const handleSavePayroll = async (data: Partial<PayrollRecord>) => {
-        if (editRecord) {
-            await supabase.from('school_payroll').update(data).eq('id', editRecord.id);
-        } else {
-            await supabase.from('school_payroll').insert(data);
-        }
+        if (editRecord) await supabase.from('school_payroll').update(data).eq('id', editRecord.id);
+        else await supabase.from('school_payroll').insert(data);
         await fetchAll(); setShowAddPayroll(false); setEditRecord(null);
     };
     const handleSaveAdvance = async (data: Partial<SalaryAdvance>) => {
@@ -909,28 +980,17 @@ export default function PayrollPage() {
         await fetchAll();
     };
     const toggleSelect = (id: string) => {
-        const s = new Set(selected);
-        s.has(id) ? s.delete(id) : s.add(id);
-        setSelected(s);
+        const s = new Set(selected); s.has(id) ? s.delete(id) : s.add(id); setSelected(s);
     };
     const handleSort = (field: string) => {
         if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
         else { setSortField(field); setSortDir('asc'); }
     };
 
-    // ─── Export CSV ─────────────────────────────────────────────────────────
     const exportCSV = () => {
         const rows = [
-            ['Name', 'Type', 'Period', 'Basic', 'House Allow', 'Transport', 'Medical', 'Other Allow',
-                'Gross Pay', 'PAYE', 'NHIF', 'NSSF', 'Housing Levy', 'Loans', 'Advances', 'SACCO', 'Other Deductions',
-                'Total Deductions', 'Net Pay', 'Status', 'Payment Method', 'Reference'],
-            ...filteredPayrolls.map(p => [
-                p.staff_name, p.staff_type, p.pay_period,
-                p.basic_salary, p.house_allowance, p.transport_allowance, p.medical_allowance, p.other_allowances,
-                p.gross_pay, p.paye, p.nhif, p.nssf, p.housing_levy,
-                p.loan_deductions, p.advance_deductions, p.sacco_deductions, p.other_deductions,
-                p.total_deductions, p.net_pay, p.status, p.payment_method, p.payment_ref,
-            ]),
+            ['Name', 'Type', 'Period', 'Basic', 'House Allow', 'Transport', 'Medical', 'Other Allow', 'Gross Pay', 'PAYE', 'NHIF', 'NSSF', 'Housing Levy', 'Loans', 'Advances', 'SACCO', 'Other Deductions', 'Total Deductions', 'Net Pay', 'Status', 'Payment Method', 'Reference'],
+            ...filteredPayrolls.map(p => [p.staff_name, p.staff_type, p.pay_period, p.basic_salary, p.house_allowance, p.transport_allowance, p.medical_allowance, p.other_allowances, p.gross_pay, p.paye, p.nhif, p.nssf, p.housing_levy, p.loan_deductions, p.advance_deductions, p.sacco_deductions, p.other_deductions, p.total_deductions, p.net_pay, p.status, p.payment_method, p.payment_ref]),
         ];
         const csv = rows.map(r => r.join(',')).join('\n');
         const a = document.createElement('a');
@@ -939,7 +999,6 @@ export default function PayrollPage() {
         a.click();
     };
 
-    // ─── Analytics Data ────────────────────────────────────────────────────
     const analyticsData = useMemo(() => {
         const byType: Record<string, number> = {};
         const byStatus: Record<string, number> = {};
@@ -957,71 +1016,94 @@ export default function PayrollPage() {
         return { byType, byStatus, monthly };
     }, [payrolls]);
 
-    const statusColors: Record<string, string> = {
-        Draft: '#94a3b8', Pending: '#f59e0b', Approved: '#3b82f6', Paid: '#22c55e', Rejected: '#ef4444'
-    };
+    const statusColors: Record<string, string> = { Draft: '#94a3b8', Pending: '#f59e0b', Approved: '#3b82f6', Paid: '#22c55e', Rejected: '#ef4444' };
+
+    // Sort button component
+    const SortBtn = ({ field, label }: { field: string; label: string }) => (
+        <th onClick={() => handleSort(field)} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: sortField === field ? '#4f46e5' : T.text.faint, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none', fontFamily: T.fontBase }}>
+            {label} {sortField === field ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+        </th>
+    );
 
     if (loading) return (
-        <div className="flex items-center justify-center h-[70vh]">
-            <div className="text-center">
-                <div className="relative w-16 h-16 mx-auto mb-4">
-                    <div className="absolute inset-0 rounded-full border-4 border-gray-100" />
-                    <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 animate-spin" />
-                    <FiDollarSign className="absolute inset-0 m-auto text-indigo-500" size={20} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', fontFamily: T.fontBase }}>
+            <div style={{ textAlign: 'center' }}>
+                <div style={{ position: 'relative', width: 56, height: 56, margin: '0 auto 16px' }}>
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid #f1f5f9' }} />
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite' }} />
+                    <FiDollarSign style={{ position: 'absolute', inset: 0, margin: 'auto', color: '#6366f1' }} size={20} />
                 </div>
-                <p className="text-gray-500 font-semibold text-sm">Loading Payroll System...</p>
-                <p className="text-gray-400 text-xs mt-1">Kenya Tax Calculator Active</p>
+                <p style={{ fontSize: 16, fontWeight: 800, color: T.text.heading, margin: 0, letterSpacing: '-0.01em' }}>Loading Payroll System…</p>
+                <p style={{ fontSize: 11, color: T.text.faint, margin: '6px 0 0' }}>Kenya Tax Calculator Active</p>
             </div>
+            <style>{`@keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }`}</style>
         </div>
     );
 
     return (
         <>
             <style>{`
-                @keyframes modal { from { opacity: 0; transform: scale(0.95) translateY(8px); } to { opacity: 1; transform: none; } }
-                .animate-modal { animation: modal 0.2s ease-out; }
-                .sort-btn { cursor: pointer; user-select: none; }
-                .sort-btn:hover { color: #4f46e5; }
-                .row-select:checked + td { background: #eff6ff; }
-                ::-webkit-scrollbar { width: 5px; height: 5px; }
-                ::-webkit-scrollbar-track { background: #f8fafc; }
-                ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+                @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
+                @keyframes modalIn { from { opacity:0; transform:scale(0.94) translateY(10px) } to { opacity:1; transform:none } }
+                * { box-sizing: border-box; }
+                ::-webkit-scrollbar { width:5px; height:5px; }
+                ::-webkit-scrollbar-track { background:#f8fafc; }
+                ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:99px; }
             `}</style>
 
-            <div className="space-y-5 pb-10">
-                {/* ── Top Header ─────────────────────────────────────────────── */}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-                            <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
-                                <FiDollarSign className="text-white" size={18} />
-                            </span>
-                            Payroll Management
-                        </h1>
-                        <p className="text-xs text-gray-400 font-semibold mt-1 ml-11">Kenya Tax Calculator · PAYE · NHIF · NSSF · Housing Levy · Advances</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <button onClick={() => fetchAll()} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-bold text-gray-600 transition-all">
-                            <FiRefreshCw size={13} /> Refresh
-                        </button>
-                        <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-bold text-gray-600 transition-all">
-                            <FiDownload size={13} /> Export CSV
-                        </button>
-                        <button onClick={() => setShowAdvanceForm(true)} className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black transition-all">
-                            <FiCreditCard size={13} /> Salary Advance
-                        </button>
-                        <button onClick={() => setShowBulk(true)} className="flex items-center gap-1.5 px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all">
-                            <FiZap size={13} /> Bulk Run
-                        </button>
-                        <button onClick={() => { setEditRecord(undefined); setShowAddPayroll(true); }}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-indigo-200">
-                            <FiPlus size={13} /> Add Payroll
-                        </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 40, fontFamily: T.fontBase }}>
+
+                {/* ── TOP HEADER ─────────────────────────────────────────────── */}
+                <div style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1e293b 100%)', borderRadius: 20, padding: '20px 24px', color: '#fff' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <FiDollarSign size={20} color="#a5b4fc" />
+                                </div>
+                                <div>
+                                    <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', color: '#fff' }}>Payroll Management</h1>
+                                    <p style={{ margin: 0, fontSize: 11, color: '#94a3b8' }}>Kenya Tax Calculator · PAYE · NHIF · NSSF · Housing Levy · Advances</p>
+                                </div>
+                            </div>
+                            {/* Quick stat tags */}
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                {[
+                                    { label: `${payrolls.length} records`, color: '#6366f1' },
+                                    { label: `${stats.paid} paid`, color: '#22c55e' },
+                                    { label: `${stats.pending} pending`, color: '#f59e0b' },
+                                    { label: `${staff.filter(s => s.status === 'Active').length} active staff`, color: '#06b6d4' },
+                                ].map(tag => (
+                                    <span key={tag.label} style={{ fontSize: 10, fontWeight: 700, color: tag.color, background: `${tag.color}22`, borderRadius: 20, padding: '3px 10px', border: `1px solid ${tag.color}44` }}>
+                                        {tag.label}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                            <button onClick={() => fetchAll()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.08)', color: '#e2e8f0', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: T.fontBase }}>
+                                <FiRefreshCw size={13} /> Refresh
+                            </button>
+                            <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(59,130,246,0.4)', background: 'rgba(59,130,246,0.15)', color: '#93c5fd', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: T.fontBase }}>
+                                <FiDownload size={13} /> Export CSV
+                            </button>
+                            <button onClick={() => setShowAdvanceForm(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: T.fontBase }}>
+                                <FiCreditCard size={13} /> Salary Advance
+                            </button>
+                            <button onClick={() => setShowBulk(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: T.fontBase }}>
+                                <FiZap size={13} /> Bulk Run
+                            </button>
+                            <button onClick={() => { setEditRecord(undefined); setShowAddPayroll(true); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#4f46e5,#2563eb)', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: T.fontBase, boxShadow: '0 4px 14px rgba(79,70,229,0.4)' }}>
+                                <FiPlus size={13} /> Add Payroll
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                {/* ── Stat Cards ──────────────────────────────────────────────── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
+                {/* ── STAT CARDS ──────────────────────────────────────────────── */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 14 }}>
                     <StatCard label="Total Records" value={String(payrolls.length)} icon={FiFileText} color="#6366f1" sub={`${stats.paid} Paid · ${stats.pending} Pending`} />
                     <StatCard label="Total Gross Pay" value={fmt(stats.totalGross)} icon={FiTrendingUp} color="#059669" trend="up" />
                     <StatCard label="Total Net Pay" value={fmt(stats.totalNet)} icon={FiDollarSign} color="#0284c7" />
@@ -1030,11 +1112,22 @@ export default function PayrollPage() {
                     <StatCard label="Active Staff" value={String(staff.filter(s => s.status === 'Active').length)} icon={FiUsers} color="#8b5cf6" />
                 </div>
 
-                {/* ── Tabs ─────────────────────────────────────────────────────── */}
-                <div className="flex gap-1 bg-gray-100 rounded-2xl p-1 w-fit">
-                    {([['payroll', FiFileText, 'Payroll Records'], ['advances', FiCreditCard, 'Salary Advances'], ['analytics', FiBarChart2, 'Analytics']] as const).map(([t, Icon, label]) => (
-                        <button key={t} onClick={() => setTab(t as Tab)}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all ${tab === t ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}>
+                {/* ── TABS ──────────────────────────────────────────────────────── */}
+                <div style={{ display: 'flex', gap: 2, background: '#f1f5f9', borderRadius: 14, padding: 4, width: 'fit-content' }}>
+                    {([
+                        ['payroll', FiFileText, 'Payroll Records'],
+                        ['advances', FiCreditCard, 'Salary Advances'],
+                        ['analytics', FiBarChart2, 'Analytics'],
+                    ] as const).map(([t, Icon, label]) => (
+                        <button key={t} onClick={() => setTab(t as Tab)} style={{
+                            display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px',
+                            borderRadius: 10, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                            fontSize: 12, fontWeight: tab === t ? 700 : 600, fontFamily: T.fontBase,
+                            background: tab === t ? '#fff' : 'transparent',
+                            color: tab === t ? '#1e293b' : '#64748b',
+                            boxShadow: tab === t ? '0 1px 6px rgba(0,0,0,0.08)' : 'none',
+                            transition: 'all 0.18s',
+                        }}>
                             <Icon size={13} /> {label}
                         </button>
                     ))}
@@ -1042,137 +1135,127 @@ export default function PayrollPage() {
 
                 {/* ══════════════════════════════════════════════════════════════ */}
                 {tab === 'payroll' && (
-                    <div className="space-y-4">
-                        {/* Filters */}
-                        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-wrap gap-3 items-center">
-                            <div className="relative flex-1 min-w-44">
-                                <FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                        {/* Filter bar */}
+                        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '14px 18px', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                            <FiFilter size={14} color={T.text.faint} />
+                            <span style={{ fontSize: 11, fontWeight: 700, color: T.text.faint, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filters:</span>
+                            <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+                                <FiSearch size={13} color={T.text.faint} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
                                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search staff, period..."
-                                    className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all" />
+                                    style={{ ...inputStyle, paddingLeft: 32, flex: 1 }} />
                             </div>
-                            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-                                className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                                {['All', 'Draft', 'Pending', 'Approved', 'Paid', 'Rejected'].map(s => <option key={s}>{s}</option>)}
-                            </select>
-                            <select value={monthFilter} onChange={e => setMonthFilter(Number(e.target.value))}
-                                className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                                <option value={0}>All Months</option>
-                                {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                            </select>
-                            <select value={yearFilter} onChange={e => setYearFilter(Number(e.target.value))}
-                                className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                                {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-                            </select>
-                            <div className="text-xs text-gray-400 font-semibold ml-auto">
+                            {[
+                                { label: 'Status', value: statusFilter, onChange: (v: string) => setStatusFilter(v as StatusFilter), opts: ['All', 'Draft', 'Pending', 'Approved', 'Paid', 'Rejected'] },
+                                { label: 'Month', value: String(monthFilter), onChange: (v: string) => setMonthFilter(Number(v)), opts: ['0', ...MONTHS.map((_, i) => String(i + 1))], optLabels: ['All Months', ...MONTHS] },
+                                { label: 'Year', value: String(yearFilter), onChange: (v: string) => setYearFilter(Number(v)), opts: ['2024', '2025', '2026'] },
+                            ].map(({ label, value, onChange, opts, optLabels }) => (
+                                <select key={label} value={value} onChange={e => onChange(e.target.value)}
+                                    style={{ ...inputStyle, width: 'auto', minWidth: 110 }}>
+                                    {opts.map((o, i) => <option key={o} value={o}>{optLabels ? optLabels[i] : o}</option>)}
+                                </select>
+                            ))}
+                            <span style={{ fontSize: 11, fontWeight: 600, color: T.text.faint, marginLeft: 'auto' }}>
                                 {filteredPayrolls.length} of {payrolls.length} records
-                            </div>
+                            </span>
                         </div>
 
-                        {/* Bulk Actions */}
+                        {/* Bulk actions bar */}
                         {selected.size > 0 && (
-                            <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3 flex items-center gap-3">
-                                <span className="text-xs font-black text-indigo-700">{selected.size} selected</span>
-                                <button onClick={() => handleBulkStatus('Approved')} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all">Approve All</button>
-                                <button onClick={() => handleBulkStatus('Paid')} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all">Mark Paid</button>
-                                <button onClick={() => handleBulkStatus('Rejected')} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-all">Reject</button>
-                                <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-gray-400 hover:text-gray-600">Clear</button>
+                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 14, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 11, fontWeight: 800, color: '#1e40af' }}>{selected.size} selected</span>
+                                {[
+                                    { label: 'Approve All', color: '#2563eb', bg: '#2563eb', onClick: () => handleBulkStatus('Approved') },
+                                    { label: 'Mark Paid', color: '#059669', bg: '#059669', onClick: () => handleBulkStatus('Paid') },
+                                    { label: 'Reject', color: '#ef4444', bg: '#ef4444', onClick: () => handleBulkStatus('Rejected') },
+                                ].map(({ label, bg, onClick }) => (
+                                    <button key={label} onClick={onClick} style={{ padding: '6px 14px', background: bg, color: '#fff', border: 'none', borderRadius: 10, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: T.fontBase }}>
+                                        {label}
+                                    </button>
+                                ))}
+                                <button onClick={() => setSelected(new Set())} style={{ marginLeft: 'auto', fontSize: 11, color: T.text.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: T.fontBase }}>Clear</button>
                             </div>
                         )}
 
-                        {/* Data Grid */}
-                        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
+                        {/* Main data table — ultra-refined */}
+                        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 20, overflow: 'hidden' }}>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: T.fontBase }}>
                                     <thead>
-                                        <tr className="bg-gray-50 border-b border-gray-100">
-                                            <th className="w-8 px-3 py-3">
+                                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                            <th style={{ width: 36, padding: '10px 12px' }}>
                                                 <input type="checkbox"
                                                     checked={selected.size === filteredPayrolls.length && filteredPayrolls.length > 0}
                                                     onChange={e => setSelected(e.target.checked ? new Set(filteredPayrolls.map(p => p.id)) : new Set())}
-                                                    className="rounded" />
+                                                    style={{ accentColor: '#6366f1', cursor: 'pointer' }} />
                                             </th>
-                                            {[
-                                                ['staff_name', 'Staff Name'], ['staff_type', 'Type'],
-                                                ['pay_period', 'Period'], ['basic_salary', 'Basic'],
-                                                ['gross_pay', 'Gross'], ['paye', 'PAYE'],
-                                                ['nhif', 'NHIF'], ['total_deductions', 'Total Deductions'],
-                                                ['net_pay', 'Net Pay'], ['status', 'Status'],
-                                            ].map(([field, label]) => (
-                                                <th key={field} onClick={() => handleSort(field)}
-                                                    className="sort-btn px-3 py-3 text-left text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                                    <span className="flex items-center gap-1">
-                                                        {label}
-                                                        {sortField === field ? (sortDir === 'asc' ? <FiChevronUp size={11} /> : <FiChevronDown size={11} />) : null}
-                                                    </span>
-                                                </th>
-                                            ))}
-                                            <th className="px-3 py-3 text-xs font-black text-gray-500 uppercase tracking-wider">Actions</th>
+                                            <SortBtn field="staff_name" label="Staff Member" />
+                                            <SortBtn field="staff_type" label="Type" />
+                                            <SortBtn field="pay_period" label="Period" />
+                                            <SortBtn field="gross_pay" label="Gross" />
+                                            <SortBtn field="paye" label="PAYE" />
+                                            <SortBtn field="net_pay" label="Net Pay" />
+                                            <SortBtn field="status" label="Status" />
+                                            <th style={{ padding: '10px 12px', fontSize: 10, fontWeight: 700, color: T.text.faint, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {filteredPayrolls.length === 0 ? (
-                                            <tr><td colSpan={12} className="text-center py-16 text-gray-400">
-                                                <FiFileText size={32} className="mx-auto mb-3 opacity-30" />
-                                                <p className="font-semibold">No payroll records found</p>
-                                                <p className="text-xs mt-1">Use <strong>Bulk Run</strong> or <strong>Add Payroll</strong> to get started</p>
-                                            </td></tr>
-                                        ) : filteredPayrolls.map((p, i) => (
-                                            <tr key={p.id} className={`border-t border-gray-50 hover:bg-indigo-50/30 transition-colors ${selected.has(p.id) ? 'bg-indigo-50' : i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                                                <td className="px-3 py-3">
-                                                    <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded" />
+                                            <tr>
+                                                <td colSpan={9} style={{ padding: '60px', textAlign: 'center', color: T.text.faint, fontFamily: T.fontBase }}>
+                                                    <FiFileText size={28} style={{ display: 'block', margin: '0 auto 10px', opacity: 0.3 }} />
+                                                    <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>No payroll records found</p>
+                                                    <p style={{ fontSize: 11, margin: '4px 0 0' }}>Adjust your filters or add a new record</p>
                                                 </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white text-xs font-black flex-shrink-0">
-                                                            {p.staff_name.split(' ').map(n => n[0]).slice(0, 2).join('')}
-                                                        </div>
-                                                        <span className="font-semibold text-gray-800 whitespace-nowrap">{p.staff_name}</span>
-                                                    </div>
+                                            </tr>
+                                        ) : filteredPayrolls.map(p => (
+                                            <tr key={p.id} style={{ borderTop: '1px solid #f1f5f9', transition: 'background 0.12s' }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = '#fafbff')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+                                                <td style={{ padding: '10px 12px' }}>
+                                                    <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)}
+                                                        style={{ accentColor: '#6366f1', cursor: 'pointer' }} />
                                                 </td>
-                                                <td className="px-3 py-3">
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${p.staff_type === 'TSC Teacher' ? 'bg-indigo-100 text-indigo-700' :
-                                                        p.staff_type === 'Support Teacher' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'
-                                                        }`}>{p.staff_type}</span>
+                                                <td style={{ padding: '10px 12px' }}>
+                                                    <p style={{ margin: 0, fontWeight: 700, color: T.text.heading, fontSize: 12 }}>{p.staff_name}</p>
                                                 </td>
-                                                <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{p.pay_period}</td>
-                                                <td className="px-3 py-3 text-gray-700 font-semibold">{fmt(p.basic_salary)}</td>
-                                                <td className="px-3 py-3 text-emerald-700 font-bold">{fmt(p.gross_pay)}</td>
-                                                <td className="px-3 py-3 text-red-600 font-semibold">{fmt(p.paye)}</td>
-                                                <td className="px-3 py-3 text-orange-600 font-semibold">{fmt(p.nhif)}</td>
-                                                <td className="px-3 py-3 text-red-700 font-bold">{fmt(p.total_deductions)}</td>
-                                                <td className="px-3 py-3 text-blue-700 font-black">{fmt(p.net_pay)}</td>
-                                                <td className="px-3 py-3">
-                                                    <span className={`px-2 py-1 rounded-lg text-xs font-black ${p.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' :
-                                                        p.status === 'Approved' ? 'bg-blue-100 text-blue-700' :
-                                                            p.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
-                                                                p.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
-                                                        }`}>{p.status}</span>
+                                                <td style={{ padding: '10px 12px' }}>
+                                                    <span style={{ fontSize: 10, fontWeight: 700, color: '#6366f1', background: '#eef2ff', borderRadius: 6, padding: '2px 8px' }}>{p.staff_type}</span>
                                                 </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="flex items-center gap-1">
-                                                        <button onClick={() => setViewRecord(p)} title="View Payslip"
-                                                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-indigo-100 flex items-center justify-center text-gray-500 hover:text-indigo-600 transition-all">
-                                                            <FiEye size={13} />
-                                                        </button>
-                                                        <button onClick={() => { setEditRecord(p); setShowAddPayroll(true); }} title="Edit"
-                                                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-blue-100 flex items-center justify-center text-gray-500 hover:text-blue-600 transition-all">
-                                                            <FiEdit2 size={13} />
-                                                        </button>
+                                                <td style={{ padding: '10px 12px', fontSize: 11, color: T.text.muted, fontWeight: 600 }}>{p.pay_period}</td>
+                                                <td style={{ padding: '10px 12px', fontWeight: 700, color: '#059669', fontSize: 12 }}>{fmt(p.gross_pay)}</td>
+                                                <td style={{ padding: '10px 12px', fontWeight: 600, color: '#ef4444', fontSize: 11 }}>{fmt(p.paye)}</td>
+                                                <td style={{ padding: '10px 12px', fontWeight: 900, color: '#0f172a', fontSize: 13, letterSpacing: '-0.01em' }}>{fmt(p.net_pay)}</td>
+                                                <td style={{ padding: '10px 12px' }}>
+                                                    <StatusBadge status={p.status} />
+                                                </td>
+                                                <td style={{ padding: '10px 12px' }}>
+                                                    <div style={{ display: 'flex', gap: 4 }}>
+                                                        {[
+                                                            { icon: FiEye, title: 'View Payslip', hoverBg: '#eef2ff', hoverColor: '#6366f1', onClick: () => setViewRecord(p) },
+                                                            { icon: FiEdit2, title: 'Edit', hoverBg: '#eff6ff', hoverColor: '#2563eb', onClick: () => { setEditRecord(p); setShowAddPayroll(true); } },
+                                                        ].map(({ icon: Icon, title, hoverBg, hoverColor, onClick }) => (
+                                                            <button key={title} onClick={onClick} title={title} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: '#f1f5f9', color: T.text.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                                                                onMouseEnter={e => { const b = e.currentTarget; b.style.background = hoverBg; b.style.color = hoverColor; }}
+                                                                onMouseLeave={e => { const b = e.currentTarget; b.style.background = '#f1f5f9'; b.style.color = T.text.muted; }}>
+                                                                <Icon size={12} />
+                                                            </button>
+                                                        ))}
                                                         {p.status === 'Pending' && (
-                                                            <button onClick={async () => { await supabase.from('school_payroll').update({ status: 'Approved' }).eq('id', p.id); fetchAll(); }} title="Approve"
-                                                                className="w-7 h-7 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center text-blue-500 transition-all">
-                                                                <FiCheck size={13} />
+                                                            <button onClick={async () => { await supabase.from('school_payroll').update({ status: 'Approved' }).eq('id', p.id); fetchAll(); }} title="Approve" style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: '#eff6ff', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <FiCheck size={12} />
                                                             </button>
                                                         )}
                                                         {p.status === 'Approved' && (
-                                                            <button onClick={async () => { await supabase.from('school_payroll').update({ status: 'Paid' }).eq('id', p.id); fetchAll(); }} title="Mark Paid"
-                                                                className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center text-emerald-500 transition-all">
-                                                                <FiCheckCircle size={13} />
+                                                            <button onClick={async () => { await supabase.from('school_payroll').update({ status: 'Paid' }).eq('id', p.id); fetchAll(); }} title="Mark Paid" style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: '#f0fdf4', color: '#22c55e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <FiCheckCircle size={12} />
                                                             </button>
                                                         )}
-                                                        <button onClick={() => handleDelete(p.id)} title="Delete"
-                                                            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-red-100 flex items-center justify-center text-gray-400 hover:text-red-500 transition-all">
-                                                            <FiTrash2 size={13} />
+                                                        <button onClick={() => handleDelete(p.id)} title="Delete" style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: '#f1f5f9', color: T.text.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                                                            onMouseEnter={e => { const b = e.currentTarget; b.style.background = '#fef2f2'; b.style.color = '#ef4444'; }}
+                                                            onMouseLeave={e => { const b = e.currentTarget; b.style.background = '#f1f5f9'; b.style.color = T.text.muted; }}>
+                                                            <FiTrash2 size={12} />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -1182,14 +1265,14 @@ export default function PayrollPage() {
                                 </table>
                             </div>
 
-                            {/* Footer summary */}
+                            {/* Table footer totals */}
                             {filteredPayrolls.length > 0 && (
-                                <div className="bg-gray-50 border-t border-gray-100 px-4 py-3 flex flex-wrap gap-6 text-xs font-bold text-gray-600">
+                                <div style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', flexWrap: 'wrap', gap: 20, fontSize: 11, fontWeight: 700, color: T.text.muted, fontFamily: T.fontBase }}>
                                     <span>Showing {filteredPayrolls.length} records</span>
-                                    <span>Gross: <strong className="text-emerald-700">{fmt(filteredPayrolls.reduce((s, p) => s + p.gross_pay, 0))}</strong></span>
-                                    <span>PAYE: <strong className="text-red-600">{fmt(filteredPayrolls.reduce((s, p) => s + p.paye, 0))}</strong></span>
-                                    <span>NHIF: <strong className="text-orange-600">{fmt(filteredPayrolls.reduce((s, p) => s + p.nhif, 0))}</strong></span>
-                                    <span>Net: <strong className="text-blue-700">{fmt(filteredPayrolls.reduce((s, p) => s + p.net_pay, 0))}</strong></span>
+                                    <span>Gross: <strong style={{ color: '#059669' }}>{fmt(filteredPayrolls.reduce((s, p) => s + p.gross_pay, 0))}</strong></span>
+                                    <span>PAYE: <strong style={{ color: '#ef4444' }}>{fmt(filteredPayrolls.reduce((s, p) => s + p.paye, 0))}</strong></span>
+                                    <span>NHIF: <strong style={{ color: '#f97316' }}>{fmt(filteredPayrolls.reduce((s, p) => s + p.nhif, 0))}</strong></span>
+                                    <span>Net: <strong style={{ color: '#2563eb' }}>{fmt(filteredPayrolls.reduce((s, p) => s + p.net_pay, 0))}</strong></span>
                                 </div>
                             )}
                         </div>
@@ -1198,75 +1281,70 @@ export default function PayrollPage() {
 
                 {/* ══════════════════════════════════════════════════════════════ */}
                 {tab === 'advances' && (
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-sm font-black text-gray-700">Salary Advances Register</h2>
-                            <button onClick={() => setShowAdvanceForm(true)}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black transition-all">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: T.text.heading, letterSpacing: '-0.01em' }}>Salary Advances Register</h2>
+                            <button onClick={() => setShowAdvanceForm(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: T.fontBase }}>
                                 <FiPlus size={13} /> New Advance
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
+                        {/* Advance summary mini-cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
                             {[
                                 ['Pending', advances.filter(a => a.status === 'Pending').length, '#f59e0b'],
                                 ['Active', advances.filter(a => a.status === 'Active').length, '#3b82f6'],
                                 ['Cleared', advances.filter(a => a.status === 'Cleared').length, '#22c55e'],
                             ].map(([l, v, c]) => (
-                                <div key={l as string} className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
-                                    <p className="text-2xl font-black" style={{ color: c as string }}>{v as number}</p>
-                                    <p className="text-xs text-gray-400 font-bold uppercase mt-1">{l}</p>
+                                <div key={l as string} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '16px 20px', textAlign: 'center', borderTop: `3px solid ${c as string}` }}>
+                                    <p style={{ margin: 0, fontSize: 26, fontWeight: 900, color: c as string, letterSpacing: '-0.02em' }}>{v as number}</p>
+                                    <p style={{ margin: '6px 0 0', fontSize: 10, fontWeight: 700, color: T.text.faint, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{l}</p>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
+                        {/* Advances table */}
+                        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 20, overflow: 'hidden' }}>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: T.fontBase }}>
                                     <thead>
-                                        <tr className="bg-gray-50 border-b border-gray-100">
+                                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                                             {['Staff Member', 'Amount', 'Monthly Deduction', 'Balance', 'Reason', 'Status', 'Actions'].map(h => (
-                                                <th key={h} className="px-4 py-3 text-left text-xs font-black text-gray-500 uppercase tracking-wider">{h}</th>
+                                                <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: T.text.faint, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {advances.length === 0 ? (
-                                            <tr><td colSpan={7} className="text-center py-12 text-gray-400">
-                                                <FiCreditCard size={28} className="mx-auto mb-2 opacity-30" />
-                                                <p className="font-semibold">No salary advances yet</p>
+                                            <tr><td colSpan={7} style={{ padding: '60px', textAlign: 'center', color: T.text.faint, fontFamily: T.fontBase }}>
+                                                <FiCreditCard size={28} style={{ display: 'block', margin: '0 auto 10px', opacity: 0.3 }} />
+                                                <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>No salary advances yet</p>
                                             </td></tr>
                                         ) : advances.map(a => (
-                                            <tr key={a.id} className="border-t border-gray-50 hover:bg-amber-50/20 transition-colors">
-                                                <td className="px-4 py-3 font-semibold text-gray-800">{a.staff_name}</td>
-                                                <td className="px-4 py-3 font-bold text-gray-700">{fmt(a.amount)}</td>
-                                                <td className="px-4 py-3 text-red-600 font-semibold">{fmt(a.monthly_deduction)}/mo</td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                            <div className="h-full bg-amber-400 rounded-full" style={{ width: `${(a.balance / a.amount) * 100}%` }} />
+                                            <tr key={a.id} style={{ borderTop: '1px solid #f1f5f9', transition: 'background 0.12s' }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = '#fffbeb')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+                                                <td style={{ padding: '10px 14px', fontWeight: 700, color: T.text.heading }}>{a.staff_name}</td>
+                                                <td style={{ padding: '10px 14px', fontWeight: 800, color: T.text.heading }}>{fmt(a.amount)}</td>
+                                                <td style={{ padding: '10px 14px', color: '#ef4444', fontWeight: 700 }}>{fmt(a.monthly_deduction)}/mo</td>
+                                                <td style={{ padding: '10px 14px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        <div style={{ flex: 1, height: 6, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
+                                                            <div style={{ height: '100%', background: '#f59e0b', borderRadius: 3, width: `${(a.balance / a.amount) * 100}%`, transition: 'width 0.5s' }} />
                                                         </div>
-                                                        <span className="text-xs font-bold text-gray-600 whitespace-nowrap">{fmt(a.balance)}</span>
+                                                        <span style={{ fontSize: 10, fontWeight: 700, color: T.text.muted, whiteSpace: 'nowrap' }}>{fmt(a.balance)}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 text-gray-500 text-xs max-w-40 truncate">{a.reason}</td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`px-2 py-1 rounded-lg text-xs font-black ${a.status === 'Active' ? 'bg-blue-100 text-blue-700' :
-                                                        a.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
-                                                            a.status === 'Cleared' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                                                        }`}>{a.status}</span>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex gap-1">
+                                                <td style={{ padding: '10px 14px', color: T.text.muted, fontSize: 11, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.reason}</td>
+                                                <td style={{ padding: '10px 14px' }}><StatusBadge status={a.status} /></td>
+                                                <td style={{ padding: '10px 14px' }}>
+                                                    <div style={{ display: 'flex', gap: 4 }}>
                                                         {a.status === 'Pending' && <>
-                                                            <button onClick={() => handleAdvanceAction(a.id, 'Active')}
-                                                                className="px-2 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all">Approve</button>
-                                                            <button onClick={() => handleAdvanceAction(a.id, 'Rejected')}
-                                                                className="px-2 py-1 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 transition-all">Reject</button>
+                                                            <button onClick={() => handleAdvanceAction(a.id, 'Active')} style={{ padding: '5px 10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: T.fontBase }}>Approve</button>
+                                                            <button onClick={() => handleAdvanceAction(a.id, 'Rejected')} style={{ padding: '5px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: T.fontBase }}>Reject</button>
                                                         </>}
                                                         {a.status === 'Active' && (
-                                                            <button onClick={() => handleAdvanceAction(a.id, 'Cleared')}
-                                                                className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all">Mark Cleared</button>
+                                                            <button onClick={() => handleAdvanceAction(a.id, 'Cleared')} style={{ padding: '5px 10px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: T.fontBase }}>Mark Cleared</button>
                                                         )}
                                                     </div>
                                                 </td>
@@ -1281,52 +1359,51 @@ export default function PayrollPage() {
 
                 {/* ══════════════════════════════════════════════════════════════ */}
                 {tab === 'analytics' && (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-                                    <FiBarChart2 size={12} /> Monthly Net Pay Trend (Paid)
-                                </h3>
-                                <Bar data={{
-                                    labels: Object.keys(analyticsData.monthly),
-                                    datasets: [{ label: 'Net Pay', data: Object.values(analyticsData.monthly), backgroundColor: '#6366f120', borderColor: '#6366f1', borderWidth: 2, borderRadius: 8 }]
-                                }} options={{ responsive: true, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: (v: any) => fmt(v) } } } }} />
-                            </div>
-                            <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-                                    <FiPieChart size={12} /> Net Pay by Staff Type
-                                </h3>
-                                <Doughnut data={{
-                                    labels: Object.keys(analyticsData.byType),
-                                    datasets: [{ data: Object.values(analyticsData.byType), backgroundColor: ['#6366f1', '#8b5cf6', '#f59e0b'], borderWidth: 0 }]
-                                }} options={{ responsive: true, plugins: { legend: { position: 'bottom' } } }} />
-                            </div>
-                            <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-                                    <FiActivity size={12} /> Records by Status
-                                </h3>
-                                <div className="space-y-3">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+                            {/* Monthly trend */}
+                            <SectionCard title="Monthly Net Pay Trend (Paid)" subtitle="Last 6 months" accent="#6366f1">
+                                <div style={{ height: 280 }}>
+                                    <Bar data={{
+                                        labels: Object.keys(analyticsData.monthly),
+                                        datasets: [{ label: 'Net Pay', data: Object.values(analyticsData.monthly), backgroundColor: '#6366f120', borderColor: '#6366f1', borderWidth: 2, borderRadius: 10 }]
+                                    }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: (v: any) => fmt(v), font: { size: 9 } }, grid: { color: '#f1f5f9' } }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } } }} />
+                                </div>
+                            </SectionCard>
+
+                            {/* Net pay by type */}
+                            <SectionCard title="Net Pay by Staff Type" subtitle="Distribution of payroll spend" accent="#8b5cf6">
+                                <div style={{ height: 280 }}>
+                                    <Doughnut data={{
+                                        labels: Object.keys(analyticsData.byType),
+                                        datasets: [{ data: Object.values(analyticsData.byType), backgroundColor: ['#6366f1', '#8b5cf6', '#f59e0b'], borderWidth: 0 }]
+                                    }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }} />
+                                </div>
+                            </SectionCard>
+
+                            {/* Records by status */}
+                            <SectionCard title="Records by Status" subtitle="Payroll pipeline overview" accent="#06b6d4">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                     {Object.entries(analyticsData.byStatus).map(([status, count]) => (
-                                        <div key={status} className="flex items-center gap-3">
-                                            <span className="text-xs font-bold text-gray-600 w-20 flex-shrink-0">{status}</span>
-                                            <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                                                <div className="h-full rounded-full" style={{
-                                                    width: `${(count / payrolls.length) * 100}%`,
-                                                    background: statusColors[status] || '#94a3b8'
-                                                }} />
+                                        <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 12, fontFamily: T.fontBase }}>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: T.text.body, width: 70, flexShrink: 0 }}>{status}</span>
+                                            <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                                                <div style={{ height: '100%', borderRadius: 99, background: statusColors[status] || '#94a3b8', width: `${(count / payrolls.length) * 100}%`, transition: 'width 0.5s' }} />
                                             </div>
-                                            <span className="text-xs font-black text-gray-700 w-8 text-right">{count}</span>
+                                            <span style={{ fontSize: 11, fontWeight: 800, color: T.text.heading, width: 24, textAlign: 'right' }}>{count}</span>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </SectionCard>
 
-                            {/* KRA Tax Summary */}
-                            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 text-white">
-                                <h3 className="text-xs font-black opacity-60 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-                                    <FiShield size={12} /> KRA / Statutory Summary (All Records)
-                                </h3>
-                                <div className="space-y-3">
+                            {/* KRA Statutory summary — dark card */}
+                            <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', border: '1px solid #1e293b', borderRadius: 20, overflow: 'hidden' }}>
+                                <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <FiShield size={14} color="#94a3b8" />
+                                    <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#e2e8f0', fontFamily: T.fontBase }}>KRA / Statutory Summary</h3>
+                                </div>
+                                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     {[
                                         ['PAYE Tax (KRA)', payrolls.reduce((s, p) => s + p.paye, 0), '#f87171'],
                                         ['NHIF Contributions', payrolls.reduce((s, p) => s + p.nhif, 0), '#fb923c'],
@@ -1334,9 +1411,9 @@ export default function PayrollPage() {
                                         ['Housing Levy', payrolls.reduce((s, p) => s + p.housing_levy, 0), '#a78bfa'],
                                         ['Total Statutory', payrolls.reduce((s, p) => s + p.paye + p.nhif + p.nssf + p.housing_levy, 0), '#34d399'],
                                     ].map(([l, v, c]) => (
-                                        <div key={l as string} className="flex justify-between items-center">
-                                            <span className="text-sm opacity-70">{l}</span>
-                                            <span className="font-black text-lg" style={{ color: c as string }}>{fmt(v as number)}</span>
+                                        <div key={l as string} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: T.fontBase }}>
+                                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>{l}</span>
+                                            <span style={{ fontSize: 15, fontWeight: 900, color: c as string, letterSpacing: '-0.01em' }}>{fmt(v as number)}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -1344,9 +1421,15 @@ export default function PayrollPage() {
                         </div>
                     </div>
                 )}
+
+                {/* Footer */}
+                <div style={{ marginTop: 12, paddingTop: 16, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontFamily: T.fontBase }}>
+                    <span style={{ fontSize: 10, color: T.text.faint }}>Alpha Payroll Engine · AlphaSchool ERP</span>
+                    <span style={{ fontSize: 10, color: T.text.faint }}>Generated: {new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}</span>
+                </div>
             </div>
 
-            {/* ── Modals ─────────────────────────────────────────────────────── */}
+            {/* ── Modals ───────────────────────────────────────────────────── */}
             <Modal open={!!viewRecord} onClose={() => setViewRecord(null)} title="Employee Payslip" size="lg">
                 {viewRecord && <PayslipViewer record={viewRecord} onClose={() => setViewRecord(null)} />}
             </Modal>
