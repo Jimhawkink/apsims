@@ -210,20 +210,6 @@ export function useUltraCBCMarks() {
   );
   const availableSubjects = subjects.filter(s => availableSubjectIds.has(s.id));
 
-  // ── Pre-populate marks from assessments ──
-  useEffect(() => {
-    if (!selSubject || !selTerm) return;
-    const newMarks: Record<number, RubricLevel | null> = {};
-    enrolledStudents.forEach(student => {
-      const existing = assessments.find(
-        a => a.student_id === student.id && a.assessment_type === selAssessmentType &&
-          (selAssessmentType === 'Summative' || a.task_name === taskName)
-      );
-      newMarks[student.id] = existing?.rubric_level || null;
-    });
-    setMarkLevels(newMarks);
-  }, [assessments, selAssessmentType, taskName, selSubject, selTerm]);
-
   // ── Previous term level per student ──
   const prevTermLevels = useMemo(() => {
     const map: Record<number, RubricLevel | null> = {};
