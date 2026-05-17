@@ -200,12 +200,13 @@ function UltraCBCStudentRow({
   const trend = computeTrend(level, prevLevel);
 
   // Derive auto-note for current level from rubric config
+  // cbc_rubric_config columns: id, level_code, level_label, color_hex, bg_hex, sort_order
   const autoNote = level
     ? (() => {
         const cfg = (rubricConfig || []).find(
-          (r: any) => r.level_code === level || r.rubric_level === level
+          (r: any) => r.level_code === level
         );
-        return cfg?.teacher_note || cfg?.default_note || cfg?.note || cfg?.description || '';
+        return cfg?.level_label || '';
       })()
     : '';
 

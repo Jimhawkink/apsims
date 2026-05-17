@@ -107,22 +107,29 @@ export function useUltraCBCMarks() {
       setMarkNotes({});
       return;
     }
+    const studentIds = getStudentsForSubject(Number(selSubject), studentSubjects);
+    // Wait until studentSubjects has loaded — if it's still empty, bail and let the
+    // effect re-run once studentSubjects is populated (it's in the dependency array).
+    if (studentIds.length === 0) {
+      setAssessments([]);
+      setMarkLevels({});
+      setMarkScores({});
+      setMarkNotes({});
+      return;
+    }
     const load = async () => {
-      const studentIds = getStudentsForSubject(Number(selSubject), studentSubjects);
-      if (studentIds.length === 0) {
-        setAssessments([]);
-        setMarkLevels({});
-        setMarkScores({});
-        setMarkNotes({});
-        return;
-      }
+      // For Formative, fetch ALL formative records for this subject/term without
+      // filtering by task_name — this ensures existing data loads correctly on
+      // refresh even when taskName is still empty. The task_name filter is applied
+      // below when building newLevels/newScores so the UI only shows the right task.
+      const asmtQuery = supabase.from('cbc_assessments').select('*')
+        .in('student_id', studentIds)
+        .eq('subject_id', Number(selSubject))
+        .eq('term_id', Number(selTerm));
 
       // Fetch all three in parallel
       const [asmtRes, scoreRes, noteRes] = await Promise.all([
-        supabase.from('cbc_assessments').select('*')
-          .in('student_id', studentIds)
-          .eq('subject_id', Number(selSubject))
-          .eq('term_id', Number(selTerm)),
+        asmtQuery,
         supabase.from('cbc_mark_scores').select('*')
           .in('student_id', studentIds)
           .eq('subject_id', Number(selSubject))
@@ -137,7 +144,9 @@ export function useUltraCBCMarks() {
       const asmtData = asmtRes.data || [];
       setAssessments(asmtData);
 
-      // Build levels from assessments — done here atomically with the same data
+      // Build levels from assessments — apply task_name filter here (not in the query)
+      // so that on refresh with an empty taskName we still load Summative data correctly,
+      // and for Formative we only show the selected task's levels.
       const newLevels: Record<number, RubricLevel | null> = {};
       asmtData.forEach((a: any) => {
         const matchesType = a.assessment_type === selAssessmentType;
@@ -171,6 +180,8 @@ export function useUltraCBCMarks() {
       setMarkNotes(newNotes);
     };
     load();
+  // studentSubjects is intentionally included so the effect re-runs once the
+  // async fetch of student subjects completes (fixes the blank-on-refresh bug).
   }, [selForm, selTerm, selSubject, studentSubjects, selAssessmentType, taskName]);
 
   // ── Fetch previous term assessments for trend arrows ──
@@ -273,12 +284,12 @@ export function useUltraCBCMarks() {
     return enrolledStudents.filter(s => markLevels[s.id] === 'BE').map(s => `${s.first_name} ${s.last_name}`);
   }, [enrolledStudents, markLevels]);
 
-  // ── Auto-note helper: returns default note for a rubric level from config ──
+  // ── Auto-note helper: returns the level_label from cbc_rubric_config ──
+  // The cbc_rubric_config table has columns: id, level_code, level_label, color_hex, bg_hex, sort_order
   const getAutoNote = useCallback((level: RubricLevel | null): string => {
     if (!level || !rubricConfig || rubricConfig.length === 0) return '';
-    const cfg = rubricConfig.find((r: any) => r.level_code === level || r.rubric_level === level);
-    // Support common column names: teacher_note, default_note, note, description
-    return cfg?.teacher_note || cfg?.default_note || cfg?.note || cfg?.description || '';
+    const cfg = rubricConfig.find((r: any) => r.level_code === level);
+    return cfg?.level_label || '';
   }, [rubricConfig]);
 
   // ── Handlers ──
@@ -386,7 +397,7 @@ export function useUltraCBCMarks() {
               student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
               assessment_type: 'Summative', task_name: 'Summative', rubric_level: level,
               raw_score: rawScore, teacher_id: teacherId, assessed_at: new Date().toISOString(),
-            }, { onConflict: 'student_id,subject_id,term_id,assessment_type' });
+            }, { onConflict: 'student_id,subject_id,term_id' });
           } else {
             const { data: existing } = await supabase.from('cbc_assessments').select('id')
               .eq('student_id', student.id).eq('subject_id', Number(selSubject)).eq('term_id', Number(selTerm))
