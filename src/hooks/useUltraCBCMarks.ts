@@ -108,24 +108,20 @@ export function useUltraCBCMarks() {
       return;
     }
 
-    // Derive the student IDs we care about from the students already loaded for
-    // this form/stream. We do NOT gate on studentSubjects here — if students are
-    // loaded we can fetch their assessments directly by subject/term. This avoids
-    // the race where studentSubjects loads before students and the effect bails.
     const currentStudentIds = students.map(s => s.id);
     if (currentStudentIds.length === 0) {
-      // Students haven't loaded yet — effect will re-run when `students` changes.
-      setAssessments([]);
-      setMarkLevels({});
-      setMarkScores({});
-      setMarkNotes({});
+      // Students haven't loaded yet — don't wipe existing state.
+      // Effect will re-run when `students` changes.
       return;
     }
 
+    // Use a cancelled flag so that if this effect re-runs before the async
+    // fetch completes, the stale response is discarded and does NOT overwrite
+    // the markLevels that the newer run will set. This is the core fix for
+    // "2 assessed before refresh → 0 after refresh".
+    let cancelled = false;
+
     const load = async () => {
-      // Fetch ALL assessments for this subject/term for the current students.
-      // No task_name filter in the query — applied in-memory below so that
-      // Summative always loads and Formative loads all tasks (for avg calculation).
       const [asmtRes, scoreRes, noteRes] = await Promise.all([
         supabase.from('cbc_assessments').select('*')
           .in('student_id', currentStudentIds)
@@ -142,11 +138,13 @@ export function useUltraCBCMarks() {
           .eq('term_id', Number(selTerm)),
       ]);
 
+      // If the effect was re-triggered while we were awaiting, discard this result.
+      if (cancelled) return;
+
       const asmtData = asmtRes.data || [];
       setAssessments(asmtData);
 
-      // Build levels — apply type + task filter in-memory so Summative always
-      // restores correctly and Formative only shows the selected task's level.
+      // Build levels — type + task filter applied in-memory.
       const newLevels: Record<number, RubricLevel | null> = {};
       asmtData.forEach((a: any) => {
         const matchesType = a.assessment_type === selAssessmentType;
@@ -157,12 +155,12 @@ export function useUltraCBCMarks() {
       });
       setMarkLevels(newLevels);
 
-      // Build scores from cbc_mark_scores (more reliable than assessments raw_score)
+      // Build scores from cbc_mark_scores
       const newScores: Record<number, string> = {};
       (scoreRes.data || []).forEach((ms: any) => {
         newScores[ms.student_id] = ms.raw_score != null ? String(ms.raw_score) : '';
       });
-      // Fallback: pick up raw_score from assessments if not in mark_scores table
+      // Fallback: raw_score from assessments table
       asmtData.forEach((a: any) => {
         const matchesType = a.assessment_type === selAssessmentType;
         const matchesTask = selAssessmentType === 'Summative' || a.task_name === taskName;
@@ -179,9 +177,12 @@ export function useUltraCBCMarks() {
       });
       setMarkNotes(newNotes);
     };
+
     load();
-  // `students` is in deps so the effect re-runs once the student list loads.
-  // `studentSubjects` removed as a gate — we query by student IDs directly.
+
+    // Cleanup: mark this run as cancelled so its async result is ignored
+    // if the effect fires again before the fetch completes.
+    return () => { cancelled = true; };
   }, [selForm, selTerm, selSubject, students, selAssessmentType, taskName]);
 
   // ── Fetch previous term assessments for trend arrows ──
