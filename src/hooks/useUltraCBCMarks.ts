@@ -54,6 +54,7 @@ export function useUltraCBCMarks() {
   const [pendingSave, setPendingSave] = useState<(() => Promise<void>) | null>(null);
 
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerSaveRef = useRef<(force: boolean) => Promise<void>>(() => Promise.resolve());
 
   // ── Initial data fetch ──
   const fetchAll = useCallback(async () => {
@@ -246,13 +247,13 @@ export function useUltraCBCMarks() {
       setMarkLevels(prev => ({ ...prev, [studentId]: lvl }));
     }
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => { triggerSave(false); }, 3000);
+    autoSaveTimer.current = setTimeout(() => { triggerSaveRef.current(false); }, 3000);
   }, []);
 
   const handleLevelChange = useCallback((studentId: number, level: string) => {
     setMarkLevels(prev => ({ ...prev, [studentId]: level as RubricLevel }));
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => { triggerSave(false); }, 3000);
+    autoSaveTimer.current = setTimeout(() => { triggerSaveRef.current(false); }, 3000);
   }, []);
 
   const handleClear = useCallback((studentId: number) => {
@@ -323,7 +324,7 @@ export function useUltraCBCMarks() {
               student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
               assessment_type: 'Summative', task_name: 'Summative', rubric_level: level,
               raw_score: rawScore, teacher_id: teacherId, assessed_at: new Date().toISOString(),
-            }, { onConflict: 'student_id,subject_id,term_id' });
+            }, { onConflict: 'student_id,subject_id,term_id,assessment_type' });
           } else {
             const { data: existing } = await supabase.from('cbc_assessments').select('id')
               .eq('student_id', student.id).eq('subject_id', Number(selSubject)).eq('term_id', Number(selTerm))
@@ -391,6 +392,9 @@ export function useUltraCBCMarks() {
     }
     await doSave();
   };
+
+  // Keep ref always pointing to latest triggerSave so auto-save never uses stale closure
+  triggerSaveRef.current = triggerSave;
 
   const recomputeSummary = async (studentId: number, subjectId: number, termId: number) => {
     const { data: allAsmts } = await supabase.from('cbc_assessments').select('*')
