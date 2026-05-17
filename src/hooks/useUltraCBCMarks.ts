@@ -142,9 +142,10 @@ export function useUltraCBCMarks() {
       if (cancelled) return;
 
       const asmtData = asmtRes.data || [];
+      const scoreData = scoreRes.data || [];
       setAssessments(asmtData);
 
-      // Build levels — type + task filter applied in-memory.
+      // ── Step 1: Build levels from cbc_assessments (primary source) ──
       const newLevels: Record<number, RubricLevel | null> = {};
       asmtData.forEach((a: any) => {
         const matchesType = a.assessment_type === selAssessmentType;
@@ -153,11 +154,10 @@ export function useUltraCBCMarks() {
           newLevels[a.student_id] = a.rubric_level as RubricLevel;
         }
       });
-      setMarkLevels(newLevels);
 
-      // Build scores from cbc_mark_scores
+      // ── Step 2: Build scores from cbc_mark_scores (primary source) ──
       const newScores: Record<number, string> = {};
-      (scoreRes.data || []).forEach((ms: any) => {
+      scoreData.forEach((ms: any) => {
         newScores[ms.student_id] = ms.raw_score != null ? String(ms.raw_score) : '';
       });
       // Fallback: raw_score from assessments table
@@ -168,6 +168,27 @@ export function useUltraCBCMarks() {
           newScores[a.student_id] = String(a.raw_score);
         }
       });
+
+      // ── Step 3: Fallback — use rubric_level stored in cbc_mark_scores ──
+      // This covers the case where cbc_assessments upsert failed silently
+      // (e.g. wrong onConflict target) but cbc_mark_scores saved correctly.
+      scoreData.forEach((ms: any) => {
+        if (!newLevels[ms.student_id] && ms.rubric_level) {
+          newLevels[ms.student_id] = ms.rubric_level as RubricLevel;
+        }
+      });
+
+      // ── Step 4: Final fallback — derive level from score using scoreToLevel() ──
+      // If neither table has a rubric_level but we have a raw_score, compute it.
+      Object.entries(newScores).forEach(([sid, score]) => {
+        const id = Number(sid);
+        if (!newLevels[id] && score) {
+          const derived = scoreToLevel(score);
+          if (derived) newLevels[id] = derived;
+        }
+      });
+
+      setMarkLevels(newLevels);
       setMarkScores(newScores);
 
       // Build notes
