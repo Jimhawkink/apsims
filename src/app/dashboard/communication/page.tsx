@@ -1,649 +1,221 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import {
-    FiMessageSquare, FiSend, FiUsers, FiSearch, FiFilter,
-    FiCheckCircle, FiClock, FiAlertCircle, FiDownload,
-    FiRefreshCw, FiX, FiPhone, FiMail, FiChevronDown,
-    FiDollarSign, FiUserCheck, FiEye
+    FiSend, FiMessageSquare, FiSettings, FiClock, FiUsers,
+    FiAlertTriangle, FiCheck, FiX, FiRefreshCw, FiPlus,
+    FiSearch, FiChevronLeft, FiChevronRight, FiSave, FiZap,
+    FiPhone, FiMail, FiInfo, FiCheckCircle, FiDollarSign,
 } from 'react-icons/fi';
 
-const fmt = (n: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(n);
+import ComposeTab from './ComposeTab';
+import BulkBlastTab from './BulkBlastTab';
+import HistoryTab from './HistoryTab';
+import ConfigTab from './ConfigTab';
 
-type RecipientFilter = 'all_parents' | 'by_form' | 'by_stream' | 'fee_defaulters' | 'custom';
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmt = (n: number) => `KES ${(n || 0).toLocaleString()}`;
 
-interface MessageLog {
-    id: number;
-    message: string;
-    recipients: string;
-    recipient_count: number;
-    status: string;
-    sent_by: string;
-    sent_at: string;
-    message_type: string;
-    created_at: string;
+function StudentAvatar({ name, size = 34 }: { name: string; size?: number }) {
+    const initials = (name || '?').split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?';
+    const GRADIENTS = [
+        'linear-gradient(135deg,#6366f1,#8b5cf6)', 'linear-gradient(135deg,#0891b2,#06b6d4)',
+        'linear-gradient(135deg,#059669,#10b981)', 'linear-gradient(135deg,#d97706,#f59e0b)',
+        'linear-gradient(135deg,#dc2626,#ef4444)', 'linear-gradient(135deg,#7c3aed,#a855f7)',
+    ];
+    const idx = (name || '').charCodeAt(0) % GRADIENTS.length;
+    return (
+        <div style={{ width: size, height: size, borderRadius: '50%', background: GRADIENTS[idx], display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: size * 0.35, flexShrink: 0, boxShadow: '0 2px 8px rgba(99,102,241,0.25)' }}>
+            {initials}
+        </div>
+    );
 }
 
-export default function CommunicationPage() {
+// ── School Message Templates ──────────────────────────────────────────────────
+const MESSAGE_TEMPLATES: Record<string, string> = {
+    fee_reminder: 'Dear Parent/Guardian of {student_name}, this is a reminder that the school fee balance of KES {balance} is due. Kindly make payment to avoid interruption. Thank you. - {school_name}',
+    overdue_notice: 'NOTICE: Dear Parent/Guardian of {student_name}, your fee balance of KES {balance} is overdue. Immediate payment is required to avoid suspension. - {school_name}',
+    exam_results: 'Dear Parent/Guardian of {student_name}, exam results for {term} are now available. Please visit the school or parent portal to view. - {school_name}',
+    meeting_notice: 'Dear Parent/Guardian, you are invited to a parents meeting on {date} at {time}. Your attendance is highly valued. - {school_name}',
+    holiday_notice: 'Dear Parent/Guardian, school will close on {date} for {holiday}. Opening date is {opening_date}. - {school_name}',
+    emergency_alert: 'URGENT: Dear Parent/Guardian of {student_name}, please contact the school immediately regarding an urgent matter. Call {phone}. - {school_name}',
+    welcome: 'Welcome to {school_name}! Dear Parent/Guardian of {student_name} ({admission_no}), we are delighted to have you join our family. For inquiries, call {phone}.',
+    general: 'Dear Parent/Guardian, {message}. Thank you for your continued support. - {school_name}',
+};
+
+const QUICK_TEMPLATES = [
+    { label: '💰 Fee Reminder', key: 'fee_reminder', color: '#6366f1' },
+    { label: '🚨 Overdue Notice', key: 'overdue_notice', color: '#ef4444' },
+    { label: '📝 Exam Results', key: 'exam_results', color: '#10b981' },
+    { label: '📅 Meeting Notice', key: 'meeting_notice', color: '#0891b2' },
+    { label: '🏖️ Holiday Notice', key: 'holiday_notice', color: '#f59e0b' },
+    { label: '🚨 Emergency', key: 'emergency_alert', color: '#dc2626' },
+    { label: '👋 Welcome', key: 'welcome', color: '#8b5cf6' },
+    { label: '📢 General', key: 'general', color: '#6b7280' },
+];
+
+export { StudentAvatar, MESSAGE_TEMPLATES, QUICK_TEMPLATES, fmt };
+
+export default function CommunicationHubPage() {
+    const [tab, setTab] = useState<'compose' | 'blast' | 'history' | 'config'>('compose');
     const [loading, setLoading] = useState(true);
-    const [sending, setSending] = useState(false);
-    const [tab, setTab] = useState<'compose' | 'history' | 'templates' | 'whatsapp'>('compose');
 
-    // Compose State
-    const [recipientFilter, setRecipientFilter] = useState<RecipientFilter>('all_parents');
-    const [selForm, setSelForm] = useState('');
-    const [selStream, setSelStream] = useState('');
-    const [feeThreshold, setFeeThreshold] = useState(0);
-    const [message, setMessage] = useState('');
-    const [messageType, setMessageType] = useState<'sms' | 'notification'>('sms');
-
-    // WhatsApp Tab State
-    const [waRecipientFilter, setWaRecipientFilter] = useState<RecipientFilter>('all_parents');
-    const [waSelForm, setWaSelForm] = useState('');
-    const [waSelStream, setWaSelStream] = useState('');
-    const [waCustomPhones, setWaCustomPhones] = useState('');
-    const [waMessage, setWaMessage] = useState('');
-    const [waSending, setWaSending] = useState(false);
-    const [waRecipients, setWaRecipients] = useState<any[]>([]);
-
-    // Data
+    // Core data
+    const [students, setStudents] = useState<any[]>([]);
     const [forms, setForms] = useState<any[]>([]);
     const [streams, setStreams] = useState<any[]>([]);
-    const [students, setStudents] = useState<any[]>([]);
-    const [messageLogs, setMessageLogs] = useState<MessageLog[]>([]);
-    const [selectedRecipients, setSelectedRecipients] = useState<any[]>([]);
-    const [customPhones, setCustomPhones] = useState('');
-
-    // Templates
-    const templates = [
-        { name: 'Fee Reminder', body: 'Dear Parent/Guardian of {student_name}, your fee balance is KES {balance}. Kindly make payment before {date}. Thank you. - {school_name}' },
-        { name: 'Meeting Notice', body: 'Dear Parent/Guardian, you are invited to a parents meeting on {date} at {time}. Your attendance is highly valued. - {school_name}' },
-        { name: 'Exam Results', body: 'Dear Parent/Guardian of {student_name}, exam results are ready for collection. Please visit the school office. - {school_name}' },
-        { name: 'Holiday Notice', body: 'Dear Parent/Guardian, school will close on {date} for {holiday}. Opening date is {opening_date}. - {school_name}' },
-        { name: 'Emergency Alert', body: 'URGENT: Dear Parent/Guardian of {student_name}, please contact the school immediately regarding an urgent matter. Call {phone}. - {school_name}' },
-        { name: 'General Broadcast', body: 'Dear Parent/Guardian, {message}. Thank you for your continued support. - {school_name}' },
-    ];
+    const [messageLogs, setMessageLogs] = useState<any[]>([]);
+    const [schoolDetails, setSchoolDetails] = useState<any>({});
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [formsRes, streamsRes, studentsRes] = await Promise.all([
+            const [studentsRes, formsRes, streamsRes, logsRes, detailsRes] = await Promise.all([
+                supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id, stream_id, guardian_name, guardian_phone, guardian_email, status, fee_balance').eq('status', 'Active'),
                 supabase.from('school_forms').select('*').order('form_level'),
                 supabase.from('school_streams').select('*').order('stream_name'),
-                supabase.from('school_students').select('id, first_name, last_name, admission_no, admission_number, form_id, stream_id, guardian_name, guardian_phone, guardian_email, status').eq('status', 'Active'),
+                supabase.from('school_message_logs').select('*').order('created_at', { ascending: false }).limit(500),
+                supabase.from('school_details').select('*').limit(1).single(),
             ]);
+            setStudents(studentsRes.data || []);
             setForms(formsRes.data || []);
             setStreams(streamsRes.data || []);
-            setStudents(studentsRes.data || []);
-
-            // Load message logs
-            const { data: logs } = await supabase.from('school_message_logs').select('*').order('created_at', { ascending: false }).limit(100);
-            setMessageLogs(logs || []);
+            setMessageLogs(logsRes.data || []);
+            if (detailsRes.data) setSchoolDetails(detailsRes.data);
         } catch (e) { console.error(e); }
         setLoading(false);
     }, []);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    // Compute recipients based on filter
-    useEffect(() => {
-        let recipients: any[] = [];
-        if (recipientFilter === 'all_parents') {
-            recipients = students.filter(s => s.guardian_phone);
-        } else if (recipientFilter === 'by_form') {
-            recipients = students.filter(s => s.guardian_phone && (!selForm || String(s.form_id) === selForm));
-        } else if (recipientFilter === 'by_stream') {
-            recipients = students.filter(s => s.guardian_phone && (!selForm || String(s.form_id) === selForm) && (!selStream || String(s.stream_id) === selStream));
-        } else if (recipientFilter === 'fee_defaulters') {
-            // For now show all; real implementation would check balances
-            recipients = students.filter(s => s.guardian_phone);
-        }
-        setSelectedRecipients(recipients);
-    }, [recipientFilter, selForm, selStream, students, feeThreshold]);
-
-    // Compute WhatsApp recipients
-    useEffect(() => {
-        let recipients: any[] = [];
-        if (waRecipientFilter === 'all_parents') {
-            recipients = students.filter(s => s.guardian_phone);
-        } else if (waRecipientFilter === 'by_form') {
-            recipients = students.filter(s => s.guardian_phone && (!waSelForm || String(s.form_id) === waSelForm));
-        } else if (waRecipientFilter === 'by_stream') {
-            recipients = students.filter(s => s.guardian_phone && (!waSelForm || String(s.form_id) === waSelForm) && (!waSelStream || String(s.stream_id) === waSelStream));
-        } else if (waRecipientFilter === 'fee_defaulters') {
-            recipients = students.filter(s => s.guardian_phone);
-        }
-        setWaRecipients(recipients);
-    }, [waRecipientFilter, waSelForm, waSelStream, students]);
-
-    const waRecipientCount = waRecipientFilter === 'custom'
-        ? waCustomPhones.split(/[\n,;]+/).filter(p => p.trim()).length
-        : waRecipients.length;
-    const waEstimatedCost = waRecipientCount * 0.50; // KES 0.50 per WhatsApp message
-
-    const handleSendWhatsApp = async () => {
-        if (!waMessage.trim()) { toast.error('Please type a message'); return; }
-        if (waRecipientFilter === 'custom' && !waCustomPhones.trim()) { toast.error('Enter phone numbers'); return; }
-        if (waRecipientFilter !== 'custom' && waRecipients.length === 0) { toast.error('No recipients found'); return; }
-
-        setWaSending(true);
-        try {
-            const payload: any = {
-                recipient_filter: waRecipientFilter,
-                message_content: waMessage.trim(),
-            };
-            if (waRecipientFilter === 'by_form' && waSelForm) payload.form_id = Number(waSelForm);
-            if (waRecipientFilter === 'by_stream') {
-                if (waSelForm) payload.form_id = Number(waSelForm);
-                if (waSelStream) payload.stream_id = Number(waSelStream);
-            }
-            if (waRecipientFilter === 'custom') {
-                payload.custom_phones = waCustomPhones.split(/[\n,;]+/).map(p => p.trim()).filter(Boolean);
-            }
-
-            const res = await fetch('/api/communication/whatsapp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                toast.error(data.error || 'Failed to send WhatsApp messages');
-            } else {
-                toast.success(`WhatsApp sent to ${data.sent} of ${data.total} recipients ✅`);
-                setWaMessage('');
-                fetchData();
-            }
-        } catch (e) {
-            toast.error('Failed to send WhatsApp messages');
-        }
-        setWaSending(false);
-    };
-
-    const charCount = message.length;
-    const smsCount = Math.ceil(charCount / 160) || 0;
-    const estimatedCost = selectedRecipients.length * smsCount * 0.8; // KES 0.80 per SMS
-
-    const handleSendMessage = async () => {
-        if (!message.trim()) { toast.error('Please type a message'); return; }
-        if (recipientFilter === 'custom') {
-            if (!customPhones.trim()) { toast.error('Enter phone numbers'); return; }
-        } else {
-            if (selectedRecipients.length === 0) { toast.error('No recipients with phone numbers found'); return; }
-        }
-
-        setSending(true);
-        try {
-            const recipientCount = recipientFilter === 'custom'
-                ? customPhones.split(/[\n,;]+/).filter(p => p.trim()).length
-                : selectedRecipients.length;
-
-            const recipientDesc = recipientFilter === 'all_parents' ? 'All Parents'
-                : recipientFilter === 'by_form' ? `Form ${forms.find(f => String(f.id) === selForm)?.form_name || ''}`
-                : recipientFilter === 'by_stream' ? `Form/Stream`
-                : recipientFilter === 'fee_defaulters' ? 'Fee Defaulters'
-                : 'Custom List';
-
-            // Log the message
-            const { error } = await supabase.from('school_message_logs').insert([{
-                message: message.trim(),
-                recipients: recipientDesc,
-                recipient_count: recipientCount,
-                status: 'Queued',
-                sent_by: JSON.parse(localStorage.getItem('school_user') || '{}').full_name || 'Admin',
-                sent_at: new Date().toISOString(),
-                message_type: messageType,
-            }]);
-
-            if (error) {
-                // Table might not exist; still show success for demo
-                console.warn('Log insert error (table may not exist):', error.message);
-            }
-
-            // In a real implementation, this would call the AfricasTalking SMS API
-            // const response = await fetch('/api/send-sms', { method: 'POST', body: JSON.stringify({ phones, message }) });
-            
-            toast.success(`Message queued to ${recipientCount} recipients ✅`);
-            setMessage('');
-            fetchData();
-        } catch (e) {
-            toast.error('Failed to send message');
-        }
-        setSending(false);
-    };
+    // Derived stats
+    const parentsWithPhone = useMemo(() => students.filter(s => s.guardian_phone), [students]);
+    const feeDefaulters = useMemo(() => students.filter(s => (s.fee_balance || 0) > 0 && s.guardian_phone), [students]);
+    const smsSent = messageLogs.filter(l => l.message_type === 'sms' || l.message_type === 'SMS').length;
+    const waSent = messageLogs.filter(l => l.message_type === 'whatsapp' || l.message_type === 'WhatsApp').length;
+    const totalSent = messageLogs.length;
+    const smsConfigured = !!(schoolDetails.sms_api_key && schoolDetails.sms_username);
 
     if (loading) return (
-        <div className="flex items-center justify-center h-[60vh]">
-            <div className="text-center">
-                <div className="w-10 h-10 border-3 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">Loading Communication Portal...</p>
+        <div className="flex flex-col items-center justify-center h-64 gap-3">
+            <div className="relative">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>📡</div>
+                <div className="absolute -inset-2 rounded-3xl border-2 border-indigo-200 animate-ping opacity-30" />
             </div>
+            <p className="text-sm font-bold text-gray-500">Loading Communication Hub…</p>
         </div>
     );
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        <FiMessageSquare className="text-blue-500" /> Parent Communication
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-1">Send SMS broadcasts and notifications to parents & guardians</p>
+        <div className="space-y-5" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+            {/* ═══ ULTRA HEADER ═══ */}
+            <div className="relative overflow-hidden rounded-2xl" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%)' }}>
+                <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+                <div className="absolute top-0 right-0 w-80 h-80 rounded-full opacity-10 pointer-events-none" style={{ background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+
+                <div className="relative px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                            <FiMessageSquare className="text-white" size={22} />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+                                📡 Communication Hub
+                                {feeDefaulters.length > 0 && (
+                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black animate-pulse" style={{ background: 'rgba(239,68,68,0.3)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.4)' }}>
+                                        {feeDefaulters.length} DEFAULTERS
+                                    </span>
+                                )}
+                            </h1>
+                            <p className="text-indigo-300 text-xs mt-0.5 font-medium">SMS via AfricasTalking · WhatsApp · Bulk Blast · Auto-Reminders</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border ${smsConfigured ? 'text-green-300 border-green-500/30' : 'text-amber-300 border-amber-500/30'}`} style={{ background: smsConfigured ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)' }}>
+                            💬 SMS {smsConfigured ? '✅' : '⚠️'}
+                        </span>
+                        <button onClick={fetchData} className="px-3 py-2 rounded-lg text-xs font-semibold text-white/80 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5">
+                            <FiRefreshCw size={13} /> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                {/* ─── KPI Command Strip ─── */}
+                <div className="px-6 pb-5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                        {[
+                            { label: 'Total Students', value: students.length, emoji: '🎓', color: '#6366f1' },
+                            { label: 'Parents w/ Phone', value: parentsWithPhone.length, emoji: '📱', color: '#0891b2' },
+                            { label: 'Fee Defaulters', value: feeDefaulters.length, emoji: '⚠️', color: '#ef4444', pulse: feeDefaulters.length > 0 },
+                            { label: 'SMS Sent', value: smsSent, emoji: '💬', color: '#4338ca' },
+                            { label: 'WhatsApp Sent', value: waSent, emoji: '🟢', color: '#15803d' },
+                            { label: 'Total Messages', value: totalSent, emoji: '📊', color: '#c2410c' },
+                        ].map((card, i) => (
+                            <div key={i} className={`relative rounded-xl p-3 overflow-hidden cursor-default group transition-all hover:scale-[1.03] ${(card as any).pulse ? 'animate-pulse' : ''}`}
+                                style={{ background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <div className="absolute top-0 right-0 w-10 h-10 rounded-full opacity-20 group-hover:opacity-40 transition-opacity" style={{ background: card.color, transform: 'translate(30%, -30%)' }} />
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <span className="text-sm">{card.emoji}</span>
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-white/50">{card.label}</span>
+                                </div>
+                                <p className="text-xl font-black text-white">{card.value}</p>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="rounded-2xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
-                    <p className="text-xs font-semibold opacity-80">PARENTS WITH PHONE</p>
-                    <p className="text-xl font-extrabold mt-1">{students.filter(s => s.guardian_phone).length}</p>
-                    <p className="text-[10px] opacity-70 mt-1">of {students.length} students</p>
-                </div>
-                <div className="rounded-2xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
-                    <p className="text-xs font-semibold opacity-80">MESSAGES SENT</p>
-                    <p className="text-xl font-extrabold mt-1">{messageLogs.length}</p>
-                    <p className="text-[10px] opacity-70 mt-1">Total broadcasts</p>
-                </div>
-                <div className="rounded-2xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-                    <p className="text-xs font-semibold opacity-80">SELECTED RECIPIENTS</p>
-                    <p className="text-xl font-extrabold mt-1">{recipientFilter === 'custom' ? customPhones.split(/[\n,;]+/).filter(p => p.trim()).length : selectedRecipients.length}</p>
-                    <p className="text-[10px] opacity-70 mt-1">Current selection</p>
-                </div>
-                <div className="rounded-2xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
-                    <p className="text-xs font-semibold opacity-80">EST. COST</p>
-                    <p className="text-xl font-extrabold mt-1">{fmt(estimatedCost)}</p>
-                    <p className="text-[10px] opacity-70 mt-1">@ KES 0.80/SMS</p>
-                </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+            {/* ─── Tab Navigation ─── */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
                 {[
-                    { key: 'compose', label: 'Compose Message', icon: FiSend },
-                    { key: 'history', label: 'Message History', icon: FiClock },
-                    { key: 'templates', label: 'Templates', icon: FiMessageSquare },
-                    { key: 'whatsapp', label: 'WhatsApp', icon: FiPhone },
+                    { k: 'compose', l: '✉️ Compose', icon: FiSend },
+                    { k: 'blast', l: '🚀 Bulk Blast', icon: FiZap },
+                    { k: 'history', l: '📋 History', icon: FiClock },
+                    { k: 'config', l: '⚙️ SMS Config', icon: FiSettings },
                 ].map(t => {
+                    const isActive = tab === t.k;
                     const Icon = t.icon;
                     return (
-                        <button key={t.key} onClick={() => setTab(t.key as any)}
-                            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${tab === t.key ? 'bg-white shadow-md text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}>
-                            <Icon size={14} /> {t.label}
+                        <button key={t.k} onClick={() => setTab(t.k as any)}
+                            className="flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-semibold whitespace-nowrap transition-all relative overflow-hidden"
+                            style={isActive ? {
+                                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                color: '#fff',
+                                boxShadow: '0 8px 25px -5px rgba(99,102,241,0.4)',
+                            } : {
+                                background: '#fff',
+                                color: '#6b7280',
+                                border: '1px solid #e5e7eb',
+                            }}>
+                            {isActive && <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle at 70% 50%, rgba(255,255,255,0.4), transparent 60%)' }} />}
+                            <Icon size={15} />
+                            <span className="relative">{t.l}</span>
                         </button>
                     );
                 })}
             </div>
 
-            {/* Compose Tab */}
+            {/* ─── Tab Content ─── */}
             {tab === 'compose' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    {/* Left: Recipients */}
-                    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100">
-                            <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2"><FiUsers className="text-blue-500" /> Recipients</h3>
-                        </div>
-                        <div className="p-4 space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Recipient Filter</label>
-                                <select value={recipientFilter} onChange={e => setRecipientFilter(e.target.value as RecipientFilter)}
-                                    className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-blue-400 outline-none">
-                                    <option value="all_parents">All Parents / Guardians</option>
-                                    <option value="by_form">Filter by Form</option>
-                                    <option value="by_stream">Filter by Form & Stream</option>
-                                    <option value="fee_defaulters">Fee Defaulters</option>
-                                    <option value="custom">Custom Phone List</option>
-                                </select>
-                            </div>
-
-                            {(recipientFilter === 'by_form' || recipientFilter === 'by_stream') && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Form</label>
-                                    <select value={selForm} onChange={e => setSelForm(e.target.value)}
-                                        className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-blue-400 outline-none">
-                                        <option value="">All Forms</option>
-                                        {forms.map(f => <option key={f.id} value={String(f.id)}>{f.form_name}</option>)}
-                                    </select>
-                                </div>
-                            )}
-
-                            {recipientFilter === 'by_stream' && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Stream</label>
-                                    <select value={selStream} onChange={e => setSelStream(e.target.value)}
-                                        className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-blue-400 outline-none">
-                                        <option value="">All Streams</option>
-                                        {streams.map(s => <option key={s.id} value={String(s.id)}>{s.stream_name}</option>)}
-                                    </select>
-                                </div>
-                            )}
-
-                            {recipientFilter === 'fee_defaulters' && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Min Balance (KES)</label>
-                                    <input type="number" value={feeThreshold} onChange={e => setFeeThreshold(Number(e.target.value))}
-                                        className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-blue-400 outline-none" placeholder="e.g. 5000" />
-                                </div>
-                            )}
-
-                            {recipientFilter === 'custom' && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Phone Numbers (one per line)</label>
-                                    <textarea value={customPhones} onChange={e => setCustomPhones(e.target.value)}
-                                        className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-blue-400 outline-none"
-                                        rows={6} placeholder="0712345678&#10;0723456789&#10;+254711222333" />
-                                </div>
-                            )}
-
-                            {recipientFilter !== 'custom' && (
-                                <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                                    <p className="text-xs font-semibold text-blue-700 mb-2">
-                                        <FiCheckCircle className="inline mr-1" size={12} /> {selectedRecipients.length} recipients selected
-                                    </p>
-                                    <div className="max-h-40 overflow-y-auto space-y-1">
-                                        {selectedRecipients.slice(0, 20).map(s => (
-                                            <div key={s.id} className="flex items-center justify-between text-xs">
-                                                <span className="text-gray-700">{s.guardian_name || `${s.first_name}'s Guardian`}</span>
-                                                <span className="text-gray-400 font-mono">{s.guardian_phone}</span>
-                                            </div>
-                                        ))}
-                                        {selectedRecipients.length > 20 && (
-                                            <p className="text-xs text-blue-600 font-semibold mt-2">+ {selectedRecipients.length - 20} more...</p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Right: Message Compose */}
-                    <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                            <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2"><FiSend className="text-green-500" /> Compose Message</h3>
-                            <div className="flex gap-2">
-                                <button onClick={() => setMessageType('sms')}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${messageType === 'sms' ? 'bg-green-100 text-green-700 border border-green-200' : 'text-gray-500 bg-gray-100'}`}>
-                                    <FiPhone size={12} className="inline mr-1" /> SMS
-                                </button>
-                                <button onClick={() => setMessageType('notification')}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${messageType === 'notification' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'text-gray-500 bg-gray-100'}`}>
-                                    <FiMail size={12} className="inline mr-1" /> Notification
-                                </button>
-                            </div>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            {/* Quick Templates */}
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Quick Template</label>
-                                <select onChange={e => { if (e.target.value) setMessage(e.target.value); }}
-                                    className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-blue-400 outline-none">
-                                    <option value="">-- Select a template --</option>
-                                    {templates.map((t, i) => <option key={i} value={t.body}>{t.name}</option>)}
-                                </select>
-                            </div>
-
-                            {/* Message Body */}
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Message Body</label>
-                                <textarea value={message} onChange={e => setMessage(e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:border-blue-400 outline-none transition-all resize-none"
-                                    rows={8} placeholder="Type your message here... Use {student_name}, {balance}, {date}, {school_name} as merge tags." />
-                                <div className="flex items-center justify-between mt-2">
-                                    <div className="flex items-center gap-4 text-xs text-gray-400">
-                                        <span>{charCount} characters</span>
-                                        <span>{smsCount} SMS{smsCount !== 1 ? 's' : ''} per recipient</span>
-                                        <span className="font-semibold text-gray-600">Max 160 chars/SMS</span>
-                                    </div>
-                                    <span className="text-xs font-bold text-purple-600">Est. Cost: {fmt(estimatedCost)}</span>
-                                </div>
-                            </div>
-
-                            {/* Merge Tags Help */}
-                            <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                                <p className="text-xs font-bold text-amber-700 mb-1">Available Merge Tags:</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {['{student_name}', '{balance}', '{date}', '{school_name}', '{phone}', '{time}', '{holiday}', '{opening_date}', '{message}'].map(tag => (
-                                        <button key={tag} onClick={() => setMessage(prev => prev + ' ' + tag)}
-                                            className="px-2 py-1 bg-white border border-amber-200 rounded text-xs font-mono text-amber-700 hover:bg-amber-100 transition-all cursor-pointer">
-                                            {tag}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Send Actions */}
-                            <div className="flex items-center justify-between pt-2">
-                                <button onClick={() => setMessage('')} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-all">Clear</button>
-                                <div className="flex gap-2">
-                                    <button className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all">Save as Draft</button>
-                                    <button onClick={handleSendMessage} disabled={sending || !message.trim()}
-                                        className="px-8 py-2.5 text-sm font-bold text-white rounded-lg flex items-center gap-2 shadow-lg disabled:opacity-50"
-                                        style={{ background: sending ? '#94a3b8' : 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
-                                        {sending
-                                            ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sending...</>
-                                            : <><FiSend size={14} /> Send to {recipientFilter === 'custom' ? customPhones.split(/[\n,;]+/).filter(p => p.trim()).length : selectedRecipients.length} Recipients</>
-                                        }
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <ComposeTab
+                    students={students} forms={forms} streams={streams}
+                    feeDefaulters={feeDefaulters} schoolDetails={schoolDetails}
+                    fetchData={fetchData} smsConfigured={smsConfigured}
+                />
             )}
-
-            {/* History Tab */}
+            {tab === 'blast' && (
+                <BulkBlastTab
+                    students={students} forms={forms} feeDefaulters={feeDefaulters}
+                    schoolDetails={schoolDetails} fetchData={fetchData} smsConfigured={smsConfigured}
+                />
+            )}
             {tab === 'history' && (
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                        <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2"><FiClock className="text-purple-500" /> Message History</h3>
-                        <button onClick={fetchData} className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"><FiRefreshCw size={12} /> Refresh</button>
-                    </div>
-                    {messageLogs.length === 0 ? (
-                        <div className="p-16 text-center text-gray-400">
-                            <FiMessageSquare className="mx-auto mb-3" size={32} />
-                            <p className="font-medium">No messages sent yet</p>
-                            <p className="text-xs mt-1">Start by composing a message in the Compose tab</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="table-modern">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Date</th>
-                                        <th>Type</th>
-                                        <th>Recipients</th>
-                                        <th>Count</th>
-                                        <th>Message</th>
-                                        <th>Sent By</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {messageLogs.map((log, i) => (
-                                        <tr key={log.id}>
-                                            <td className="text-xs text-gray-400">{i + 1}</td>
-                                            <td className="text-sm">{new Date(log.sent_at || log.created_at).toLocaleDateString('en-KE')}</td>
-                                            <td><span className={`badge ${log.message_type === 'sms' ? 'badge-success' : log.message_type === 'whatsapp' ? 'badge-green' : 'badge-blue'}`}>
-                                                {log.message_type === 'whatsapp' ? (
-                                                    <span className="flex items-center gap-1">
-                                                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-                                                        WA
-                                                    </span>
-                                                ) : log.message_type === 'whatsapp_error' ? (
-                                                    <span className="flex items-center gap-1 text-red-600">
-                                                        <FiAlertCircle size={10} /> ERR
-                                                    </span>
-                                                ) : log.message_type?.toUpperCase()}
-                                            </span></td>
-                                            <td className="text-sm font-medium text-gray-700">{log.recipients}</td>
-                                            <td className="text-sm font-bold text-indigo-600">{log.recipient_count}</td>
-                                            <td className="text-xs text-gray-600 max-w-[200px] truncate">{log.message}</td>
-                                            <td className="text-sm text-gray-500">{log.sent_by}</td>
-                                            <td><span className={`badge ${log.status === 'Sent' ? 'badge-success' : log.status === 'Failed' ? 'badge-danger' : log.status === 'Partial' ? 'badge-warning' : 'badge-warning'}`}>{log.status}</span></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
+                <HistoryTab messageLogs={messageLogs} fetchData={fetchData} />
             )}
-
-            {/* WhatsApp Tab */}
-            {tab === 'whatsapp' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    {/* Left: Recipients */}
-                    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100" style={{ background: 'linear-gradient(135deg, #25d366, #128c7e)' }}>
-                            <h3 className="font-bold text-white text-sm flex items-center gap-2"><FiPhone size={14} /> WhatsApp Recipients</h3>
-                        </div>
-                        <div className="p-4 space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Recipient Filter</label>
-                                <select value={waRecipientFilter} onChange={e => setWaRecipientFilter(e.target.value as RecipientFilter)}
-                                    className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-green-400 outline-none">
-                                    <option value="all_parents">All Parents / Guardians</option>
-                                    <option value="by_form">Filter by Form</option>
-                                    <option value="by_stream">Filter by Form & Stream</option>
-                                    <option value="fee_defaulters">Fee Defaulters</option>
-                                    <option value="custom">Custom Phone List</option>
-                                </select>
-                            </div>
-
-                            {(waRecipientFilter === 'by_form' || waRecipientFilter === 'by_stream') && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Form</label>
-                                    <select value={waSelForm} onChange={e => setWaSelForm(e.target.value)}
-                                        className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-green-400 outline-none">
-                                        <option value="">All Forms</option>
-                                        {forms.map(f => <option key={f.id} value={String(f.id)}>{f.form_name}</option>)}
-                                    </select>
-                                </div>
-                            )}
-
-                            {waRecipientFilter === 'by_stream' && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Stream</label>
-                                    <select value={waSelStream} onChange={e => setWaSelStream(e.target.value)}
-                                        className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-green-400 outline-none">
-                                        <option value="">All Streams</option>
-                                        {streams.map(s => <option key={s.id} value={String(s.id)}>{s.stream_name}</option>)}
-                                    </select>
-                                </div>
-                            )}
-
-                            {waRecipientFilter === 'custom' && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Phone Numbers (one per line)</label>
-                                    <textarea value={waCustomPhones} onChange={e => setWaCustomPhones(e.target.value)}
-                                        className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium bg-white focus:border-green-400 outline-none"
-                                        rows={6} placeholder="0712345678&#10;0723456789&#10;+254711222333" />
-                                </div>
-                            )}
-
-                            {waRecipientFilter !== 'custom' && (
-                                <div className="bg-green-50 rounded-lg p-3 border border-green-100">
-                                    <p className="text-xs font-semibold text-green-700 mb-2">
-                                        <FiCheckCircle className="inline mr-1" size={12} /> {waRecipients.length} recipients selected
-                                    </p>
-                                    <div className="max-h-40 overflow-y-auto space-y-1">
-                                        {waRecipients.slice(0, 20).map(s => (
-                                            <div key={s.id} className="flex items-center justify-between text-xs">
-                                                <span className="text-gray-700">{s.guardian_name || `${s.first_name}'s Guardian`}</span>
-                                                <span className="text-gray-400 font-mono">{s.guardian_phone}</span>
-                                            </div>
-                                        ))}
-                                        {waRecipients.length > 20 && (
-                                            <p className="text-xs text-green-600 font-semibold mt-2">+ {waRecipients.length - 20} more...</p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Estimated Cost */}
-                            <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                                <p className="text-xs font-bold text-amber-700">
-                                    Estimated cost: KES {(waRecipientCount * 0.50).toFixed(2)} (@ KES 0.50/message)
-                                </p>
-                                <p className="text-xs text-amber-600 mt-1">{waRecipientCount} recipient{waRecipientCount !== 1 ? 's' : ''}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Right: Message Compose */}
-                    <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                            <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2">
-                                <FiPhone className="text-green-500" /> Compose WhatsApp Message
-                            </h3>
-                            <span className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200">
-                                WhatsApp Business API
-                            </span>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase">Message Body</label>
-                                <textarea value={waMessage} onChange={e => setWaMessage(e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:border-green-400 outline-none transition-all resize-none"
-                                    rows={8} placeholder="Type your WhatsApp message here... Use {student_name}, {balance}, {date}, {school_name} as merge tags." />
-                                <div className="flex items-center justify-between mt-2">
-                                    <span className="text-xs text-gray-400">{waMessage.length} characters</span>
-                                    <span className="text-xs font-bold text-green-600">
-                                        Est. Cost: KES {waEstimatedCost.toFixed(2)}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                                <p className="text-xs font-bold text-amber-700 mb-1">Available Merge Tags:</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {['{student_name}', '{balance}', '{date}', '{school_name}', '{guardian}'].map(tag => (
-                                        <button key={tag} onClick={() => setWaMessage(prev => prev + ' ' + tag)}
-                                            className="px-2 py-1 bg-white border border-amber-200 rounded text-xs font-mono text-amber-700 hover:bg-amber-100 transition-all cursor-pointer">
-                                            {tag}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between pt-2">
-                                <button onClick={() => setWaMessage('')} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-all">Clear</button>
-                                <button onClick={handleSendWhatsApp} disabled={waSending || !waMessage.trim()}
-                                    className="px-8 py-2.5 text-sm font-bold text-white rounded-lg flex items-center gap-2 shadow-lg disabled:opacity-50"
-                                    style={{ background: waSending ? '#94a3b8' : 'linear-gradient(135deg, #25d366, #128c7e)' }}>
-                                    {waSending
-                                        ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sending...</>
-                                        : <><FiPhone size={14} /> Send to {waRecipientCount} Recipients</>
-                                    }
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Templates Tab */}
-            {tab === 'templates' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {templates.map((template, i) => (
-                        <div key={i} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all group">
-                            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-purple-50">
-                                <h4 className="font-bold text-gray-700 text-sm">{template.name}</h4>
-                                <FiMessageSquare className="text-indigo-400" size={16} />
-                            </div>
-                            <div className="p-4">
-                                <p className="text-xs text-gray-600 leading-relaxed">{template.body}</p>
-                                <button onClick={() => { setMessage(template.body); setTab('compose'); }}
-                                    className="mt-3 w-full px-4 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-all flex items-center justify-center gap-1">
-                                    <FiSend size={12} /> Use This Template
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+            {tab === 'config' && (
+                <ConfigTab schoolDetails={schoolDetails} fetchData={fetchData} />
             )}
         </div>
     );
