@@ -7,7 +7,7 @@ import {
     FiSend, FiUsers, FiAlertTriangle, FiCheck, FiSearch, FiX,
     FiMessageSquare, FiInfo,
 } from 'react-icons/fi';
-import { StudentAvatar, MESSAGE_TEMPLATES, QUICK_TEMPLATES } from './page';
+import { StudentAvatar, MESSAGE_TEMPLATES, QUICK_TEMPLATES } from './helpers';
 
 interface Student {
     id: number;

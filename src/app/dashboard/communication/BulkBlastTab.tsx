@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import {
     FiZap, FiUsers, FiAlertTriangle, FiCheckCircle,
 } from 'react-icons/fi';
-import { MESSAGE_TEMPLATES, QUICK_TEMPLATES } from './page';
+import { MESSAGE_TEMPLATES, QUICK_TEMPLATES } from './helpers';
 
 interface Student {
     id: number;
