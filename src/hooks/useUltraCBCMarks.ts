@@ -107,36 +107,37 @@ export function useUltraCBCMarks() {
       setMarkNotes({});
       return;
     }
-    const studentIds = getStudentsForSubject(Number(selSubject), studentSubjects);
-    // Wait until studentSubjects has loaded — if it's still empty, bail and let the
-    // effect re-run once studentSubjects is populated (it's in the dependency array).
-    if (studentIds.length === 0) {
+
+    // Derive the student IDs we care about from the students already loaded for
+    // this form/stream. We do NOT gate on studentSubjects here — if students are
+    // loaded we can fetch their assessments directly by subject/term. This avoids
+    // the race where studentSubjects loads before students and the effect bails.
+    const currentStudentIds = students.map(s => s.id);
+    if (currentStudentIds.length === 0) {
+      // Students haven't loaded yet — effect will re-run when `students` changes.
       setAssessments([]);
       setMarkLevels({});
       setMarkScores({});
       setMarkNotes({});
       return;
     }
-    const load = async () => {
-      // For Formative, fetch ALL formative records for this subject/term without
-      // filtering by task_name — this ensures existing data loads correctly on
-      // refresh even when taskName is still empty. The task_name filter is applied
-      // below when building newLevels/newScores so the UI only shows the right task.
-      const asmtQuery = supabase.from('cbc_assessments').select('*')
-        .in('student_id', studentIds)
-        .eq('subject_id', Number(selSubject))
-        .eq('term_id', Number(selTerm));
 
-      // Fetch all three in parallel
+    const load = async () => {
+      // Fetch ALL assessments for this subject/term for the current students.
+      // No task_name filter in the query — applied in-memory below so that
+      // Summative always loads and Formative loads all tasks (for avg calculation).
       const [asmtRes, scoreRes, noteRes] = await Promise.all([
-        asmtQuery,
+        supabase.from('cbc_assessments').select('*')
+          .in('student_id', currentStudentIds)
+          .eq('subject_id', Number(selSubject))
+          .eq('term_id', Number(selTerm)),
         supabase.from('cbc_mark_scores').select('*')
-          .in('student_id', studentIds)
+          .in('student_id', currentStudentIds)
           .eq('subject_id', Number(selSubject))
           .eq('term_id', Number(selTerm))
           .eq('assessment_type', selAssessmentType),
         supabase.from('cbc_teacher_notes').select('*')
-          .in('student_id', studentIds)
+          .in('student_id', currentStudentIds)
           .eq('subject_id', Number(selSubject))
           .eq('term_id', Number(selTerm)),
       ]);
@@ -144,9 +145,8 @@ export function useUltraCBCMarks() {
       const asmtData = asmtRes.data || [];
       setAssessments(asmtData);
 
-      // Build levels from assessments — apply task_name filter here (not in the query)
-      // so that on refresh with an empty taskName we still load Summative data correctly,
-      // and for Formative we only show the selected task's levels.
+      // Build levels — apply type + task filter in-memory so Summative always
+      // restores correctly and Formative only shows the selected task's level.
       const newLevels: Record<number, RubricLevel | null> = {};
       asmtData.forEach((a: any) => {
         const matchesType = a.assessment_type === selAssessmentType;
@@ -162,7 +162,7 @@ export function useUltraCBCMarks() {
       (scoreRes.data || []).forEach((ms: any) => {
         newScores[ms.student_id] = ms.raw_score != null ? String(ms.raw_score) : '';
       });
-      // Fallback: also pick up raw_score from assessments if not in mark_scores table
+      // Fallback: pick up raw_score from assessments if not in mark_scores table
       asmtData.forEach((a: any) => {
         const matchesType = a.assessment_type === selAssessmentType;
         const matchesTask = selAssessmentType === 'Summative' || a.task_name === taskName;
@@ -180,9 +180,9 @@ export function useUltraCBCMarks() {
       setMarkNotes(newNotes);
     };
     load();
-  // studentSubjects is intentionally included so the effect re-runs once the
-  // async fetch of student subjects completes (fixes the blank-on-refresh bug).
-  }, [selForm, selTerm, selSubject, studentSubjects, selAssessmentType, taskName]);
+  // `students` is in deps so the effect re-runs once the student list loads.
+  // `studentSubjects` removed as a gate — we query by student IDs directly.
+  }, [selForm, selTerm, selSubject, students, selAssessmentType, taskName]);
 
   // ── Fetch previous term assessments for trend arrows ──
   useEffect(() => {
@@ -201,8 +201,14 @@ export function useUltraCBCMarks() {
   }, [selTerm, selSubject, terms]);
 
   // ── Enrolled students ──
+  // If cbc_student_subjects has entries for this subject, filter to enrolled only.
+  // If the table is empty (no enrollment data), fall back to ALL students in the
+  // form — this prevents the page from showing 0 students when enrollment hasn't
+  // been set up yet.
   const enrolledStudentIds = selSubject ? getStudentsForSubject(Number(selSubject), studentSubjects) : [];
-  const enrolledStudents = students.filter(s => enrolledStudentIds.includes(s.id));
+  const enrolledStudents = enrolledStudentIds.length > 0
+    ? students.filter(s => enrolledStudentIds.includes(s.id))
+    : students; // fallback: show all form students when no enrollment data exists
 
   // ── Available subjects ──
   const availableSubjectIds = new Set(
