@@ -39,6 +39,8 @@ export interface StudentRowProps {
   formativeAvgLevel: string | null;
   /** Teacher note text */
   note: string;
+  /** Rubric config for auto-note placeholders */
+  rubricConfig: any[];
   /** Whether bulk mode is active */
   bulkMode: boolean;
   /** Whether this row is selected in bulk mode */
@@ -184,6 +186,7 @@ function UltraCBCStudentRow({
   prevLevel,
   formativeAvgLevel,
   note,
+  rubricConfig,
   bulkMode,
   isSelected,
   onScoreChange,
@@ -195,6 +198,16 @@ function UltraCBCStudentRow({
   const avatarColor = getAvatarColor(index - 1);
   const initials = getInitials(student.firstName, student.lastName);
   const trend = computeTrend(level, prevLevel);
+
+  // Derive auto-note for current level from rubric config
+  const autoNote = level
+    ? (() => {
+        const cfg = (rubricConfig || []).find(
+          (r: any) => r.level_code === level || r.rubric_level === level
+        );
+        return cfg?.teacher_note || cfg?.default_note || cfg?.note || cfg?.description || '';
+      })()
+    : '';
 
   const handleScoreInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -216,6 +229,11 @@ function UltraCBCStudentRow({
     },
     [student.id, onCheckChange]
   );
+
+  // Reset note to the auto-note for the current level
+  const handleResetNote = useCallback(() => {
+    if (autoNote) onNoteChange(student.id, autoNote);
+  }, [student.id, autoNote, onNoteChange]);
 
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50/60 transition-colors group">
@@ -315,13 +333,25 @@ function UltraCBCStudentRow({
 
       {/* Teacher note */}
       <td className="px-3 py-1.5">
-        <input
-          type="text"
-          value={note}
-          onChange={handleNoteInput}
-          placeholder="Note..."
-          className="w-full py-1 px-1.5 rounded-md border border-gray-200 bg-gray-50 text-gray-800 text-[11px] transition-all focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-        />
+        <div className="flex items-center gap-1">
+          <input
+            type="text"
+            value={note}
+            onChange={handleNoteInput}
+            placeholder={autoNote || 'Note...'}
+            title={autoNote ? `Auto-note for ${level}: "${autoNote}"` : 'Teacher note'}
+            className="w-full py-1 px-1.5 rounded-md border border-gray-200 bg-gray-50 text-gray-800 text-[11px] transition-all focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          />
+          {autoNote && note !== autoNote && (
+            <button
+              onClick={handleResetNote}
+              title={`Reset to: "${autoNote}"`}
+              className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold border border-indigo-200 text-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all cursor-pointer"
+            >
+              ↺
+            </button>
+          )}
+        </div>
       </td>
 
       {/* Actions */}

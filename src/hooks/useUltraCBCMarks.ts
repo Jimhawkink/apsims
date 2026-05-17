@@ -100,44 +100,78 @@ export function useUltraCBCMarks() {
 
   // ── Fetch assessments when filters change ──
   useEffect(() => {
-    if (!selForm || !selTerm || !selSubject) { setAssessments([]); return; }
+    if (!selForm || !selTerm || !selSubject) {
+      setAssessments([]);
+      setMarkLevels({});
+      setMarkScores({});
+      setMarkNotes({});
+      return;
+    }
     const load = async () => {
       const studentIds = getStudentsForSubject(Number(selSubject), studentSubjects);
-      if (studentIds.length === 0) { setAssessments([]); return; }
-
-      // Current term assessments
-      const { data } = await supabase.from('cbc_assessments').select('*')
-        .in('student_id', studentIds).eq('subject_id', Number(selSubject)).eq('term_id', Number(selTerm));
-      setAssessments(data || []);
-
-      // Also try to fetch mark scores
-      const { data: scoreData } = await supabase.from('cbc_mark_scores').select('*')
-        .in('student_id', studentIds).eq('subject_id', Number(selSubject)).eq('term_id', Number(selTerm));
-
-      // Also try to fetch teacher notes
-      const { data: noteData } = await supabase.from('cbc_teacher_notes').select('*')
-        .in('student_id', studentIds).eq('subject_id', Number(selSubject)).eq('term_id', Number(selTerm));
-
-      // Pre-populate scores from cbc_mark_scores if available
-      if (scoreData && scoreData.length > 0) {
-        const newScores: Record<number, string> = {};
-        scoreData.forEach((ms: any) => {
-          if (ms.assessment_type === selAssessmentType) {
-            newScores[ms.student_id] = String(ms.raw_score || '');
-          }
-        });
-        setMarkScores(prev => ({ ...prev, ...newScores }));
+      if (studentIds.length === 0) {
+        setAssessments([]);
+        setMarkLevels({});
+        setMarkScores({});
+        setMarkNotes({});
+        return;
       }
 
-      // Pre-populate notes
-      if (noteData && noteData.length > 0) {
-        const newNotes: Record<number, string> = {};
-        noteData.forEach((tn: any) => { newNotes[tn.student_id] = tn.note_text || ''; });
-        setMarkNotes(prev => ({ ...prev, ...newNotes }));
-      }
+      // Fetch all three in parallel
+      const [asmtRes, scoreRes, noteRes] = await Promise.all([
+        supabase.from('cbc_assessments').select('*')
+          .in('student_id', studentIds)
+          .eq('subject_id', Number(selSubject))
+          .eq('term_id', Number(selTerm)),
+        supabase.from('cbc_mark_scores').select('*')
+          .in('student_id', studentIds)
+          .eq('subject_id', Number(selSubject))
+          .eq('term_id', Number(selTerm))
+          .eq('assessment_type', selAssessmentType),
+        supabase.from('cbc_teacher_notes').select('*')
+          .in('student_id', studentIds)
+          .eq('subject_id', Number(selSubject))
+          .eq('term_id', Number(selTerm)),
+      ]);
+
+      const asmtData = asmtRes.data || [];
+      setAssessments(asmtData);
+
+      // Build levels from assessments — done here atomically with the same data
+      const newLevels: Record<number, RubricLevel | null> = {};
+      asmtData.forEach((a: any) => {
+        const matchesType = a.assessment_type === selAssessmentType;
+        const matchesTask = selAssessmentType === 'Summative' || a.task_name === taskName;
+        if (matchesType && matchesTask && a.rubric_level) {
+          newLevels[a.student_id] = a.rubric_level as RubricLevel;
+        }
+      });
+      setMarkLevels(newLevels);
+
+      // Build scores from cbc_mark_scores (more reliable than assessments raw_score)
+      const newScores: Record<number, string> = {};
+      (scoreRes.data || []).forEach((ms: any) => {
+        newScores[ms.student_id] = ms.raw_score != null ? String(ms.raw_score) : '';
+      });
+      // Fallback: also pick up raw_score from assessments if not in mark_scores table
+      asmtData.forEach((a: any) => {
+        const matchesType = a.assessment_type === selAssessmentType;
+        const matchesTask = selAssessmentType === 'Summative' || a.task_name === taskName;
+        if (matchesType && matchesTask && a.raw_score != null && !newScores[a.student_id]) {
+          newScores[a.student_id] = String(a.raw_score);
+        }
+      });
+      setMarkScores(newScores);
+
+      // Build notes
+      const newNotes: Record<number, string> = {};
+      (noteRes.data || []).forEach((tn: any) => {
+        newNotes[tn.student_id] = tn.note_text || '';
+      });
+      setMarkNotes(newNotes);
     };
     load();
-  }, [selForm, selTerm, selSubject, studentSubjects, selAssessmentType]);
+  }, [selForm, selTerm, selSubject, studentSubjects, selAssessmentType, taskName]);
 
   // ── Fetch previous term assessments for trend arrows ──
   useEffect(() => {
@@ -239,22 +273,50 @@ export function useUltraCBCMarks() {
     return enrolledStudents.filter(s => markLevels[s.id] === 'BE').map(s => `${s.first_name} ${s.last_name}`);
   }, [enrolledStudents, markLevels]);
 
+  // ── Auto-note helper: returns default note for a rubric level from config ──
+  const getAutoNote = useCallback((level: RubricLevel | null): string => {
+    if (!level || !rubricConfig || rubricConfig.length === 0) return '';
+    const cfg = rubricConfig.find((r: any) => r.level_code === level || r.rubric_level === level);
+    // Support common column names: teacher_note, default_note, note, description
+    return cfg?.teacher_note || cfg?.default_note || cfg?.note || cfg?.description || '';
+  }, [rubricConfig]);
+
   // ── Handlers ──
   const handleScoreChange = useCallback((studentId: number, value: string) => {
     setMarkScores(prev => ({ ...prev, [studentId]: value }));
     const lvl = scoreToLevel(value);
     if (lvl) {
       setMarkLevels(prev => ({ ...prev, [studentId]: lvl }));
+      // Auto-fill teacher note only if the note is currently empty or was a previous auto-note
+      setMarkNotes(prev => {
+        const existingNote = prev[studentId] || '';
+        // Only overwrite if blank — don't override a custom note the teacher typed
+        if (!existingNote.trim()) {
+          const autoNote = getAutoNote(lvl);
+          if (autoNote) return { ...prev, [studentId]: autoNote };
+        }
+        return prev;
+      });
     }
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => { triggerSaveRef.current(false); }, 3000);
-  }, []);
+  }, [getAutoNote]);
 
   const handleLevelChange = useCallback((studentId: number, level: string) => {
     setMarkLevels(prev => ({ ...prev, [studentId]: level as RubricLevel }));
+    // Auto-fill teacher note from rubric config when level is manually selected
+    setMarkNotes(prev => {
+      const existingNote = prev[studentId] || '';
+      // Only overwrite if blank — preserve custom teacher notes
+      if (!existingNote.trim()) {
+        const autoNote = getAutoNote(level as RubricLevel);
+        if (autoNote) return { ...prev, [studentId]: autoNote };
+      }
+      return prev;
+    });
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => { triggerSaveRef.current(false); }, 3000);
-  }, []);
+  }, [getAutoNote]);
 
   const handleClear = useCallback((studentId: number) => {
     setMarkLevels(prev => ({ ...prev, [studentId]: null }));

@@ -430,6 +430,7 @@ export default function CBCMarksPage() {
                       prevLevel={hook.prevTermLevels[student.id] || null}
                       formativeAvgLevel={hook.formativeAvgLevels[student.id] || null}
                       note={hook.markNotes[student.id] || ''}
+                      rubricConfig={hook.rubricConfig}
                       bulkMode={hook.bulkMode}
                       isSelected={hook.selected.has(student.id)}
                       onScoreChange={hook.handleScoreChange}
