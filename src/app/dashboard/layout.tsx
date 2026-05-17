@@ -167,8 +167,8 @@ const menuGroups = [
         name: 'comms',
         collapsible: true,
         items: [
-            { href: '/dashboard/communication', label: 'SMS & Broadcasting', icon: FiMessageSquare, perm: 'communication' },
-            { href: '/dashboard/portals', label: 'Parent & Student Portal', icon: FiUsers, perm: 'portals' },
+            { href: '/dashboard/communication', label: '📡 SMS & Broadcasting', icon: FiMessageSquare, perm: 'fees' },
+            { href: '/dashboard/portals', label: 'Parent & Student Portal', icon: FiUsers, perm: 'students' },
         ]
     },
     {
