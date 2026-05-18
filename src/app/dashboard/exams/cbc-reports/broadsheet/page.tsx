@@ -151,6 +151,29 @@ export default function CBCBroadsheetPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
+      {/* 🔍 DEBUG PANEL — remove after fixing */}
+      <div className="bg-yellow-50 border-2 border-yellow-400 rounded-xl p-4 text-xs font-mono space-y-1">
+        <p className="font-bold text-yellow-800 text-sm">🔍 DEBUG: Data Pipeline Diagnostics</p>
+        <p>📋 Forms (CBC): <b>{data.forms.length}</b> | All Forms: <b>{data.allForms.length}</b></p>
+        <p>👨‍🎓 Students (total): <b>{data.students.length}</b> | Filtered: <b>{data.filteredStudents.length}</b></p>
+        <p>🔑 selForm: <b>"{data.selForm}"</b> | selTerm: <b>"{data.selTerm}"</b> | selStream: <b>"{data.selStream}"</b></p>
+        <p>📊 Assessments (raw from DB): <b className="text-red-600">{data.assessments.length}</b></p>
+        <p>📈 Summaries (computed): <b className="text-red-600">{data.summaries.length}</b></p>
+        <p>📈 Filtered Summaries: <b className="text-red-600">{data.filteredSummaries.length}</b></p>
+        <p>📚 Subjects: <b>{data.subjects.length}</b> | Active (w/ data): <b>{activeSubjectIds.length}</b></p>
+        <p>🏫 Terms: <b>{data.terms.length}</b> | Current: <b>{data.currentTerm?.term_name || 'NONE'}</b></p>
+        <p>⏳ Loading: <b>{String(data.loading)}</b> | LoadingData: <b>{String(data.loadingData)}</b></p>
+        {data.assessments.length > 0 && (
+          <p className="text-green-700">✅ Sample assessment: student_id={data.assessments[0].student_id}, subject_id={data.assessments[0].subject_id}, term_id={data.assessments[0].term_id}, rubric={data.assessments[0].rubric_level}, type={data.assessments[0].assessment_type}</p>
+        )}
+        {data.assessments.length === 0 && (
+          <p className="text-red-700 font-bold">❌ ZERO assessments returned from cbc_assessments for term_id={data.selTerm}. Either wrong term or no data in table.</p>
+        )}
+        {data.filteredStudents.length > 0 && data.summaries.length > 0 && data.filteredSummaries.length === 0 && (
+          <p className="text-red-700 font-bold">❌ Summaries exist ({data.summaries.length}) but NONE match filtered students. Student IDs may not match assessment student_ids.</p>
+        )}
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
