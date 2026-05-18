@@ -157,21 +157,19 @@ export default function CBCBroadsheetPage() {
         <p>📋 Forms (CBC): <b>{data.forms.length}</b> | All Forms: <b>{data.allForms.length}</b></p>
         <p>👨‍🎓 Students (total): <b>{data.students.length}</b> | Filtered: <b>{data.filteredStudents.length}</b></p>
         <p>🔑 selForm: <b>"{data.selForm}"</b> | selTerm: <b>"{data.selTerm}"</b> | selStream: <b>"{data.selStream}"</b></p>
-        <p>📊 Assessments (raw from DB): <b className="text-red-600">{data.assessments.length}</b></p>
-        <p>📈 Summaries (computed): <b className="text-red-600">{data.summaries.length}</b></p>
-        <p>📈 Filtered Summaries: <b className="text-red-600">{data.filteredSummaries.length}</b></p>
+        <p>📊 Assessments (for selected term): <b className="text-red-600">{data.assessments.length}</b></p>
+        <p>📊 ALL Assessments (all terms): <b className="text-blue-600">{data.allTermSummaries.length} summaries from {(() => { const s = new Set<number>(); data.allTermSummaries.forEach(a => s.add(a.term_id)); return s.size; })()} terms</b></p>
+        <p>📈 Summaries (computed): <b className="text-red-600">{data.summaries.length}</b> | Filtered: <b className="text-red-600">{data.filteredSummaries.length}</b></p>
         <p>📚 Subjects: <b>{data.subjects.length}</b> | Active (w/ data): <b>{activeSubjectIds.length}</b></p>
-        <p>🏫 Terms: <b>{data.terms.length}</b> | Current: <b>{data.currentTerm?.term_name || 'NONE'}</b></p>
+        <p>🏫 Terms in DB: {data.terms.map(t => <span key={t.id} className={`inline-block mx-1 px-2 py-0.5 rounded ${String(t.id) === data.selTerm ? 'bg-indigo-600 text-white' : 'bg-gray-200'}`}>id={t.id} "{t.term_name}" {t.is_current ? '⭐CURRENT' : ''}</span>)}</p>
         <p>⏳ Loading: <b>{String(data.loading)}</b> | LoadingData: <b>{String(data.loadingData)}</b></p>
         {data.assessments.length > 0 && (
           <p className="text-green-700">✅ Sample assessment: student_id={data.assessments[0].student_id}, subject_id={data.assessments[0].subject_id}, term_id={data.assessments[0].term_id}, rubric={data.assessments[0].rubric_level}, type={data.assessments[0].assessment_type}</p>
         )}
         {data.assessments.length === 0 && (
-          <p className="text-red-700 font-bold">❌ ZERO assessments returned from cbc_assessments for term_id={data.selTerm}. Either wrong term or no data in table.</p>
+          <p className="text-red-700 font-bold">❌ ZERO assessments for term_id={data.selTerm}. Try selecting a DIFFERENT term in the dropdown above! Your marks may be saved under a different term.</p>
         )}
-        {data.filteredStudents.length > 0 && data.summaries.length > 0 && data.filteredSummaries.length === 0 && (
-          <p className="text-red-700 font-bold">❌ Summaries exist ({data.summaries.length}) but NONE match filtered students. Student IDs may not match assessment student_ids.</p>
-        )}
+        <p className="text-orange-700 font-bold mt-1">👆 ACTION: Select Term 2 in the dropdown above if your marks were entered under Term 2!</p>
       </div>
 
       {/* Header */}
