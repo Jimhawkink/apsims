@@ -76,15 +76,59 @@ export default function CBCReportCardsPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Fetch summaries and comments when term changes
+  // Fetch mark scores (NOT the empty cbc_competency_summaries) and comments
   useEffect(() => {
     if (!selTerm) return;
     const load = async () => {
-      const [summariesRes, commentsRes] = await Promise.all([
-        supabase.from('cbc_competency_summaries').select('*').eq('term_id', Number(selTerm)),
+      const [scoresRes, commentsRes] = await Promise.all([
+        supabase.from('cbc_mark_scores').select('*').eq('term_id', Number(selTerm)),
         supabase.from('cbc_report_card_comments').select('*').eq('term_id', Number(selTerm)),
       ]);
-      setSummaries(summariesRes.data || []);
+
+      // Compute per-student per-subject summaries from raw mark scores
+      const rawScores = scoresRes.data || [];
+      const grouped: Record<string, any[]> = {};
+      for (const s of rawScores) {
+        const key = `${s.student_id}-${s.subject_id}`;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(s);
+      }
+
+      const LEVELS = ['EE', 'ME', 'AE', 'BE'] as const;
+      const WEIGHTS: Record<string, number> = { EE: 4, ME: 3, AE: 2, BE: 1 };
+      const NUM_TO_LEVEL: Record<number, string> = { 4: 'EE', 3: 'ME', 2: 'AE', 1: 'BE' };
+
+      const computedSummaries: any[] = [];
+      for (const [, group] of Object.entries(grouped)) {
+        const { student_id, subject_id, term_id } = group[0];
+        const formative = group.filter((g: any) => g.assessment_type === 'Formative' && g.rubric_level);
+        const summative = group.filter((g: any) => g.assessment_type === 'Summative' && g.rubric_level);
+
+        // Mode of rubric levels
+        const modeLevel = (items: any[]) => {
+          if (!items.length) return null;
+          const counts: Record<string, number> = {};
+          items.forEach(i => { counts[i.rubric_level] = (counts[i.rubric_level] || 0) + 1; });
+          let best: string | null = null, bestC = 0;
+          for (const lvl of LEVELS) { if ((counts[lvl] || 0) > bestC) { best = lvl; bestC = counts[lvl] || 0; } }
+          return best;
+        };
+
+        const fLevel = modeLevel(formative);
+        const sLevel = modeLevel(summative);
+        let overall: string | null = null;
+        if (fLevel && sLevel) {
+          const w = Math.round((WEIGHTS[sLevel] || 0) * 0.6 + (WEIGHTS[fLevel] || 0) * 0.4);
+          overall = NUM_TO_LEVEL[Math.max(1, Math.min(4, w))] || 'BE';
+        } else {
+          overall = sLevel || fLevel;
+        }
+
+        computedSummaries.push({ student_id, subject_id, term_id, formative_level: fLevel, summative_level: sLevel, overall_level: overall });
+      }
+
+      setSummaries(computedSummaries);
+
       const commentsMap: Record<number, { teacher_comment: string; principal_comment: string }> = {};
       (commentsRes.data || []).forEach((c: any) => {
         commentsMap[c.student_id] = {
