@@ -7,7 +7,7 @@ import CBCReportCardTemplate from '@/components/cbc/CBCReportCardTemplate';
 import RubricLevelBadge from '@/components/cbc/RubricLevelBadge';
 import PathwayBadge from '@/components/cbc/PathwayBadge';
 import toast from 'react-hot-toast';
-import { FiPrinter, FiDownload, FiFileText, FiEye, FiUsers } from 'react-icons/fi';
+import { FiPrinter, FiDownload, FiFileText, FiEye, FiUsers, FiMessageCircle } from 'react-icons/fi';
 
 export default function CBCReportCardsPage() {
   const [forms, setForms] = useState<any[]>([]);
@@ -23,6 +23,16 @@ export default function CBCReportCardsPage() {
   const [schoolDetails, setSchoolDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Extra data for premium report card
+  const [subjectTeachers, setSubjectTeachers] = useState<any[]>([]);
+  const [feeStructure, setFeeStructure] = useState<any[]>([]);
+  const [feePayments, setFeePayments] = useState<any[]>([]);
+  const [disciplineRecords, setDisciplineRecords] = useState<any[]>([]);
+  const [nextTermData, setNextTermData] = useState<any>(null);
+  const [nextTermFee, setNextTermFee] = useState(0);
+  const [historicalScores, setHistoricalScores] = useState<any[]>([]);
+  const [sendingSms, setSendingSms] = useState<number | null>(null);
+
   const [selStream, setSelStream] = useState('');
   const [selTerm, setSelTerm] = useState('');
   const [previewStudentId, setPreviewStudentId] = useState<number | null>(null);
@@ -33,7 +43,7 @@ export default function CBCReportCardsPage() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [formsRes, streamsRes, termsRes, pathwaysRes, subjectsRes, ssRes, rubricRes, sdRes] = await Promise.all([
+    const [formsRes, streamsRes, termsRes, pathwaysRes, subjectsRes, ssRes, rubricRes, sdRes, stRes] = await Promise.all([
       supabase.from('school_forms').select('*').order('form_level'),
       supabase.from('school_streams').select('*').order('stream_name'),
       supabase.from('school_terms').select('*').order('id', { ascending: false }),
@@ -42,6 +52,7 @@ export default function CBCReportCardsPage() {
       supabase.from('cbc_student_subjects').select('*'),
       supabase.from('cbc_rubric_config').select('*').order('sort_order'),
       supabase.from('school_details').select('*').limit(1).maybeSingle(),
+      supabase.from('school_subject_teachers').select('*'),
     ]);
 
     const allForms = formsRes.data || [];
@@ -56,6 +67,7 @@ export default function CBCReportCardsPage() {
     setStudentSubjects(ssRes.data || []);
     setRubricConfig(rubricRes.data || []);
     setSchoolDetails(sdRes.data);
+    setSubjectTeachers(stRes.data || []);
 
     const cur = (termsRes.data || []).find((t: any) => t.is_current);
     if (cur) setSelTerm(String(cur.id));
@@ -140,6 +152,89 @@ export default function CBCReportCardsPage() {
     };
     load();
   }, [selTerm]);
+
+  // Fetch fees, discipline, next term, historical data
+  useEffect(() => {
+    if (!selTerm || filteredStudents.length === 0) return;
+    const load = async () => {
+      const studentIds = filteredStudents.map((s: any) => s.id);
+      const formIds = [...new Set(filteredStudents.map((s: any) => s.form_id))];
+      const [fpRes, fsRes, discRes, histRes] = await Promise.all([
+        supabase.from('school_fee_payments').select('*').in('student_id', studentIds),
+        supabase.from('school_fee_structures').select('*').in('form_id', formIds).eq('term_id', Number(selTerm)),
+        supabase.from('school_discipline_records').select('*').in('student_id', studentIds).order('incident_date', { ascending: false }),
+        supabase.from('cbc_mark_scores').select('*').in('student_id', studentIds),
+      ]);
+      setFeePayments(fpRes.data || []);
+      setFeeStructure(fsRes.data || []);
+      setDisciplineRecords(discRes.data || []);
+      setHistoricalScores(histRes.data || []);
+
+      // Next term
+      const currentTerm = terms.find((t: any) => String(t.id) === selTerm);
+      if (currentTerm) {
+        const nextT = terms.find((t: any) => t.year === currentTerm.year && t.term_number === currentTerm.term_number + 1)
+          || terms.find((t: any) => t.year === currentTerm.year + 1 && t.term_number === 1);
+        setNextTermData(nextT || null);
+        if (nextT) {
+          const { data: ntf } = await supabase.from('school_fee_structures').select('*').in('form_id', formIds).eq('term_id', nextT.id);
+          setNextTermFee((ntf || []).reduce((s: number, f: any) => s + Number(f.amount), 0));
+        }
+      }
+    };
+    load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selTerm, students]);
+
+  // SMS send function
+  const sendSmsReport = async (studentId: number) => {
+    setSendingSms(studentId);
+    const student = students.find((s: any) => s.id === studentId);
+    if (!student) { setSendingSms(null); return; }
+    const phone = student.parent_phone || student.guardian_phone || student.phone;
+    if (!phone) { toast.error('No parent phone number'); setSendingSms(null); return; }
+    const studentSums = summaries.filter((s: any) => s.student_id === studentId);
+    const subs = getStudentSubjectList(studentId);
+    const lines = subs.map((sub: any) => {
+      const sum = studentSums.find((s: any) => s.subject_id === sub.id);
+      return `${sub.subject_name}: ${sum?.overall_level || 'N/A'}`;
+    }).join('\n');
+    const msg = `CBC Report - ${student.first_name} ${student.last_name}\n${terms.find((t: any) => String(t.id) === selTerm)?.term_name || ''}\n\n${lines}\n\n- ${schoolDetails?.school_name || 'School'}`;
+    try {
+      await supabase.from('sms_outbox').insert({ phone_number: phone, message: msg, status: 'pending', created_at: new Date().toISOString() });
+      toast.success(`SMS queued to ${phone}`);
+    } catch { toast.error('SMS failed'); }
+    setSendingSms(null);
+  };
+
+  // Helper: get teacher initials for a subject
+  const getTeacherInitial = (subjectId: number, studentFormId?: number) => {
+    const st = subjectTeachers.find((t: any) => t.subject_id === subjectId && (!studentFormId || t.form_id === studentFormId));
+    return st?.teacher_initials || st?.initials || '';
+  };
+
+  // Helper: get fee data for a student
+  const getStudentFees = (studentId: number) => {
+    const charged = feeStructure.reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const paid = feePayments.filter((p: any) => p.student_id === studentId && String(p.term_id) === selTerm).reduce((s: number, p: any) => s + Number(p.amount), 0);
+    return { charged, paid, balance: charged - paid };
+  };
+
+  // Helper: get discipline for a student
+  const getStudentDiscipline = (studentId: number) => disciplineRecords.filter((d: any) => d.student_id === studentId);
+
+  // Helper: get historical term progress for a student
+  const getStudentHistory = (studentId: number) => {
+    const scores = historicalScores.filter((s: any) => s.student_id === studentId && s.rubric_level);
+    const byTerm: Record<number, any[]> = {};
+    scores.forEach((s: any) => { if (!byTerm[s.term_id]) byTerm[s.term_id] = []; byTerm[s.term_id].push(s); });
+    const WEIGHTS: Record<string, number> = { EE: 4, ME: 3, AE: 2, BE: 1 };
+    return Object.entries(byTerm).map(([tid, items]) => {
+      const avg = items.reduce((s, i) => s + (WEIGHTS[i.rubric_level] || 0), 0) / items.length;
+      const t = terms.find((t: any) => t.id === Number(tid));
+      return { termId: Number(tid), termName: t?.term_name || `T${tid}`, avg: parseFloat(avg.toFixed(2)), count: items.length };
+    }).sort((a, b) => a.termId - b.termId);
+  };
 
   // Filtered students
   const filteredStudents = students.filter(s => {
@@ -346,6 +441,13 @@ export default function CBCReportCardsPage() {
                     >
                       <FiPrinter size={12} /> Print
                     </button>
+                    <button
+                      onClick={() => sendSmsReport(student.id)}
+                      disabled={sendingSms === student.id}
+                      className="px-3 py-1.5 text-xs font-bold text-white bg-green-500 rounded-lg flex items-center gap-1 hover:bg-green-600 disabled:opacity-60"
+                    >
+                      <FiMessageCircle size={12} /> {sendingSms === student.id ? '...' : 'SMS'}
+                    </button>
                   </div>
                 </div>
 
@@ -410,6 +512,12 @@ export default function CBCReportCardsPage() {
                       schoolDetails={schoolDetails}
                       term={getTermObj()}
                       comments={comment}
+                      fees={getStudentFees(student.id)}
+                      discipline={getStudentDiscipline(student.id)}
+                      history={getStudentHistory(student.id)}
+                      nextTerm={nextTermData}
+                      nextTermFee={nextTermFee}
+                      getTeacherInitial={(subId: number) => getTeacherInitial(subId, student.form_id)}
                     />
                   </div>
                 )}
@@ -438,6 +546,12 @@ export default function CBCReportCardsPage() {
                   schoolDetails={schoolDetails}
                   term={getTermObj()}
                   comments={comment}
+                  fees={getStudentFees(student.id)}
+                  discipline={getStudentDiscipline(student.id)}
+                  history={getStudentHistory(student.id)}
+                  nextTerm={nextTermData}
+                  nextTermFee={nextTermFee}
+                  getTeacherInitial={(subId: number) => getTeacherInitial(subId, student.form_id)}
                 />
               );
             })
@@ -457,6 +571,12 @@ export default function CBCReportCardsPage() {
                   schoolDetails={schoolDetails}
                   term={getTermObj()}
                   comments={comment}
+                  fees={getStudentFees(previewStudent.id)}
+                  discipline={getStudentDiscipline(previewStudent.id)}
+                  history={getStudentHistory(previewStudent.id)}
+                  nextTerm={nextTermData}
+                  nextTermFee={nextTermFee}
+                  getTeacherInitial={(subId: number) => getTeacherInitial(subId, previewStudent.form_id)}
                 />
               );
             })()
