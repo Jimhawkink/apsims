@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { getEducationSystem, RubricLevel, RUBRIC_LEVELS, RUBRIC_NUMERIC, computeCompetencySummary, computeWeightedSummary } from '@/lib/cbc-utils';
+import { getEducationSystem, RubricLevel, RUBRIC_LEVELS, RUBRIC_NUMERIC, NUMERIC_RUBRIC } from '@/lib/cbc-utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface CBCStudent {
@@ -49,6 +49,42 @@ export const getRubricColor = (level: string | null | undefined) =>
 export const rubricNumeric = (level: string): number =>
   RUBRIC_NUMERIC[level as RubricLevel] ?? 0;
 
+// ─── Summary computation helpers (inline — no external dependency) ────────────
+
+/**
+ * Given an array of rubric levels, return the mode (most frequent).
+ * On tie, pick the higher level (EE > ME > AE > BE).
+ */
+function modeRubricLevel(levels: string[]): RubricLevel | null {
+  if (levels.length === 0) return null;
+  const counts: Record<string, number> = {};
+  for (const l of levels) {
+    counts[l] = (counts[l] || 0) + 1;
+  }
+  let best: string | null = null;
+  let bestCount = 0;
+  // Iterate in priority order so ties go to the higher level
+  for (const lvl of RUBRIC_LEVELS) {
+    if ((counts[lvl] || 0) > bestCount) {
+      best = lvl;
+      bestCount = counts[lvl] || 0;
+    }
+  }
+  return (best as RubricLevel) || null;
+}
+
+/**
+ * Weighted summary: 60% summative + 40% formative → nearest rubric level.
+ */
+function weightedSummary(formative: RubricLevel, summative: RubricLevel): RubricLevel {
+  const fNum = RUBRIC_NUMERIC[formative] ?? 0;
+  const sNum = RUBRIC_NUMERIC[summative] ?? 0;
+  const weighted = sNum * 0.6 + fNum * 0.4;
+  const rounded = Math.round(weighted);
+  const clamped = Math.max(1, Math.min(4, rounded));
+  return NUMERIC_RUBRIC[clamped] || 'BE';
+}
+
 // ─── Compute summaries from raw assessments ───────────────────────────────────
 function computeSummariesFromAssessments(assessments: CBCAssessment[]): CBCSummary[] {
   // Group by student_id + subject_id + term_id
@@ -68,17 +104,15 @@ function computeSummariesFromAssessments(assessments: CBCAssessment[]): CBCSumma
     const summativeAssessments = group.filter(a => a.assessment_type === 'Summative' && a.rubric_level);
 
     // Compute formative level (mode of all formative rubric levels)
-    const formativeLevels = formativeAssessments.map(a => a.rubric_level as RubricLevel);
-    const formativeLevel = computeCompetencySummary(formativeLevels);
+    const formativeLevel = modeRubricLevel(formativeAssessments.map(a => a.rubric_level));
 
-    // Summative level (latest summative, or mode if multiple)
-    const summativeLevels = summativeAssessments.map(a => a.rubric_level as RubricLevel);
-    const summativeLevel = computeCompetencySummary(summativeLevels);
+    // Summative level (mode if multiple, or just the one)
+    const summativeLevel = modeRubricLevel(summativeAssessments.map(a => a.rubric_level));
 
     // Overall level: weighted 60/40 if both exist, otherwise use whichever is available
     let overallLevel: RubricLevel | null = null;
     if (formativeLevel && summativeLevel) {
-      overallLevel = computeWeightedSummary(formativeLevel, summativeLevel);
+      overallLevel = weightedSummary(formativeLevel, summativeLevel);
     } else if (summativeLevel) {
       overallLevel = summativeLevel;
     } else if (formativeLevel) {
@@ -177,14 +211,14 @@ export function useCBCReportData() {
 
   useEffect(() => { fetchBase(); }, [fetchBase]);
 
-  // ── Fetch term-dependent data (assessments, not summaries) ──
+  // ── Fetch term-dependent data (assessments directly — NOT the empty summaries table) ──
   useEffect(() => {
     if (!selTerm) return;
     setLoadingData(true);
     const load = async () => {
       const termId = Number(selTerm);
 
-      // Fetch assessments for current term (this is where the actual data lives)
+      // Fetch assessments for current term (this is where the actual marks live)
       const [asmtRes, intRes] = await Promise.all([
         supabase.from('cbc_assessments').select('*').eq('term_id', termId),
         supabase.from('cbc_intervention_flags').select('*').eq('term_id', termId),
