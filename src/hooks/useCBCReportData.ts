@@ -211,34 +211,100 @@ export function useCBCReportData() {
 
   useEffect(() => { fetchBase(); }, [fetchBase]);
 
-  // ── Fetch term-dependent data (assessments directly — NOT the empty summaries table) ──
+  // ── Fetch term-dependent data from BOTH cbc_mark_scores AND cbc_assessments ──
   useEffect(() => {
     if (!selTerm) return;
     setLoadingData(true);
     const load = async () => {
       const termId = Number(selTerm);
 
-      // Fetch assessments for current term (this is where the actual marks live)
-      const [asmtRes, intRes] = await Promise.all([
+      // Query BOTH tables — cbc_mark_scores is the primary data source
+      // (cbc_assessments may be empty due to upsert issues in the marks entry page)
+      const [scoresRes, asmtRes, intRes] = await Promise.all([
+        supabase.from('cbc_mark_scores').select('*').eq('term_id', termId),
         supabase.from('cbc_assessments').select('*').eq('term_id', termId),
         supabase.from('cbc_intervention_flags').select('*').eq('term_id', termId),
       ]);
-      setAssessments(asmtRes.data || []);
+
+      // Merge: prefer cbc_mark_scores, fill gaps from cbc_assessments
+      const scoresData = (scoresRes.data || []).map((s: any) => ({
+        id: s.id,
+        student_id: s.student_id,
+        subject_id: s.subject_id,
+        term_id: s.term_id,
+        assessment_type: s.assessment_type || 'Summative',
+        task_name: s.task_name || 'Summative',
+        rubric_level: s.rubric_level,
+        raw_score: s.raw_score,
+        teacher_id: s.teacher_id,
+        assessed_at: s.assessed_at || s.created_at,
+      }));
+      const asmtData = (asmtRes.data || []).map((a: any) => ({
+        id: a.id,
+        student_id: a.student_id,
+        subject_id: a.subject_id,
+        term_id: a.term_id,
+        assessment_type: a.assessment_type,
+        task_name: a.task_name || '',
+        rubric_level: a.rubric_level,
+        raw_score: a.raw_score,
+        teacher_id: a.teacher_id,
+        assessed_at: a.assessed_at,
+      }));
+
+      // Deduplicate: use a composite key (student_id-subject_id-assessment_type)
+      // Prefer cbc_mark_scores entries
+      const seen = new Set<string>();
+      const merged: CBCAssessment[] = [];
+      for (const s of scoresData) {
+        const key = `${s.student_id}-${s.subject_id}-${s.assessment_type}-${s.task_name}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(s);
+        }
+      }
+      for (const a of asmtData) {
+        const key = `${a.student_id}-${a.subject_id}-${a.assessment_type}-${a.task_name}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(a);
+        }
+      }
+
+      setAssessments(merged);
       setInterventions(intRes.data || []);
 
-      // Fetch previous term assessments for trend analysis
+      // Fetch previous term data for trend analysis
       const currentTermIdx = terms.findIndex(t => String(t.id) === selTerm);
       if (currentTermIdx >= 0 && currentTermIdx < terms.length - 1) {
         const prevTerm = terms[currentTermIdx + 1];
-        const { data: prevData } = await supabase.from('cbc_assessments').select('*').eq('term_id', prevTerm.id);
-        setPrevTermAssessments(prevData || []);
+        const [prevScores, prevAsmt] = await Promise.all([
+          supabase.from('cbc_mark_scores').select('*').eq('term_id', prevTerm.id),
+          supabase.from('cbc_assessments').select('*').eq('term_id', prevTerm.id),
+        ]);
+        const prevMerged = [...(prevScores.data || []).map((s: any) => ({
+          id: s.id, student_id: s.student_id, subject_id: s.subject_id, term_id: s.term_id,
+          assessment_type: s.assessment_type || 'Summative', task_name: s.task_name || 'Summative',
+          rubric_level: s.rubric_level, raw_score: s.raw_score, teacher_id: s.teacher_id,
+          assessed_at: s.assessed_at || s.created_at,
+        })), ...(prevAsmt.data || [])];
+        setPrevTermAssessments(prevMerged);
       } else {
         setPrevTermAssessments([]);
       }
 
-      // Fetch all assessments for longitudinal analysis
-      const { data: allData } = await supabase.from('cbc_assessments').select('*');
-      setAllTermAssessments(allData || []);
+      // Fetch ALL term data for longitudinal analysis
+      const [allScores, allAsmt] = await Promise.all([
+        supabase.from('cbc_mark_scores').select('*'),
+        supabase.from('cbc_assessments').select('*'),
+      ]);
+      const allMerged = [...(allScores.data || []).map((s: any) => ({
+        id: s.id, student_id: s.student_id, subject_id: s.subject_id, term_id: s.term_id,
+        assessment_type: s.assessment_type || 'Summative', task_name: s.task_name || 'Summative',
+        rubric_level: s.rubric_level, raw_score: s.raw_score, teacher_id: s.teacher_id,
+        assessed_at: s.assessed_at || s.created_at,
+      })), ...(allAsmt.data || [])];
+      setAllTermAssessments(allMerged);
 
       setLoadingData(false);
     };
