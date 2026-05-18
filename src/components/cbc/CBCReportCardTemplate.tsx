@@ -7,6 +7,7 @@ interface CBCReportCardTemplateProps {
   discipline?: any[]; history?: { termId: number; termName: string; avg: number; count: number }[];
   nextTerm?: any; nextTermFee?: number;
   getTeacherInitial?: (subjectId: number) => string;
+  ranking?: { gradeRank: number; gradeTotal: number; streamRank: number; streamTotal: number };
 }
 
 const R: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -43,7 +44,7 @@ function Spark({ values, labels, h = 48, w = 140 }: { values: number[]; labels?:
   );
 }
 
-export default function CBCReportCardTemplate({ student, pathway, subjects, summaries, rubricConfig, schoolDetails, term, comments, fees, discipline, history, nextTerm, nextTermFee, getTeacherInitial }: CBCReportCardTemplateProps) {
+export default function CBCReportCardTemplate({ student, pathway, subjects, summaries, rubricConfig, schoolDetails, term, comments, fees, discipline, history, nextTerm, nextTermFee, getTeacherInitial, ranking }: CBCReportCardTemplateProps) {
   const getSummary = (sid: number) => summaries.find((s: any) => s.subject_id === sid && s.student_id === student?.id);
   const name = student ? `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() : '—';
   const adm = student?.admission_no || student?.admission_number || '—';
@@ -111,10 +112,10 @@ export default function CBCReportCardTemplate({ student, pathway, subjects, summ
         {/* SUMMARY BAR */}
         <div className="grid grid-cols-4 divide-x divide-gray-200 border-b-2 border-gray-200 bg-gradient-to-r from-slate-50 to-indigo-50">
           {[
-            { icon: '📊', l: 'Assessed', v: `${assessed.length}/${subjects.length}`, s: 'subjects', c: '#6366f1' },
-            { icon: '🏆', l: 'Overall', v: overall || '—', s: R[overall || '']?.label?.split(' ')[0] || '', c: R[overall || '']?.color || '#94a3b8', isLvl: true },
-            { icon: '🎯', l: 'ME+ Rate', v: `${meRate}%`, s: `${ee}EE + ${me}ME`, c: meRate >= 70 ? '#15803d' : meRate >= 50 ? '#1d4ed8' : '#b91c1c' },
-            { icon: '⭐', l: 'Score', v: avg ? avg.toFixed(1) + '/4' : '—', s: deviation !== null ? `${deviation >= 0 ? '↑' : '↓'}${Math.abs(deviation).toFixed(1)} vs prev` : 'out of 4.0', c: '#8b5cf6' },
+            { icon: '🏅', l: 'Stream Position', v: ranking?.streamRank ? `${ranking.streamRank}` : '—', s: ranking?.streamTotal ? `of ${ranking.streamTotal} (${stream})` : '', c: '#f59e0b' },
+            { icon: '🏆', l: 'Grade Position', v: ranking?.gradeRank ? `${ranking.gradeRank}` : '—', s: ranking?.gradeTotal ? `of ${ranking.gradeTotal} students` : '', c: '#10b981' },
+            { icon: '📊', l: 'Grade Level', v: overall || '—', s: R[overall || '']?.label || '', c: R[overall || '']?.color || '#94a3b8', isLvl: true },
+            { icon: '🎯', l: 'Competency Score', v: avg ? avg.toFixed(1) + '/4' : '—', s: `ME+ Rate: ${meRate}%`, c: '#8b5cf6' },
           ].map((s, i) => (
             <div key={i} className="py-2.5 px-2 text-center">
               <p className="text-[8px] font-extrabold uppercase tracking-wider text-gray-400">{s.icon} {s.l}</p>
@@ -276,8 +277,22 @@ export default function CBCReportCardTemplate({ student, pathway, subjects, summ
 
         {/* SIGNATURES */}
         <div className="px-5 pb-3 grid grid-cols-3 gap-6">
-          {["Class Teacher's Signature", "Principal's Signature", "Parent / Guardian's Signature"].map(l => (
-            <div key={l} className="text-center"><div className="border-b-2 border-gray-400 mb-1 h-7" /><p className="text-[9px] font-bold text-gray-500 uppercase">{l}</p></div>
+          {[
+            { label: "Class Teacher's Signature", imgKey: 'teacher_signature_url' },
+            { label: "Principal's Signature", imgKey: 'principal_signature_url' },
+            { label: "Parent / Guardian's Signature", imgKey: null },
+          ].map(sig => (
+            <div key={sig.label} className="text-center">
+              <div className="h-12 flex items-end justify-center mb-1">
+                {sig.imgKey && schoolDetails?.[sig.imgKey] ? (
+                  <img src={schoolDetails[sig.imgKey]} alt={sig.label} className="max-h-10 max-w-[120px] object-contain" />
+                ) : (
+                  <div className="w-full border-b-2 border-gray-400 h-0" />
+                )}
+              </div>
+              <div className="border-b-2 border-gray-400 mb-1" />
+              <p className="text-[9px] font-bold text-gray-500 uppercase">{sig.label}</p>
+            </div>
           ))}
         </div>
 
