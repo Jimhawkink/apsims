@@ -75,6 +75,7 @@ const menuGroups = [
             { href: '/dashboard/exams/detailed-analysis', label: 'Detailed Analysis', icon: FiBarChart2, perm: 'exams' },
             { href: '/dashboard/exams/cbc-marks', label: 'CBC Mark Entry', icon: FiFileText, perm: 'exams' },
             { href: '/dashboard/exams/cbc-report-cards', label: 'CBC Report Cards', icon: FiFileText, perm: 'exams' },
+            { href: '/dashboard/exams/cbc-reports', label: '📊 CBC Reports Hub', icon: FiBarChart2, perm: 'exams' },
             { href: '/dashboard/students/subject-combinations', label: 'CBC Subject Combos', icon: FiGrid, perm: 'students' },
             { href: '/dashboard/remedial', label: 'Remedial Programs', icon: FiTrendingUp, perm: 'remedial' },
         ]
