@@ -136,45 +136,51 @@ export default function CBCReportCardTemplate({ student, pathway, subjects, summ
 
         {/* SUBJECT TABLE */}
         <div className="px-3 py-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 mb-1.5">📋 Competency Assessment — Formative + Summative → Overall</p>
-          <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+          <p className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 mb-1.5">📋 Academic Performance — Formative · Summative · Overall (Equal Average)</p>
+          <div className="overflow-x-auto rounded-xl border border-gray-300 shadow-sm">
             <table className="w-full border-collapse text-[10px]">
-              <thead><tr style={{ background: '#312e81' }}>
-                <th className="border border-indigo-800 px-1 py-2 text-left text-white font-bold w-5">#</th>
-                <th className="border border-indigo-800 px-1 py-2 text-left text-white font-bold">SUBJECT</th>
-                <th className="border border-indigo-600 px-1 py-2 text-center text-indigo-200 font-bold">FORM.</th>
-                <th className="border border-indigo-600 px-1 py-2 text-center text-indigo-200 font-bold">SUMM.</th>
-                <th className="border border-yellow-500 bg-yellow-600 px-1 py-2 text-center text-yellow-100 font-bold" colSpan={2}>OVERALL</th>
-                <th className="border border-indigo-600 bg-amber-700 px-1 py-2 text-center text-amber-100 font-bold w-8">STR</th>
-                <th className="border border-indigo-600 bg-emerald-700 px-1 py-2 text-center text-emerald-100 font-bold w-8">GRD</th>
-                <th className="border border-indigo-800 px-1 py-2 text-center text-white font-bold w-8">INIT.</th>
-              </tr></thead>
+              <thead>
+                <tr style={{ background: '#1e3a5f' }}>
+                  <th className="border border-gray-400 px-1.5 py-2 text-left text-white font-bold w-5" rowSpan={2}>#</th>
+                  <th className="border border-gray-400 px-1.5 py-2 text-left text-white font-bold" rowSpan={2}>SUBJECT</th>
+                  <th className="border border-gray-400 px-1.5 py-2 text-center text-blue-200 font-bold" style={{ background: '#2563eb' }}>FORM.</th>
+                  <th className="border border-gray-400 px-1.5 py-2 text-center text-blue-200 font-bold" style={{ background: '#2563eb' }}>SUMM.</th>
+                  <th className="border border-gray-400 px-1.5 py-2 text-center font-bold text-yellow-100" colSpan={2} style={{ background: '#d97706' }}>OVERALL / COMBINED</th>
+                  <th className="border border-gray-400 px-1.5 py-2 text-center font-bold text-amber-100 w-12" style={{ background: '#b45309' }}>STR</th>
+                  <th className="border border-gray-400 px-1.5 py-2 text-center font-bold text-teal-100 w-12" style={{ background: '#0d9488' }}>FRM</th>
+                  <th className="border border-gray-400 px-1.5 py-2 text-center text-white font-bold" rowSpan={2}>REMARKS</th>
+                  <th className="border border-gray-400 px-1.5 py-2 text-center text-white font-bold w-10" rowSpan={2}>INITIAL</th>
+                </tr>
+              </thead>
               <tbody>
                 {results.map((r, i) => {
                   const m = R[r.level || ''];
                   const sp = subjectPositions?.[r.sub.id];
+                  const remark = r.level === 'EE' ? 'Excellent' : r.level === 'ME' ? 'Good' : r.level === 'AE' ? 'Average' : r.level === 'BE' ? 'Below Average' : '—';
                   return (
-                    <tr key={r.sub.id} className={i % 2 === 0 ? 'bg-white' : 'bg-indigo-50/20'}>
-                      <td className="border border-gray-200 px-1 py-1.5 text-gray-400">{i + 1}</td>
-                      <td className="border border-gray-200 px-1 py-1.5 font-semibold text-gray-800">{r.sub.subject_name}</td>
-                      <td className="border border-gray-200 px-1 py-1.5 text-center"><Badge level={r.f} sz="sm" /></td>
-                      <td className="border border-gray-200 px-1 py-1.5 text-center"><Badge level={r.sm} sz="sm" /></td>
-                      <td className="border border-gray-200 px-1 py-1.5 text-center" style={{ background: m?.bg }}><Badge level={r.level} /></td>
-                      <td className="border border-gray-200 px-1 py-1.5 text-center text-[8px] font-bold" style={{ color: m?.color }}>{m?.label?.split(' ')[0] || '—'}</td>
-                      <td className="border border-gray-200 px-1 py-1.5 text-center text-[9px] font-bold text-amber-700">{sp?.streamPos || '—'}</td>
-                      <td className="border border-gray-200 px-1 py-1.5 text-center text-[9px] font-bold text-emerald-700">{sp?.gradePos || '—'}</td>
-                      <td className="border border-gray-200 px-1 py-1.5 text-center font-bold text-gray-500">{getTeacherInitial?.(r.sub.id) || '—'}</td>
+                    <tr key={r.sub.id} className={i % 2 === 0 ? 'bg-white' : 'bg-blue-50/30'}>
+                      <td className="border border-gray-200 px-1.5 py-2 text-gray-400 text-center">{i + 1}</td>
+                      <td className="border border-gray-200 px-1.5 py-2 font-semibold text-gray-800">{r.sub.subject_name}</td>
+                      <td className="border border-gray-200 px-1 py-2 text-center"><Badge level={r.f} sz="sm" /></td>
+                      <td className="border border-gray-200 px-1 py-2 text-center"><Badge level={r.sm} sz="sm" /></td>
+                      <td className="border border-gray-200 px-1 py-2 text-center" style={{ background: m?.bg }}><Badge level={r.level} /></td>
+                      <td className="border border-gray-200 px-1 py-2 text-center text-[9px] font-bold" style={{ color: m?.color }}>{m?.label?.split(' ')[0] || '—'}</td>
+                      <td className="border border-gray-200 px-1 py-2 text-center"><span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black text-white" style={{ background: '#b45309' }}>{sp?.streamPos ? `${sp.streamPos}/${sp.streamTotal}` : '—'}</span></td>
+                      <td className="border border-gray-200 px-1 py-2 text-center"><span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black text-white" style={{ background: '#0d9488' }}>{sp?.gradePos ? `${sp.gradePos}/${sp.gradeTotal}` : '—'}</span></td>
+                      <td className="border border-gray-200 px-1.5 py-2 text-[9px] text-gray-600 italic">{remark}</td>
+                      <td className="border border-gray-200 px-1 py-2 text-center font-bold text-gray-500">{getTeacherInitial?.(r.sub.id) || '—'}</td>
                     </tr>
                   );
                 })}
-                <tr style={{ background: '#eef2ff' }}>
-                  <td colSpan={2} className="border border-gray-300 px-1 py-2 font-black text-gray-700">OVERALL</td>
-                  <td className="border border-gray-300 px-1 py-2 text-center text-gray-400">—</td>
-                  <td className="border border-gray-300 px-1 py-2 text-center text-gray-400">—</td>
-                  <td className="border border-gray-300 px-1 py-2 text-center" style={{ background: R[overall || '']?.bg }}><Badge level={overall} sz="lg" /></td>
-                  <td className="border border-gray-300 px-1 py-2 text-center text-[9px] font-black" style={{ color: R[overall || '']?.color }}>{avg ? avg.toFixed(1) + '/4' : '—'}</td>
-                  <td className="border border-gray-300 px-1 py-2 text-center text-[9px] font-black text-amber-700">{ranking?.streamRank || '—'}</td>
-                  <td className="border border-gray-300 px-1 py-2 text-center text-[9px] font-black text-emerald-700">{ranking?.gradeRank || '—'}</td>
+                <tr style={{ background: '#f0f4ff' }}>
+                  <td colSpan={2} className="border border-gray-300 px-1.5 py-2.5 font-black text-gray-800 uppercase text-[10px]">Overall Competency</td>
+                  <td className="border border-gray-300 px-1 py-2.5 text-center text-gray-400">—</td>
+                  <td className="border border-gray-300 px-1 py-2.5 text-center text-gray-400">—</td>
+                  <td className="border border-gray-300 px-1 py-2.5 text-center" style={{ background: R[overall || '']?.bg }}><Badge level={overall} sz="lg" /></td>
+                  <td className="border border-gray-300 px-1 py-2.5 text-center text-[9px] font-black" style={{ color: R[overall || '']?.color }}>{R[overall || '']?.label || '—'}</td>
+                  <td className="border border-gray-300 px-1 py-2.5 text-center"><span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black text-white" style={{ background: '#b45309' }}>{ranking?.streamRank ? `${ranking.streamRank}/${ranking.streamTotal}` : '—'}</span></td>
+                  <td className="border border-gray-300 px-1 py-2.5 text-center"><span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black text-white" style={{ background: '#0d9488' }}>{ranking?.gradeRank ? `${ranking.gradeRank}/${ranking.gradeTotal}` : '—'}</span></td>
+                  <td className="border border-gray-300 px-1.5 py-2.5 text-[9px] font-bold text-gray-600">{assessed.length} subjects</td>
                   <td className="border border-gray-300" />
                 </tr>
               </tbody>
