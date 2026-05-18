@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { getEducationSystem, RubricLevel, RUBRIC_LEVELS, RUBRIC_NUMERIC } from '@/lib/cbc-utils';
+import { getEducationSystem, RubricLevel, RUBRIC_LEVELS, RUBRIC_NUMERIC, computeCompetencySummary, computeWeightedSummary } from '@/lib/cbc-utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface CBCStudent {
@@ -49,6 +49,56 @@ export const getRubricColor = (level: string | null | undefined) =>
 export const rubricNumeric = (level: string): number =>
   RUBRIC_NUMERIC[level as RubricLevel] ?? 0;
 
+// ─── Compute summaries from raw assessments ───────────────────────────────────
+function computeSummariesFromAssessments(assessments: CBCAssessment[]): CBCSummary[] {
+  // Group by student_id + subject_id + term_id
+  const groups = new Map<string, CBCAssessment[]>();
+  for (const a of assessments) {
+    const key = `${a.student_id}-${a.subject_id}-${a.term_id}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(a);
+  }
+
+  const summaries: CBCSummary[] = [];
+  for (const [, group] of groups) {
+    const { student_id, subject_id, term_id } = group[0];
+
+    // Separate formative and summative assessments
+    const formativeAssessments = group.filter(a => a.assessment_type === 'Formative' && a.rubric_level);
+    const summativeAssessments = group.filter(a => a.assessment_type === 'Summative' && a.rubric_level);
+
+    // Compute formative level (mode of all formative rubric levels)
+    const formativeLevels = formativeAssessments.map(a => a.rubric_level as RubricLevel);
+    const formativeLevel = computeCompetencySummary(formativeLevels);
+
+    // Summative level (latest summative, or mode if multiple)
+    const summativeLevels = summativeAssessments.map(a => a.rubric_level as RubricLevel);
+    const summativeLevel = computeCompetencySummary(summativeLevels);
+
+    // Overall level: weighted 60/40 if both exist, otherwise use whichever is available
+    let overallLevel: RubricLevel | null = null;
+    if (formativeLevel && summativeLevel) {
+      overallLevel = computeWeightedSummary(formativeLevel, summativeLevel);
+    } else if (summativeLevel) {
+      overallLevel = summativeLevel;
+    } else if (formativeLevel) {
+      overallLevel = formativeLevel;
+    }
+
+    summaries.push({
+      student_id,
+      subject_id,
+      term_id,
+      formative_level: formativeLevel || undefined,
+      summative_level: summativeLevel || undefined,
+      overall_level: overallLevel || undefined,
+      formative_count: formativeAssessments.length,
+    });
+  }
+
+  return summaries;
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 export function useCBCReportData() {
   const [forms, setForms] = useState<CBCForm[]>([]);
@@ -70,12 +120,16 @@ export function useCBCReportData() {
   const [selTerm, setSelTerm] = useState('');
 
   // Data that changes with filters
-  const [summaries, setSummaries] = useState<CBCSummary[]>([]);
   const [assessments, setAssessments] = useState<CBCAssessment[]>([]);
   const [interventions, setInterventions] = useState<CBCInterventionFlag[]>([]);
-  const [prevTermSummaries, setPrevTermSummaries] = useState<CBCSummary[]>([]);
-  const [allTermSummaries, setAllTermSummaries] = useState<CBCSummary[]>([]);
+  const [prevTermAssessments, setPrevTermAssessments] = useState<CBCAssessment[]>([]);
+  const [allTermAssessments, setAllTermAssessments] = useState<CBCAssessment[]>([]);
   const [loadingData, setLoadingData] = useState(false);
+
+  // ── Compute summaries on-the-fly from assessments ──
+  const summaries = useMemo(() => computeSummariesFromAssessments(assessments), [assessments]);
+  const prevTermSummaries = useMemo(() => computeSummariesFromAssessments(prevTermAssessments), [prevTermAssessments]);
+  const allTermSummaries = useMemo(() => computeSummariesFromAssessments(allTermAssessments), [allTermAssessments]);
 
   // ── Initial data fetch ──
   const fetchBase = useCallback(async () => {
@@ -123,34 +177,34 @@ export function useCBCReportData() {
 
   useEffect(() => { fetchBase(); }, [fetchBase]);
 
-  // ── Fetch term-dependent data ──
+  // ── Fetch term-dependent data (assessments, not summaries) ──
   useEffect(() => {
     if (!selTerm) return;
     setLoadingData(true);
     const load = async () => {
       const termId = Number(selTerm);
-      const [sumRes, asmtRes, intRes] = await Promise.all([
-        supabase.from('cbc_competency_summaries').select('*').eq('term_id', termId),
+
+      // Fetch assessments for current term (this is where the actual data lives)
+      const [asmtRes, intRes] = await Promise.all([
         supabase.from('cbc_assessments').select('*').eq('term_id', termId),
         supabase.from('cbc_intervention_flags').select('*').eq('term_id', termId),
       ]);
-      setSummaries(sumRes.data || []);
       setAssessments(asmtRes.data || []);
       setInterventions(intRes.data || []);
 
-      // Fetch previous term summaries for trend
+      // Fetch previous term assessments for trend analysis
       const currentTermIdx = terms.findIndex(t => String(t.id) === selTerm);
       if (currentTermIdx >= 0 && currentTermIdx < terms.length - 1) {
         const prevTerm = terms[currentTermIdx + 1];
-        const { data: prevData } = await supabase.from('cbc_competency_summaries').select('*').eq('term_id', prevTerm.id);
-        setPrevTermSummaries(prevData || []);
+        const { data: prevData } = await supabase.from('cbc_assessments').select('*').eq('term_id', prevTerm.id);
+        setPrevTermAssessments(prevData || []);
       } else {
-        setPrevTermSummaries([]);
+        setPrevTermAssessments([]);
       }
 
-      // Fetch all term summaries for longitudinal
-      const { data: allData } = await supabase.from('cbc_competency_summaries').select('*');
-      setAllTermSummaries(allData || []);
+      // Fetch all assessments for longitudinal analysis
+      const { data: allData } = await supabase.from('cbc_assessments').select('*');
+      setAllTermAssessments(allData || []);
 
       setLoadingData(false);
     };
@@ -168,7 +222,7 @@ export function useCBCReportData() {
 
   const filteredStudentIds = useMemo(() => new Set(filteredStudents.map(s => s.id)), [filteredStudents]);
 
-  // ── Filtered summaries ──
+  // ── Filtered summaries (computed from assessments) ──
   const filteredSummaries = useMemo(() =>
     summaries.filter(s => filteredStudentIds.has(s.student_id)),
     [summaries, filteredStudentIds]);
@@ -225,7 +279,7 @@ export function useCBCReportData() {
     // Reference data
     forms, allForms, streams, subjects, terms, students, studentSubjects,
     pathways, rubricConfig, staff, schoolDetails,
-    // Term data
+    // Term data (computed on-the-fly from assessments)
     summaries, assessments, interventions, prevTermSummaries, allTermSummaries,
     // Filtered
     filteredStudents, filteredStudentIds, filteredSummaries,
