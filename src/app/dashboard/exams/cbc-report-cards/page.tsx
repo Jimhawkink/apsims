@@ -277,6 +277,41 @@ export default function CBCReportCardsPage() {
     streamTotal: streamRanks[studentId]?.streamTotal || 0,
   });
 
+  // Per-subject stream and grade positions
+  const buildSubjectPositions = () => {
+    const pos: Record<number, Record<number, { streamPos: number; streamTotal: number; gradePos: number; gradeTotal: number }>> = {};
+    const allSubIds = [...new Set(summaries.map((s: any) => s.subject_id))];
+    allSubIds.forEach(subId => {
+      // All students who have this subject assessed
+      const withSub = students.filter((st: any) => summaries.some((s: any) => s.student_id === st.id && s.subject_id === subId && s.overall_level));
+      const scored = withSub.map((st: any) => {
+        const sum = summaries.find((s: any) => s.student_id === st.id && s.subject_id === subId);
+        return { id: st.id, streamId: st.stream_id, score: RANK_W[sum?.overall_level] || 0 };
+      }).sort((a, b) => b.score - a.score);
+
+      // Grade positions
+      scored.forEach((s, i) => {
+        if (!pos[s.id]) pos[s.id] = {};
+        const rank = i === 0 || s.score !== scored[i - 1].score ? i + 1 : pos[scored[i - 1].id]?.[subId]?.gradePos || i + 1;
+        pos[s.id][subId] = { gradePos: rank, gradeTotal: scored.length, streamPos: 0, streamTotal: 0 };
+      });
+
+      // Stream positions
+      const byStr: Record<string, typeof scored> = {};
+      scored.forEach(s => { const k = String(s.streamId || 'x'); if (!byStr[k]) byStr[k] = []; byStr[k].push(s); });
+      Object.values(byStr).forEach(grp => {
+        grp.sort((a, b) => b.score - a.score);
+        grp.forEach((s, i) => {
+          const rank = i === 0 || s.score !== grp[i - 1].score ? i + 1 : pos[grp[i - 1].id]?.[subId]?.streamPos || i + 1;
+          if (pos[s.id]?.[subId]) { pos[s.id][subId].streamPos = rank; pos[s.id][subId].streamTotal = grp.length; }
+        });
+      });
+    });
+    return pos;
+  };
+  const subjectPositions = buildSubjectPositions();
+  const getSubjectPositions = (studentId: number) => subjectPositions[studentId] || {};
+
   const getStudentSubjectList = (studentId: number) => {
     const enrolled = studentSubjects.filter(ss => ss.student_id === studentId);
     return enrolled.map(ss => schoolSubjects.find(s => s.id === ss.subject_id)).filter(Boolean);
@@ -554,6 +589,7 @@ export default function CBCReportCardsPage() {
                       nextTermFee={nextTermFee}
                       getTeacherInitial={(subId: number) => getTeacherInitial(subId, student.form_id)}
                       ranking={getStudentRanking(student.id)}
+                      subjectPositions={getSubjectPositions(student.id)}
                     />
                   </div>
                 )}
@@ -589,6 +625,7 @@ export default function CBCReportCardsPage() {
                   nextTermFee={nextTermFee}
                   getTeacherInitial={(subId: number) => getTeacherInitial(subId, student.form_id)}
                   ranking={getStudentRanking(student.id)}
+                  subjectPositions={getSubjectPositions(student.id)}
                 />
               );
             })
@@ -615,6 +652,7 @@ export default function CBCReportCardsPage() {
                   nextTermFee={nextTermFee}
                   getTeacherInitial={(subId: number) => getTeacherInitial(subId, previewStudent.form_id)}
                   ranking={getStudentRanking(previewStudent.id)}
+                  subjectPositions={getSubjectPositions(previewStudent.id)}
                 />
               );
             })()
