@@ -1,11 +1,6 @@
 'use client';
 
-// ════════════════════════════════════════════════════════════════════════════
-//  ALPHA STAFF DIRECTORY — ULTRA PREMIUM EDITION
-//  Design System: Obsidian · Luxury HR · Beats Zeraki
-// ════════════════════════════════════════════════════════════════════════════
-
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import {
@@ -15,10 +10,8 @@ import {
     FiFilter, FiDollarSign, FiCalendar, FiShield, FiAward,
     FiActivity, FiTrendingUp, FiMapPin, FiBook, FiCheckCircle,
     FiAlertCircle, FiClock, FiHash, FiGrid, FiList, FiStar,
-    FiPrinter, FiChevronDown, FiLayers, FiZap, FiBarChart2,
-    FiMoreVertical, FiSliders, FiCheck, FiInfo,
+    FiPrinter, FiChevronDown, FiLayers
 } from 'react-icons/fi';
-import { HiSparkles, HiAcademicCap } from 'react-icons/hi2';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type StaffType = 'teacher' | 'support' | 'subordinate';
@@ -55,38 +48,35 @@ interface FormState {
     emergency_contact_name: string; emergency_contact_phone: string; notes: string;
 }
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const TOKENS = {
-    teacher: { label: 'TSC Teacher', gradient: 'linear-gradient(135deg,#1e40af,#3b82f6)', pill: '#dbeafe', pillText: '#1d4ed8', glow: '#3b82f620', dot: '#3b82f6' },
-    support: { label: 'Support Teacher', gradient: 'linear-gradient(135deg,#5b21b6,#8b5cf6)', pill: '#ede9fe', pillText: '#6d28d9', glow: '#8b5cf620', dot: '#8b5cf6' },
-    subordinate: { label: 'Support Staff', gradient: 'linear-gradient(135deg,#92400e,#f59e0b)', pill: '#fef3c7', pillText: '#92400e', glow: '#f59e0b20', dot: '#f59e0b' },
-};
-
-const STATUS_META: Record<string, { color: string; bg: string; border: string; icon: any; glyph: string }> = {
-    'Active': { color: '#059669', bg: '#ecfdf5', border: '#6ee7b7', icon: FiCheckCircle, glyph: '●' },
-    'Inactive': { color: '#6b7280', bg: '#f9fafb', border: '#d1d5db', icon: FiAlertCircle, glyph: '○' },
-    'On Leave': { color: '#d97706', bg: '#fffbeb', border: '#fcd34d', icon: FiClock, glyph: '◐' },
-    'Terminated': { color: '#dc2626', bg: '#fff1f2', border: '#fca5a5', icon: FiX, glyph: '✕' },
-};
-
-// 12 rich avatar palettes — dark bg + vivid fg for initials contrast
-const PALETTES = [
-    ['#0f2044', '#60a5fa'], ['#1a0a38', '#c084fc'], ['#0a2e1a', '#4ade80'],
-    ['#2d0a0a', '#f87171'], ['#0a1f2e', '#38bdf8'], ['#2d1a00', '#fb923c'],
-    ['#1a1a2e', '#818cf8'], ['#0e2f2f', '#2dd4bf'], ['#2e1a2e', '#e879f9'],
-    ['#1f2e0a', '#a3e635'], ['#2e2a0a', '#facc15'], ['#0a2233', '#67e8f9'],
-];
-const pal = (id: number) => PALETTES[id % PALETTES.length];
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (n: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(n);
-const initials = (s: StaffMember) => `${(s.first_name[0] || '')}${(s.last_name[0] || '')}`.toUpperCase();
-const fullName = (s: StaffMember) => [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' ');
+const initials = (s: StaffMember) => `${s.first_name[0] || ''}${s.last_name[0] || ''}`.toUpperCase();
 const yrs = (d?: string) => {
     if (!d) return '—';
     const y = Math.floor((Date.now() - new Date(d).getTime()) / (365.25 * 24 * 3600 * 1000));
-    return y < 1 ? '< 1 yr' : `${y} yr${y !== 1 ? 's' : ''}`;
+    return `${y} yr${y !== 1 ? 's' : ''}`;
 };
+
+const TYPE_CONFIG = {
+    teacher: { label: 'TSC Teacher', color: '#3b82f6', bg: '#eff6ff', dot: '#1d4ed8' },
+    support: { label: 'Support Teacher', color: '#8b5cf6', bg: '#f5f3ff', dot: '#6d28d9' },
+    subordinate: { label: 'Support Staff', color: '#f59e0b', bg: '#fffbeb', dot: '#b45309' },
+};
+
+const STATUS_CONFIG: Record<string, { color: string; bg: string; icon: any }> = {
+    Active: { color: '#059669', bg: '#d1fae5', icon: FiCheckCircle },
+    Inactive: { color: '#6b7280', bg: '#f3f4f6', icon: FiAlertCircle },
+    'On Leave': { color: '#f59e0b', bg: '#fef3c7', icon: FiClock },
+    Terminated: { color: '#ef4444', bg: '#fee2e2', icon: FiX },
+};
+
+const AVATAR_PALETTES = [
+    ['#1e3a5f', '#4f8ef7'], ['#3d1d6e', '#a78bfa'],
+    ['#1a4731', '#34d399'], ['#5c1a1a', '#f87171'],
+    ['#1a3a4f', '#38bdf8'], ['#4a2800', '#fb923c'],
+];
+const avatarPalette = (id: number) => AVATAR_PALETTES[id % AVATAR_PALETTES.length];
+
 const emptyForm: FormState = {
     first_name: '', last_name: '', middle_name: '', email: '', phone: '',
     gender: 'Male', id_number: '', qualification: '', department: '',
@@ -98,109 +88,42 @@ const emptyForm: FormState = {
     emergency_contact_name: '', emergency_contact_phone: '', notes: '',
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-//  PRIMITIVE COMPONENTS
-// ════════════════════════════════════════════════════════════════════════════
-
-/** Rich avatar with shimmer ring */
-function Avatar({ staff, size = 42 }: { staff: StaffMember; size?: number }) {
-    const [bg, fg] = pal(staff.id);
-    const fs = Math.round(size * 0.36);
-    const r = Math.round(size * 0.3);
+// ─── Sub-components ───────────────────────────────────────────────────────────
+function Avatar({ staff, size = 40 }: { staff: StaffMember; size?: number }) {
+    const [bg, fg] = avatarPalette(staff.id);
     return (
-        <div style={{
-            width: size, height: size, borderRadius: r, flexShrink: 0,
-            background: `linear-gradient(145deg,${bg},${fg}99)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: fg, fontWeight: 900, fontSize: fs, letterSpacing: -0.5,
-            fontFamily: "'DM Mono','Courier New',monospace",
-            boxShadow: `0 0 0 2px ${fg}30, 0 2px 8px ${bg}60`,
-        }}>
+        <div style={{ width: size, height: size, background: `linear-gradient(135deg, ${bg}, ${fg})`, borderRadius: size * 0.28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: size * 0.36, letterSpacing: -0.5 }}>
             {initials(staff)}
         </div>
     );
 }
 
-/** Type pill */
-function TypePill({ type }: { type: StaffType }) {
-    const t = TOKENS[type];
+function Badge({ type }: { type: StaffType }) {
+    const c = TYPE_CONFIG[type];
+    return <span style={{ background: c.bg, color: c.color, border: `1px solid ${c.color}22`, borderRadius: 99, padding: '2px 10px', fontSize: 11, fontWeight: 700, letterSpacing: 0.3 }}>{c.label}</span>;
+}
+
+function StatusBadge({ status }: { status: string }) {
+    const c = STATUS_CONFIG[status] || STATUS_CONFIG['Inactive'];
+    const Icon = c.icon;
     return (
-        <span style={{
-            background: t.pill, color: t.pillText, fontSize: 10, fontWeight: 800,
-            padding: '3px 10px', borderRadius: 99, letterSpacing: '0.04em',
-            border: `1px solid ${t.pillText}22`, fontFamily: 'inherit',
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            whiteSpace: 'nowrap',
-        }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: t.dot, display: 'inline-block' }} />
-            {t.label}
+        <span style={{ background: c.bg, color: c.color, borderRadius: 99, padding: '2px 9px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Icon size={10} /> {status}
         </span>
     );
 }
 
-/** Status pill */
-function StatusPill({ status }: { status: string }) {
-    const m = STATUS_META[status] || STATUS_META['Inactive'];
-    const Icon = m.icon;
+function StatCard({ label, value, icon: Icon, color, sub }: { label: string; value: string | number; icon: any; color: string; sub?: string }) {
     return (
-        <span style={{
-            background: m.bg, color: m.color, fontSize: 10, fontWeight: 800,
-            padding: '3px 9px', borderRadius: 99, letterSpacing: '0.03em',
-            border: `1px solid ${m.border}`, fontFamily: 'inherit',
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-        }}>
-            <Icon size={9} /> {status}
-        </span>
-    );
-}
-
-/** Ultra stat card — animated number reveal, shimmer accent, micro-chart suggestion */
-function UltraStatCard({ label, value, icon: Icon, color, sub, accent, index = 0 }: {
-    label: string; value: string | number; icon: any; color: string;
-    sub?: string; accent?: string; index?: number;
-}) {
-    return (
-        <div style={{
-            background: '#fff', borderRadius: 20, border: '1px solid #f1f5f9',
-            padding: '20px 22px', position: 'relative', overflow: 'hidden',
-            display: 'flex', flexDirection: 'column', gap: 4,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)',
-            transition: 'transform 0.2s, box-shadow 0.2s',
-            animationDelay: `${index * 60}ms`,
-        }}
-            className="alpha-stat-card"
-            onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-                (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 32px ${color}18, 0 2px 8px rgba(0,0,0,0.06)`;
-            }}
-            onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.transform = '';
-                (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04)';
-            }}
-        >
-            {/* Accent blob */}
-            <div style={{
-                position: 'absolute', top: -20, right: -20, width: 80, height: 80,
-                borderRadius: '50%', background: color, opacity: 0.06, pointerEvents: 'none',
-            }} />
-            {/* Top bar accent */}
-            <div style={{
-                position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                background: `linear-gradient(90deg,${color},${color}88,transparent)`,
-                borderRadius: '20px 20px 0 0',
-            }} />
-
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div className="relative bg-white rounded-2xl border border-gray-100 p-5 overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 group">
+            <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full opacity-[0.07]" style={{ background: color }} />
+            <div className="flex items-start justify-between">
                 <div>
-                    <p style={{ fontSize: 9, fontWeight: 900, color: '#94a3b8', letterSpacing: '0.12em', textTransform: 'uppercase', margin: 0 }}>{label}</p>
-                    <p style={{ fontSize: 26, fontWeight: 900, color: '#0f172a', margin: '6px 0 0', letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</p>
-                    {sub && <p style={{ fontSize: 11, color: '#94a3b8', margin: '5px 0 0', fontWeight: 600 }}>{sub}</p>}
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.1em] mb-1">{label}</p>
+                    <p className="text-2xl font-black text-gray-900">{value}</p>
+                    {sub && <p className="text-xs text-gray-400 mt-0.5 font-semibold">{sub}</p>}
                 </div>
-                <div style={{
-                    width: 42, height: 42, borderRadius: 13, flexShrink: 0,
-                    background: color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginTop: 2,
-                }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: color + '15' }}>
                     <Icon size={18} style={{ color }} />
                 </div>
             </div>
@@ -208,539 +131,280 @@ function UltraStatCard({ label, value, icon: Icon, color, sub, accent, index = 0
     );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  ULTRA STAFF CARD (Grid view)
-// ════════════════════════════════════════════════════════════════════════════
-function UltraStaffCard({ staff, onEdit, onDelete, onView }: {
+// ─── Staff Card (Grid view) ───────────────────────────────────────────────────
+function StaffCard({ staff, onEdit, onDelete, onView }: {
     staff: StaffMember; onEdit: () => void; onDelete: () => void; onView: () => void;
 }) {
-    const [bg, fg] = pal(staff.id);
-    const tok = TOKENS[staff._type];
-    const sm = STATUS_META[staff.status] || STATUS_META['Inactive'];
-    const [hovered, setHovered] = useState(false);
-
+    const [bg, fg] = avatarPalette(staff.id);
     return (
-        <div
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-                background: '#fff', borderRadius: 22, border: '1px solid #e8edf4',
-                overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                boxShadow: hovered
-                    ? `0 12px 40px ${fg}22, 0 4px 12px rgba(0,0,0,0.06)`
-                    : '0 1px 4px rgba(0,0,0,0.04)',
-                transform: hovered ? 'translateY(-3px)' : 'none',
-                transition: 'all 0.25s cubic-bezier(.34,1.56,.64,1)',
-            }}
-        >
-            {/* ── Banner ── */}
-            <div style={{
-                height: 56, position: 'relative', overflow: 'hidden',
-                background: `linear-gradient(135deg,${bg},${fg}88)`,
-            }}>
-                {/* Dot pattern */}
-                <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.12 }} xmlns="http://www.w3.org/2000/svg">
-                    <pattern id={`dp-${staff.id}`} x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
-                        <circle cx="2" cy="2" r="1.2" fill="#fff" />
-                    </pattern>
-                    <rect width="100%" height="100%" fill={`url(#dp-${staff.id})`} />
-                </svg>
-                {/* Status dot top-right */}
-                <div style={{
-                    position: 'absolute', top: 10, right: 12,
-                    width: 8, height: 8, borderRadius: '50%',
-                    background: sm.color, boxShadow: `0 0 0 2px #fff`,
-                }} />
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col">
+            {/* Top banner */}
+            <div className="h-12 relative" style={{ background: `linear-gradient(135deg, ${bg}dd, ${fg}aa)` }}>
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
             </div>
-
-            {/* ── Body ── */}
-            <div style={{ padding: '0 16px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                {/* Avatar row */}
-                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: -22, marginBottom: 10 }}>
-                    <div style={{
-                        width: 52, height: 52, borderRadius: 15, flexShrink: 0,
-                        background: `linear-gradient(145deg,${bg},${fg})`,
-                        border: '3px solid #fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: fg, fontWeight: 900, fontSize: 17,
-                        letterSpacing: -0.5, fontFamily: "'DM Mono','Courier New',monospace",
-                        boxShadow: `0 4px 12px ${bg}60`,
-                    }}>
+            {/* Avatar overlap */}
+            <div className="px-4 pb-4 flex-1 flex flex-col">
+                <div className="-mt-6 mb-3 flex items-end justify-between">
+                    <div className="w-14 h-14 rounded-2xl border-4 border-white shadow-lg flex items-center justify-center text-white font-black text-lg"
+                        style={{ background: `linear-gradient(135deg, ${bg}, ${fg})` }}>
                         {initials(staff)}
                     </div>
-
-                    {/* Action buttons — visible on hover */}
-                    <div style={{
-                        display: 'flex', gap: 5, opacity: hovered ? 1 : 0,
-                        transform: hovered ? 'translateY(0)' : 'translateY(4px)',
-                        transition: 'all 0.2s',
-                    }}>
-                        {[
-                            { icon: FiEye, color: '#3b82f6', bg: '#eff6ff', fn: onView, title: 'View' },
-                            { icon: FiEdit2, color: '#6366f1', bg: '#eef2ff', fn: onEdit, title: 'Edit' },
-                            { icon: FiTrash2, color: '#ef4444', bg: '#fff1f2', fn: onDelete, title: 'Delete' },
-                        ].map(({ icon: Ic, color, bg: ibg, fn, title }) => (
-                            <button key={title} onClick={fn} title={title} style={{
-                                width: 30, height: 30, borderRadius: 9,
-                                background: ibg, border: 'none', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color, transition: 'transform 0.15s',
-                            }}
-                                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
-                                onMouseLeave={e => (e.currentTarget.style.transform = '')}
-                            >
-                                <Ic size={13} />
-                            </button>
-                        ))}
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={onView} className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-blue-100 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-all"><FiEye size={13} /></button>
+                        <button onClick={onEdit} className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-indigo-100 flex items-center justify-center text-gray-400 hover:text-indigo-600 transition-all"><FiEdit2 size={13} /></button>
+                        <button onClick={onDelete} className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-red-100 flex items-center justify-center text-gray-400 hover:text-red-500 transition-all"><FiTrash2 size={13} /></button>
                     </div>
                 </div>
-
-                {/* Name + role */}
-                <p style={{ fontWeight: 900, fontSize: 14, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>
-                    {staff.first_name} {staff.last_name}
-                </p>
-                <p style={{ fontSize: 11, color: '#64748b', fontWeight: 600, margin: '3px 0 8px' }}>
-                    {staff.designation || staff.role || staff.department || tok.label}
-                </p>
-
-                {/* Pills */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-                    <TypePill type={staff._type} />
-                    <StatusPill status={staff.status} />
+                <p className="font-black text-gray-900 text-sm leading-tight">{staff.first_name} {staff.last_name}</p>
+                <p className="text-xs text-gray-400 font-semibold mt-0.5">{staff.designation || staff.role || staff.department || '—'}</p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                    <Badge type={staff._type} />
+                    <StatusBadge status={staff.status} />
                 </div>
-
-                {/* Info rows */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {staff.phone && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <FiPhone size={10} color="#94a3b8" />
-                            <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>{staff.phone}</span>
-                        </div>
-                    )}
-                    {staff.department && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <FiBriefcase size={10} color="#94a3b8" />
-                            <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>{staff.department}</span>
-                        </div>
-                    )}
-                    {(staff.staff_no || staff.tsc_number) && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <FiHash size={10} color="#94a3b8" />
-                            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, fontFamily: "'DM Mono','Courier New',monospace" }}>
-                                {staff.staff_no || staff.tsc_number}
-                            </span>
-                        </div>
-                    )}
+                <div className="mt-3 space-y-1 flex-1">
+                    {staff.phone && <p className="text-xs text-gray-500 flex items-center gap-1.5"><FiPhone size={11} className="text-gray-400" />{staff.phone}</p>}
+                    {staff.department && <p className="text-xs text-gray-500 flex items-center gap-1.5"><FiBriefcase size={11} className="text-gray-400" />{staff.department}</p>}
+                    {staff.staff_no && <p className="text-xs text-gray-400 flex items-center gap-1.5"><FiHash size={11} />{staff.staff_no}</p>}
                 </div>
-
-                {/* Footer: salary + tenure */}
-                <div style={{
-                    marginTop: 12, paddingTop: 12, borderTop: '1px solid #f1f5f9',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                }}>
-                    <span style={{
-                        fontSize: 13, fontWeight: 900, color: '#059669',
-                        fontFamily: "'DM Mono','Courier New',monospace",
-                        letterSpacing: '-0.02em',
-                    }}>
-                        {fmt(staff.basic_salary)}
-                    </span>
-                    <span style={{
-                        fontSize: 10, color: '#94a3b8', fontWeight: 700,
-                        background: '#f8fafc', borderRadius: 6, padding: '2px 8px',
-                    }}>
-                        {yrs(staff.date_of_employment || staff.date_hired || staff.employment_date)}
-                    </span>
+                <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
+                    <span className="text-xs font-black text-emerald-700">{fmt(staff.basic_salary)}</span>
+                    <span className="text-[10px] text-gray-400 font-semibold">{yrs(staff.date_of_employment || staff.date_hired || staff.employment_date)}</span>
                 </div>
             </div>
         </div>
     );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  MODAL WRAPPER — frosted glass, cinematic backdrop
-// ════════════════════════════════════════════════════════════════════════════
+// ─── View Detail Modal ────────────────────────────────────────────────────────
+function StaffDetailModal({ staff, onClose, onEdit }: { staff: StaffMember; onClose: () => void; onEdit: () => void }) {
+    const [bg, fg] = avatarPalette(staff.id);
+    const section = (title: string, icon: any, children: React.ReactNode) => {
+        const Icon = icon;
+        return (
+            <div className="bg-gray-50 rounded-2xl p-4">
+                <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                    <Icon size={11} style={{ color: '#6366f1' }} />{title}
+                </h4>
+                <div className="grid grid-cols-2 gap-2">{children}</div>
+            </div>
+        );
+    };
+    const field = (label: string, value?: string | number) => (
+        <div key={label}>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
+            <p className="text-sm font-semibold text-gray-800 mt-0.5">{value || '—'}</p>
+        </div>
+    );
+
+    return (
+        <div className="space-y-4">
+            {/* Header banner */}
+            <div className="rounded-2xl overflow-hidden" style={{ background: `linear-gradient(135deg, ${bg}, ${fg})` }}>
+                <div className="p-5 flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-white font-black text-2xl">
+                        {initials(staff)}
+                    </div>
+                    <div className="flex-1 text-white">
+                        <p className="font-black text-xl">{staff.first_name} {staff.middle_name || ''} {staff.last_name}</p>
+                        <p className="opacity-80 text-sm mt-0.5">{staff.designation || staff.role || staff.department || staff._typeLabel}</p>
+                        <div className="flex gap-2 mt-2">
+                            <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full">{staff._typeLabel}</span>
+                            <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full">{staff.status}</span>
+                        </div>
+                    </div>
+                    <div className="text-right text-white">
+                        <p className="text-xs opacity-60 font-semibold">Basic Salary</p>
+                        <p className="text-2xl font-black mt-0.5">{fmt(staff.basic_salary)}</p>
+                    </div>
+                </div>
+            </div>
+
+            {section('Personal Information', FiUsers, <>
+                {field('Staff No', staff.staff_no)}
+                {field('ID Number', staff.id_number)}
+                {field('Gender', staff.gender)}
+                {field('Nationality', staff.nationality)}
+                {field('County', staff.county)}
+                {field('Phone', staff.phone)}
+                {field('Email', staff.email)}
+                {field('TSC Number', staff.tsc_number)}
+            </>)}
+
+            {section('Employment Details', FiBriefcase, <>
+                {field('Department', staff.department)}
+                {field('Designation', staff.designation || staff.role)}
+                {field('Qualification', staff.qualification)}
+                {field('Specialization', staff.specialization)}
+                {field('Employment Type', staff.employment_type || staff.contract_type)}
+                {field('Date Employed', staff.date_of_employment || staff.date_hired || staff.employment_date)}
+                {field('Years of Service', yrs(staff.date_of_employment || staff.date_hired || staff.employment_date))}
+            </>)}
+
+            {section('Payroll & Banking', FiDollarSign, <>
+                {field('Bank Name', staff.bank_name)}
+                {field('Bank Account', staff.bank_account)}
+                {field('KRA PIN', staff.kra_pin)}
+                {field('NHIF No', staff.nhif_no)}
+                {field('NSSF No', staff.nssf_no)}
+            </>)}
+
+            {section('Emergency Contact', FiShield, <>
+                {field('Contact Name', staff.emergency_contact_name)}
+                {field('Contact Phone', staff.emergency_contact_phone)}
+            </>)}
+
+            {staff.notes && (
+                <div className="bg-amber-50 rounded-2xl p-4">
+                    <p className="text-xs font-black text-amber-700 uppercase tracking-widest mb-1">Notes</p>
+                    <p className="text-sm text-amber-900 font-medium">{staff.notes}</p>
+                </div>
+            )}
+
+            <div className="flex gap-3">
+                <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">Close</button>
+                <button onClick={onEdit} className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black transition-all flex items-center justify-center gap-2">
+                    <FiEdit2 size={14} /> Edit Staff
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── Modal Wrapper ────────────────────────────────────────────────────────────
 function Modal({ open, onClose, title, children, size = 'md' }: {
     open: boolean; onClose: () => void; title: string; children: React.ReactNode; size?: 'md' | 'lg' | 'xl';
 }) {
     if (!open) return null;
-    const maxW = { md: 560, lg: 720, xl: 960 }[size];
+    const w = { md: 'max-w-xl', lg: 'max-w-2xl', xl: 'max-w-4xl' }[size];
     return (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 16, background: 'rgba(2,6,23,0.75)',
-            backdropFilter: 'blur(12px)',
-        }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-        >
-            <div style={{
-                background: '#fff', borderRadius: 28, width: '100%', maxWidth: maxW,
-                display: 'flex', flexDirection: 'column', maxHeight: '93vh',
-                boxShadow: '0 32px 80px rgba(0,0,0,0.22), 0 8px 24px rgba(0,0,0,0.12)',
-                animation: 'alphModalIn 0.24s cubic-bezier(.34,1.56,.64,1)',
-                border: '1px solid rgba(255,255,255,0.12)',
-            }}>
-                {/* Header */}
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '20px 24px 18px', borderBottom: '1px solid #f1f5f9', flexShrink: 0,
-                }}>
-                    <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>
-                        {title}
-                    </h2>
-                    <button onClick={onClose} style={{
-                        width: 32, height: 32, borderRadius: '50%', border: 'none',
-                        background: '#f1f5f9', cursor: 'pointer', display: 'flex',
-                        alignItems: 'center', justifyContent: 'center', color: '#64748b',
-                        transition: 'all 0.15s',
-                    }}
-                        onMouseEnter={e => { (e.currentTarget.style.background = '#fee2e2'); (e.currentTarget.style.color = '#dc2626'); }}
-                        onMouseLeave={e => { (e.currentTarget.style.background = '#f1f5f9'); (e.currentTarget.style.color = '#64748b'); }}
-                    >
-                        <FiX size={14} />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: 'rgba(15,15,25,0.7)', backdropFilter: 'blur(8px)' }}>
+            <div className={`bg-white rounded-3xl shadow-2xl w-full ${w} flex flex-col max-h-[92vh] animate-modal`}>
+                <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 flex-shrink-0">
+                    <h2 className="text-base font-black text-gray-900 tracking-tight">{title}</h2>
+                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-100 flex items-center justify-center text-gray-400 hover:text-red-500 transition-all">
+                        <FiX size={15} />
                     </button>
                 </div>
-                <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px 24px' }}>
-                    {children}
-                </div>
+                <div className="overflow-y-auto flex-1 px-6 py-5">{children}</div>
             </div>
         </div>
     );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  STAFF DETAIL MODAL — luxury profile card
-// ════════════════════════════════════════════════════════════════════════════
-function StaffDetailModal({ staff, onClose, onEdit }: {
-    staff: StaffMember; onClose: () => void; onEdit: () => void;
-}) {
-    const [bg, fg] = pal(staff.id);
-    const tok = TOKENS[staff._type];
-
-    const Section = ({ title, color, children }: { title: string; color: string; children: React.ReactNode }) => (
-        <div style={{
-            background: '#fafbfc', border: '1px solid #f1f5f9',
-            borderRadius: 18, padding: '16px 18px', marginBottom: 14,
-        }}>
-            <p style={{
-                margin: '0 0 12px', fontSize: 10, fontWeight: 900, color,
-                textTransform: 'uppercase', letterSpacing: '0.1em',
-                display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-                <span style={{ width: 16, height: 2, borderRadius: 1, background: color, display: 'inline-block' }} />
-                {title}
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px' }}>
-                {children}
-            </div>
-        </div>
-    );
-
-    const Field = ({ label, value }: { label: string; value?: string | number }) => (
-        <div>
-            <p style={{ margin: 0, fontSize: 9, fontWeight: 900, color: '#94a3b8', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</p>
-            <p style={{ margin: '3px 0 0', fontSize: 13, fontWeight: 700, color: value ? '#1e293b' : '#cbd5e1' }}>
-                {value || '—'}
-            </p>
-        </div>
-    );
-
-    return (
-        <div>
-            {/* Hero banner */}
-            <div style={{
-                borderRadius: 20, overflow: 'hidden', marginBottom: 18,
-                background: `linear-gradient(135deg,${bg},${fg}99)`,
-                padding: '22px 22px 20px',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                    <div style={{
-                        width: 68, height: 68, borderRadius: 18,
-                        background: 'rgba(255,255,255,0.18)',
-                        border: '2px solid rgba(255,255,255,0.35)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontWeight: 900, fontSize: 24, letterSpacing: -1,
-                        fontFamily: "'DM Mono','Courier New',monospace",
-                        flexShrink: 0,
-                    }}>
-                        {initials(staff)}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em' }}>
-                            {fullName(staff)}
-                        </p>
-                        <p style={{ margin: '3px 0 8px', fontSize: 12, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>
-                            {staff.designation || staff.role || staff.department || tok.label}
-                        </p>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            {[staff._typeLabel, staff.status].map(tag => (
-                                <span key={tag} style={{
-                                    background: 'rgba(255,255,255,0.2)', color: '#fff',
-                                    fontSize: 10, fontWeight: 800, padding: '3px 10px',
-                                    borderRadius: 99, letterSpacing: '0.04em',
-                                    border: '1px solid rgba(255,255,255,0.25)',
-                                }}>
-                                    {tag}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                    <div style={{ textAlign: 'right', color: '#fff' }}>
-                        <p style={{ margin: 0, fontSize: 10, opacity: 0.65, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Basic Salary</p>
-                        <p style={{ margin: '4px 0 0', fontSize: 22, fontWeight: 900, letterSpacing: '-0.04em', fontFamily: "'DM Mono','Courier New',monospace" }}>
-                            {fmt(staff.basic_salary)}
-                        </p>
-                        <p style={{ margin: '4px 0 0', fontSize: 10, opacity: 0.6, fontWeight: 600 }}>
-                            {yrs(staff.date_of_employment || staff.date_hired || staff.employment_date)} service
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <Section title="Personal Information" color="#6366f1">
-                <Field label="Staff No" value={staff.staff_no} />
-                <Field label="ID Number" value={staff.id_number} />
-                <Field label="Gender" value={staff.gender} />
-                <Field label="Nationality" value={staff.nationality} />
-                <Field label="County" value={staff.county} />
-                <Field label="TSC Number" value={staff.tsc_number} />
-                <Field label="Phone" value={staff.phone} />
-                <Field label="Email" value={staff.email} />
-            </Section>
-
-            <Section title="Employment Details" color="#059669">
-                <Field label="Department" value={staff.department} />
-                <Field label="Designation" value={staff.designation || staff.role} />
-                <Field label="Qualification" value={staff.qualification} />
-                <Field label="Specialization" value={staff.specialization} />
-                <Field label="Employment Type" value={staff.employment_type || staff.contract_type} />
-                <Field label="Date Employed" value={staff.date_of_employment || staff.date_hired || staff.employment_date} />
-            </Section>
-
-            <Section title="Payroll & Banking" color="#0ea5e9">
-                <Field label="Bank Name" value={staff.bank_name} />
-                <Field label="Bank Account" value={staff.bank_account} />
-                <Field label="KRA PIN" value={staff.kra_pin} />
-                <Field label="NHIF No" value={staff.nhif_no} />
-                <Field label="NSSF No" value={staff.nssf_no} />
-            </Section>
-
-            <Section title="Emergency Contact" color="#f59e0b">
-                <Field label="Contact Name" value={staff.emergency_contact_name} />
-                <Field label="Contact Phone" value={staff.emergency_contact_phone} />
-            </Section>
-
-            {staff.notes && (
-                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 14, padding: '12px 16px', marginBottom: 14 }}>
-                    <p style={{ margin: '0 0 4px', fontSize: 9, fontWeight: 900, color: '#b45309', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Notes</p>
-                    <p style={{ margin: 0, fontSize: 12, color: '#78350f', fontWeight: 600, lineHeight: 1.5 }}>{staff.notes}</p>
-                </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                <button onClick={onClose} style={{
-                    flex: 1, padding: '12px 0', borderRadius: 14, border: '1.5px solid #e2e8f0',
-                    background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 800,
-                    color: '#475569', transition: 'all 0.15s', fontFamily: 'inherit',
-                }}>
-                    Close
-                </button>
-                <button onClick={onEdit} style={{
-                    flex: 2, padding: '12px 0', borderRadius: 14, border: 'none',
-                    background: tok.gradient, cursor: 'pointer', fontSize: 13, fontWeight: 900,
-                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    gap: 7, fontFamily: 'inherit', boxShadow: `0 4px 16px ${TOKENS[staff._type].dot}40`,
-                }}>
-                    <FiEdit2 size={13} /> Edit Staff Member
-                </button>
-            </div>
-        </div>
-    );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  STAFF FORM — ultra input system
-// ════════════════════════════════════════════════════════════════════════════
+// ─── Staff Form ───────────────────────────────────────────────────────────────
 function StaffForm({ form, setForm, staffType, setStaffType, isEdit, onSave, onClose, saving }: {
     form: FormState; setForm: (f: FormState) => void; staffType: StaffType;
     setStaffType: (t: StaffType) => void; isEdit: boolean;
     onSave: () => void; onClose: () => void; saving: boolean;
 }) {
-    const inp: React.CSSProperties = {
-        width: '100%', background: '#f8fafc', border: '1.5px solid #e2e8f0',
-        borderRadius: 12, padding: '10px 13px', fontSize: 13, fontWeight: 600,
-        color: '#1e293b', outline: 'none', fontFamily: 'inherit',
-        transition: 'border-color 0.15s, box-shadow 0.15s', boxSizing: 'border-box',
-    };
-    const lbl: React.CSSProperties = {
-        fontSize: 9, fontWeight: 900, color: '#94a3b8',
-        textTransform: 'uppercase', letterSpacing: '0.1em',
-        display: 'block', marginBottom: 5,
-    };
-
-    const SecHead = ({ label, color }: { label: string; color: string }) => (
-        <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14,
-        }}>
-            <div style={{ width: 3, height: 18, borderRadius: 2, background: color }} />
-            <p style={{ margin: 0, fontSize: 10, fontWeight: 900, color, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
-        </div>
-    );
-
-    const F = (label: string, field: keyof FormState, type = 'text', opts?: string[]) => (
-        <div key={field as string}>
-            <label style={lbl}>{label}</label>
+    const inp = "w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all";
+    const lbl = "text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block";
+    const f = (label: string, field: keyof FormState, type: string = 'text', opts?: string[]) => (
+        <div key={field}>
+            <label className={lbl}>{label}</label>
             {opts ? (
-                <select value={form[field] as string} onChange={e => setForm({ ...form, [field]: e.target.value })}
-                    style={inp}
-                    onFocus={e => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 3px #6366f115'; }}
-                    onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-                >
+                <select value={form[field] as string} onChange={e => setForm({ ...form, [field]: e.target.value })} className={inp}>
                     {opts.map(o => <option key={o}>{o}</option>)}
                 </select>
             ) : (
-                <input type={type} value={form[field] as string}
-                    onChange={e => setForm({ ...form, [field]: type === 'number' ? Number(e.target.value) : e.target.value })}
-                    style={inp}
-                    onFocus={e => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 3px #6366f115'; }}
-                    onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-                />
+                <input type={type} value={form[field] as string} onChange={e => setForm({ ...form, [field]: type === 'number' ? Number(e.target.value) : e.target.value })} className={inp} />
             )}
         </div>
     );
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div className="space-y-4">
             {/* Staff type selector */}
             {!isEdit && (
-                <div style={{ background: '#f1f5f9', borderRadius: 16, padding: 5, display: 'flex', gap: 4 }}>
-                    {(Object.entries(TOKENS) as [StaffType, typeof TOKENS.teacher][]).map(([key, t]) => (
-                        <button key={key} onClick={() => setStaffType(key)} style={{
-                            flex: 1, padding: '10px 8px', borderRadius: 12, border: 'none',
-                            cursor: 'pointer', fontSize: 11, fontWeight: 900,
-                            transition: 'all 0.2s',
-                            background: staffType === key ? t.gradient : 'transparent',
-                            color: staffType === key ? '#fff' : '#64748b',
-                            boxShadow: staffType === key ? `0 4px 12px ${t.dot}40` : 'none',
-                            fontFamily: 'inherit',
-                        }}>
-                            {t.label}
+                <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
+                    {(Object.entries(TYPE_CONFIG) as [StaffType, typeof TYPE_CONFIG.teacher][]).map(([key, c]) => (
+                        <button key={key} onClick={() => setStaffType(key)}
+                            className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all ${staffType === key ? 'text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                            style={staffType === key ? { background: `linear-gradient(135deg, ${c.dot}, ${c.color})` } : {}}>
+                            {c.label}
                         </button>
                     ))}
                 </div>
             )}
 
             {/* Personal */}
-            <div style={{ background: '#fafbfc', border: '1px solid #f1f5f9', borderRadius: 18, padding: '16px 18px' }}>
-                <SecHead label="Personal Information" color="#6366f1" />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                    {F('First Name *', 'first_name')}
-                    {F('Middle Name', 'middle_name')}
-                    {F('Last Name *', 'last_name')}
-                    {F('Gender', 'gender', 'text', ['Male', 'Female'])}
-                    {F('ID Number', 'id_number')}
-                    {F('Nationality', 'nationality', 'text', ['Kenyan', 'Ugandan', 'Tanzanian', 'Other'])}
-                    {F('County', 'county')}
-                    {F('Phone', 'phone', 'tel')}
-                    {F('Email', 'email', 'email')}
+            <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-3 flex items-center gap-1.5"><FiUsers size={11} /> Personal Information</p>
+                <div className="grid grid-cols-3 gap-3">
+                    {f('First Name *', 'first_name')}
+                    {f('Middle Name', 'middle_name')}
+                    {f('Last Name *', 'last_name')}
+                    {f('Gender', 'gender', 'text', ['Male', 'Female'])}
+                    {f('ID Number', 'id_number')}
+                    {f('Nationality', 'nationality', 'text', ['Kenyan', 'Ugandan', 'Tanzanian', 'Other'])}
+                    {f('County', 'county')}
+                    {f('Phone', 'phone', 'tel')}
+                    {f('Email', 'email', 'email')}
                 </div>
             </div>
 
             {/* Employment */}
-            <div style={{ background: '#fafbfc', border: '1px solid #f1f5f9', borderRadius: 18, padding: '16px 18px' }}>
-                <SecHead label="Employment Details" color="#059669" />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                    {F('Staff No', 'staff_no')}
-                    {staffType === 'teacher' && F('TSC Number', 'tsc_number')}
-                    {F('Qualification', 'qualification')}
-                    {staffType !== 'subordinate' ? F('Department', 'department') : F('Role / Position', 'role')}
-                    {staffType === 'teacher' && F('Designation', 'designation')}
-                    {F('Specialization', 'specialization')}
+            <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-1.5"><FiBriefcase size={11} /> Employment Details</p>
+                <div className="grid grid-cols-3 gap-3">
+                    {f('Staff No', 'staff_no')}
+                    {staffType === 'teacher' && f('TSC Number', 'tsc_number')}
+                    {f('Qualification', 'qualification')}
+                    {staffType !== 'subordinate' ? f('Department', 'department') : f('Role / Position', 'role')}
+                    {staffType === 'teacher' && f('Designation', 'designation')}
+                    {f('Specialization', 'specialization')}
                     {staffType === 'support'
-                        ? F('Contract Type', 'contract_type', 'text', ['Contract', 'Part-time', 'Temporary'])
-                        : F('Employment Type', 'employment_type', 'text', ['Permanent', 'Contract', 'Intern'])}
-                    {F('Date Employed', 'date_of_employment', 'date')}
-                    {F('Status', 'status', 'text', ['Active', 'Inactive', 'On Leave', 'Terminated'])}
+                        ? f('Contract Type', 'contract_type', 'text', ['Contract', 'Part-time', 'Temporary'])
+                        : f('Employment Type', 'employment_type', 'text', ['Permanent', 'Contract', 'Intern'])}
+                    {f('Date Employed', 'date_of_employment', 'date')}
+                    {f('Status', 'status', 'text', ['Active', 'Inactive', 'On Leave', 'Terminated'])}
                 </div>
             </div>
 
             {/* Payroll */}
-            <div style={{ background: '#fafbfc', border: '1px solid #f1f5f9', borderRadius: 18, padding: '16px 18px' }}>
-                <SecHead label="Salary & Banking" color="#0ea5e9" />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 flex items-center gap-1.5"><FiDollarSign size={11} /> Salary & Banking</p>
+                <div className="grid grid-cols-3 gap-3">
                     <div>
-                        <label style={lbl}>Basic Salary (KES)</label>
+                        <label className={lbl}>Basic Salary (KES)</label>
                         <input type="number" min="0" value={form.basic_salary || ''}
-                            onChange={e => setForm({ ...form, basic_salary: Number(e.target.value) })}
-                            style={inp}
-                            onFocus={e => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 3px #6366f115'; }}
-                            onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-                        />
+                            onChange={e => setForm({ ...form, basic_salary: Number(e.target.value) })} className={inp} />
                     </div>
-                    {F('Bank Name', 'bank_name')}
-                    {F('Bank Account No', 'bank_account')}
-                    {F('KRA PIN', 'kra_pin')}
-                    {F('NHIF No', 'nhif_no')}
-                    {F('NSSF No', 'nssf_no')}
+                    {f('Bank Name', 'bank_name')}
+                    {f('Bank Account No', 'bank_account')}
+                    {f('KRA PIN', 'kra_pin')}
+                    {f('NHIF No', 'nhif_no')}
+                    {f('NSSF No', 'nssf_no')}
                 </div>
             </div>
 
             {/* Emergency */}
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 18, padding: '16px 18px' }}>
-                <SecHead label="Emergency Contact & Notes" color="#d97706" />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                    {F('Contact Name', 'emergency_contact_name')}
-                    {F('Contact Phone', 'emergency_contact_phone', 'tel')}
+            <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                <p className="text-xs font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-1.5"><FiShield size={11} /> Emergency Contact & Notes</p>
+                <div className="grid grid-cols-2 gap-3">
+                    {f('Contact Name', 'emergency_contact_name')}
+                    {f('Contact Phone', 'emergency_contact_phone', 'tel')}
                 </div>
-                <div>
-                    <label style={lbl}>Notes</label>
-                    <textarea value={form.notes} rows={2}
-                        onChange={e => setForm({ ...form, notes: e.target.value })}
-                        placeholder="Any additional notes..."
-                        style={{ ...inp, resize: 'none' }}
-                        onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#6366f1'; }}
-                        onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#e2e8f0'; }}
-                    />
+                <div className="mt-3">
+                    <label className={lbl}>Notes</label>
+                    <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })}
+                        rows={2} className={inp + ' resize-none'} placeholder="Any additional notes..." />
                 </div>
             </div>
 
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={onClose} style={{
-                    flex: 1, padding: '13px 0', borderRadius: 14,
-                    border: '1.5px solid #e2e8f0', background: '#fff',
-                    cursor: 'pointer', fontSize: 13, fontWeight: 800, color: '#475569',
-                    fontFamily: 'inherit', transition: 'all 0.15s',
-                }}>
-                    Cancel
-                </button>
-                <button onClick={onSave} disabled={saving} style={{
-                    flex: 2, padding: '13px 0', borderRadius: 14, border: 'none',
-                    background: 'linear-gradient(135deg,#4f46e5,#7c3aed)',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                    fontSize: 13, fontWeight: 900, color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    fontFamily: 'inherit', opacity: saving ? 0.7 : 1,
-                    boxShadow: '0 4px 16px #6366f140', transition: 'all 0.15s',
-                }}>
-                    {saving ? (
-                        <>
-                            <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'alphSpin 0.7s linear infinite' }} />
-                            Saving…
-                        </>
-                    ) : (
-                        <><FiSave size={14} /> {isEdit ? 'Update Staff Member' : 'Add Staff Member'}</>
-                    )}
+            <div className="flex gap-3 pt-1">
+                <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
+                <button onClick={onSave} disabled={saving}
+                    className="flex-[2] py-3 rounded-xl text-white text-sm font-black transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+                    {saving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <><FiSave size={14} /> {isEdit ? 'Update Staff Member' : 'Add Staff Member'}</>}
                 </button>
             </div>
         </div>
     );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  MAIN PAGE
-// ════════════════════════════════════════════════════════════════════════════
+// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function StaffDirectoryPage() {
     const [allStaff, setAllStaff] = useState<StaffMember[]>([]);
     const [loading, setLoading] = useState(true);
@@ -749,11 +413,12 @@ export default function StaffDirectoryPage() {
     const [filterStatus, setFilterStatus] = useState('all');
     const [filterGender, setFilterGender] = useState('all');
     const [viewMode, setViewMode] = useState<ViewMode>('list');
-    const [sortField, setSortField] = useState('first_name');
+    const [sortField, setSortField] = useState<string>('first_name');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [page, setPage] = useState(1);
     const perPage = 20;
 
+    // Modals
     const [showForm, setShowForm] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -772,14 +437,11 @@ export default function StaffDirectoryPage() {
                 supabase.from('school_support_teachers').select('*').order('first_name'),
                 supabase.from('school_subordinate_staff').select('*').order('first_name'),
             ]);
-            const merge = (data: any[], type: StaffType, label: string): StaffMember[] =>
-                (data || []).map(r => ({ ...r, basic_salary: Number(r.basic_salary || 0), _type: type, _typeLabel: label }));
-            setAllStaff([
-                ...merge(t.data || [], 'teacher', 'TSC Teacher'),
-                ...merge(s.data || [], 'support', 'Support Teacher'),
-                ...merge(sub.data || [], 'subordinate', 'Support Staff'),
-            ]);
-        } catch { toast.error('Failed to load staff'); }
+            const teachers: StaffMember[] = (t.data || []).map(r => ({ ...r, basic_salary: Number(r.basic_salary || 0), _type: 'teacher' as StaffType, _typeLabel: 'TSC Teacher' }));
+            const support: StaffMember[] = (s.data || []).map(r => ({ ...r, basic_salary: Number(r.basic_salary || 0), _type: 'support' as StaffType, _typeLabel: 'Support Teacher' }));
+            const sub2: StaffMember[] = (sub.data || []).map(r => ({ ...r, basic_salary: Number(r.basic_salary || 0), _type: 'subordinate' as StaffType, _typeLabel: 'Support Staff' }));
+            setAllStaff([...teachers, ...support, ...sub2]);
+        } catch (e) { toast.error('Failed to load staff'); }
         setLoading(false);
     }, []);
 
@@ -795,7 +457,6 @@ export default function StaffDirectoryPage() {
         male: allStaff.filter(s => s.gender === 'Male').length,
         female: allStaff.filter(s => s.gender === 'Female').length,
         wageBill: allStaff.reduce((sum, s) => sum + s.basic_salary, 0),
-        onLeave: allStaff.filter(s => s.status === 'On Leave').length,
     }), [allStaff]);
 
     // ── Filter + Sort ─────────────────────────────────────────────────────────
@@ -876,13 +537,23 @@ export default function StaffDirectoryPage() {
             county: form.county || null, nationality: form.nationality || null,
             specialization: form.specialization || null,
         };
-        if (type === 'teacher') { payload.tsc_number = form.tsc_number || null; payload.employment_type = form.employment_type; payload.date_of_employment = form.date_of_employment || null; }
-        if (type === 'support') { payload.contract_type = form.contract_type; payload.date_hired = form.date_of_employment || null; }
-        if (type === 'subordinate') { payload.date_hired = form.date_of_employment || null; }
+        if (type === 'teacher') {
+            payload.tsc_number = form.tsc_number || null;
+            payload.employment_type = form.employment_type;
+            payload.date_of_employment = form.date_of_employment || null;
+        }
+        if (type === 'support') {
+            payload.contract_type = form.contract_type;
+            payload.date_hired = form.date_of_employment || null;
+        }
+        if (type === 'subordinate') {
+            payload.date_hired = form.date_of_employment || null;
+        }
 
         const { error } = editingId
             ? await supabase.from(table).update(payload).eq('id', editingId)
             : await supabase.from(table).insert(payload);
+
         setSaving(false);
         if (error) toast.error('Save failed: ' + error.message);
         else { toast.success(editingId ? 'Staff updated!' : 'Staff added!'); setShowForm(false); fetchStaff(); }
@@ -892,7 +563,11 @@ export default function StaffDirectoryPage() {
     const exportCSV = () => {
         const rows = [
             ['Name', 'Type', 'Staff No', 'TSC No', 'Gender', 'Phone', 'Email', 'Department', 'Designation', 'Status', 'Basic Salary', 'Bank', 'KRA PIN', 'NHIF', 'NSSF'],
-            ...filtered.map(s => [`${s.first_name} ${s.last_name}`, s._typeLabel, s.staff_no, s.tsc_number, s.gender, s.phone, s.email, s.department, s.designation || s.role, s.status, s.basic_salary, s.bank_name, s.kra_pin, s.nhif_no, s.nssf_no]),
+            ...filtered.map(s => [
+                `${s.first_name} ${s.last_name}`, s._typeLabel, s.staff_no, s.tsc_number,
+                s.gender, s.phone, s.email, s.department, s.designation || s.role,
+                s.status, s.basic_salary, s.bank_name, s.kra_pin, s.nhif_no, s.nssf_no,
+            ]),
         ];
         const csv = rows.map(r => r.map(c => `"${c || ''}"`).join(',')).join('\n');
         const a = document.createElement('a');
@@ -901,403 +576,204 @@ export default function StaffDirectoryPage() {
         a.click();
     };
 
-    const handleSort = (f: string) => {
-        if (sortField === f) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-        else { setSortField(f); setSortDir('asc'); }
-    };
-    const SortIcon = ({ f }: { f: string }) => {
-        if (sortField !== f) return <span style={{ opacity: 0.25, marginLeft: 3 }}>↕</span>;
-        return <span style={{ marginLeft: 3, color: '#6366f1' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>;
-    };
+    const handleSort = (f: string) => { if (sortField === f) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortField(f); setSortDir('asc'); } };
+    const SortIcon = ({ f }: { f: string }) => sortField !== f ? null : sortDir === 'asc' ? <FiChevronDown size={11} className="inline ml-0.5" /> : <FiChevronDown size={11} className="inline ml-0.5 rotate-180" />;
 
-    // ── Loading State ─────────────────────────────────────────────────────────
+    // ── Loading ───────────────────────────────────────────────────────────────
     if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-            <div style={{ textAlign: 'center' }}>
-                <div style={{ position: 'relative', width: 64, height: 64, margin: '0 auto 16px' }}>
-                    <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid #f1f5f9' }} />
-                    <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#6366f1', animation: 'alphSpin 0.8s linear infinite' }} />
-                    <div style={{ position: 'absolute', inset: 8, borderRadius: '50%', border: '2px solid transparent', borderTopColor: '#a78bfa', animation: 'alphSpin 1.2s linear infinite reverse' }} />
+        <div className="flex items-center justify-center h-[70vh]">
+            <div className="text-center">
+                <div className="relative w-14 h-14 mx-auto mb-4">
+                    <div className="absolute inset-0 rounded-full border-4 border-gray-100" />
+                    <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 animate-spin" />
+                    <FiUsers className="absolute inset-0 m-auto text-indigo-400" size={18} />
                 </div>
-                <p style={{ fontWeight: 900, fontSize: 13, color: '#475569', margin: 0, letterSpacing: '-0.01em' }}>Loading Staff Directory…</p>
-                <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, fontWeight: 600 }}>Alpha School ERP</p>
+                <p className="text-gray-500 font-bold text-sm">Loading Staff Directory...</p>
             </div>
         </div>
     );
 
-    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <>
             <style>{`
-                @keyframes alphModalIn { from { opacity:0; transform:scale(0.95) translateY(12px); } to { opacity:1; transform:none; } }
-                @keyframes alphSpin    { to { transform:rotate(360deg); } }
-                @keyframes alphFadeUp  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
-                .alpha-stat-card { animation: alphFadeUp 0.35s ease both; }
-                .alpha-row:hover td { background: #f8f7ff !important; }
-                .alpha-sort:hover { color: #6366f1 !important; cursor: pointer; }
+                @keyframes modal { from { opacity:0; transform: scale(0.96) translateY(10px); } to { opacity:1; transform:none; } }
+                .animate-modal { animation: modal 0.2s ease-out; }
+                .sort-th { cursor: pointer; user-select: none; white-space: nowrap; }
+                .sort-th:hover { color: #4f46e5; }
                 ::-webkit-scrollbar { width: 5px; height: 5px; }
-                ::-webkit-scrollbar-track { background: transparent; }
                 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-                .alpha-tab-btn:hover { background: #f1f5f9 !important; }
             `}</style>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 48 }}>
-
-                {/* ════════════════════════════════════════
-                    HEADER — cinematic title bar
-                ════════════════════════════════════════ */}
-                <div style={{
-                    background: 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%)',
-                    borderRadius: 24, padding: '22px 28px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    flexWrap: 'wrap', gap: 14,
-                    boxShadow: '0 8px 32px rgba(15,23,42,0.25)',
-                    position: 'relative', overflow: 'hidden',
-                }}>
-                    {/* Background grid */}
-                    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.06, pointerEvents: 'none' }} xmlns="http://www.w3.org/2000/svg">
-                        <pattern id="hgrid" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
-                            <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#fff" strokeWidth="0.5" />
-                        </pattern>
-                        <rect width="100%" height="100%" fill="url(#hgrid)" />
-                    </svg>
-                    {/* Glow orb */}
-                    <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,#6366f160,transparent 70%)', pointerEvents: 'none' }} />
-
-                    <div style={{ position: 'relative' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-                            <div style={{
-                                width: 44, height: 44, borderRadius: 14,
-                                background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: '0 4px 16px #6366f150',
-                            }}>
-                                <FiUsers size={20} color="#fff" />
-                            </div>
-                            <div>
-                                <h1 style={{
-                                    margin: 0, fontSize: 22, fontWeight: 900, color: '#fff',
-                                    letterSpacing: '-0.04em', lineHeight: 1,
-                                }}>
-                                    Staff Directory
-                                </h1>
-                                <p style={{ margin: '4px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
-                                    TSC Teachers · Support Staff · Subordinates · HR Records
-                                </p>
-                            </div>
+            <div className="space-y-5 pb-12">
+                {/* ── Header ─────────────────────────────────────────────────── */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                            <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                                <FiUsers className="text-white" size={17} />
+                            </span>
+                            Staff Directory
+                        </h1>
+                        <p className="text-xs text-gray-400 font-semibold mt-1 ml-11">TSC Teachers · Support Staff · Subordinates · HR Records</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <button onClick={() => fetchStaff()} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-bold text-gray-600 transition-all">
+                            <FiRefreshCw size={12} /> Refresh
+                        </button>
+                        <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-bold text-gray-600 transition-all">
+                            <FiDownload size={12} /> Export
+                        </button>
+                        <div className="flex bg-gray-100 rounded-xl p-1 gap-0.5">
+                            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}><FiList size={14} /></button>
+                            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}><FiGrid size={14} /></button>
                         </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
-                        {/* View toggle */}
-                        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 4, gap: 3 }}>
-                            {(['list', 'grid'] as ViewMode[]).map(v => (
-                                <button key={v} onClick={() => setViewMode(v)} style={{
-                                    padding: '7px 10px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                                    background: viewMode === v ? 'rgba(255,255,255,0.15)' : 'transparent',
-                                    color: viewMode === v ? '#fff' : 'rgba(255,255,255,0.45)',
-                                    transition: 'all 0.15s', display: 'flex', alignItems: 'center',
-                                }}>
-                                    {v === 'list' ? <FiList size={14} /> : <FiGrid size={14} />}
-                                </button>
-                            ))}
-                        </div>
-
-                        <button onClick={fetchStaff} style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '9px 14px', borderRadius: 12,
-                            border: '1px solid rgba(255,255,255,0.15)',
-                            background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.75)',
-                            cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
-                            transition: 'all 0.15s',
-                        }}>
-                            <FiRefreshCw size={13} /> Refresh
-                        </button>
-
-                        <button onClick={exportCSV} style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '9px 14px', borderRadius: 12,
-                            border: '1px solid rgba(99,102,241,0.5)',
-                            background: 'rgba(99,102,241,0.15)', color: '#a5b4fc',
-                            cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
-                            transition: 'all 0.15s',
-                        }}>
-                            <FiDownload size={13} /> Export
-                        </button>
-
-                        <button onClick={openAdd} style={{
-                            display: 'flex', alignItems: 'center', gap: 7,
-                            padding: '10px 18px', borderRadius: 12, border: 'none',
-                            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                            color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 900,
-                            fontFamily: 'inherit', boxShadow: '0 4px 16px #6366f140',
-                            transition: 'all 0.15s',
-                        }}>
-                            <FiUserPlus size={14} /> Add Staff
+                        <button onClick={openAdd}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white transition-all shadow-lg shadow-indigo-200"
+                            style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+                            <FiUserPlus size={13} /> Add Staff
                         </button>
                     </div>
                 </div>
 
-                {/* ════════════════════════════════════════
-                    ULTRA STAT CARDS
-                ════════════════════════════════════════ */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
-                    <UltraStatCard index={0} label="Total Staff" value={stats.total} icon={FiUsers} color="#6366f1" sub={`${stats.active} Active · ${stats.onLeave} On Leave`} />
-                    <UltraStatCard index={1} label="TSC Teachers" value={stats.teachers} icon={HiAcademicCap} color="#3b82f6" sub={`${stats.support} Support Teachers`} />
-                    <UltraStatCard index={2} label="Support Staff" value={stats.subordinate} icon={FiBriefcase} color="#f59e0b" sub={`${stats.female}♀ · ${stats.male}♂`} />
-                    <UltraStatCard index={3} label="Monthly Wage Bill" value={fmt(stats.wageBill)} icon={FiTrendingUp} color="#059669" sub="Basic salaries only" />
+                {/* ── Stat Cards ──────────────────────────────────────────────── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
+                    <StatCard label="Total Staff" value={stats.total} icon={FiUsers} color="#6366f1" sub={`${stats.active} Active`} />
+                    <StatCard label="TSC Teachers" value={stats.teachers} icon={FiBook} color="#3b82f6" sub={`${stats.support} Support Tchrs`} />
+                    <StatCard label="Support Staff" value={stats.subordinate} icon={FiBriefcase} color="#f59e0b" sub={`${stats.female} Female · ${stats.male} Male`} />
+                    <StatCard label="Monthly Wage Bill" value={fmt(stats.wageBill)} icon={FiDollarSign} color="#059669" sub="Basic salaries only" />
                 </div>
 
-                {/* ════════════════════════════════════════
-                    TYPE FILTER TABS — premium pill row
-                ════════════════════════════════════════ */}
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {([
-                        ['all', 'All Staff', stats.total, '#6366f1', 'linear-gradient(135deg,#6366f1,#8b5cf6)'],
-                        ['teacher', 'TSC Teachers', stats.teachers, '#3b82f6', 'linear-gradient(135deg,#1e40af,#3b82f6)'],
-                        ['support', 'Support Teachers', stats.support, '#8b5cf6', 'linear-gradient(135deg,#5b21b6,#8b5cf6)'],
-                        ['subordinate', 'Support Staff', stats.subordinate, '#f59e0b', 'linear-gradient(135deg,#92400e,#f59e0b)'],
-                    ] as [string, string, number, string, string][]).map(([v, label, count, col, grad]) => {
-                        const active = filterType === v;
-                        return (
-                            <button key={v} className="alpha-tab-btn" onClick={() => { setFilterType(v as any); setPage(1); }} style={{
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                padding: '9px 16px', borderRadius: 14,
-                                border: active ? 'none' : '1.5px solid #e8edf4',
-                                background: active ? grad : '#fff',
-                                color: active ? '#fff' : '#475569',
-                                cursor: 'pointer', fontSize: 12, fontWeight: 900,
-                                fontFamily: 'inherit', transition: 'all 0.2s',
-                                boxShadow: active ? `0 4px 14px ${col}40` : '0 1px 3px rgba(0,0,0,0.04)',
-                                transform: active ? 'translateY(-1px)' : 'none',
-                            }}>
-                                {label}
-                                <span style={{
-                                    padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 900,
-                                    background: active ? 'rgba(255,255,255,0.2)' : '#f1f5f9',
-                                    color: active ? '#fff' : '#64748b',
-                                    minWidth: 22, textAlign: 'center',
-                                }}>
-                                    {count}
-                                </span>
-                            </button>
-                        );
-                    })}
-                    <div style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>
-                        {filtered.length} of {allStaff.length} staff
-                    </div>
-                </div>
-
-                {/* ════════════════════════════════════════
-                    SEARCH & FILTER BAR
-                ════════════════════════════════════════ */}
-                <div style={{
-                    background: '#fff', borderRadius: 18, border: '1px solid #f1f5f9',
-                    padding: '14px 18px', display: 'flex', gap: 10, alignItems: 'center',
-                    flexWrap: 'wrap', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                }}>
-                    {/* Search */}
-                    <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-                        <FiSearch size={13} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
-                        <input
-                            value={search}
-                            onChange={e => { setSearch(e.target.value); setPage(1); }}
-                            placeholder="Search by name, staff no, TSC, email, phone…"
-                            style={{
-                                width: '100%', paddingLeft: 36, paddingRight: search ? 34 : 12,
-                                paddingTop: 10, paddingBottom: 10,
-                                background: '#f8fafc', border: '1.5px solid #e2e8f0',
-                                borderRadius: 12, fontSize: 13, fontWeight: 600, color: '#1e293b',
-                                outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
-                                transition: 'border-color 0.15s, box-shadow 0.15s',
-                            }}
-                            onFocus={e => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 3px #6366f115'; }}
-                            onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-                        />
-                        {search && (
-                            <button onClick={() => setSearch('')} style={{
-                                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                                background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8',
-                                display: 'flex', alignItems: 'center',
-                            }}>
-                                <FiX size={13} />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Dropdowns */}
+                {/* ── Quick Type Tabs ──────────────────────────────────────────── */}
+                <div className="flex gap-2 flex-wrap">
                     {[
-                        { val: filterStatus, set: setFilterStatus, opts: [['all', 'All Statuses'], ['Active', 'Active'], ['Inactive', 'Inactive'], ['On Leave', 'On Leave'], ['Terminated', 'Terminated']] },
-                        { val: filterGender, set: setFilterGender, opts: [['all', 'All Genders'], ['Male', 'Male'], ['Female', 'Female']] },
-                    ].map(({ val, set, opts }, i) => (
-                        <select key={i} value={val} onChange={e => { set(e.target.value); setPage(1); }}
-                            style={{
-                                padding: '10px 12px', background: '#f8fafc', border: '1.5px solid #e2e8f0',
-                                borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#475569',
-                                outline: 'none', fontFamily: 'inherit', cursor: 'pointer',
-                                transition: 'border-color 0.15s',
-                            }}
-                            onFocus={e => e.target.style.borderColor = '#6366f1'}
-                            onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                        >
-                            {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                        </select>
+                        ['all', 'All Staff', stats.total, '#6366f1'],
+                        ['teacher', 'TSC Teachers', stats.teachers, '#3b82f6'],
+                        ['support', 'Support Teachers', stats.support, '#8b5cf6'],
+                        ['subordinate', 'Support Staff', stats.subordinate, '#f59e0b'],
+                    ].map(([v, l, c, col]) => (
+                        <button key={v as string} onClick={() => { setFilterType(v as any); setPage(1); }}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black border transition-all ${filterType === v ? 'text-white border-transparent shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                            style={filterType === v ? { background: col as string } : {}}>
+                            {l as string} <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${filterType === v ? 'bg-white/20' : 'bg-gray-100'}`}>{c as number}</span>
+                        </button>
                     ))}
                 </div>
 
-                {/* ════════════════════════════════════════
-                    GRID VIEW
-                ════════════════════════════════════════ */}
+                {/* ── Filters ──────────────────────────────────────────────────── */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-wrap gap-3 items-center">
+                    <div className="relative flex-1 min-w-52">
+                        <FiSearch size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+                            placeholder="Search name, staff no, TSC, email, phone..."
+                            className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all" />
+                        {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><FiX size={13} /></button>}
+                    </div>
+                    <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}
+                        className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <option value="all">All Statuses</option>
+                        {['Active', 'Inactive', 'On Leave', 'Terminated'].map(s => <option key={s}>{s}</option>)}
+                    </select>
+                    <select value={filterGender} onChange={e => { setFilterGender(e.target.value); setPage(1); }}
+                        className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <option value="all">All Genders</option>
+                        <option>Male</option><option>Female</option>
+                    </select>
+                    <div className="text-xs text-gray-400 font-semibold ml-auto">{filtered.length} of {allStaff.length} staff</div>
+                </div>
+
+                {/* ── Grid View ────────────────────────────────────────────────── */}
                 {viewMode === 'grid' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16 }}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {pageData.length === 0 ? (
-                            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
-                                <FiUsers size={40} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.3 }} />
-                                <p style={{ fontWeight: 800, fontSize: 14, margin: 0 }}>No staff found</p>
+                            <div className="col-span-full py-16 text-center text-gray-400">
+                                <FiUsers size={36} className="mx-auto mb-3 opacity-30" />
+                                <p className="font-bold">No staff found</p>
                             </div>
                         ) : pageData.map(s => (
-                            <UltraStaffCard key={`${s._type}-${s.id}`} staff={s}
+                            <StaffCard key={`${s._type}-${s.id}`} staff={s}
                                 onEdit={() => openEdit(s)} onDelete={() => handleDelete(s)} onView={() => openView(s)} />
                         ))}
                     </div>
                 )}
 
-                {/* ════════════════════════════════════════
-                    LIST VIEW — ultra table
-                ════════════════════════════════════════ */}
+                {/* ── List View ────────────────────────────────────────────────── */}
                 {viewMode === 'list' && (
-                    <div style={{
-                        background: '#fff', borderRadius: 22, border: '1px solid #f1f5f9',
-                        overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                    }}>
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
                                 <thead>
-                                    <tr style={{ background: 'linear-gradient(to right,#fafbfc,#f8fafc)', borderBottom: '2px solid #f1f5f9' }}>
-                                        {[
-                                            { label: 'Staff Member', f: 'first_name', w: 220 },
-                                            { label: 'Type', f: '', w: 130 },
-                                            { label: 'Dept / Role', f: 'department', w: 150 },
-                                            { label: 'Contact', f: '', w: 160 },
-                                            { label: 'Status', f: '', w: 100 },
-                                            { label: 'Salary', f: 'basic_salary', w: 120 },
-                                            { label: 'IDs', f: '', w: 120 },
-                                            { label: '', f: '', w: 90 },
-                                        ].map(({ label, f, w }) => (
-                                            <th key={label} className={f ? 'alpha-sort' : ''}
-                                                onClick={f ? () => handleSort(f) : undefined}
-                                                style={{
-                                                    padding: '13px 14px', textAlign: 'left',
-                                                    fontSize: 9, fontWeight: 900, color: '#94a3b8',
-                                                    textTransform: 'uppercase', letterSpacing: '0.1em',
-                                                    userSelect: 'none', whiteSpace: 'nowrap',
-                                                    minWidth: w, cursor: f ? 'pointer' : 'default',
-                                                    transition: 'color 0.15s',
-                                                }}>
-                                                {label}{f && <SortIcon f={f} />}
-                                            </th>
-                                        ))}
+                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                        <th className="sort-th px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest" onClick={() => handleSort('first_name')}>
+                                            Staff Member <SortIcon f="first_name" />
+                                        </th>
+                                        <th className="px-3 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Type</th>
+                                        <th className="sort-th px-3 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest" onClick={() => handleSort('department')}>
+                                            Dept / Role <SortIcon f="department" />
+                                        </th>
+                                        <th className="px-3 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Contact</th>
+                                        <th className="px-3 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                                        <th className="sort-th px-3 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest" onClick={() => handleSort('basic_salary')}>
+                                            Salary <SortIcon f="basic_salary" />
+                                        </th>
+                                        <th className="px-3 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">IDs</th>
+                                        <th className="px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {pageData.length === 0 ? (
-                                        <tr><td colSpan={8} style={{ padding: '60px 0', textAlign: 'center', color: '#94a3b8' }}>
-                                            <FiUsers size={36} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.25 }} />
-                                            <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>No staff found matching your filters</p>
+                                        <tr><td colSpan={8} className="text-center py-16 text-gray-400">
+                                            <FiUsers size={32} className="mx-auto mb-3 opacity-30" />
+                                            <p className="font-semibold">No staff found matching your filters</p>
                                         </td></tr>
-                                    ) : pageData.map((s, i) => {
-                                        const [bg, fg] = pal(s.id);
-                                        return (
-                                            <tr key={`${s._type}-${s.id}`} className="alpha-row"
-                                                style={{ borderTop: '1px solid #f8fafc', transition: 'background 0.12s' }}>
-                                                {/* Name + avatar */}
-                                                <td style={{ padding: '12px 14px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                        <div style={{
-                                                            width: 38, height: 38, borderRadius: 11, flexShrink: 0,
-                                                            background: `linear-gradient(145deg,${bg},${fg})`,
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            color: fg, fontWeight: 900, fontSize: 13,
-                                                            letterSpacing: -0.5, fontFamily: "'DM Mono','Courier New',monospace",
-                                                        }}>
-                                                            {initials(s)}
-                                                        </div>
-                                                        <div>
-                                                            <p style={{ margin: 0, fontWeight: 900, fontSize: 13, color: '#0f172a', lineHeight: 1.2 }}>
-                                                                {s.first_name} {s.last_name}
-                                                            </p>
-                                                            <p style={{ margin: '2px 0 0', fontSize: 10, color: '#94a3b8', fontWeight: 700, fontFamily: "'DM Mono','Courier New',monospace" }}>
-                                                                {s.staff_no || s.tsc_number || '—'}
-                                                            </p>
-                                                        </div>
+                                    ) : pageData.map((s, i) => (
+                                        <tr key={`${s._type}-${s.id}`}
+                                            className={`border-t border-gray-50 hover:bg-indigo-50/30 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <Avatar staff={s} size={36} />
+                                                    <div>
+                                                        <p className="font-black text-gray-900 text-sm leading-tight">{s.first_name} {s.last_name}</p>
+                                                        <p className="text-xs text-gray-400 font-semibold">{s.staff_no || s.tsc_number || '—'}</p>
                                                     </div>
-                                                </td>
-                                                <td style={{ padding: '12px 14px' }}>
-                                                    <TypePill type={s._type} />
-                                                </td>
-                                                <td style={{ padding: '12px 14px' }}>
-                                                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#334155' }}>{s.department || s.role || '—'}</p>
-                                                    <p style={{ margin: '2px 0 0', fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>{s.designation || s.qualification || ''}</p>
-                                                </td>
-                                                <td style={{ padding: '12px 14px' }}>
-                                                    {s.phone && (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
-                                                            <FiPhone size={10} color="#94a3b8" />
-                                                            <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>{s.phone}</span>
-                                                        </div>
-                                                    )}
-                                                    {s.email && <p style={{ margin: 0, fontSize: 10, color: '#94a3b8', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.email}</p>}
-                                                </td>
-                                                <td style={{ padding: '12px 14px' }}>
-                                                    <StatusPill status={s.status} />
-                                                </td>
-                                                <td style={{ padding: '12px 14px' }}>
-                                                    <span style={{ fontSize: 13, fontWeight: 900, color: '#059669', fontFamily: "'DM Mono','Courier New',monospace", whiteSpace: 'nowrap' }}>
-                                                        {fmt(s.basic_salary)}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '12px 14px' }}>
-                                                    {s.kra_pin && <p style={{ margin: '0 0 1px', fontSize: 9, fontWeight: 800, color: '#94a3b8', fontFamily: "'DM Mono','Courier New',monospace" }}>KRA: {s.kra_pin}</p>}
-                                                    {s.nhif_no && <p style={{ margin: '0 0 1px', fontSize: 9, fontWeight: 800, color: '#94a3b8', fontFamily: "'DM Mono','Courier New',monospace" }}>NHIF: {s.nhif_no}</p>}
-                                                    {s.nssf_no && <p style={{ margin: 0, fontSize: 9, fontWeight: 800, color: '#94a3b8', fontFamily: "'DM Mono','Courier New',monospace" }}>NSSF: {s.nssf_no}</p>}
-                                                </td>
-                                                <td style={{ padding: '12px 14px' }}>
-                                                    <div style={{ display: 'flex', gap: 5 }}>
-                                                        {[
-                                                            { icon: FiEye, color: '#3b82f6', bg: '#eff6ff', fn: () => openView(s), title: 'View' },
-                                                            { icon: FiEdit2, color: '#6366f1', bg: '#eef2ff', fn: () => openEdit(s), title: 'Edit' },
-                                                            { icon: FiTrash2, color: '#ef4444', bg: '#fff1f2', fn: () => handleDelete(s), title: 'Delete' },
-                                                        ].map(({ icon: Ic, color, bg: ibg, fn, title }) => (
-                                                            <button key={title} onClick={fn} title={title} style={{
-                                                                width: 30, height: 30, borderRadius: 9, border: 'none',
-                                                                background: ibg, cursor: 'pointer', color,
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                transition: 'transform 0.12s',
-                                                            }}
-                                                                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
-                                                                onMouseLeave={e => (e.currentTarget.style.transform = '')}
-                                                            >
-                                                                <Ic size={12} />
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-3"><Badge type={s._type} /></td>
+                                            <td className="px-3 py-3">
+                                                <p className="text-sm font-semibold text-gray-700">{s.department || s.role || '—'}</p>
+                                                <p className="text-xs text-gray-400">{s.designation || s.qualification || ''}</p>
+                                            </td>
+                                            <td className="px-3 py-3">
+                                                {s.phone && <p className="text-xs font-semibold text-gray-600 flex items-center gap-1"><FiPhone size={10} className="text-gray-400" /> {s.phone}</p>}
+                                                {s.email && <p className="text-xs text-gray-400 truncate max-w-32">{s.email}</p>}
+                                            </td>
+                                            <td className="px-3 py-3"><StatusBadge status={s.status} /></td>
+                                            <td className="px-3 py-3 font-black text-emerald-700 text-sm whitespace-nowrap">{fmt(s.basic_salary)}</td>
+                                            <td className="px-3 py-3">
+                                                {s.kra_pin && <p className="text-[10px] font-bold text-gray-400">KRA: {s.kra_pin}</p>}
+                                                {s.nhif_no && <p className="text-[10px] font-bold text-gray-400">NHIF: {s.nhif_no}</p>}
+                                                {s.nssf_no && <p className="text-[10px] font-bold text-gray-400">NSSF: {s.nssf_no}</p>}
+                                            </td>
+                                            <td className="px-3 py-3">
+                                                <div className="flex gap-1">
+                                                    <button onClick={() => openView(s)} title="View" className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-blue-100 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-all"><FiEye size={13} /></button>
+                                                    <button onClick={() => openEdit(s)} title="Edit" className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-indigo-100 flex items-center justify-center text-gray-400 hover:text-indigo-600 transition-all"><FiEdit2 size={13} /></button>
+                                                    <button onClick={() => handleDelete(s)} title="Delete" className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-red-100 flex items-center justify-center text-gray-400 hover:text-red-500 transition-all"><FiTrash2 size={13} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
+                                {/* Footer summary */}
                                 {pageData.length > 0 && (
                                     <tfoot>
-                                        <tr style={{ background: 'linear-gradient(to right,#fafbfc,#f8fafc)', borderTop: '2px solid #f1f5f9' }}>
-                                            <td colSpan={5} style={{ padding: '11px 14px', fontSize: 11, fontWeight: 800, color: '#64748b' }}>
-                                                Showing {Math.min((page - 1) * perPage + 1, filtered.length)}–{Math.min(page * perPage, filtered.length)} of {filtered.length} staff members
+                                        <tr className="bg-gray-50 border-t border-gray-200">
+                                            <td colSpan={5} className="px-4 py-2 text-xs font-black text-gray-500">
+                                                Showing {Math.min((page - 1) * perPage + 1, filtered.length)}–{Math.min(page * perPage, filtered.length)} of {filtered.length}
                                             </td>
-                                            <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 900, color: '#059669', fontFamily: "'DM Mono','Courier New',monospace", whiteSpace: 'nowrap' }}>
+                                            <td className="px-3 py-2 text-xs font-black text-emerald-700">
                                                 {fmt(pageData.reduce((s, r) => s + r.basic_salary, 0))}
                                             </td>
-                                            <td colSpan={2} style={{ padding: '11px 14px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textAlign: 'right' }}>
-                                                Page subtotal
-                                            </td>
+                                            <td colSpan={2} />
                                         </tr>
                                     </tfoot>
                                 )}
@@ -1306,78 +782,43 @@ export default function StaffDirectoryPage() {
                     </div>
                 )}
 
-                {/* ════════════════════════════════════════
-                    PAGINATION
-                ════════════════════════════════════════ */}
+                {/* ── Pagination ──────────────────────────────────────────────── */}
                 {totalPages > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <div className="flex items-center justify-center gap-2">
                         <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                            style={{
-                                width: 36, height: 36, borderRadius: 11, border: '1.5px solid #e2e8f0',
-                                background: '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: '#64748b', opacity: page === 1 ? 0.4 : 1, transition: 'all 0.15s',
-                            }}>
-                            <FiChevronLeft size={14} />
+                            className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition-all">
+                            <FiChevronLeft size={15} />
                         </button>
-
                         {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
                             const p = totalPages <= 7 ? i + 1 : page <= 4 ? i + 1 : page >= totalPages - 3 ? totalPages - 6 + i : page - 3 + i;
-                            const active = page === p;
                             return (
-                                <button key={p} onClick={() => setPage(p)} style={{
-                                    width: 36, height: 36, borderRadius: 11,
-                                    border: active ? 'none' : '1.5px solid #e2e8f0',
-                                    background: active ? 'linear-gradient(135deg,#4f46e5,#7c3aed)' : '#fff',
-                                    color: active ? '#fff' : '#475569',
-                                    cursor: 'pointer', fontSize: 13, fontWeight: 900,
-                                    transition: 'all 0.2s',
-                                    boxShadow: active ? '0 4px 12px #6366f140' : 'none',
-                                    fontFamily: 'inherit',
-                                }}>
+                                <button key={p} onClick={() => setPage(p)}
+                                    className={`w-9 h-9 rounded-xl text-sm font-black transition-all ${page === p ? 'text-white shadow-lg' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                                    style={page === p ? { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' } : {}}>
                                     {p}
                                 </button>
                             );
                         })}
-
                         <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                            style={{
-                                width: 36, height: 36, borderRadius: 11, border: '1.5px solid #e2e8f0',
-                                background: '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: '#64748b', opacity: page === totalPages ? 0.4 : 1, transition: 'all 0.15s',
-                            }}>
-                            <FiChevronRight size={14} />
+                            className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition-all">
+                            <FiChevronRight size={15} />
                         </button>
                     </div>
                 )}
-
-                {/* Footer */}
-                <div style={{ paddingTop: 12, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                    <span style={{ fontSize: 10, color: '#cbd5e1', fontWeight: 700 }}>Alpha HR Engine · AlphaSchool ERP v2</span>
-                    <span style={{ fontSize: 10, color: '#cbd5e1', fontWeight: 700 }}>{new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}</span>
-                </div>
             </div>
 
-            {/* ════════════════════════════════════════
-                MODALS
-            ════════════════════════════════════════ */}
+            {/* ── Modals ─────────────────────────────────────────────────────── */}
             <Modal open={showForm} onClose={() => setShowForm(false)}
                 title={editingId ? '✏️ Edit Staff Member' : '➕ Add New Staff Member'} size="xl">
-                <StaffForm
-                    form={form} setForm={setForm}
-                    staffType={editingId ? editingType : newStaffType}
+                <StaffForm form={form} setForm={setForm} staffType={editingId ? editingType : newStaffType}
                     setStaffType={setNewStaffType} isEdit={!!editingId}
-                    onSave={handleSave} onClose={() => setShowForm(false)} saving={saving}
-                />
+                    onSave={handleSave} onClose={() => setShowForm(false)} saving={saving} />
             </Modal>
 
             <Modal open={showDetail} onClose={() => setShowDetail(false)} title="👤 Staff Profile" size="lg">
                 {viewStaff && (
-                    <StaffDetailModal staff={viewStaff}
-                        onClose={() => setShowDetail(false)}
-                        onEdit={() => { setShowDetail(false); openEdit(viewStaff); }}
-                    />
+                    <StaffDetailModal staff={viewStaff} onClose={() => setShowDetail(false)}
+                        onEdit={() => { setShowDetail(false); openEdit(viewStaff); }} />
                 )}
             </Modal>
         </>
