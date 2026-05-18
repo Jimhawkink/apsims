@@ -29,8 +29,9 @@ export interface CBCRubricConfig { id: number; level_code: string; level_label: 
 export interface CBCInterventionFlag {
   id: number; student_id: number; subject_id: number; term_id: number;
   flagged_by?: number; rubric_level_at_flag: string; raw_score_at_flag?: number;
-  status: string; intervention_type?: string; assigned_teacher_id?: number;
-  outcome?: string; resolved_at?: string; updated_at: string;
+  flag_reason?: string; intervention_type?: string; intervention_notes?: string;
+  status: string; resolved_at?: string; resolved_by?: number;
+  resolution_notes?: string; created_at: string; updated_at: string;
 }
 export interface CBCStaff { id: number; first_name: string; last_name: string; }
 
@@ -87,7 +88,7 @@ export function useCBCReportData() {
       supabase.from('cbc_student_subjects').select('*'),
       supabase.from('cbc_pathways').select('*').order('pathway_name'),
       supabase.from('cbc_rubric_config').select('*').order('sort_order'),
-      supabase.from('school_staff').select('id,first_name,last_name').limit(500),
+      supabase.from('school_teachers').select('id,first_name,last_name').limit(500),
       supabase.from('school_details').select('*').limit(1).maybeSingle(),
     ]);
 

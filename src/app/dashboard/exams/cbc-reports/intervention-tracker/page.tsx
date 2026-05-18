@@ -23,16 +23,16 @@ export default function InterventionTrackerPage() {
       const originalLevel = flag.rubric_level_at_flag || 'BE';
       const improved = currentLevel && rubricNumeric(currentLevel) > rubricNumeric(originalLevel);
       const resolvedDate = flag.resolved_at ? new Date(flag.resolved_at).toLocaleDateString() : null;
-      return { ...flag, student, currentLevel, originalLevel, improved, resolvedDate, subjectName: data.getSubjectName(flag.subject_id), teacherName: data.getStaffName(flag.assigned_teacher_id) };
+      return { ...flag, student, currentLevel, originalLevel, improved, resolvedDate, subjectName: data.getSubjectName(flag.subject_id), teacherName: data.getStaffName(flag.flagged_by) };
     }).filter(Boolean).sort((a: any, b: any) => {
-      if (a.status === 'active' && b.status !== 'active') return -1;
-      if (b.status === 'active' && a.status !== 'active') return 1;
+      if ((a.status === 'open' || a.status === 'in_progress') && b.status === 'resolved') return -1;
+      if ((b.status === 'open' || b.status === 'in_progress') && a.status === 'resolved') return 1;
       return 0;
     });
   }, [data.interventions, data.filteredSummaries, data.getStudentObj, data.getSubjectName, data.getStaffName]);
 
   const stats = useMemo(() => {
-    const active = interventionData.filter((i: any) => i.status === 'active').length;
+    const active = interventionData.filter((i: any) => i.status === 'open' || i.status === 'in_progress').length;
     const resolved = interventionData.filter((i: any) => i.status === 'resolved').length;
     const improved = interventionData.filter((i: any) => i.improved).length;
     const successRate = interventionData.length > 0 ? Math.round((improved / interventionData.length) * 100) : 0;
@@ -97,9 +97,9 @@ export default function InterventionTrackerPage() {
               </tr></thead>
               <tbody>
                 {interventionData.map((int: any, i: number) => (
-                  <tr key={int.id} className={`border-b border-gray-100 ${int.status === 'active' ? 'bg-amber-50/30' : i % 2 ? 'bg-gray-50/30' : ''}`}>
+                  <tr key={int.id} className={`border-b border-gray-100 ${(int.status === 'open' || int.status === 'in_progress') ? 'bg-amber-50/30' : i % 2 ? 'bg-gray-50/30' : ''}`}>
                     <td className="px-3 py-2.5 text-center">
-                      {int.status === 'active' ? <FiClock size={14} className="mx-auto text-amber-500" /> : int.status === 'resolved' ? <FiCheckCircle size={14} className="mx-auto text-green-500" /> : <FiXCircle size={14} className="mx-auto text-red-500" />}
+                      {(int.status === 'open' || int.status === 'in_progress') ? <FiClock size={14} className="mx-auto text-amber-500" /> : int.status === 'resolved' ? <FiCheckCircle size={14} className="mx-auto text-green-500" /> : <FiXCircle size={14} className="mx-auto text-red-500" />}
                     </td>
                     <td className="px-3 py-2.5"><div className="font-semibold text-gray-800">{int.student.first_name} {int.student.last_name}</div><div className="text-[10px] text-gray-400 font-mono">{int.student.admission_no || int.student.admission_number}</div></td>
                     <td className="px-3 py-2.5 text-center font-medium text-gray-700">{int.subjectName}</td>
@@ -112,7 +112,7 @@ export default function InterventionTrackerPage() {
                     </td>
                     <td className="px-3 py-2.5 text-center"><span className="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">{int.intervention_type || '—'}</span></td>
                     <td className="px-3 py-2.5 text-[10px] text-gray-600">{int.teacherName}</td>
-                    <td className="px-3 py-2.5 text-center text-[10px] text-gray-500">{int.outcome || '—'}</td>
+                    <td className="px-3 py-2.5 text-center text-[10px] text-gray-500">{int.resolution_notes || '—'}</td>
                   </tr>
                 ))}
               </tbody>

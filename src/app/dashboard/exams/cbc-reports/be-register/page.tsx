@@ -25,7 +25,7 @@ export default function BERegisterPage() {
     const rows = beStudents.map(r => [
       r.student.admission_no || r.student.admission_number, `${r.student.first_name} ${r.student.last_name}`,
       r.student.gender, data.getStreamName(r.student.stream_id), r.beSubjects.join('; '), r.beCount,
-      r.intervention?.status || 'None', r.intervention ? data.getStaffName(r.intervention.assigned_teacher_id) : '',
+      r.intervention?.status || 'None', r.intervention ? data.getStaffName(r.intervention.flagged_by) : '',
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -78,7 +78,7 @@ export default function BERegisterPage() {
             <td className="px-2 py-2.5 text-center text-[10px] text-gray-500">{data.getStreamName(row.student.stream_id)}</td>
             <td className="px-3 py-2.5"><div className="flex flex-wrap gap-1">{row.beSubjects.map((s: string, j: number) => <span key={j} className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-semibold border border-red-200">{s}</span>)}</div></td>
             <td className="px-2 py-2.5 text-center"><span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold">{row.beCount}</span></td>
-            <td className="px-3 py-2.5 text-center"><span className={`text-[10px] px-2 py-0.5 rounded font-bold ${row.intervention?.status === 'active' ? 'bg-amber-100 text-amber-700' : row.intervention?.status === 'resolved' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{row.intervention?.status || 'Not flagged'}</span></td>
+            <td className="px-3 py-2.5 text-center"><span className={`text-[10px] px-2 py-0.5 rounded font-bold ${(row.intervention?.status === 'open' || row.intervention?.status === 'in_progress') ? 'bg-amber-100 text-amber-700' : row.intervention?.status === 'resolved' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{row.intervention?.status || 'Not flagged'}</span></td>
           </tr>
         ))}</tbody>
       </table></div></div>}
