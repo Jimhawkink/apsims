@@ -1,0 +1,50 @@
+{
+  "name": "APSIMS — AlphaSchool",
+  "short_name": "APSIMS",
+  "description": "AlphaSchool Information Management System — Kenya's #1 School Management Platform",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#4f46e5",
+  "background_color": "#ffffff",
+  "lang": "en",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Attendance",
+      "short_name": "Attendance",
+      "description": "Mark student attendance",
+      "url": "/dashboard/attendance",
+      "icons": [{ "src": "/icon-attendance.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Fee Collection",
+      "short_name": "Fees",
+      "description": "Collect student fees",
+      "url": "/dashboard/fees/collect",
+      "icons": [{ "src": "/icon-fees.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Students",
+      "short_name": "Students",
+      "description": "View student list",
+      "url": "/dashboard/students",
+      "icons": [{ "src": "/icon-students.svg", "sizes": "96x96" }]
+    }
+  ]
+}

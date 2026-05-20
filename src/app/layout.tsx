@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
+import ServiceWorkerRegistration from '@/components/pwa/ServiceWorkerRegistration';
+import InstallPrompt from '@/components/pwa/InstallPrompt';
+import UpdateBanner from '@/components/pwa/UpdateBanner';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -20,7 +23,16 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en">
+            <head>
+                <link rel="manifest" href="/manifest.json" />
+                <meta name="theme-color" content="#4f46e5" />
+                <meta name="apple-mobile-web-app-capable" content="yes" />
+                <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+                <meta name="apple-mobile-web-app-title" content="APSIMS" />
+                <link rel="apple-touch-icon" href="/icon-192.png" />
+            </head>
             <body className={inter.className}>
+                <ServiceWorkerRegistration />
                 <Toaster
                     position="bottom-right"
                     reverseOrder={false}
@@ -60,6 +72,8 @@ export default function RootLayout({
                     }}
                 />
                 {children}
+                <InstallPrompt />
+                <UpdateBanner />
             </body>
         </html>
     );

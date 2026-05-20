@@ -10,8 +10,11 @@ import {
     FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, 
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
-    FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive
+    FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive,
+    FiWifi, FiWifiOff
 } from 'react-icons/fi';
+import OfflineBanner from '@/components/pwa/OfflineBanner';
+import { useOffline } from '@/hooks/useOffline';
 
 interface UserSession {
     id: number;
@@ -215,6 +218,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     // Track which groups are expanded
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+    const { isOffline } = useOffline();
 
     useEffect(() => {
         setMounted(true);
@@ -494,6 +498,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* ═══ MAIN CONTENT ═══ */}
             <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-[68px]' : 'lg:ml-[260px]'}`}>
+                <OfflineBanner />
                 {/* Top Bar */}
                 <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200/70 px-4 lg:px-6 h-14 flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -506,6 +511,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        {/* Network status indicator */}
+                        <div className={`flex items-center justify-center w-7 h-7 rounded-full ${isOffline ? 'bg-amber-100' : 'bg-green-100'}`} title={isOffline ? 'Offline' : 'Online'}>
+                          {isOffline 
+                            ? <FiWifiOff size={13} className="text-amber-600" />
+                            : <FiWifi size={13} className="text-green-600" />
+                          }
+                        </div>
                         <button className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
                             <FiBell size={17} />
                             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>

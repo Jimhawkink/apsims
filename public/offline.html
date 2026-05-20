@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>APSIMS — Offline</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 48px 40px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(79, 70, 229, 0.15);
+    }
+    .icon {
+      width: 80px; height: 80px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 36px;
+    }
+    h1 { font-size: 28px; font-weight: 700; color: #1e1b4b; margin-bottom: 8px; }
+    .subtitle { font-size: 16px; color: #6b7280; margin-bottom: 32px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #fef3c7; color: #92400e;
+      border: 1px solid #fcd34d;
+      border-radius: 100px; padding: 8px 16px;
+      font-size: 14px; font-weight: 500; margin-bottom: 32px;
+    }
+    .info-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; margin-bottom: 32px;
+    }
+    .info-card {
+      background: #f8fafc; border-radius: 12px;
+      padding: 16px; text-align: left;
+    }
+    .info-label { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .info-value { font-size: 18px; font-weight: 700; color: #1e1b4b; }
+    .btn {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white; border: none; border-radius: 12px;
+      padding: 14px 32px; font-size: 16px; font-weight: 600;
+      cursor: pointer; width: 100%; transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .footer { margin-top: 24px; font-size: 12px; color: #9ca3af; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📡</div>
+    <h1>You are offline</h1>
+    <p class="subtitle">APSIMS is running in offline mode. Your data is safe and will sync when you reconnect.</p>
+    <div class="badge">
+      <span>⚠️</span>
+      <span id="last-online">Checking connection...</span>
+    </div>
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="info-label">Cached Students</div>
+        <div class="info-value" id="student-count">—</div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Pending Sync</div>
+        <div class="info-value" id="queue-count">—</div>
+      </div>
+    </div>
+    <button class="btn" onclick="window.location.reload()">🔄 Try Again</button>
+    <p class="footer">APSIMS — AlphaSchool Management System</p>
+  </div>
+  <script>
+    // Show last online time
+    const lastOnline = localStorage.getItem('apsims-last-online');
+    const el = document.getElementById('last-online');
+    if (lastOnline) {
+      const diff = Math.round((Date.now() - parseInt(lastOnline)) / 60000);
+      el.textContent = diff < 1 ? 'Just went offline' : `Offline for ${diff} minute${diff !== 1 ? 's' : ''}`;
+    } else {
+      el.textContent = 'No connection detected';
+    }
+
+    // Auto-redirect when back online
+    window.addEventListener('online', () => {
+      setTimeout(() => { window.location.href = '/dashboard'; }, 3000);
+    });
+  </script>
+</body>
+</html>
