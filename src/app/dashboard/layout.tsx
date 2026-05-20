@@ -91,6 +91,7 @@ const menuGroups = [
         items: [
             { href: '/dashboard/attendance', label: 'Student Attendance', icon: FiCalendar, perm: 'attendance' },
             { href: '/dashboard/attendance/staff', label: 'Staff Attendance', icon: FiUserCheck, perm: 'attendance' },
+            { href: '/dashboard/attendance/biometric', label: '🔬 Biometric Attendance', icon: FiShield, perm: 'attendance' },
         ]
     },
     {
@@ -172,6 +173,7 @@ const menuGroups = [
         collapsible: true,
         items: [
             { href: '/dashboard/communication', label: '📡 SMS & Broadcasting', icon: FiMessageSquare, perm: 'fees' },
+            { href: '/dashboard/communication/whatsapp-reports', label: '💬 WhatsApp Reports', icon: FiSend, perm: 'fees' },
             { href: '/dashboard/portals', label: 'Parent & Student Portal', icon: FiUsers, perm: 'students' },
         ]
     },
