@@ -16,26 +16,32 @@ import { Bar, Doughnut } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KENYA TAX CALCULATOR (2024/2025 KRA RATES)
+// KENYA TAX CALCULATOR (2025/2026 KRA RATES — NSSF Tier I & II, SHIF, PAYE)
 // ─────────────────────────────────────────────────────────────────────────────
+// PAYE Bands (Monthly)
 const KE_PAYE_BANDS = [
-    { max: 24000, rate: 0.10 },
-    { max: 32333, rate: 0.25 },
-    { max: 500000, rate: 0.30 },
-    { max: 800000, rate: 0.325 },
-    { max: Infinity, rate: 0.35 },
+    { max: 24000, rate: 0.10 },     // First 24,000 → 10%
+    { max: 32333, rate: 0.25 },     // Next 8,333 → 25%
+    { max: 500000, rate: 0.30 },    // Next 467,667 → 30%
+    { max: 800000, rate: 0.325 },   // Next 300,000 → 32.5%
+    { max: Infinity, rate: 0.35 },  // Above 800,000 → 35%
 ];
-const PERSONAL_RELIEF = 2400;
-const NHIF_RATES = [
-    { max: 5999, amt: 150 }, { max: 7999, amt: 300 }, { max: 11999, amt: 400 },
-    { max: 14999, amt: 500 }, { max: 19999, amt: 600 }, { max: 24999, amt: 750 },
-    { max: 29999, amt: 850 }, { max: 34999, amt: 900 }, { max: 39999, amt: 950 },
-    { max: 44999, amt: 1000 }, { max: 49999, amt: 1100 }, { max: 59999, amt: 1200 },
-    { max: 69999, amt: 1300 }, { max: 79999, amt: 1400 }, { max: 89999, amt: 1500 },
-    { max: 99999, amt: 1600 }, { max: Infinity, amt: 1700 },
-];
-const NSSF_EMPLOYEE = 200;
-const HOUSING_LEVY_RATE = 0.015;
+const PERSONAL_RELIEF = 2400; // Monthly personal relief
+
+// NSSF New Act — Tier I & Tier II (Employee portion = 6%)
+const NSSF_TIER1_LIMIT = 7000;   // Lower Earnings Limit (LEL)
+const NSSF_TIER2_LIMIT = 36000;  // Upper Earnings Limit (UEL)
+const NSSF_RATE = 0.06;          // 6% employee contribution
+
+// SHIF (Social Health Insurance Fund — replaced NHIF from Oct 2024)
+const SHIF_RATE = 0.0275; // 2.75% of gross salary
+
+// Housing Levy
+const HOUSING_LEVY_RATE = 0.015; // 1.5% of gross salary
+
+// Insurance Relief (15% of SHIF, capped at KES 5,000/month)
+const INSURANCE_RELIEF_RATE = 0.15;
+const INSURANCE_RELIEF_CAP = 5000;
 
 function calcPAYE(taxable: number): number {
     let tax = 0; let prev = 0;
@@ -48,17 +54,32 @@ function calcPAYE(taxable: number): number {
     }
     return Math.max(0, tax - PERSONAL_RELIEF);
 }
-function calcNHIF(gross: number): number {
-    for (const r of NHIF_RATES) if (gross <= r.max) return r.amt;
-    return 1700;
+
+function calcNSSF(pensionable: number): { tier1: number; tier2: number; total: number } {
+    // Tier I: 6% of pensionable up to LEL (KES 7,000) → max KES 420
+    const tier1 = Math.round(Math.min(pensionable, NSSF_TIER1_LIMIT) * NSSF_RATE);
+    // Tier II: 6% of pensionable between LEL and UEL → max KES 1,740
+    const tier2Pensionable = Math.max(0, Math.min(pensionable, NSSF_TIER2_LIMIT) - NSSF_TIER1_LIMIT);
+    const tier2 = Math.round(tier2Pensionable * NSSF_RATE);
+    return { tier1, tier2, total: tier1 + tier2 };
 }
+
+function calcSHIF(gross: number): number {
+    return Math.round(gross * SHIF_RATE);
+}
+
+function calcInsuranceRelief(shif: number): number {
+    return Math.min(Math.round(shif * INSURANCE_RELIEF_RATE), INSURANCE_RELIEF_CAP);
+}
+
 function calcHousingLevy(gross: number): number {
     return Math.round(gross * HOUSING_LEVY_RATE);
 }
 
 interface TaxBreakdown {
     grossPay: number; taxable: number; paye: number;
-    nhif: number; nssf: number; housingLevy: number;
+    shif: number; nhif: number; nssfTier1: number; nssfTier2: number;
+    nssf: number; housingLevy: number; insuranceRelief: number;
     loanDeductions: number; advanceDeductions: number;
     saccoDeductions: number; otherDeductions: number;
     totalDeductions: number; netPay: number;
@@ -70,19 +91,29 @@ function computePayroll(
     advanceDeductions: number, saccoDeductions: number, otherDeductions: number,
 ): TaxBreakdown {
     const grossPay = basicSalary + houseAllowance + transportAllowance + medicalAllowance + otherAllowances;
-    const nssfDeduction = NSSF_EMPLOYEE;
-    const taxable = Math.max(0, grossPay - nssfDeduction);
+    // NSSF Tier I & II (deducted before PAYE)
+    const nssfCalc = calcNSSF(grossPay);
+    const taxable = Math.max(0, grossPay - nssfCalc.total);
+    // PAYE on taxable income
     const paye = calcPAYE(taxable);
-    const nhif = calcNHIF(grossPay);
+    // SHIF (replaces NHIF)
+    const shif = calcSHIF(grossPay);
+    const insuranceRelief = calcInsuranceRelief(shif);
+    // Housing Levy
     const housingLevy = calcHousingLevy(grossPay);
-    const totalDeductions = paye + nhif + nssfDeduction + housingLevy +
+    // Final PAYE after insurance relief
+    const finalPaye = Math.max(0, paye - insuranceRelief);
+    const totalDeductions = finalPaye + shif + nssfCalc.total + housingLevy +
         loanDeductions + advanceDeductions + saccoDeductions + otherDeductions;
     const netPay = Math.max(0, grossPay - totalDeductions);
     return {
-        grossPay, taxable, paye, nhif, nssf: nssfDeduction, housingLevy,
+        grossPay, taxable, paye: finalPaye, shif, nhif: shif, // nhif alias for backward compat
+        nssfTier1: nssfCalc.tier1, nssfTier2: nssfCalc.tier2, nssf: nssfCalc.total,
+        housingLevy, insuranceRelief,
         loanDeductions, advanceDeductions, saccoDeductions, otherDeductions, totalDeductions, netPay
     };
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS & CONSTANTS
@@ -593,14 +624,17 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
 
             {/* Live tax computation — dark card */}
             <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', borderRadius: 18, padding: '18px 20px' }}>
-                <p style={{ margin: '0 0 14px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>🧮 Live KRA Tax Computation</p>
+                <p style={{ margin: '0 0 14px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>🧮 Live KRA 2025/2026 Tax Computation (NSSF Tier I & II + SHIF)</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     {[
                         ['Gross Pay', fmt(calc.grossPay), '#34d399'],
+                        ['NSSF Tier I (6% to 7K)', fmt(calc.nssfTier1), '#f87171'],
+                        ['NSSF Tier II (6% 7K-36K)', fmt(calc.nssfTier2), '#f87171'],
+                        ['Total NSSF', fmt(calc.nssf), '#fb923c'],
                         ['Taxable Income', fmt(calc.taxable), '#93c5fd'],
                         ['PAYE Tax', fmt(calc.paye), '#f87171'],
-                        ['NHIF', fmt(calc.nhif), '#f87171'],
-                        ['NSSF', fmt(calc.nssf), '#f87171'],
+                        ['SHIF (2.75%)', fmt(calc.shif), '#f87171'],
+                        ['Insurance Relief', `-${fmt(calc.insuranceRelief)}`, '#34d399'],
                         ['Housing Levy (1.5%)', fmt(calc.housingLevy), '#f87171'],
                         ['Total Deductions', fmt(calc.totalDeductions), '#fb923c'],
                     ].map(([l, v, c]) => (
