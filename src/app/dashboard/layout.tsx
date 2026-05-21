@@ -14,6 +14,7 @@ import {
     FiWifi, FiWifiOff, FiTruck
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
+import CommandPalette from '@/components/CommandPalette';
 import { useOffline } from '@/hooks/useOffline';
 
 interface UserSession {
@@ -341,6 +342,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     return (
         <div className="min-h-screen bg-[#f0f2f5] flex font-sans text-gray-800">
+            <CommandPalette />
             {pageLoading && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, height: 3, zIndex: 9999,
