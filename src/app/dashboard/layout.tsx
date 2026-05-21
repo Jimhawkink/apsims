@@ -11,7 +11,7 @@ import {
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
     FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive,
-    FiWifi, FiWifiOff
+    FiWifi, FiWifiOff, FiTruck
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
 import { useOffline } from '@/hooks/useOffline';
@@ -147,6 +147,7 @@ const menuGroups = [
             { href: '/dashboard/library-inventory/overdue', label: 'Overdue Books', icon: FiAlertCircle, perm: 'library' },
             { href: '/dashboard/assets', label: 'Assets Register', icon: FiBox, perm: 'assets' },
             { href: '/dashboard/stores', label: 'Store Items', icon: FiCopy, perm: 'stores' },
+            { href: '/dashboard/procurement', label: '🏢 Procurement & Suppliers', icon: FiTruck, perm: 'expenses' },
             { href: '/dashboard/rim-paper', label: 'Rim Paper', icon: FiCopy, perm: 'rim-paper' },
         ]
     },
