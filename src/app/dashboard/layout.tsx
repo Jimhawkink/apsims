@@ -15,6 +15,7 @@ import {
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
 import CommandPalette from '@/components/CommandPalette';
+import PremierDashboard from '@/components/PremierDashboard';
 import { useOffline } from '@/hooks/useOffline';
 
 interface UserSession {
@@ -231,9 +232,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Track which groups are expanded
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
     const { isOffline } = useOffline();
+    const [dashTheme, setDashTheme] = useState<'sidebar' | 'premier'>('sidebar');
 
     useEffect(() => {
         setMounted(true);
+        // Load theme preference
+        const savedTheme = localStorage.getItem('apsims_theme') as 'sidebar' | 'premier' | null;
+        if (savedTheme) setDashTheme(savedTheme);
+
         // Verify session server-side (httpOnly cookie) before trusting localStorage
         const verifySession = async () => {
             try {
@@ -340,6 +346,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         );
     }
 
+    // ═══ PREMIER THEME ═══
+    if (dashTheme === 'premier') {
+        return (
+            <>
+                <CommandPalette />
+                <PremierDashboard user={user} onLogout={handleLogout}>
+                    {children}
+                </PremierDashboard>
+            </>
+        );
+    }
+
+    // ═══ SIDEBAR THEME (default) ═══
     return (
         <div className="min-h-screen bg-[#f0f2f5] flex font-sans text-gray-800">
             <CommandPalette />
@@ -396,6 +415,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     >
                         {sidebarCollapsed ? <FiChevronRight size={12} /> : <FiChevronLeft size={12} />}
                     </button>
+
+                    {!sidebarCollapsed && (
+                        <button
+                            onClick={() => { localStorage.setItem('apsims_theme', 'premier'); setDashTheme('premier'); }}
+                            title="Switch to Premier Layout"
+                            className="hidden lg:flex items-center justify-center w-6 h-6 rounded-md border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors text-blue-500 hover:text-blue-700 ml-1"
+                        >
+                            <FiGrid size={12} />
+                        </button>
+                    )}
 
                     <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden ml-auto text-gray-400 hover:text-gray-600">
                         <FiX size={20} />
