@@ -128,6 +128,11 @@ const menuGroups = [
             { href: '/dashboard/expenses', label: 'Expenses', icon: FiTrendingDown, perm: 'expenses' },
             { href: '/dashboard/income', label: 'Other Income', icon: FiTrendingUp, perm: 'income' },
             { href: '/dashboard/payments/integration', label: 'Payment Integration', icon: FiSmartphone, perm: 'fees' },
+            { href: '/dashboard/fees/analytics', label: '📊 Financial Analytics', icon: FiBarChart2, perm: 'fees' },
+            { href: '/dashboard/fees/mpesa-reconciliation', label: '💳 M-Pesa Reconciliation', icon: FiCreditCard, perm: 'fees' },
+            { href: '/dashboard/fees/receipts', label: '🧾 Pro Receipts', icon: FiFileText, perm: 'fees' },
+            { href: '/dashboard/fees/plans-scholarships', label: '💰 Plans & Scholarships', icon: FiCalendar, perm: 'fees' },
+            { href: '/dashboard/fees/audit', label: '🔒 Fee Audit Trail', icon: FiShield, perm: 'fees' },
         ]
     },
     {

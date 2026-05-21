@@ -214,6 +214,32 @@ export default function FeeDashboardPage() {
                     );
                 })}
             </div>
+
+            {/* Ultra Finance Intelligence */}
+            <div className="relative overflow-hidden rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, #0c0a2a 0%, #1e1b4b 50%, #312e81 100%)' }}>
+                <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+                <div className="relative">
+                    <div className="flex items-center gap-2 mb-4">
+                        <span className="text-lg">🚀</span>
+                        <h3 className="text-sm font-extrabold text-white tracking-wider uppercase">Ultra Finance Intelligence</h3>
+                        <span className="px-2 py-0.5 text-[9px] font-black bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full">NEW</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                            { label: '📊 Financial Analytics', href: '/dashboard/fees/analytics', desc: 'AI Revenue Insights', color: '#6366f1' },
+                            { label: '💳 M-Pesa Reconciliation', href: '/dashboard/fees/mpesa-reconciliation', desc: 'Auto-Match Payments', color: '#22c55e' },
+                            { label: '🧾 Pro Receipts', href: '/dashboard/fees/receipts', desc: 'KRA-Compliant', color: '#f59e0b' },
+                            { label: '💰 Plans & Scholarships', href: '/dashboard/fees/plans-scholarships', desc: 'Installments & Waivers', color: '#8b5cf6' },
+                        ].map((m, i) => (
+                            <Link key={i} href={m.href} className="group relative rounded-xl p-4 transition-all hover:scale-[1.03]" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <div className="absolute top-0 right-0 w-12 h-12 rounded-full opacity-20 group-hover:opacity-40 transition-opacity" style={{ background: m.color, transform: 'translate(30%, -30%)' }} />
+                                <p className="text-sm font-bold text-white mb-1">{m.label}</p>
+                                <p className="text-[10px] text-white/50 font-medium">{m.desc}</p>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
