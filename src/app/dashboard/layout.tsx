@@ -145,8 +145,11 @@ const menuGroups = [
             { href: '/dashboard/library-inventory/catalog', label: 'Book Catalog', icon: FiBookOpen, perm: 'library' },
             { href: '/dashboard/library-inventory/checkout', label: 'Issue & Return', icon: FiClock, perm: 'library' },
             { href: '/dashboard/library-inventory/overdue', label: 'Overdue Books', icon: FiAlertCircle, perm: 'library' },
+            { href: '/dashboard/library-inventory/ultra', label: '📚 Ultra Library', icon: FiBookOpen, perm: 'library' },
             { href: '/dashboard/assets', label: 'Assets Register', icon: FiBox, perm: 'assets' },
+            { href: '/dashboard/assets/ultra', label: '🏗️ Ultra Asset Manager', icon: FiBox, perm: 'assets' },
             { href: '/dashboard/stores', label: 'Store Items', icon: FiCopy, perm: 'stores' },
+            { href: '/dashboard/stores/ultra', label: '📦 Ultra Stores & Kitchen', icon: FiBox, perm: 'stores' },
             { href: '/dashboard/procurement', label: '🏢 Procurement & Suppliers', icon: FiTruck, perm: 'expenses' },
             { href: '/dashboard/rim-paper', label: 'Rim Paper', icon: FiCopy, perm: 'rim-paper' },
         ]
