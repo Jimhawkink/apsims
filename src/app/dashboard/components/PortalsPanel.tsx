@@ -23,17 +23,18 @@ export default function PortalsPanel() {
   if (loading) return <div className="text-center py-20 text-gray-400 text-sm">Loading portal data...</div>;
 
   const adminUsers = data.users.filter((u: any) => u.role === 'Admin' || u.role === 'admin');
-  const teacherPortal = data.students.filter((u: any) => u.role === 'teacher');
-  const parentPortal = data.students.filter((u: any) => u.role === 'parent');
-  const studentPortal = data.students.filter((u: any) => u.role === 'student');
+  const principalPortal = data.students.filter((u: any) => u.user_type === 'principal' || u.role === 'principal');
+  const teacherPortal = data.students.filter((u: any) => u.user_type === 'teacher' || u.role === 'teacher');
+  const parentPortal = data.students.filter((u: any) => u.user_type === 'parent' || u.role === 'parent');
+  const studentPortal = data.students.filter((u: any) => u.user_type === 'student' || u.role === 'student');
   const activeUsers = data.users.filter((u: any) => u.is_active !== false);
   const totalPortalUsers = data.students.length;
 
   // Role distribution
   const roles: Record<string, number> = {};
   data.users.forEach((u: any) => { const r = u.role || 'User'; roles[r] = (roles[r] || 0) + 1; });
-  data.students.forEach((u: any) => { const r = u.role || 'portal'; roles[r] = (roles[r] || 0) + 1; });
-  const roleColors = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
+  data.students.forEach((u: any) => { const r = u.user_type || u.role || 'portal'; roles[r] = (roles[r] || 0) + 1; });
+  const roleColors = ['#dc2626', '#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
   const roleChart = {
     labels: Object.keys(roles),
     datasets: [{ data: Object.values(roles), backgroundColor: roleColors.slice(0, Object.keys(roles).length), borderWidth: 0 }],
@@ -43,11 +44,12 @@ export default function PortalsPanel() {
 
   return (
     <div className="space-y-4 ultra-animate">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
         {[
           { label: 'Admin Users', value: data.users.length, icon: '🔑', color: '#6366f1' },
           { label: 'Active Admins', value: activeUsers.length, icon: '✅', color: '#10b981' },
           { label: 'Portal Users', value: totalPortalUsers, icon: '👥', color: '#3b82f6' },
+          { label: 'Principal', value: principalPortal.length, icon: '👑', color: '#dc2626' },
           { label: 'Teacher Portal', value: teacherPortal.length, icon: '👨‍🏫', color: '#8b5cf6' },
           { label: 'Parent Portal', value: parentPortal.length, icon: '👨‍👩‍👧', color: '#ec4899' },
           { label: 'Student Portal', value: studentPortal.length, icon: '🎓', color: '#f59e0b' },
