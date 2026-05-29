@@ -1,28 +1,28 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet } from 'react-native';
-import { StudentTabParamList } from './types';
+import { PrincipalTabParamList } from './types';
 import { useSession } from '../context/SessionContext';
 import NotificationBell from '../components/NotificationBell';
 
 // Screens
-import StudentDashboard from '../screens/student/StudentDashboard';
-import StudentAttendanceScreen from '../screens/student/AttendanceScreen';
-import StudentTimetableScreen from '../screens/student/TimetableScreen';
-import FeeBalanceScreen from '../screens/student/FeeBalanceScreen';
+import PrincipalDashboard from '../screens/principal/PrincipalDashboard';
+import PrincipalStudentsScreen from '../screens/principal/PrincipalStudentsScreen';
+import FinanceReportScreen from '../screens/principal/FinanceReportScreen';
+import AcademicReportScreen from '../screens/principal/AcademicReportScreen';
 import MoreScreen from '../screens/shared/MoreScreen';
 
-const Tab = createBottomTabNavigator<StudentTabParamList>();
+const Tab = createBottomTabNavigator<PrincipalTabParamList>();
 
 const C = {
-    primary: '#0d9488',
+    primary: '#7c3aed',
     inactive: '#94a3b8',
     bg: '#ffffff',
     border: '#e2e8f0',
-    activeBg: '#ccfbf1',
+    activeBg: '#ede9fe',
 };
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
+function TabIcon({ emoji, focused, label }: { emoji: string; focused: boolean; label: string }) {
     return (
         <View style={[styles.iconWrap, focused && { backgroundColor: C.activeBg }]}>
             <Text style={{ fontSize: focused ? 20 : 18, opacity: focused ? 1 : 0.55 }}>{emoji}</Text>
@@ -30,7 +30,7 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
     );
 }
 
-export default function StudentTabNavigator() {
+export default function PrincipalTabNavigator() {
     const { session } = useSession();
     const portalUserId = session?.portal_user_id || 0;
 
@@ -48,7 +48,7 @@ export default function StudentTabNavigator() {
                     paddingBottom: 8,
                     paddingTop: 6,
                     elevation: 12,
-                    shadowColor: '#0d9488',
+                    shadowColor: '#7c3aed',
                     shadowOpacity: 0.08,
                     shadowRadius: 16,
                     shadowOffset: { width: 0, height: -4 },
@@ -56,21 +56,21 @@ export default function StudentTabNavigator() {
                 tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginTop: 2 },
                 tabBarIcon: ({ focused }) => {
                     const icons: Record<string, string> = {
-                        Home: '🏠',
-                        Attendance: '📅',
-                        Timetable: '🗓️',
-                        Library: '💰',
+                        Dashboard: '📊',
+                        Students: '👨‍🎓',
+                        Finance: '💰',
+                        Reports: '📚',
                         More: '⋯',
                     };
-                    return <TabIcon emoji={icons[route.name] || '•'} focused={focused} />;
+                    return <TabIcon emoji={icons[route.name] || '•'} focused={focused} label={route.name} />;
                 },
                 headerRight: () => <NotificationBell portalUserId={portalUserId} />,
             })}
         >
-            <Tab.Screen name="Home" component={StudentDashboard} options={{ title: 'Home' }} />
-            <Tab.Screen name="Attendance" component={StudentAttendanceScreen} options={{ title: 'Attendance' }} />
-            <Tab.Screen name="Timetable" component={StudentTimetableScreen} options={{ title: 'Timetable' }} />
-            <Tab.Screen name="Library" component={FeeBalanceScreen} options={{ title: 'Fee Balance', tabBarLabel: '💰 Fees' }} />
+            <Tab.Screen name="Dashboard" component={PrincipalDashboard} options={{ title: 'Dashboard' }} />
+            <Tab.Screen name="Students" component={PrincipalStudentsScreen} options={{ title: 'Students' }} />
+            <Tab.Screen name="Finance" component={FinanceReportScreen} options={{ title: 'Finance' }} />
+            <Tab.Screen name="Reports" component={AcademicReportScreen} options={{ title: 'Academic' }} />
             <Tab.Screen name="More" component={MoreScreen} options={{ title: 'More' }} />
         </Tab.Navigator>
     );

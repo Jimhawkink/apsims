@@ -1,13 +1,15 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 
 // ============================================================
-// APSIMS Mobile Phase 1 Ultra — Navigation Type Definitions
+// APSIMS Mobile — Navigation Type Definitions (Ultra v3.0)
+// All screens: Principal, Teacher, Parent, Student, Shared
 // ============================================================
 
 export type TeacherTabParamList = {
     Dashboard: undefined;
     Attendance: undefined;
-    Homework: undefined;
+    Marks: undefined;
+    CBC: undefined;
     More: undefined;
 };
 
@@ -15,6 +17,7 @@ export type ParentTabParamList = {
     Home: undefined;
     Attendance: undefined;
     Homework: undefined;
+    Circulars: undefined;
     More: undefined;
 };
 
@@ -22,18 +25,34 @@ export type StudentTabParamList = {
     Home: undefined;
     Attendance: undefined;
     Timetable: undefined;
+    Library: undefined;
+    More: undefined;
+};
+
+export type PrincipalTabParamList = {
+    Dashboard: undefined;
+    Students: undefined;
+    Finance: undefined;
+    Reports: undefined;
     More: undefined;
 };
 
 export type RootStackParamList = {
     Login: undefined;
+    PINLogin: undefined;
     TeacherTabs: NavigatorScreenParams<TeacherTabParamList>;
     ParentTabs: NavigatorScreenParams<ParentTabParamList>;
     StudentTabs: NavigatorScreenParams<StudentTabParamList>;
-    // Modal / pushed screens accessible from any tab
+    PrincipalTabs: NavigatorScreenParams<PrincipalTabParamList>;
+
+    // ── Shared modal / pushed screens ──────────────────────────
     Notifications: { portalUserId: number };
     ReportCard: { studentId: number; formId: number; formLevel: number; isParent: boolean };
     CBCAssessment: { studentId: number };
+    Announcement: undefined;
+    Export: undefined;
+
+    // ── Teacher screens ────────────────────────────────────────
     StudentProfile: { studentId: number };
     ClassPerformance: {
         subjectId: number;
@@ -50,11 +69,6 @@ export type RootStackParamList = {
         streamId: number;
         streamName: string;
     };
-    PayFees: {
-        studentId: number;
-        studentName: string;
-        formId: number;
-    };
     MarksEntry: {
         subject_id: number;
         subject_name: string;
@@ -64,9 +78,38 @@ export type RootStackParamList = {
         stream_name: string;
     };
     TeacherTimetable: undefined;
-    Export: undefined;
-    Announcement: undefined;
+    CBCProgress: {
+        studentId: number;
+        studentName: string;
+        formLevel: number;
+    };
+    Remedials: undefined;
+    CBCTeacherHub: undefined;
+    MarksHub: undefined;
+
+    // ── Parent screens ─────────────────────────────────────────
+    PayFees: {
+        studentId: number;
+        studentName: string;
+        formId: number;
+    };
     HealthRecord: undefined;
     LeaveOut: undefined;
     FeeBalance: undefined;
+    Circular: undefined;
+    ChildTimetable: {
+        studentId: number;
+        formId: number;
+        streamId: number;
+    };
+
+    // ── Principal screens ──────────────────────────────────────
+    PrincipalStudents: undefined;
+    PrincipalStaff: undefined;
+    PrincipalDiscipline: undefined;
+    PrincipalAttendance: undefined;
+    AcademicReport: undefined;
+    FinanceReport: undefined;
+    StoresReport: undefined;
+    LibraryReport: undefined;
 };

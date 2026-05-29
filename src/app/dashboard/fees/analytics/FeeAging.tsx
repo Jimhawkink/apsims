@@ -83,7 +83,7 @@ export default function FeeAging({ payments, students, forms, getStudentFees }: 
                     return (
                         <button key={b.key} onClick={() => setExpandedBucket(isSelected ? null : b.key)}
                             className={`rounded-2xl p-4 border-2 text-left transition-all hover:shadow-md ${isSelected ? `${b.bg} ${b.border} shadow-md ring-2 ring-offset-1` : 'bg-white border-gray-100'}`}
-                            style={isSelected ? { ringColor: b.color } : {}}>
+                            style={isSelected ? { outlineColor: b.color } : {}}>
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-lg">{b.icon}</span>
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${b.bg} ${b.text}`}>{items.length} students</span>

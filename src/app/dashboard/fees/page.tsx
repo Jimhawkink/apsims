@@ -2,14 +2,31 @@
 
 import { useFeeData, fmt } from './useFeeData';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, LineElement, PointElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
-import { FiDollarSign, FiTrendingUp, FiCreditCard, FiUsers, FiAlertTriangle, FiFileText, FiGrid, FiBarChart2, FiBookOpen, FiArrowRight, FiRefreshCw, FiPieChart } from 'react-icons/fi';
+import { FiDollarSign, FiTrendingUp, FiTrendingDown, FiCreditCard, FiUsers, FiAlertTriangle, FiFileText, FiGrid, FiBarChart2, FiBookOpen, FiArrowRight, FiRefreshCw, FiPieChart, FiSend } from 'react-icons/fi';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, LineElement, PointElement, Title, Tooltip, Legend, Filler);
 
 export default function FeeDashboardPage() {
     const { forms, students, payments, structures, terms, loading, fetchAll, currentTerm, getStudentFees } = useFeeData();
+    const currentYear = new Date().getFullYear();
+    const [totalIncome, setTotalIncome]   = useState(0);
+    const [totalExpenses, setTotalExpenses] = useState(0);
+
+    useEffect(() => {
+        const fetchPL = async () => {
+            const [{ data: inc }, { data: exp }] = await Promise.all([
+                supabase.from('school_income').select('amount').eq('year', currentYear),
+                supabase.from('school_expenses').select('amount,status').eq('year', currentYear),
+            ]);
+            setTotalIncome((inc || []).reduce((s: number, i: any) => s + Number(i.amount || 0), 0));
+            setTotalExpenses((exp || []).filter((e: any) => (e.status || 'approved') === 'approved').reduce((s: number, e: any) => s + Number(e.amount || 0), 0));
+        };
+        fetchPL();
+    }, [currentYear]);
 
     if (loading) return <div className="flex flex-col items-center justify-center h-64 gap-3"><div className="relative"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>💰</div><div className="absolute -inset-2 rounded-3xl border-2 border-indigo-200 animate-ping opacity-30" /></div><p className="text-sm font-bold text-gray-500">Loading Fee Dashboard…</p></div>;
 
@@ -104,6 +121,46 @@ export default function FeeDashboardPage() {
                 ))}
             </div>
 
+            {/* ═══ P&L SUMMARY STRIP ═══ */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                    { label: 'Total Revenue (Fees + Income)', value: fmt(totalCollected + totalIncome), icon: '💰', color: '#10b981', bg: 'from-emerald-50 to-green-50', border: 'border-emerald-200', text: 'text-emerald-700', sub: `Fees: ${fmt(totalCollected)} + Other: ${fmt(totalIncome)}` },
+                    { label: 'Total Approved Expenses', value: fmt(totalExpenses), icon: '📉', color: '#ef4444', bg: 'from-red-50 to-rose-50', border: 'border-red-200', text: 'text-red-700', sub: `Recorded for ${currentYear}` },
+                    {
+                        label: 'Net Financial Position',
+                        value: fmt((totalCollected + totalIncome) - totalExpenses),
+                        icon: (totalCollected + totalIncome) >= totalExpenses ? '📈' : '⚠️',
+                        color: (totalCollected + totalIncome) >= totalExpenses ? '#059669' : '#dc2626',
+                        bg: (totalCollected + totalIncome) >= totalExpenses ? 'from-emerald-50 to-teal-50' : 'from-red-50 to-orange-50',
+                        border: (totalCollected + totalIncome) >= totalExpenses ? 'border-emerald-300' : 'border-red-300',
+                        text: (totalCollected + totalIncome) >= totalExpenses ? 'text-emerald-800' : 'text-red-800',
+                        sub: (totalCollected + totalIncome) >= totalExpenses ? `Surplus — school is in the green` : `Deficit — expenses exceed income`,
+                    },
+                ].map((c, i) => (
+                    <div key={i} className={`bg-gradient-to-br ${c.bg} border ${c.border} rounded-2xl p-4 relative overflow-hidden`}>
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{c.label}</p>
+                                <p className={`text-xl font-black ${c.text}`}>{c.value}</p>
+                                <p className="text-[10px] text-gray-500 mt-1">{c.sub}</p>
+                            </div>
+                            <span className="text-3xl">{c.icon}</span>
+                        </div>
+                        <div className="absolute -bottom-4 -right-4 w-16 h-16 rounded-full opacity-10" style={{ background: c.color }} />
+                    </div>
+                ))}
+            </div>
+
+            {/* P&L quick links */}
+            <div className="flex flex-wrap items-center gap-2 px-4 py-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                <span className="text-xs font-black text-indigo-700">📊 Finance Reports:</span>
+                <Link href="/dashboard/fees/reports/pl" className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition">P&amp;L Statement</Link>
+                <Link href="/dashboard/fees/bulk-reminders" className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-purple-600 text-white hover:bg-purple-700 transition">📱 Bulk SMS/WA Reminders</Link>
+                <Link href="/dashboard/fees/outstanding" className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-red-600 text-white hover:bg-red-700 transition">⚠️ Outstanding Fees</Link>
+                <Link href="/dashboard/expenses" className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-gray-700 text-white hover:bg-gray-800 transition">📉 Expenses</Link>
+                <Link href="/dashboard/income" className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition">📈 Income</Link>
+            </div>
+
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div className="lg:col-span-2 chart-container">
@@ -196,19 +253,22 @@ export default function FeeDashboardPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                 {[
                     { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: FiCreditCard, color: '#22c55e' },
                     { label: 'Outstanding', href: '/dashboard/fees/outstanding', icon: FiAlertTriangle, color: '#ef4444' },
                     { label: 'Payments', href: '/dashboard/fees/payments', icon: FiFileText, color: '#3b82f6' },
                     { label: 'Fee Structure', href: '/dashboard/fees/structure', icon: FiGrid, color: '#8b5cf6' },
                     { label: 'Statements', href: '/dashboard/fees/statements', icon: FiBookOpen, color: '#f59e0b' },
+                    { label: 'Bulk SMS/WA', href: '/dashboard/fees/bulk-reminders', icon: FiSend, color: '#7c3aed' },
+                    { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: FiBarChart2, color: '#0891b2' },
+                    { label: 'Expenses', href: '/dashboard/expenses', icon: FiTrendingDown, color: '#dc2626' },
                 ].map((a, i) => {
                     const Icon = a.icon;
                     return (
-                        <Link key={i} href={a.href} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center hover:shadow-md transition-all group relative overflow-hidden" style={{ borderLeftWidth: 4, borderLeftColor: a.color }}>
-                            <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: a.color + '18' }}><Icon size={22} style={{ color: a.color }} /></div>
-                            <p className="text-sm font-bold text-gray-600 group-hover:text-gray-800">{a.label}</p>
+                        <Link key={i} href={a.href} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center hover:shadow-md transition-all group relative overflow-hidden" style={{ borderLeftWidth: 4, borderLeftColor: a.color }}>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2" style={{ background: a.color + '18' }}><Icon size={18} style={{ color: a.color }} /></div>
+                            <p className="text-xs font-bold text-gray-600 group-hover:text-gray-800 leading-tight">{a.label}</p>
                             <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full opacity-[0.06]" style={{ background: a.color }} />
                         </Link>
                     );
@@ -230,6 +290,10 @@ export default function FeeDashboardPage() {
                             { label: '💳 M-Pesa Reconciliation', href: '/dashboard/fees/mpesa-reconciliation', desc: 'Auto-Match Payments', color: '#22c55e' },
                             { label: '🧾 Pro Receipts', href: '/dashboard/fees/receipts', desc: 'KRA-Compliant', color: '#f59e0b' },
                             { label: '💰 Plans & Scholarships', href: '/dashboard/fees/plans-scholarships', desc: 'Installments & Waivers', color: '#8b5cf6' },
+                            { label: '📱 Bulk SMS/WA Campaign', href: '/dashboard/fees/bulk-reminders', desc: 'Send to all defaulters', color: '#7c3aed' },
+                            { label: '📊 P&L Report', href: '/dashboard/fees/reports/pl', desc: 'Full financial statement', color: '#0891b2' },
+                            { label: '📉 Ultra Expenses', href: '/dashboard/expenses', desc: 'Approval workflow & trends', color: '#ef4444' },
+                            { label: '📈 Ultra Income', href: '/dashboard/income', desc: 'Revenue & grants tracker', color: '#10b981' },
                         ].map((m, i) => (
                             <Link key={i} href={m.href} className="group relative rounded-xl p-4 transition-all hover:scale-[1.03]" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>
                                 <div className="absolute top-0 right-0 w-12 h-12 rounded-full opacity-20 group-hover:opacity-40 transition-opacity" style={{ background: m.color, transform: 'translate(30%, -30%)' }} />

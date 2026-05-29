@@ -22,7 +22,7 @@ export interface UserSession {
     portal_user_id: number;
     username: string;
     full_name: string;
-    user_type: 'teacher' | 'parent' | 'student';
+    user_type: 'teacher' | 'parent' | 'student' | 'principal';
     linked_teacher_id: number | null;
     linked_student_id: number | null;
     student_name?: string;
@@ -166,7 +166,7 @@ export async function loginUser(username: string, password: string): Promise<Use
             portal_user_id: data.id,
             username: data.username,
             full_name: data.full_name || data.username,
-            user_type: data.user_type as 'teacher' | 'parent' | 'student',
+            user_type: data.user_type as 'teacher' | 'parent' | 'student' | 'principal',
             linked_teacher_id: data.linked_teacher_id,
             linked_student_id: data.linked_student_id,
             student_name: student ? `${student.first_name} ${student.last_name}` : undefined,
@@ -1861,4 +1861,504 @@ export async function getClassPerformance(
         console.error('getClassPerformance error:', err.message);
         return [];
     }
+}
+
+// ============================================================
+// PRINCIPAL DASHBOARD — DATA FUNCTIONS
+// Ultra-robust reports for fees, academic, stores, library
+// ============================================================
+
+export interface PrincipalKPIs {
+    totalStudents: number;
+    totalTeachers: number;
+    totalFeeExpected: number;
+    totalFeeCollected: number;
+    feeCollectionRate: number;
+    attendanceRate: number;
+    totalAttendanceToday: number;
+    presentToday: number;
+    avgAcademicScore: number;
+    passRate: number;
+    totalForms: number;
+    totalStreams: number;
+}
+
+export async function getPrincipalDashboardKPIs(): Promise<PrincipalKPIs> {
+    try {
+        const term = await getCurrentTerm();
+        const termId = term?.id || 0;
+        const today = new Date().toISOString().split('T')[0];
+        const currentYear = new Date().getFullYear();
+
+        // Parallel queries for speed
+        const [studentsRes, teachersRes, formsRes, streamsRes, feeStructRes, feePayRes, attendanceRes, marksRes] = await Promise.all([
+            supabase.from('school_students').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
+            supabase.from('school_teachers').select('id', { count: 'exact', head: true }).eq('is_active', true),
+            supabase.from('school_forms').select('id', { count: 'exact', head: true }).eq('is_active', true),
+            supabase.from('school_streams').select('id', { count: 'exact', head: true }).eq('is_active', true),
+            supabase.from('school_fee_structures').select('amount').eq('year', currentYear),
+            supabase.from('school_fee_payments').select('amount'),
+            supabase.from('school_attendance').select('id, status').eq('attendance_date', today),
+            supabase.from('school_exam_marks').select('score').eq('term_id', termId).not('score', 'is', null),
+        ]);
+
+        const totalStudents = studentsRes.count || 0;
+        const totalTeachers = teachersRes.count || 0;
+        const totalForms = formsRes.count || 0;
+        const totalStreams = streamsRes.count || 0;
+
+        // Fee calculations
+        const feeStructures = feeStructRes.data || [];
+        const totalFeeExpected = feeStructures.reduce((s: number, f: any) => s + (f.amount || 0), 0) * totalStudents / Math.max(feeStructures.length, 1);
+        const feePayments = feePayRes.data || [];
+        const totalFeeCollected = feePayments.reduce((s: number, p: any) => s + (p.amount || 0), 0);
+        const feeCollectionRate = totalFeeExpected > 0 ? Math.round((totalFeeCollected / totalFeeExpected) * 100) : 0;
+
+        // Attendance
+        const attendanceRecords = attendanceRes.data || [];
+        const totalAttendanceToday = attendanceRecords.length;
+        const presentToday = attendanceRecords.filter((a: any) => a.status === 'Present' || a.status === 'Late').length;
+        const attendanceRate = totalAttendanceToday > 0 ? Math.round((presentToday / totalAttendanceToday) * 100) : 0;
+
+        // Academic
+        const marks = marksRes.data || [];
+        const scores = marks.map((m: any) => m.score).filter((s: any) => s != null);
+        const avgAcademicScore = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : 0;
+        const passRate = scores.length > 0 ? Math.round((scores.filter((s: number) => s >= 50).length / scores.length) * 100) : 0;
+
+        return {
+            totalStudents, totalTeachers, totalFeeExpected, totalFeeCollected,
+            feeCollectionRate, attendanceRate, totalAttendanceToday, presentToday,
+            avgAcademicScore, passRate, totalForms, totalStreams,
+        };
+    } catch (err: any) {
+        console.error('getPrincipalDashboardKPIs error:', err.message);
+        return { totalStudents: 0, totalTeachers: 0, totalFeeExpected: 0, totalFeeCollected: 0, feeCollectionRate: 0, attendanceRate: 0, totalAttendanceToday: 0, presentToday: 0, avgAcademicScore: 0, passRate: 0, totalForms: 0, totalStreams: 0 };
+    }
+}
+
+// ── Finance Reports ──
+
+export interface FeeCollectionByForm {
+    formId: number;
+    formName: string;
+    studentCount: number;
+    totalExpected: number;
+    totalPaid: number;
+    collectionRate: number;
+}
+
+export async function getFeeCollectionByForm(): Promise<FeeCollectionByForm[]> {
+    try {
+        const currentYear = new Date().getFullYear();
+        const { data: forms } = await supabase.from('school_forms').select('id, form_name').eq('is_active', true).order('form_level');
+        if (!forms) return [];
+
+        const results: FeeCollectionByForm[] = [];
+        for (const form of forms) {
+            const { data: students } = await supabase.from('school_students').select('id').eq('form_id', form.id).eq('status', 'Active');
+            const studentIds = (students || []).map((s: any) => s.id);
+            if (studentIds.length === 0) { results.push({ formId: form.id, formName: form.form_name, studentCount: 0, totalExpected: 0, totalPaid: 0, collectionRate: 0 }); continue; }
+
+            const { data: structures } = await supabase.from('school_fee_structures').select('amount').eq('form_id', form.id).eq('year', currentYear);
+            const totalPerStudent = (structures || []).reduce((s: number, f: any) => s + (f.amount || 0), 0);
+            const totalExpected = totalPerStudent * studentIds.length;
+
+            const { data: payments } = await supabase.from('school_fee_payments').select('amount').in('student_id', studentIds);
+            const totalPaid = (payments || []).reduce((s: number, p: any) => s + (p.amount || 0), 0);
+
+            results.push({
+                formId: form.id, formName: form.form_name, studentCount: studentIds.length,
+                totalExpected, totalPaid, collectionRate: totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0,
+            });
+        }
+        return results;
+    } catch (err: any) { console.error('getFeeCollectionByForm error:', err.message); return []; }
+}
+
+export async function getRecentPayments(limit = 50): Promise<any[]> {
+    try {
+        const { data } = await supabase.from('school_fee_payments').select('*, school_students(first_name, last_name, admission_number)').order('payment_date', { ascending: false }).limit(limit);
+        return (data || []).map((p: any) => ({
+            ...p,
+            student_name: p.school_students ? `${p.school_students.first_name} ${p.school_students.last_name}` : 'Unknown',
+            admission_number: p.school_students?.admission_number || '',
+        }));
+    } catch { return []; }
+}
+
+export async function getTopDefaulters(limit = 20): Promise<any[]> {
+    try {
+        const currentYear = new Date().getFullYear();
+        const { data: students } = await supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id, school_forms(form_name)').eq('status', 'Active');
+        if (!students) return [];
+
+        const defaulters: any[] = [];
+        for (const s of students) {
+            const { data: structures } = await supabase.from('school_fee_structures').select('amount').eq('form_id', s.form_id).eq('year', currentYear);
+            const expected = (structures || []).reduce((sum: number, f: any) => sum + (f.amount || 0), 0);
+            const { data: payments } = await supabase.from('school_fee_payments').select('amount').eq('student_id', s.id);
+            const paid = (payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+            const balance = expected - paid;
+            if (balance > 0) {
+                defaulters.push({
+                    studentId: s.id, studentName: `${s.first_name} ${s.last_name}`,
+                    admissionNumber: s.admission_number, formName: (s as any).school_forms?.form_name || '',
+                    expected, paid, balance,
+                });
+            }
+        }
+        return defaulters.sort((a, b) => b.balance - a.balance).slice(0, limit);
+    } catch { return []; }
+}
+
+export async function getPaymentMethodBreakdown(): Promise<{ method: string; total: number; count: number }[]> {
+    try {
+        const { data } = await supabase.from('school_fee_payments').select('payment_method, amount');
+        if (!data) return [];
+        const map = new Map<string, { total: number; count: number }>();
+        data.forEach((p: any) => {
+            const method = p.payment_method || 'Cash';
+            const existing = map.get(method) || { total: 0, count: 0 };
+            map.set(method, { total: existing.total + (p.amount || 0), count: existing.count + 1 });
+        });
+        return Array.from(map.entries()).map(([method, v]) => ({ method, ...v })).sort((a, b) => b.total - a.total);
+    } catch { return []; }
+}
+
+// ── Academic Reports ──
+
+export interface SubjectMeanScore {
+    subjectId: number;
+    subjectName: string;
+    meanScore: number;
+    studentCount: number;
+    passRate: number;
+    gradeDistribution: { grade: string; count: number }[];
+}
+
+export async function getSubjectMeanScores(formId: number, termId: number): Promise<SubjectMeanScore[]> {
+    try {
+        const { data: students } = await supabase.from('school_students').select('id').eq('form_id', formId).eq('status', 'Active');
+        if (!students || students.length === 0) return [];
+        const studentIds = students.map((s: any) => s.id);
+
+        const { data: marks } = await supabase.from('school_exam_marks').select('subject_id, score, grade, school_subjects(subject_name)').eq('term_id', termId).in('student_id', studentIds).not('score', 'is', null);
+        if (!marks || marks.length === 0) return [];
+
+        const subjectMap = new Map<number, { name: string; scores: number[]; grades: string[] }>();
+        marks.forEach((m: any) => {
+            const existing = subjectMap.get(m.subject_id) || { name: (m as any).school_subjects?.subject_name || 'Unknown', scores: [], grades: [] };
+            existing.scores.push(m.score);
+            if (m.grade) existing.grades.push(m.grade);
+            subjectMap.set(m.subject_id, existing);
+        });
+
+        return Array.from(subjectMap.entries()).map(([subjectId, data]) => {
+            const meanScore = Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length);
+            const passRate = Math.round((data.scores.filter(s => s >= 50).length / data.scores.length) * 100);
+            const gradeCount = new Map<string, number>();
+            data.grades.forEach(g => gradeCount.set(g, (gradeCount.get(g) || 0) + 1));
+            const gradeDistribution = Array.from(gradeCount.entries()).map(([grade, count]) => ({ grade, count })).sort((a, b) => a.grade.localeCompare(b.grade));
+            return { subjectId, subjectName: data.name, meanScore, studentCount: data.scores.length, passRate, gradeDistribution };
+        }).sort((a, b) => b.meanScore - a.meanScore);
+    } catch (err: any) { console.error('getSubjectMeanScores error:', err.message); return []; }
+}
+
+export async function getCBCOverview(termId: number): Promise<{ subjectName: string; ee: number; me: number; ae: number; be: number; total: number }[]> {
+    try {
+        const { data } = await supabase.from('cbc_mark_scores').select('subject_id, rubric_level, school_subjects(subject_name)').eq('term_id', termId);
+        if (!data) return [];
+        const map = new Map<number, { name: string; ee: number; me: number; ae: number; be: number; total: number }>();
+        data.forEach((r: any) => {
+            const existing = map.get(r.subject_id) || { name: (r as any).school_subjects?.subject_name || 'Unknown', ee: 0, me: 0, ae: 0, be: 0, total: 0 };
+            existing.total++;
+            if (r.rubric_level === 'EE') existing.ee++;
+            else if (r.rubric_level === 'ME') existing.me++;
+            else if (r.rubric_level === 'AE') existing.ae++;
+            else if (r.rubric_level === 'BE') existing.be++;
+            map.set(r.subject_id, existing);
+        });
+        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    } catch { return []; }
+}
+
+export async function getFormMeanScores(termId: number): Promise<{ formId: number; formName: string; meanScore: number; studentCount: number }[]> {
+    try {
+        const { data: forms } = await supabase.from('school_forms').select('id, form_name').eq('is_active', true).order('form_level');
+        if (!forms) return [];
+        const results: any[] = [];
+        for (const form of forms) {
+            const { data: students } = await supabase.from('school_students').select('id').eq('form_id', form.id).eq('status', 'Active');
+            if (!students || students.length === 0) continue;
+            const studentIds = students.map((s: any) => s.id);
+            const { data: marks } = await supabase.from('school_exam_marks').select('score').eq('term_id', termId).in('student_id', studentIds).not('score', 'is', null);
+            const scores = (marks || []).map((m: any) => m.score);
+            if (scores.length > 0) {
+                results.push({ formId: form.id, formName: form.form_name, meanScore: Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length), studentCount: scores.length });
+            }
+        }
+        return results;
+    } catch { return []; }
+}
+
+export async function getMarksEntryProgress(): Promise<{ teacherName: string; subjectName: string; formName: string; total: number; entered: number; percentage: number }[]> {
+    try {
+        const term = await getCurrentTerm();
+        const termId = term?.id || 0;
+        const { data: assignments } = await supabase.from('school_subject_teachers').select('subject_id, form_id, stream_id, school_subjects(subject_name), school_forms(form_name), school_teachers(first_name, last_name)');
+        if (!assignments) return [];
+
+        const results: any[] = [];
+        for (const a of assignments) {
+            const teacher = (a as any).school_teachers;
+            const subject = (a as any).school_subjects;
+            const form = (a as any).school_forms;
+            if (!teacher || !subject || !form) continue;
+
+            let studentQuery = supabase.from('school_students').select('id').eq('form_id', a.form_id).eq('status', 'Active');
+            if (a.stream_id) studentQuery = studentQuery.eq('stream_id', a.stream_id);
+            const { data: students } = await studentQuery;
+            const total = (students || []).length;
+            if (total === 0) continue;
+
+            const studentIds = (students || []).map((s: any) => s.id);
+            const { data: marks } = await supabase.from('school_exam_marks').select('student_id').eq('subject_id', a.subject_id).eq('term_id', termId).in('student_id', studentIds);
+            const entered = new Set((marks || []).map((m: any) => m.student_id)).size;
+
+            results.push({
+                teacherName: `${teacher.first_name} ${teacher.last_name}`,
+                subjectName: subject.subject_name, formName: form.form_name,
+                total, entered, percentage: Math.round((entered / total) * 100),
+            });
+        }
+        return results.sort((a, b) => a.percentage - b.percentage);
+    } catch { return []; }
+}
+
+// ── Stores Reports ──
+
+export async function getStoresOverview(): Promise<{ totalItems: number; totalValue: number; lowStockCount: number; categories: { name: string; count: number; value: number }[] }> {
+    try {
+        const { data } = await supabase.from('school_store_items').select('*');
+        if (!data) return { totalItems: 0, totalValue: 0, lowStockCount: 0, categories: [] };
+        const totalItems = data.length;
+        const totalValue = data.reduce((s: number, i: any) => s + ((i.quantity || 0) * (i.unit_price || 0)), 0);
+        const lowStockCount = data.filter((i: any) => (i.quantity || 0) <= (i.reorder_level || 5)).length;
+        const catMap = new Map<string, { count: number; value: number }>();
+        data.forEach((i: any) => {
+            const cat = i.category || 'General';
+            const existing = catMap.get(cat) || { count: 0, value: 0 };
+            catMap.set(cat, { count: existing.count + 1, value: existing.value + ((i.quantity || 0) * (i.unit_price || 0)) });
+        });
+        const categories = Array.from(catMap.entries()).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.value - a.value);
+        return { totalItems, totalValue, lowStockCount, categories };
+    } catch { return { totalItems: 0, totalValue: 0, lowStockCount: 0, categories: [] }; }
+}
+
+export async function getLowStockItems(): Promise<any[]> {
+    try {
+        const { data } = await supabase.from('school_store_items').select('*').order('quantity', { ascending: true }).limit(30);
+        return (data || []).filter((i: any) => (i.quantity || 0) <= (i.reorder_level || 5));
+    } catch { return []; }
+}
+
+export async function getRecentStoreMovements(limit = 30): Promise<any[]> {
+    try {
+        const { data } = await supabase.from('school_store_transactions').select('*, school_store_items(item_name, category)').order('created_at', { ascending: false }).limit(limit);
+        return data || [];
+    } catch { return []; }
+}
+
+// ── Library Reports ──
+
+export async function getLibraryOverview(): Promise<{ totalBooks: number; checkedOut: number; available: number; overdueCount: number; categories: { name: string; count: number }[] }> {
+    try {
+        const { data: books } = await supabase.from('school_library_books').select('*');
+        if (!books) return { totalBooks: 0, checkedOut: 0, available: 0, overdueCount: 0, categories: [] };
+        const totalBooks = books.length;
+        const checkedOut = books.filter((b: any) => b.status === 'Checked Out' || b.is_borrowed === true).length;
+        const available = totalBooks - checkedOut;
+        const { count: overdueCount } = await supabase.from('school_library_transactions').select('id', { count: 'exact', head: true }).eq('status', 'Overdue');
+        const catMap = new Map<string, number>();
+        books.forEach((b: any) => { const cat = b.category || b.genre || 'General'; catMap.set(cat, (catMap.get(cat) || 0) + 1); });
+        const categories = Array.from(catMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+        return { totalBooks, checkedOut, available, overdueCount: overdueCount || 0, categories };
+    } catch { return { totalBooks: 0, checkedOut: 0, available: 0, overdueCount: 0, categories: [] }; }
+}
+
+export async function getOverdueBooks(limit = 30): Promise<any[]> {
+    try {
+        const { data } = await supabase.from('school_library_transactions').select('*, school_students(first_name, last_name, admission_number), school_library_books(title, author)').eq('status', 'Overdue').order('due_date', { ascending: true }).limit(limit);
+        return data || [];
+    } catch { return []; }
+}
+
+export async function getRecentLibraryTransactions(limit = 30): Promise<any[]> {
+    try {
+        const { data } = await supabase.from('school_library_transactions').select('*, school_students(first_name, last_name), school_library_books(title, author)').order('created_at', { ascending: false }).limit(limit);
+        return data || [];
+    } catch { return []; }
+}
+
+// ============================================================
+// PRINCIPAL — INCOME, EXPENSES, EVENTS & TEACHER PERFORMANCE
+// ============================================================
+
+export async function getSchoolExpenses(limit = 50): Promise<any[]> {
+    try {
+        // Try school_expenses first, fallback to expenses table
+        let data: any[] = [];
+        const { data: schoolExp } = await supabase.from('school_expenses').select('*').order('expense_date', { ascending: false }).limit(limit);
+        if (schoolExp && schoolExp.length > 0) { data = schoolExp; }
+        else {
+            const { data: genExp } = await supabase.from('expenses').select('*').order('expense_date', { ascending: false }).limit(limit);
+            data = genExp || [];
+        }
+        return data;
+    } catch { return []; }
+}
+
+export async function getExpenseSummary(): Promise<{ totalExpenses: number; byCategory: { category: string; total: number; count: number }[]; monthlyTrend: { month: string; total: number }[] }> {
+    try {
+        let data: any[] = [];
+        const { data: schoolExp } = await supabase.from('school_expenses').select('*');
+        if (schoolExp && schoolExp.length > 0) { data = schoolExp; }
+        else {
+            const { data: genExp } = await supabase.from('expenses').select('*');
+            data = genExp || [];
+        }
+
+        const totalExpenses = data.reduce((s: number, e: any) => s + (e.amount || 0), 0);
+
+        // By category
+        const catMap = new Map<string, { total: number; count: number }>();
+        data.forEach((e: any) => {
+            const cat = e.category || e.expense_type || 'General';
+            const existing = catMap.get(cat) || { total: 0, count: 0 };
+            catMap.set(cat, { total: existing.total + (e.amount || 0), count: existing.count + 1 });
+        });
+        const byCategory = Array.from(catMap.entries()).map(([category, v]) => ({ category, ...v })).sort((a, b) => b.total - a.total);
+
+        // Monthly trend (last 6 months)
+        const monthMap = new Map<string, number>();
+        data.forEach((e: any) => {
+            const d = new Date(e.expense_date || e.created_at);
+            if (!isNaN(d.getTime())) {
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                monthMap.set(key, (monthMap.get(key) || 0) + (e.amount || 0));
+            }
+        });
+        const monthlyTrend = Array.from(monthMap.entries())
+            .map(([month, total]) => ({ month, total }))
+            .sort((a, b) => a.month.localeCompare(b.month))
+            .slice(-6);
+
+        return { totalExpenses, byCategory, monthlyTrend };
+    } catch { return { totalExpenses: 0, byCategory: [], monthlyTrend: [] }; }
+}
+
+export async function getIncomeVsExpenses(): Promise<{ totalIncome: number; totalExpenses: number; netProfit: number }> {
+    try {
+        // Income from fee payments
+        const { data: payments } = await supabase.from('school_fee_payments').select('amount');
+        const totalIncome = (payments || []).reduce((s: number, p: any) => s + (p.amount || 0), 0);
+
+        // Expenses
+        let expData: any[] = [];
+        const { data: schoolExp } = await supabase.from('school_expenses').select('amount');
+        if (schoolExp && schoolExp.length > 0) { expData = schoolExp; }
+        else {
+            const { data: genExp } = await supabase.from('expenses').select('amount');
+            expData = genExp || [];
+        }
+        const totalExpenses = expData.reduce((s: number, e: any) => s + (e.amount || 0), 0);
+
+        return { totalIncome, totalExpenses, netProfit: totalIncome - totalExpenses };
+    } catch { return { totalIncome: 0, totalExpenses: 0, netProfit: 0 }; }
+}
+
+// ── Upcoming Events ──
+
+export async function getUpcomingEvents(limit = 10): Promise<any[]> {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        // Try school_events table
+        const { data } = await supabase.from('school_events')
+            .select('*')
+            .gte('event_date', today)
+            .order('event_date', { ascending: true })
+            .limit(limit);
+        return data || [];
+    } catch { return []; }
+}
+
+// ── Teacher Performance ──
+
+export interface TeacherPerformance {
+    teacherId: number;
+    teacherName: string;
+    subjectsAssigned: number;
+    totalStudents: number;
+    marksEntered: number;
+    entryRate: number;
+    avgStudentScore: number;
+}
+
+export async function getTeacherPerformanceReport(): Promise<TeacherPerformance[]> {
+    try {
+        const term = await getCurrentTerm();
+        const termId = term?.id || 0;
+
+        const { data: teachers } = await supabase.from('school_teachers')
+            .select('id, first_name, last_name')
+            .eq('is_active', true);
+        if (!teachers) return [];
+
+        const results: TeacherPerformance[] = [];
+
+        for (const t of teachers) {
+            const { data: assignments } = await supabase.from('school_subject_teachers')
+                .select('subject_id, form_id, stream_id')
+                .eq('teacher_id', t.id);
+
+            if (!assignments || assignments.length === 0) continue;
+
+            let totalStudents = 0;
+            let totalMarksEntered = 0;
+            let allScores: number[] = [];
+
+            for (const a of assignments) {
+                let studentQuery = supabase.from('school_students').select('id').eq('form_id', a.form_id).eq('status', 'Active');
+                if (a.stream_id) studentQuery = studentQuery.eq('stream_id', a.stream_id);
+                const { data: students } = await studentQuery;
+                const sids = (students || []).map((s: any) => s.id);
+                totalStudents += sids.length;
+
+                if (sids.length > 0 && termId > 0) {
+                    const { data: marks } = await supabase.from('school_exam_marks')
+                        .select('student_id, score')
+                        .eq('subject_id', a.subject_id)
+                        .eq('term_id', termId)
+                        .in('student_id', sids);
+                    const uniqueStudents = new Set((marks || []).map((m: any) => m.student_id));
+                    totalMarksEntered += uniqueStudents.size;
+                    (marks || []).forEach((m: any) => { if (m.score != null) allScores.push(m.score); });
+                }
+            }
+
+            const entryRate = totalStudents > 0 ? Math.round((totalMarksEntered / totalStudents) * 100) : 0;
+            const avgStudentScore = allScores.length > 0 ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
+
+            results.push({
+                teacherId: t.id,
+                teacherName: `${t.first_name} ${t.last_name}`,
+                subjectsAssigned: assignments.length,
+                totalStudents, marksEntered: totalMarksEntered,
+                entryRate, avgStudentScore,
+            });
+        }
+
+        return results.sort((a, b) => b.entryRate - a.entryRate);
+    } catch (err: any) { console.error('getTeacherPerformanceReport error:', err.message); return []; }
 }

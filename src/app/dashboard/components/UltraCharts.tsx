@@ -4,7 +4,7 @@ import { Bar, Line, Doughnut } from 'react-chartjs-2';
 const darkGrid = 'rgba(0,0,0,0.04)';
 const chartOpts = {
   responsive: true, maintainAspectRatio: false,
-  plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', titleColor: '#f1f5f9', bodyColor: '#94a3b8', borderColor: 'rgba(99,115,155,.2)', borderWidth: 1, cornerRadius: 8, padding: 10, titleFont: { size: 11, weight: '600' as const }, bodyFont: { size: 10 } } },
+  plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', titleColor: '#f1f5f9', bodyColor: '#94a3b8', borderColor: 'rgba(99,115,155,.2)', borderWidth: 1, cornerRadius: 8, padding: 10, titleFont: { size: 11, weight: 700 as const }, bodyFont: { size: 10 } } },
   animation: { duration: 1200, easing: 'easeOutQuart' as const },
   scales: { x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }, y: { grid: { color: darkGrid }, ticks: { color: '#94a3b8', font: { size: 9 } }, beginAtZero: true } },
 };

@@ -179,7 +179,7 @@ export default function PromotionTab({ data }: { data: any }) {
             'Gender': s.gender, 'Stream': getStreamName(s.stream_id), 'Avg': studentAverages[s.id]?.average?.toFixed(1) || '-',
             'Fails': studentAverages[s.id]?.fails || 0, 'Current': getFormName(s.form_id), 'Eligibility': s.promotion_eligible || 'Pending'
         }));
-        const csv = [Object.keys(rows[0]).join(','), ...rows.map(r => Object.values(r).join(','))].join('\n');
+        const csv = [Object.keys(rows[0]).join(','), ...rows.map((r: Record<string, unknown>) => Object.values(r).join(','))].join('\n');
         const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = `promotion_list_${getFormName(Number(selForm))}.csv`; a.click(); URL.revokeObjectURL(url);
         toast.success('Exported to CSV ✅');

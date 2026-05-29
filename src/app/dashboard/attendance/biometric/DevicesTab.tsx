@@ -43,10 +43,16 @@ export default function DevicesTab({ devices, onRefresh }: Props) {
   const openEdit = (d: BiometricDevice) => {
     setEditing(d);
     setForm({
-      device_name: d.device_name, brand: d.brand, model: d.model || '',
-      device_type: d.device_type, ip_address: d.ip_address || '', port: d.port,
-      location: d.location || '', sync_mode: d.sync_mode,
-      sync_interval_minutes: d.sync_interval_minutes, notes: d.notes || '',
+      device_name: d.device_name,
+      brand: d.brand as typeof emptyForm.brand,
+      model: d.model || '',
+      device_type: d.device_type as typeof emptyForm.device_type,
+      ip_address: d.ip_address || '',
+      port: d.port,
+      location: d.location || '',
+      sync_mode: d.sync_mode as typeof emptyForm.sync_mode,
+      sync_interval_minutes: d.sync_interval_minutes,
+      notes: d.notes || '',
       assigned_forms: d.assigned_forms || [],
     });
     setShowModal(true);

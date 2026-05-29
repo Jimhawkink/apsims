@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiPlus, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiX, FiSettings } from 'react-icons/fi';
 
 export default function RulesTab({ data }: { data: any }) {
     const { forms, rules, fetchAll } = data;
