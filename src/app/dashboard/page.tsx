@@ -13,6 +13,7 @@ import {
     FiBarChart2, FiChevronRight,
 } from 'react-icons/fi';
 import UltraCardsSection from './components/UltraCards';
+import FeeAnalyticsSection from './components/FeeAnalyticsSection';
 import DashboardTabs, { TabKey } from './components/DashboardTabs';
 import FinancePanel from './components/FinancePanel';
 import AcademicsPanel from './components/AcademicsPanel';
@@ -384,6 +385,12 @@ export default function DashboardPage() {
             {/* ════════════════ OVERVIEW TAB ════════════════ */}
             {activeTab === 'overview' && (
                 <div className="space-y-5">
+
+                    {/* ══════════════════════════════════════════════════════════
+                         FEE ANALYTICS — Class DataGrid + Charts (TOP SECTION)
+                         Shows Form 1-4, Grade 10/11/12, streams, paid vs outstanding
+                    ══════════════════════════════════════════════════════════ */}
+                    <FeeAnalyticsSection />
 
                     {/* ── ORIGINAL ULTRA KPI CARDS (sparklines + gradient bars) ── */}
                     <UltraCardsSection stats={stats} currentYear={currentYear} fmt={fmt} />
