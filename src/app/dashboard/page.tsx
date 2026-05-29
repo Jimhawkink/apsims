@@ -9,11 +9,10 @@ import {
 } from 'chart.js';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import {
-    FiUsers, FiDollarSign, FiTrendingUp, FiTrendingDown, FiCalendar, FiBookOpen,
-    FiUserCheck, FiAlertTriangle, FiRefreshCw, FiFilter, FiArrowUp, FiArrowDown,
-    FiCheck, FiClock, FiMessageSquare, FiBarChart2, FiActivity, FiShield,
-    FiBox, FiZap, FiSend, FiAward, FiInfo, FiChevronRight,
+    FiDollarSign, FiAlertTriangle, FiRefreshCw, FiFilter,
+    FiBarChart2, FiChevronRight,
 } from 'react-icons/fi';
+import UltraCardsSection from './components/UltraCards';
 import DashboardTabs, { TabKey } from './components/DashboardTabs';
 import FinancePanel from './components/FinancePanel';
 import AcademicsPanel from './components/AcademicsPanel';
@@ -41,7 +40,17 @@ export default function DashboardPage() {
     const currentYear = new Date().getFullYear();
     const today = new Date().toISOString().split('T')[0];
 
-    // ── Core stats ──
+    // ── Original stats object (for UltraCardsSection) ──
+    const [stats, setStats] = useState({
+        totalStudents: 0, activeStudents: 0, newEnrollments: 0,
+        totalStaff: 0, teachingStaff: 0, nonTeachingStaff: 0,
+        feesCollected: 0, feesDue: 0, prepayments: 0,
+        totalIncome: 0, totalExpenses: 0,
+        attendance: { present: 0, absent: 0, late: 0, rate: 0 },
+        reportedStudents: 0,
+    });
+
+    // ── Core data ──
     const [students, setStudents] = useState<any[]>([]);
     const [forms, setForms] = useState<any[]>([]);
     const [staff, setStaff] = useState<any[]>([]);
@@ -203,6 +212,37 @@ export default function DashboardPage() {
             if (totalExp > totalInc) newAlerts.push({ type: 'finance', msg: `🔴 Financial deficit detected: Expenses (${fmt(totalExp)}) exceed income (${fmt(totalInc)})`, level: 'error' });
             setAlerts(newAlerts);
 
+            // ── Populate original stats for UltraCardsSection ──
+            const feesDue = Math.max(0, totalExpected - totalFees);
+            const prepayments = Math.max(0, totalFees - totalExpected);
+            const attPresent = (todayAtt || []).filter((a: any) => a.status === 'Present').length;
+            const attAbsent  = (todayAtt || []).filter((a: any) => a.status === 'Absent').length;
+            const attLate    = (todayAtt || []).filter((a: any) => a.status === 'Late').length;
+            const attRate    = (todayAtt || []).length > 0 ? Math.round(attPresent / (todayAtt || []).length * 100) : 0;
+            let reported = 0;
+            if (termData) {
+                const { count } = await supabase.from('school_daily_attendance').select('student_id', { count: 'exact', head: true }).gte('attendance_date', termData.start_date || `${currentYear}-01-01`).lte('attendance_date', termData.end_date || today);
+                reported = count || 0;
+            }
+            const newThisYearCount = (allStudents || []).filter((s: any) => s.admission_date && new Date(s.admission_date).getFullYear() === currentYear).length;
+            const teachingCount  = (teacherData || []).filter((t: any) => t.staff_type === 'Teaching').length;
+            const nonTeachCount  = (teacherData || []).filter((t: any) => t.staff_type !== 'Teaching').length;
+            setStats({
+                totalStudents: (allStudents || []).length,
+                activeStudents: active.length,
+                newEnrollments: newThisYearCount,
+                totalStaff: (teacherData || []).length,
+                teachingStaff: teachingCount,
+                nonTeachingStaff: nonTeachCount,
+                feesCollected: totalFees,
+                feesDue,
+                prepayments,
+                totalIncome: totalInc,
+                totalExpenses: totalExp,
+                attendance: { present: attPresent, absent: attAbsent, late: attLate, rate: attRate },
+                reportedStudents: reported,
+            });
+
         } catch (e) { console.error('Dashboard fetch error:', e); }
         setLoading(false);
     }, [today, currentYear]);
@@ -345,39 +385,16 @@ export default function DashboardPage() {
             {activeTab === 'overview' && (
                 <div className="space-y-5">
 
-                    {/* ── ROW 1: 8 Mission-Critical KPI Cards ── */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                        {[
-                            { label: 'Active Students', value: fmtN(active.length), sub: `${newThisYear} enrolled this year`, icon: '🎓', color: '#6366f1', trend: '+', href: '/dashboard/students' },
-                            { label: 'Attendance Today', value: `${attRate}%`, sub: `${todayPresentCt} present · ${todayAbsentCt} absent`, icon: '📋', color: attRate >= 80 ? '#22c55e' : attRate >= 60 ? '#f59e0b' : '#ef4444', trend: attRate >= 80 ? '+' : '-', href: '/dashboard/attendance' },
-                            { label: 'Fees Collected', value: fmt(totalFees), sub: `This month: ${fmt(payThisMonth)}`, icon: '💰', color: '#10b981', trend: '+', href: '/dashboard/fees' },
-                            { label: 'Net Position', value: fmt(Math.abs(netPosition)), sub: netPosition >= 0 ? '✅ Surplus' : '⚠️ Deficit', icon: netPosition >= 0 ? '📈' : '📉', color: netPosition >= 0 ? '#059669' : '#dc2626', trend: netPosition >= 0 ? '+' : '-', href: '/dashboard/fees/reports/pl' },
-                            { label: 'Total Staff', value: fmtN(staff.length), sub: `${staff.filter(s => s.staff_type === 'Teaching').length} teaching`, icon: '👨‍🏫', color: '#3b82f6', trend: '', href: '/dashboard/hr-payroll/staff' },
-                            { label: 'Discipline', value: fmtN(disciplineCount), sub: 'Incidents this year', icon: '⚡', color: disciplineCount > 20 ? '#ef4444' : '#f59e0b', trend: '-', href: '/dashboard/discipline' },
-                            { label: 'Open Issues', value: fmtN(openIssues), sub: 'Maintenance tickets', icon: '🔧', color: openIssues > 5 ? '#ef4444' : '#6366f1', trend: '', href: '/dashboard' },
-                            { label: 'Total Expenses', value: fmt(approvedExpenses), sub: `Income: ${fmt(totalIncome)}`, icon: '📉', color: '#ef4444', trend: '-', href: '/dashboard/expenses' },
-                        ].map((c, i) => (
-                            <Link key={i} href={c.href}
-                                className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all group relative overflow-hidden"
-                                style={{ borderLeftWidth: 3, borderLeftColor: c.color }}>
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-lg">{c.icon}</span>
-                                    <span className="text-[9px] font-black uppercase tracking-wider text-gray-400">{c.label}</span>
-                                </div>
-                                <p className="text-[15px] font-extrabold text-gray-900 leading-tight">{c.value}</p>
-                                <p className="text-[9px] text-gray-400 mt-1 leading-tight">{c.sub}</p>
-                                <div className="absolute -bottom-4 -right-4 w-14 h-14 rounded-full opacity-[0.08] group-hover:opacity-[0.14] transition-opacity" style={{ background: c.color }} />
-                            </Link>
-                        ))}
-                    </div>
+                    {/* ── ORIGINAL ULTRA KPI CARDS (sparklines + gradient bars) ── */}
+                    <UltraCardsSection stats={stats} currentYear={currentYear} fmt={fmt} />
 
-                    {/* ── ROW 2: Key Metrics Strip ── */}
+                    {/* ── Secondary Metrics Strip ── */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {[
-                            { label: 'Gender Ratio M:F', value: `${maleCount}:${femaleCount}`, bar: pct(maleCount, active.length), color1: '#3b82f6', color2: '#ec4899', icon: '⚖️' },
-                            { label: 'Fee Collection Rate', value: `${pct(totalFees, active.length * 50000)}%`, bar: pct(totalFees, active.length * 50000), color1: '#10b981', color2: '#d1fae5', icon: '🎯' },
-                            { label: "Today's Absent", value: `${todayAbsentCt} students`, bar: pct(todayAbsentCt, active.length), color1: '#ef4444', color2: '#fef2f2', icon: '⚠️' },
-                            { label: 'Other Income', value: fmt(otherIncome), bar: pct(otherIncome, totalIncome), color1: '#8b5cf6', color2: '#f3e8ff', icon: '🏦' },
+                            { label: 'Gender Ratio M:F', value: `${maleCount}:${femaleCount}`, bar: pct(maleCount, active.length), color1: '#3b82f6', icon: '⚖️' },
+                            { label: 'This Month Fees', value: fmt(payThisMonth), bar: Math.min(100, pct(payThisMonth, totalFees || 1)), color1: '#10b981', icon: '📅' },
+                            { label: "Today's Absent", value: `${todayAbsentCt} students`, bar: pct(todayAbsentCt, active.length || 1), color1: '#ef4444', icon: '⚠️' },
+                            { label: 'Other Income', value: fmt(otherIncome), bar: Math.min(100, pct(otherIncome, totalIncome || 1)), color1: '#8b5cf6', icon: '🏦' },
                         ].map((m, i) => (
                             <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                                 <div className="flex items-center justify-between mb-2">
@@ -386,7 +403,7 @@ export default function DashboardPage() {
                                 </div>
                                 <p className="text-lg font-extrabold text-gray-900">{m.value}</p>
                                 <div className="mt-2 bg-gray-100 rounded-full h-2">
-                                    <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(100, m.bar)}%`, background: m.color1 }} />
+                                    <div className="h-2 rounded-full transition-all" style={{ width: `${m.bar}%`, background: m.color1 }} />
                                 </div>
                             </div>
                         ))}
