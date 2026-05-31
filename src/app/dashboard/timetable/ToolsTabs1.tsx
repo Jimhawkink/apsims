@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { useTimetable } from './TimetableProvider';
 import { DAYS, getSubjectColor } from './timetable-colors';
 import type { ConflictItem, GenSettings } from './timetable-types';
-import { FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiInfo, FiUser, FiPrinter, FiBarChart2 } from 'react-icons/fi';
+import { FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiInfo, FiUser, FiPrinter, FiBarChart2, FiDownload } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 
 // ═══ VERIFICATION TAB ════════════════════════════════════════════
 export function VerifyTab() {
@@ -203,9 +204,89 @@ export function PrintTab() {
     w.document.close(); setTimeout(() => w.print(), 500);
   };
 
+  // ── CSV Export helpers ──
+  const exportClassCSV = (fId: number, sId: number) => {
+    const className = `${getFormName(fId)} ${getStreamName(sId)}`;
+    const rows: string[] = [`APSIMS Timetable — ${className} — ${bTerm} ${bYear}`, ''];
+    rows.push(['Period', 'Time', ...DAYS].join(','));
+    allPeriodsSorted.forEach(p => {
+      if (p.period_type !== 'lesson') { rows.push([p.period_name, `${p.start_time?.substring(0,5)}-${p.end_time?.substring(0,5)}`, ...DAYS.map(() => 'BREAK')].join(',')); return; }
+      const cells = DAYS.map(day => {
+        const e = termEntries.find(x => x.form_id === fId && x.stream_id === sId && x.day_of_week === day && x.period_id === p.id);
+        if (!e?.subject_id) return '';
+        return `"${getSubjectName(e.subject_id)} (${getTeacherShort(e.teacher_id)}${e.room ? ' ' + e.room : ''})"`;
+      });
+      rows.push([`"${p.period_name}"`, `"${p.start_time?.substring(0,5)}-${p.end_time?.substring(0,5)}"`, ...cells].join(','));
+    });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+    a.download = `timetable_${className.replace(/\s+/g,'_')}_${bTerm}_${bYear}.csv`;
+    a.click(); toast.success(`CSV exported for ${className}`);
+  };
+
+  const exportTeacherCSV = (tid: number) => {
+    const name = getTeacherName(tid);
+    const rows: string[] = [`APSIMS Teacher Timetable — ${name} — ${bTerm} ${bYear}`, ''];
+    rows.push(['Period', 'Time', ...DAYS].join(','));
+    allPeriodsSorted.forEach(p => {
+      if (p.period_type !== 'lesson') { rows.push([p.period_name, '', ...DAYS.map(() => 'BREAK')].join(',')); return; }
+      const cells = DAYS.map(day => {
+        const e = termEntries.find(x => x.teacher_id === tid && x.day_of_week === day && x.period_id === p.id);
+        if (!e?.subject_id) return '';
+        return `"${getSubjectName(e.subject_id)} — ${getFormName(e.form_id)} ${getStreamName(e.stream_id)}${e.room ? ' (' + e.room + ')' : ''}"` ;
+      });
+      rows.push([`"${p.period_name}"`, `"${p.start_time?.substring(0,5)}-${p.end_time?.substring(0,5)}"`, ...cells].join(','));
+    });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+    a.download = `timetable_${name.replace(/\s+/g,'_')}_${bTerm}_${bYear}.csv`;
+    a.click(); toast.success(`CSV exported for ${name}`);
+  };
+
+  const exportMasterCSV = () => {
+    const activeClasses = classStats.map(c => ({ fId: c.formId, sId: c.streamId, label: `${c.formName} ${c.streamName}` }));
+    const rows: string[] = [`APSIMS Master Timetable — ${bTerm} ${bYear}`, ''];
+    DAYS.forEach(day => {
+      rows.push('', `=== ${day.toUpperCase()} ===`);
+      rows.push(['Period', 'Time', ...activeClasses.map(c => c.label)].join(','));
+      allPeriodsSorted.forEach(p => {
+        if (p.period_type !== 'lesson') { rows.push([p.period_name, '', ...activeClasses.map(() => 'BREAK')].join(',')); return; }
+        const cells = activeClasses.map(c => {
+          const e = termEntries.find(x => x.form_id === c.fId && x.stream_id === c.sId && x.day_of_week === day && x.period_id === p.id);
+          if (!e?.subject_id) return '';
+          return `"${getSubjectCode(e.subject_id)} (${getTeacherShort(e.teacher_id)})"`;
+        });
+        rows.push([`"${p.period_name}"`, `"${p.start_time?.substring(0,5)}-${p.end_time?.substring(0,5)}"`, ...cells].join(','));
+      });
+    });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+    a.download = `master_timetable_${bTerm}_${bYear}.csv`;
+    a.click(); toast.success('Master CSV exported!');
+  };
+
+  const exportWorkloadCSV = () => {
+    const rows = ['Teacher,Total L/Week,Mon,Tue,Wed,Thu,Fri,Max/Day,Free Slots,Subjects,Classes,TSC Compliant'];
+    teacherLoads.forEach(t => {
+      const tE = termEntries.filter(e => e.teacher_id === t.id);
+      const daily = DAYS.map(d => tE.filter(e => e.day_of_week === d).length);
+      const maxDay = Math.max(...daily);
+      const subjs = [...new Set(tE.map(e => e.subject_id))].map(id => getSubjectCode(id)).join('; ');
+      const classes = [...new Set(tE.map(e => `${getFormName(e.form_id)} ${getStreamName(e.stream_id)}`))].join('; ');
+      const free = lessonPeriods.length * 5 - t.count;
+      const compliant = t.count <= 40 && maxDay <= 8 ? 'YES' : 'NO';
+      rows.push(`"${t.name}",${t.count},${daily.join(',')},${maxDay},${free},"${subjs}","${classes}",${compliant}`);
+    });
+    rows.push('', `Generated: ${new Date().toLocaleDateString('en-KE')} | APSIMS Timetable Engine`);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+    a.download = `teacher_workload_${bTerm}_${bYear}.csv`;
+    a.click(); toast.success('Workload CSV exported!');
+  };
+
   return (
     <div className="space-y-5">
-      <div><h1 className="text-2xl font-black text-gray-800">🖨️ Print Center</h1><p className="text-sm text-gray-500 mt-0.5">ASC-style professional timetable reports</p></div>
+      <div><h1 className="text-2xl font-black text-gray-800">🖨️ Print & Export Center</h1><p className="text-sm text-gray-500 mt-0.5">Print, PDF and CSV export — professional school reports</p></div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-4 gap-3">
@@ -222,12 +303,12 @@ export function PrintTab() {
       {/* Print Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {[
-          { title: '📅 All Class Timetables', desc: `Batch print all ${classStats.length} class timetables (Mon-Fri)`, action: printAllClassTT, gradient: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/20' },
-          { title: '👤 All Teacher Timetables', desc: `Batch print all ${teacherLoads.length} teacher schedules`, action: printAllTeacherTT, gradient: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/20' },
+          { title: '📅 Print All Classes', desc: `Batch print all ${classStats.length} class timetables`, action: printAllClassTT, gradient: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/20' },
+          { title: '👤 Print All Teachers', desc: `Batch print all ${teacherLoads.length} teacher schedules`, action: printAllTeacherTT, gradient: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/20' },
           { title: '📋 Master Full-Week', desc: 'All classes × all days on separate pages (ASC-style)', action: printMasterFullWeek, gradient: 'from-violet-500 to-purple-600', shadow: 'shadow-violet-500/20' },
-          { title: '📊 Teacher Workload Report', desc: 'Lessons/week, subjects, daily breakdown, free slots', action: printWorkloadReport, gradient: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/20' },
-          { title: '🔍 Print Single Class', desc: 'Navigate to Class View to select & print', action: () => setTab('class'), gradient: 'from-cyan-500 to-blue-600', shadow: 'shadow-cyan-500/20' },
-          { title: '🔍 Print Single Teacher', desc: 'Navigate to Teacher View to select & print', action: () => setTab('teacher'), gradient: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-500/20' },
+          { title: '📊 Print Workload Report', desc: 'TSC-format lessons/week, daily breakdown, free slots', action: printWorkloadReport, gradient: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/20' },
+          { title: '📥 Export Master CSV', desc: 'All classes × all days — open in Excel or Sheets', action: exportMasterCSV, gradient: 'from-green-500 to-emerald-600', shadow: 'shadow-green-500/20' },
+          { title: '📥 Export Workload CSV', desc: 'TSC workload per teacher — Excel/Sheets ready', action: exportWorkloadCSV, gradient: 'from-teal-500 to-cyan-600', shadow: 'shadow-teal-500/20' },
         ].map((item, i) => (
           <button key={i} onClick={item.action} className="bg-white rounded-2xl border border-gray-100 p-6 text-left hover:shadow-xl transition-all group hover:-translate-y-0.5">
             <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${item.gradient} flex items-center justify-center text-2xl shadow-lg ${item.shadow} mb-4 group-hover:scale-110 transition-transform`}>{item.title.substring(0, 2)}</div>
@@ -246,13 +327,14 @@ export function PrintTab() {
           </div>
           <div className="divide-y divide-gray-50 max-h-[300px] overflow-y-auto">
             {classStats.map(c => (
-              <button key={`${c.formId}-${c.streamId}`} onClick={() => printClassTT(c.formId, c.streamId)} className="w-full px-5 py-3 flex items-center justify-between hover:bg-blue-50/50 transition-colors text-left">
+              <div key={`${c.formId}-${c.streamId}`} className="px-5 py-3 flex items-center justify-between hover:bg-blue-50/50 transition-colors">
                 <span className="font-bold text-sm text-gray-800">{c.formName} {c.streamName}</span>
                 <div className="flex items-center gap-2">
                   <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${c.pct >= 100 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{c.pct}%</span>
-                  <FiPrinter size={13} className="text-gray-400" />
+                  <button onClick={() => exportClassCSV(c.formId, c.streamId)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all" title="Export CSV"><FiDownload size={12} /></button>
+                  <button onClick={() => printClassTT(c.formId, c.streamId)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Print"><FiPrinter size={12} /></button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -263,13 +345,14 @@ export function PrintTab() {
           </div>
           <div className="divide-y divide-gray-50 max-h-[300px] overflow-y-auto">
             {teacherLoads.map(t => (
-              <button key={t.id} onClick={() => printTeacherTT(t.id)} className="w-full px-5 py-3 flex items-center justify-between hover:bg-emerald-50/50 transition-colors text-left">
+              <div key={t.id} className="px-5 py-3 flex items-center justify-between hover:bg-emerald-50/50 transition-colors">
                 <span className="font-bold text-sm text-gray-800">{t.name}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-700">{t.count} L/wk</span>
-                  <FiPrinter size={13} className="text-gray-400" />
+                  <button onClick={() => exportTeacherCSV(t.id)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all" title="Export CSV"><FiDownload size={12} /></button>
+                  <button onClick={() => printTeacherTT(t.id)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Print"><FiPrinter size={12} /></button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>

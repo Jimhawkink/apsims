@@ -5,7 +5,8 @@ import type { TTab } from './timetable-types';
 import {
   FiGrid, FiList, FiCalendar, FiMapPin, FiZap, FiEdit3,
   FiEye, FiUser, FiColumns, FiCheckCircle, FiRepeat,
-  FiBarChart2, FiPrinter, FiSettings, FiX, FiHome
+  FiBarChart2, FiPrinter, FiSettings, FiX, FiHome,
+  FiCamera, FiSend,
 } from 'react-icons/fi';
 
 // Tab imports
@@ -17,6 +18,7 @@ import { ClassViewTab, TeacherViewTab, RoomViewTab, MasterViewTab } from './View
 import { VerifyTab, StatsTab, PrintTab } from './ToolsTabs1';
 import { SetupTab, AvailabilityTab } from './SetupAvailTab';
 import { ClassroomsTab, SubstitutionsTab } from './SubsClassroomTab';
+import { SnapshotsTab, DistributeTab } from './SnapshotsDistributeTab';
 
 // ═══════════════════════════════════════════════════════════════════
 // ═══  APSIMS ULTRA TIMETABLE — MAIN PAGE  ════════════════════════
@@ -49,6 +51,10 @@ function TimetableShell() {
       { key: 'stats' as TTab, label: 'Statistics', icon: FiBarChart2, emoji: '📊' },
       { key: 'print' as TTab, label: 'Print Center', icon: FiPrinter, emoji: '🖨️' },
       { key: 'setup' as TTab, label: 'Period Setup', icon: FiSettings, emoji: '⚙️' },
+    ]},
+    { label: 'NEW ✨', items: [
+      { key: 'snapshots' as TTab, label: 'Snapshots', icon: FiCamera, emoji: '📸' },
+      { key: 'distribute' as TTab, label: 'Distribute', icon: FiSend, emoji: '📱' },
     ]},
   ];
 
@@ -162,6 +168,8 @@ function TimetableShell() {
         {tab === 'stats' && <StatsTab />}
         {tab === 'print' && <PrintTab />}
         {tab === 'setup' && <SetupTab />}
+        {tab === 'snapshots' && <SnapshotsTab />}
+        {tab === 'distribute' && <DistributeTab />}
       </main>
     </div>
   );

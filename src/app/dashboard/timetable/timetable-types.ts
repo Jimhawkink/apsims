@@ -5,7 +5,8 @@ export type TTab =
   | 'dashboard' | 'cards' | 'availability' | 'classrooms'
   | 'generate' | 'editor'
   | 'class' | 'teacher' | 'room' | 'master'
-  | 'verify' | 'substitutions' | 'stats' | 'print' | 'setup';
+  | 'verify' | 'substitutions' | 'stats' | 'print' | 'setup'
+  | 'snapshots' | 'distribute';
 
 export interface Period {
   id: number; period_number: number; period_name: string;
