@@ -35,18 +35,18 @@ function UltraCard({ label, value, icon, sub, gradient, trend, trendUp = true, p
       <div className="flex items-start justify-between mb-2.5">
         <div className="w-9 h-9 rounded-[10px] flex items-center justify-center text-lg" style={{ background: `${sparkColor}20`, color: sparkColor }}>{icon}</div>
         {trend && (
-          <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-md ${trendUp ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${trendUp ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500'}`}>
             {trendUp ? '▲' : '▼'} {trend}
           </span>
         )}
       </div>
-      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-1">{label}</p>
-      <p className="text-[24px] font-bold text-gray-800 leading-tight mb-1">{value}</p>
-      <p className="text-[11px] text-gray-400 flex items-center gap-1">{sub}</p>
+      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-bold mb-1">{label}</p>
+      <p className="text-[22px] font-bold text-gray-800 leading-tight mb-1">{value}</p>
+      <p className="text-[12px] text-gray-400 flex items-center gap-1">{sub}</p>
       {progress !== undefined && (
         <div className="mt-2.5">
-          <div className="flex justify-between text-[9px] text-gray-400 mb-1"><span>Progress</span><span>{progress}%</span></div>
-          <div className="h-1 bg-gray-100 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%`, background: gradient }} /></div>
+          <div className="flex justify-between text-[11px] text-gray-500 mb-1"><span>Progress</span><span className="font-bold">{progress}%</span></div>
+          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%`, background: gradient }} /></div>
         </div>
       )}
       {sparkData && <Sparkline data={sparkData} color={sparkColor} />}

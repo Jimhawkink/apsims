@@ -44,11 +44,12 @@ export async function middleware(req: NextRequest) {
   }
 
   // Validate session (basic decode check — full validation happens server-side)
+  let decoded: any;
   try {
-    const decoded = JSON.parse(Buffer.from(sessionCookie, 'base64').toString());
+    decoded = JSON.parse(Buffer.from(sessionCookie, 'base64').toString());
 
-    // Check expiry
-    if (!decoded._ts || Date.now() - decoded._ts > 24 * 60 * 60 * 1000) {
+    // Check expiry (7 days rolling — matches auth.ts)
+    if (!decoded._ts || Date.now() - decoded._ts > 7 * 24 * 60 * 60 * 1000) {
       // Expired — clear and redirect
       const res = pathname.startsWith('/portal/')
         ? NextResponse.redirect(new URL('/portal/login', req.url))
@@ -87,8 +88,32 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  // ─── Security Headers ───
+  // ─── Rolling Session Refresh ───
+  // Refresh the session timestamp on every valid request so active users
+  // stay logged in. Only re-issue if the token is older than 1 hour to
+  // avoid unnecessary cookie writes on every request.
+  const SEVEN_DAYS_S = 7 * 24 * 60 * 60;
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+
   const res = NextResponse.next();
+
+  if (decoded && decoded._ts && (Date.now() - decoded._ts > ONE_HOUR_MS)) {
+    // Re-issue cookie with fresh timestamp (keeps same user data, resets expiry)
+    const { _ts, ...rest } = decoded;
+    const newToken = Buffer.from(JSON.stringify({
+      ...rest,
+      _ts: Date.now(),
+    })).toString('base64');
+    res.cookies.set('alpha_session', newToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: SEVEN_DAYS_S,
+      path: '/',
+    });
+  }
+
+  // ─── Security Headers ───
 
   // Content Security Policy
   res.headers.set('Content-Security-Policy',

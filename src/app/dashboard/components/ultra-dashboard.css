@@ -1,73 +1,176 @@
-/* APSIMS Ultra Dashboard Styles */
-.ultra-card {
-  background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: 14px;
-  padding: 16px; position: relative; overflow: hidden;
-  transition: all .3s ease;
+/* APSIMS Ultra Dashboard Styles — Font-matched to discipline/leave-out pages */
+
+/* ── Base font override: match leave-out / discipline page feel ── */
+:root {
+  --dash-font: 'Inter', 'Outfit', system-ui, -apple-system, sans-serif;
+  --dash-body: 13px;
+  --dash-label: 11px;
+  --dash-xs: 11px;
+  --dash-sm: 13px;
+  --dash-base: 14px;
+  --dash-lg: 16px;
+  --dash-xl: 18px;
+  --dash-2xl: 22px;
 }
-.ultra-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,.08); border-color: rgba(0,0,0,.1); }
+
+.ultra-card {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 14px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: all .3s ease;
+  font-family: var(--dash-font);
+  font-size: var(--dash-body);
+}
+.ultra-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0,0,0,.08);
+  border-color: rgba(0,0,0,.1);
+}
 
 .ultra-panel {
-  background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: 14px;
-  padding: 16px; position: relative; overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 14px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  font-family: var(--dash-font);
+  font-size: var(--dash-body);
 }
 
+/* Section label — readable uppercase label like discipline page */
 .ultra-section-label {
-  font-size: 10px; font-weight: 600; color: #94a3b8;
-  text-transform: uppercase; letter-spacing: 1.2px; padding-left: 2px;
+  font-size: var(--dash-label);
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding-left: 2px;
   margin-top: 6px;
+  font-family: var(--dash-font);
 }
 
-/* Ultra Data Grid */
-.ultra-grid { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
+/* Ultra Data Grid — bumped to 13px like leave-out tables */
+.ultra-grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--dash-body);
+  font-family: var(--dash-font);
+}
 .ultra-grid thead th {
-  text-align: left; padding: 10px 12px; font-size: 9px; font-weight: 600;
-  color: #94a3b8; text-transform: uppercase; letter-spacing: .8px;
-  border-bottom: 1px solid rgba(0,0,0,.06); background: #f8fafc;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: var(--dash-label);
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  background: #f8fafc;
 }
 .ultra-grid thead th:first-child { border-radius: 8px 0 0 0; }
 .ultra-grid thead th:last-child { border-radius: 0 8px 0 0; }
 .ultra-grid tbody td {
-  padding: 10px 12px; border-bottom: 1px solid rgba(0,0,0,.04);
-  color: #334155; vertical-align: middle; transition: background .2s;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0,0,0,.04);
+  color: #334155;
+  vertical-align: middle;
+  transition: background .2s;
+  font-size: var(--dash-body);
 }
 .ultra-grid tbody tr { cursor: pointer; transition: all .15s; }
 .ultra-grid tbody tr:hover td { background: rgba(99,102,241,.03); }
 .ultra-grid tbody tr:last-child td { border-bottom: none; }
-.ultra-table-wrap { border-radius: 10px; border: 1px solid rgba(0,0,0,.04); overflow: hidden; }
+.ultra-table-wrap {
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.04);
+  overflow: hidden;
+}
 
 /* Quick Action Buttons */
 .ultra-action-btn {
-  background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: 12px;
-  padding: 14px 8px; text-align: center; cursor: pointer;
-  transition: all .3s ease; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; text-decoration: none;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 12px;
+  padding: 14px 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: var(--dash-sm);
+  font-family: var(--dash-font);
 }
 .ultra-action-btn:hover {
-  background: rgba(99,102,241,.04); border-color: rgba(99,102,241,.15);
-  transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,.08);
+  background: rgba(99,102,241,.04);
+  border-color: rgba(99,102,241,.15);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(99,102,241,.08);
 }
 
 /* Dashboard greeting animation */
-@keyframes ultraFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ultraFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .ultra-animate { animation: ultraFadeIn .5s ease both; }
 .ultra-delay-1 { animation-delay: .05s; }
 .ultra-delay-2 { animation-delay: .1s; }
 .ultra-delay-3 { animation-delay: .15s; }
 
-/* Tab Buttons */
+/* Tab Buttons — match discipline page tab style */
 .ultra-tab-btn {
-  position: relative; display: flex; align-items: center; gap: 6px;
-  padding: 8px 14px; border-radius: 10px; border: 1px solid transparent;
-  cursor: pointer; transition: all .25s ease; background: transparent;
-  font-family: inherit;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all .25s ease;
+  background: transparent;
+  font-family: var(--dash-font);
+  font-size: var(--dash-sm);
+  font-weight: 600;
 }
 .ultra-tab-btn:hover { background: rgba(99,102,241,.06); }
+
+/* KPI card value text */
+.ultra-kpi-value {
+  font-size: var(--dash-2xl);
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: -0.5px;
+  font-family: var(--dash-font);
+}
+
+/* KPI card label text */
+.ultra-kpi-label {
+  font-size: var(--dash-label);
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: var(--dash-font);
+}
+
+/* KPI sub-text */
+.ultra-kpi-sub {
+  font-size: var(--dash-xs);
+  color: #94a3b8;
+  font-family: var(--dash-font);
+}
+
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* Finance Panel Enhancements */
-.ultra-card .text-\[22px\] { font-feature-settings: 'tnum'; }
-.ultra-panel h3 { display: flex; align-items: center; gap: 4px; }
 
 /* Loading spinner */
 .spinner {
@@ -87,22 +190,34 @@
 .ultra-animate .ultra-card:nth-child(7) { animation-delay: .24s; }
 .ultra-animate .ultra-card:nth-child(8) { animation-delay: .28s; }
 
-/* Progress bar pulse on hover */
-.ultra-card:hover .h-1,
-.ultra-panel:hover .h-3 { filter: brightness(1.1); }
-
 /* Table row highlight */
 .ultra-grid tbody tr:hover td { background: rgba(16,185,129,.04) !important; }
 
 /* Finance action button shimmer */
 .ultra-action-btn::before {
-  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,.6) 50%, transparent 60%);
-  background-size: 200% 200%; opacity: 0; transition: opacity .3s;
+  background-size: 200% 200%;
+  opacity: 0;
+  transition: opacity .3s;
 }
-.ultra-action-btn:hover::before { opacity: 1; animation: shimmer 1.5s ease infinite; }
-@keyframes shimmer { 0% { background-position: 200% 200%; } 100% { background-position: -200% -200%; } }
+.ultra-action-btn:hover::before {
+  opacity: 1;
+  animation: shimmer 1.5s ease infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 200%; }
+  100% { background-position: -200% -200%; }
+}
 
 /* Alert dot pulse */
-.ultra-panel .w-2.h-2.rounded-full { animation: dotPulse 2s ease-in-out infinite; }
-@keyframes dotPulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+.ultra-panel .w-2.h-2.rounded-full {
+  animation: dotPulse 2s ease-in-out infinite;
+}
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
+}

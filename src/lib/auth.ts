@@ -54,8 +54,8 @@ export function decodeSession(token: string): SessionData | null {
     // Verify signature
     const { _sig, _ts, ...data } = payload;
     if (_sig !== simpleSig(data)) return null;
-    // Check expiry (24 hours)
-    if (Date.now() - _ts > 24 * 60 * 60 * 1000) return null;
+    // Check expiry (7 days rolling)
+    if (Date.now() - _ts > 7 * 24 * 60 * 60 * 1000) return null;
     return data as SessionData;
   } catch {
     return null;
@@ -80,11 +80,12 @@ function simpleSig(data: any): string {
 export async function setSessionCookie(data: SessionData) {
   const token = encodeSession(data);
   const cookieStore = await cookies();
+  const SEVEN_DAYS = 60 * 60 * 24 * 7; // 7 days in seconds
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24, // 24 hours
+    maxAge: SEVEN_DAYS,
     path: '/',
   });
   // Set CSRF token
@@ -93,7 +94,7 @@ export async function setSessionCookie(data: SessionData) {
     httpOnly: false, // JS needs to read this for headers
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24,
+    maxAge: SEVEN_DAYS,
     path: '/',
   });
 }
