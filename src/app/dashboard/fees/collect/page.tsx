@@ -823,6 +823,9 @@ export default function UltraCollectFeePage() {
             getStreamName={safeGetStreamName}
             getFeeBalance={getFeeBalance}
             selectedStudent={selectedStudent}
+            allStudents={students as any[]}
+            forms={forms as { id: number; form_name: string }[]}
+            streams={streams as { id: number; stream_name: string }[]}
           />
         </div>
 
@@ -894,6 +897,7 @@ export default function UltraCollectFeePage() {
           getStreamName={safeGetStreamName}
           onSubmit={handleRecordPayment}
           isSubmitting={isSubmitting}
+          terms={terms as any[]}
         />
       )}
 
