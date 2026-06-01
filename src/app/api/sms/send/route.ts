@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // ── Phone formatter ───────────────────────────────────────────────────────────
-export function formatPhone(phone: string): string {
+function formatPhone(phone: string): string {
     let cleaned = phone.replace(/[\s\-\(\)]/g, '').replace(/[^\d+]/g, '');
     if (cleaned.startsWith('+254')) return cleaned;
     if (cleaned.startsWith('254')) return '+' + cleaned;

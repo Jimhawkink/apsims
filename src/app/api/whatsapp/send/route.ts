@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Phone formatter for Meta WhatsApp API (no + prefix) ───────────────────────
-export function formatToE164(phone: string): string {
+function formatToE164(phone: string): string {
     let cleaned = phone.replace(/[\s\-\(\)]/g, '').replace(/[^\d+]/g, '');
     // Strip leading +
     if (cleaned.startsWith('+')) cleaned = cleaned.slice(1);

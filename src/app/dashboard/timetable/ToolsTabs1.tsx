@@ -3,13 +3,14 @@ import { useState } from 'react';
 import { useTimetable } from './TimetableProvider';
 import { DAYS, getSubjectColor } from './timetable-colors';
 import type { ConflictItem, GenSettings } from './timetable-types';
+import { detectCurriculumType } from './timetable-generator';
 import { FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiInfo, FiUser, FiPrinter, FiBarChart2, FiDownload } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
 // ═══ VERIFICATION TAB ════════════════════════════════════════════
 export function VerifyTab() {
   const ctx = useTimetable();
-  const { runVerification } = ctx;
+  const { runVerification, forms } = ctx;
   const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
   const [verifying, setVerifying] = useState(false);
   const [settings] = useState<GenSettings>({ maxConsecutiveSameSubject: 2, spreadEvenly: true, avoidLastPeriod: [], maxTeacherLessonsPerDay: 7 });
@@ -24,21 +25,67 @@ export function VerifyTab() {
     }, 500);
   };
 
-  const errors = conflicts.filter(c => c.severity === 'error').length;
+  const errors   = conflicts.filter(c => c.severity === 'error').length;
   const warnings = conflicts.filter(c => c.severity === 'warning').length;
-  const infos = conflicts.filter(c => c.severity === 'info').length;
+  const infos    = conflicts.filter(c => c.severity === 'info').length;
+  const cbcIssues = conflicts.filter(c => c.curriculum === 'CBC').length;
+  const f844Issues = conflicts.filter(c => c.curriculum === '844').length;
+
+  // Detect which curricula are present
+  const cbcForms  = forms.filter(f => detectCurriculumType(f) === 'CBC');
+  const f844Forms = forms.filter(f => detectCurriculumType(f) === '844');
+
+  const getSeverityStyle = (c: ConflictItem) => {
+    if (c.severity === 'error') return 'bg-red-100 text-red-600';
+    if (c.severity === 'warning') return 'bg-amber-100 text-amber-600';
+    return 'bg-blue-100 text-blue-600';
+  };
+  const getSeverityIcon = (c: ConflictItem) => {
+    if (c.severity === 'error') return <FiAlertCircle size={15} />;
+    if (c.severity === 'warning') return <FiAlertTriangle size={15} />;
+    return <FiInfo size={15} />;
+  };
+  const getCurriculumBadge = (c: ConflictItem) => {
+    if (c.curriculum === 'CBC') return <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-700 ml-1">CBC</span>;
+    if (c.curriculum === '844') return <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-700 ml-1">8-4-4</span>;
+    return null;
+  };
 
   return (
     <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div><h1 className="text-2xl font-black text-gray-800">✅ Timetable Verification</h1><p className="text-sm text-gray-500 mt-0.5">Check for conflicts, gaps, and constraint violations</p></div>
+        <div>
+          <h1 className="text-2xl font-black text-gray-800">✅ Timetable Verification</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Kenya 2026 — CBC Grade 10/11/12 + 8-4-4 Form 3/4 dual curriculum engine</p>
+        </div>
         <button onClick={doVerify} disabled={verifying} className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-2 disabled:opacity-50 hover:shadow-xl transition-all">
           {verifying ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Checking...</> : <><FiCheckCircle size={16} /> Run Verification</>}
         </button>
       </div>
 
+      {/* Curriculum overview strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'CBC Forms', val: cbcForms.length, names: cbcForms.map(f=>f.form_name).join(', '), color: 'border-emerald-400 bg-emerald-50', tc: 'text-emerald-700', badge: '🎓' },
+          { label: '8-4-4 Forms', val: f844Forms.length, names: f844Forms.map(f=>f.form_name).join(', '), color: 'border-blue-400 bg-blue-50', tc: 'text-blue-700', badge: '📚' },
+          { label: 'CBC Issues', val: cbcIssues, names: 'CSL, PE, pathway, practical', color: 'border-emerald-300 bg-emerald-50/50', tc: 'text-emerald-600', badge: '⚠️' },
+          { label: '8-4-4 Issues', val: f844Issues, names: 'KCSE subjects, overload', color: 'border-blue-300 bg-blue-50/50', tc: 'text-blue-600', badge: '⚠️' },
+        ].map((s,i) => (
+          <div key={i} className={`rounded-2xl p-4 border-2 ${s.color}`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-lg">{s.badge}</span>
+              <span className={`text-2xl font-black ${s.tc}`}>{s.val}</span>
+            </div>
+            <p className={`text-[10px] uppercase font-bold ${s.tc}`}>{s.label}</p>
+            {s.names && <p className="text-[9px] text-gray-400 mt-0.5 truncate">{s.names}</p>}
+          </div>
+        ))}
+      </div>
+
       {conflicts.length > 0 ? (
         <div className="space-y-4">
+          {/* Summary counts */}
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: 'Errors', count: errors, color: 'text-red-600 bg-red-50 border-red-200', icon: <FiAlertCircle size={20} /> },
@@ -51,14 +98,27 @@ export function VerifyTab() {
               </div>
             ))}
           </div>
+
+          {/* Conflict list */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
             <div className="divide-y divide-gray-50">
               {conflicts.map((c, i) => (
                 <div key={i} className="p-4 flex items-start gap-3 hover:bg-gray-50/50 transition-colors">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.severity === 'error' ? 'bg-red-100 text-red-600' : c.severity === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                    {c.severity === 'error' ? <FiAlertCircle size={16} /> : c.severity === 'warning' ? <FiAlertTriangle size={16} /> : <FiInfo size={16} />}
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${getSeverityStyle(c)}`}>
+                    {getSeverityIcon(c)}
                   </div>
-                  <div><p className="text-sm font-bold text-gray-800">{c.message}</p><p className="text-xs text-gray-500 mt-0.5">{c.details}</p></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-800 flex items-center flex-wrap gap-1">
+                      {c.message}
+                      {getCurriculumBadge(c)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">{c.details}</p>
+                    {(c.day || c.period) && (
+                      <p className="text-[10px] text-gray-400 mt-1 font-semibold">
+                        {c.day && `📅 ${c.day}`}{c.day && c.period && ' · '}{c.period && `⏰ ${c.period}`}
+                      </p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -68,12 +128,13 @@ export function VerifyTab() {
         <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center shadow-sm">
           <FiCheckCircle size={56} className="mx-auto mb-4 text-gray-200" />
           <p className="font-bold text-gray-400 text-lg">Ready to Verify</p>
-          <p className="text-sm text-gray-300 mt-1">Click "Run Verification" to check for teacher clashes, missing assignments, and overloads</p>
+          <p className="text-sm text-gray-300 mt-1">Checks: teacher clashes, room conflicts, missing lessons, overloads, CBC CSL/PE requirements, curriculum mismatches, KICD minimums, KCSE 2026 Form 4 coverage</p>
         </div>
       )}
     </div>
   );
 }
+
 
 // ═══ STATISTICS TAB ══════════════════════════════════════════════
 export function StatsTab() {

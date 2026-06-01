@@ -13,9 +13,9 @@ export interface Period {
   start_time: string; end_time: string; period_type: string;
 }
 
-export interface Form { id: number; form_name: string; form_level: number; }
-export interface Stream { id: number; stream_name: string; }
-export interface Subject { id: number; subject_name: string; subject_code?: string; category?: string; }
+export interface Form { id: number; form_name: string; form_level: number; curriculum_type?: 'CBC' | '844' | 'mixed'; }
+export interface Stream { id: number; stream_name: string; pathway_type?: 'STEM' | 'Arts' | 'Social' | 'mixed'; }
+export interface Subject { id: number; subject_name: string; subject_code?: string; category?: string; cbc_subject_type?: 'Core' | 'Pathway' | 'CSL' | 'PE' | 'Practical' | 'Languages'; }
 export interface Teacher { id: number; first_name: string; last_name: string; tsc_number?: string; status: string; subjects?: string[]; }
 
 export interface Requirement {
@@ -57,12 +57,13 @@ export interface GenSettings {
 }
 
 export interface ConflictItem {
-  type: 'teacher_clash' | 'room_clash' | 'missing_assignment' | 'overload' | 'gap';
+  type: 'teacher_clash' | 'room_clash' | 'missing_assignment' | 'overload' | 'gap' | 'curriculum_conflict' | 'cbc_missing' | 'pathway_conflict';
   severity: 'error' | 'warning' | 'info';
   message: string;
   details: string;
   day?: string;
   period?: string;
+  curriculum?: 'CBC' | '844';
 }
 
 // ─── ULTRA Analytics Types ──────────────────────────────────────

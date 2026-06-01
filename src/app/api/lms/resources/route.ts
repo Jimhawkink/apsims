@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('school_lms_resources')
     .insert([{
-      tenant_id: session.tenant_id,
+      tenant_id: (session as any).tenant_id,
       subject_id: subject_id || null,
       form_id: form_id || null,
       topic_name: topic_name.trim(),

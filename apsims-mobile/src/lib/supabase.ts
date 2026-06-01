@@ -22,7 +22,7 @@ export interface UserSession {
     portal_user_id: number;
     username: string;
     full_name: string;
-    user_type: 'teacher' | 'parent' | 'student' | 'principal';
+    user_type: 'teacher' | 'parent' | 'student' | 'principal' | 'bursar';
     linked_teacher_id: number | null;
     linked_student_id: number | null;
     student_name?: string;
@@ -2048,9 +2048,10 @@ export async function getSubjectMeanScores(formId: number, termId: number): Prom
 
         const subjectMap = new Map<number, { name: string; scores: number[]; grades: string[] }>();
         marks.forEach((m: any) => {
-            const existing = subjectMap.get(m.subject_id) || { name: (m as any).school_subjects?.subject_name || 'Unknown', scores: [], grades: [] };
-            existing.scores.push(m.score);
-            if (m.grade) existing.grades.push(m.grade);
+            const existing: { name: string; scores: number[]; grades: string[] } =
+                subjectMap.get(m.subject_id) || { name: (m as any).school_subjects?.subject_name || 'Unknown', scores: [] as number[], grades: [] as string[] };
+            existing.scores.push(m.score as number);
+            if (m.grade) existing.grades.push(m.grade as string);
             subjectMap.set(m.subject_id, existing);
         });
 
@@ -2071,7 +2072,8 @@ export async function getCBCOverview(termId: number): Promise<{ subjectName: str
         if (!data) return [];
         const map = new Map<number, { name: string; ee: number; me: number; ae: number; be: number; total: number }>();
         data.forEach((r: any) => {
-            const existing = map.get(r.subject_id) || { name: (r as any).school_subjects?.subject_name || 'Unknown', ee: 0, me: 0, ae: 0, be: 0, total: 0 };
+            const existing: { name: string; ee: number; me: number; ae: number; be: number; total: number } =
+                map.get(r.subject_id) || { name: (r as any).school_subjects?.subject_name || 'Unknown', ee: 0, me: 0, ae: 0, be: 0, total: 0 };
             existing.total++;
             if (r.rubric_level === 'EE') existing.ee++;
             else if (r.rubric_level === 'ME') existing.me++;
@@ -2079,7 +2081,9 @@ export async function getCBCOverview(termId: number): Promise<{ subjectName: str
             else if (r.rubric_level === 'BE') existing.be++;
             map.set(r.subject_id, existing);
         });
-        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+        return Array.from(map.values())
+            .map(v => ({ subjectName: v.name, ee: v.ee, me: v.me, ae: v.ae, be: v.be, total: v.total }))
+            .sort((a, b) => a.subjectName.localeCompare(b.subjectName));
     } catch { return []; }
 }
 

@@ -217,7 +217,7 @@ export default function StudentDashboard() {
                                 )}
                             </View>
                             <TouchableOpacity
-                                onPress={() => navigation.navigate('Timetable')}
+                                onPress={() => (navigation as any).navigate('Timetable')}
                                 style={st.todayArrow}
                             >
                                 <Text style={{ color: '#fff', fontSize: 22 }}>→</Text>

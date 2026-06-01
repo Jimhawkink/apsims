@@ -70,9 +70,9 @@ export interface FormPerf {
 export type TabKey = 'overview' | 'subjects' | 'streams' | 'trends' | 'individual' | 'comparison' | 'gradesheet' | 'atrisk' | 'cbc' | 'teachers' | 'forms' | 'departmental';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-export const EXAM_TYPES = ['CAT 1', 'CAT 2', 'Mid-Term', 'End-Term', 'Mock', 'KCSE Trial'];
+const EXAM_TYPES = ['CAT 1', 'CAT 2', 'Mid-Term', 'End-Term', 'Mock', 'KCSE Trial'];
 
-export const GRADE_COLORS: Record<string, { bg: string; text: string; light: string }> = {
+const GRADE_COLORS: Record<string, { bg: string; text: string; light: string }> = {
     'A': { bg: '#059669', text: '#fff', light: '#d1fae5' },
     'A-': { bg: '#10b981', text: '#fff', light: '#d1fae5' },
     'B+': { bg: '#0ea5e9', text: '#fff', light: '#e0f2fe' },
@@ -86,9 +86,9 @@ export const GRADE_COLORS: Record<string, { bg: string; text: string; light: str
     'D-': { bg: '#dc2626', text: '#fff', light: '#fee2e2' },
     'E': { bg: '#991b1b', text: '#fff', light: '#fee2e2' },
 };
-export const gc = (g: string) => GRADE_COLORS[g] || { bg: '#64748b', text: '#fff', light: '#f1f5f9' };
+const gc = (g: string) => GRADE_COLORS[g] || { bg: '#64748b', text: '#fff', light: '#f1f5f9' };
 
-export const CHART_PALETTE = [
+const CHART_PALETTE = [
     '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
     '#06b6d4', '#f97316', '#ec4899', '#14b8a6', '#6366f1',
     '#84cc16', '#a855f7',
@@ -103,7 +103,7 @@ function stdDev(nums: number[]): number {
 }
 
 // ─── Main hook: all data computation ─────────────────────────────────────────
-export function useAnalysisData() {
+function useAnalysisData() {
     const [forms, setForms] = useState<any[]>([]);
     const [streams, setStreams] = useState<any[]>([]);
     const [subjects, setSubjects] = useState<any[]>([]);

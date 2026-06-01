@@ -633,7 +633,7 @@ export default function CBCTeacherHubScreen() {
                 if (s.id !== studentId) return s;
                 const newLevels = { ...s.levels, [subjectId]: level };
                 const levelCounts: Record<Level, number> = { EE: 0, ME: 0, AE: 0, BE: 0 };
-                Object.values(newLevels).forEach(lv => { if (lv) levelCounts[lv]++; });
+                Object.values(newLevels).forEach(lv => { if (lv) levelCounts[lv as Level]++; });
                 const counts = LEVELS.map(lv => ({ lv, n: levelCounts[lv] })).sort((a, b) => b.n - a.n);
                 return { ...s, levels: newLevels, levelCounts, overall: counts[0]?.n > 0 ? counts[0].lv : null };
             }));

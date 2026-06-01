@@ -230,7 +230,7 @@ export default function CBCReportCardTemplate({ student, pathway, subjects, summ
               <div key={r.sub.id} className="flex items-center gap-2">
                 <span className="text-[10px] font-semibold text-gray-700 w-24 shrink-0 truncate">{r.sub.subject_name}</span>
                 <div className="flex-1 h-3 rounded-full bg-gray-100 overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: { EE: '100%', ME: '75%', AE: '50%', BE: '25%' }[r.level!] || '0%', background: R[r.level!]?.color }} />
+                  <div className="h-full rounded-full" style={{ width: ({ EE: '100%', ME: '75%', AE: '50%', BE: '25%' } as Record<string, string>)[r.level!] || '0%', background: R[r.level! as keyof typeof R]?.color }} />
                 </div>
                 <Badge level={r.level} sz="sm" />
               </div>

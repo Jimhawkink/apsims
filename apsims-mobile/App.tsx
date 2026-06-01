@@ -18,6 +18,7 @@ import TeacherTabNavigator from './src/navigation/TeacherTabNavigator';
 import ParentTabNavigator from './src/navigation/ParentTabNavigator';
 import StudentTabNavigator from './src/navigation/StudentTabNavigator';
 import PrincipalTabNavigator from './src/navigation/PrincipalTabNavigator';
+import BursarTabNavigator from './src/navigation/BursarTabNavigator';
 
 // ── Auth ─────────────────────────────────────────────────────
 import LoginScreen from './src/screens/LoginScreen';
@@ -144,6 +145,8 @@ export default function App() {
                                 <Stack.Screen name="Login" component={LoginScreen} />
                             ) : session.user_type === 'principal' ? (
                                 <Stack.Screen name="PrincipalTabs" component={PrincipalTabNavigator} />
+                            ) : session.user_type === 'bursar' ? (
+                                <Stack.Screen name="BursarTabs" component={BursarTabNavigator} />
                             ) : session.user_type === 'teacher' ? (
                                 <Stack.Screen name="TeacherTabs" component={TeacherTabNavigator} />
                             ) : session.user_type === 'parent' ? (

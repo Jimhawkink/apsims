@@ -314,12 +314,41 @@ export function autoGenerateTimetable(
 }
 
 // ─── Enhanced Verification Engine ─────────────────────────────────
+// ─── Kenya 2026 Curriculum Detection Helpers ──────────────────────
+// Detects curriculum type from form_name when curriculum_type is not stored
+export function detectCurriculumType(form: { form_name: string; curriculum_type?: string }): 'CBC' | '844' {
+  if (form.curriculum_type === 'CBC') return 'CBC';
+  if (form.curriculum_type === '844') return '844';
+  const n = form.form_name.toLowerCase();
+  // Grade 10/11/12 = CBC Senior School (Kenya 2024+)
+  if (/grade\s*(10|11|12)|gr\.?\s*(10|11|12)|g10|g11|g12/.test(n)) return 'CBC';
+  // Junior Secondary (Grade 7-9) = CBC
+  if (/grade\s*[7-9]|jss|junior\s*secondary/.test(n)) return 'CBC';
+  // Form 1-4 = 8-4-4
+  if (/form\s*[1-4]|f[1-4]/.test(n)) return '844';
+  return '844'; // default
+}
+
+export function isCBCSubject(subjectName: string): boolean {
+  const cbcOnly = ['community service', 'csl', 'physical education', 'health education', 'peh',
+    'social studies', 'integrated science', 'pre-technical', 'home science', 'creative arts',
+    'life skills', 'pathways', 'stem pathway', 'arts pathway', 'social sciences pathway'];
+  const n = subjectName.toLowerCase();
+  return cbcOnly.some(k => n.includes(k));
+}
+
+export function is844Subject(subjectName: string): boolean {
+  const n = subjectName.toLowerCase();
+  return ['history & government', 'history and government', 'christian religious education', 'cre',
+    'islamic religious education', 'ire', 'hindu religious education'].some(k => n.includes(k));
+}
+
 export function verifyTimetable(
   entries: Entry[], requirements: Requirement[], periods: Period[],
   teachers: { id: number; first_name: string; last_name: string }[],
-  forms: { id: number; form_name: string }[],
+  forms: { id: number; form_name: string; curriculum_type?: string }[],
   streams: { id: number; stream_name: string }[],
-  subjects: { id: number; subject_name: string }[],
+  subjects: { id: number; subject_name: string; cbc_subject_type?: string }[],
   term: string, year: number, maxTeacherPerDay: number,
 ): ConflictItem[] {
   const conflicts: ConflictItem[] = [];
@@ -444,7 +473,205 @@ export function verifyTimetable(
     });
   });
 
+  // ════════════════════════════════════════════════════════════════
+  // KENYA 2026 CBC / 8-4-4 DUAL CURRICULUM CHECKS
+  // ════════════════════════════════════════════════════════════════
+
+  // Build curriculum map: formId → 'CBC' | '844'
+  const formCurriculumMap = new Map<number, 'CBC' | '844'>();
+  forms.forEach(f => formCurriculumMap.set(f.id, detectCurriculumType(f)));
+
+  const cbcFormIds = new Set(forms.filter(f => formCurriculumMap.get(f.id) === 'CBC').map(f => f.id));
+  const f844Ids   = new Set(forms.filter(f => formCurriculumMap.get(f.id) === '844').map(f => f.id));
+
+  const hasBothCurricula = cbcFormIds.size > 0 && f844Ids.size > 0;
+
+  // ── CHECK 7: Teacher teaching BOTH CBC and 8-4-4 in the same period ──
+  if (hasBothCurricula) {
+    DAYS.forEach(day => {
+      lessonPeriods.forEach(p => {
+        const slot = te.filter(e => e.day_of_week === day && e.period_id === p.id && e.teacher_id);
+        const teacherMap = new Map<number, { cbc: boolean; f844: boolean; names: string[] }>();
+        slot.forEach(e => {
+          const isCBC = cbcFormIds.has(e.form_id);
+          const is844 = f844Ids.has(e.form_id);
+          if (!e.teacher_id) return;
+          const cur = teacherMap.get(e.teacher_id) || { cbc: false, f844: false, names: [] };
+          if (isCBC) cur.cbc = true;
+          if (is844) cur.f844 = true;
+          cur.names.push(getName(e.form_id, forms, 'form'));
+          teacherMap.set(e.teacher_id, cur);
+        });
+        teacherMap.forEach((val, tid) => {
+          if (val.cbc && val.f844) {
+            conflicts.push({
+              type: 'curriculum_conflict', severity: 'error', curriculum: 'CBC',
+              message: `⚠️ ${getName(tid, teachers, 'teacher')} crosses curricula`,
+              details: `${day} ${p.period_name}: Teaching CBC AND 8-4-4 classes simultaneously — ${val.names.join(' & ')}`,
+              day, period: p.period_name,
+            });
+          }
+        });
+      });
+    });
+  }
+
+  // ── CHECK 8: CBC form missing Community Service Learning (CSL) ──
+  if (cbcFormIds.size > 0) {
+    const CSL_KEYWORDS = ['community service', 'csl', 'service learning'];
+    const clSubjects = subjects.filter(s =>
+      CSL_KEYWORDS.some(k => s.subject_name.toLowerCase().includes(k)) ||
+      s.cbc_subject_type === 'CSL'
+    );
+    const clSubjectIds = new Set(clSubjects.map(s => s.id));
+
+    cbcFormIds.forEach(fid => {
+      const formStreams = [...new Set(te.filter(e => e.form_id === fid).map(e => e.stream_id))];
+      formStreams.forEach(sid => {
+        const hasCSL = te.some(e =>
+          e.form_id === fid && e.stream_id === sid && e.subject_id && clSubjectIds.has(e.subject_id)
+        );
+        if (!hasCSL && clSubjects.length > 0) {
+          conflicts.push({
+            type: 'cbc_missing', severity: 'warning', curriculum: 'CBC',
+            message: `📚 Missing CSL — ${getName(fid, forms, 'form')} ${getName(sid, streams, 'stream')}`,
+            details: 'KICD requires 2 Community Service Learning periods/week for CBC Senior School',
+          });
+        }
+      });
+    });
+  }
+
+  // ── CHECK 9: CBC form missing Physical Education & Health ──
+  if (cbcFormIds.size > 0) {
+    const PE_KEYWORDS = ['physical education', 'peh', 'pe & health', 'sports'];
+    const peSubjects = subjects.filter(s =>
+      PE_KEYWORDS.some(k => s.subject_name.toLowerCase().includes(k)) ||
+      s.cbc_subject_type === 'PE'
+    );
+    const peSubjectIds = new Set(peSubjects.map(s => s.id));
+
+    cbcFormIds.forEach(fid => {
+      const formStreams = [...new Set(te.filter(e => e.form_id === fid).map(e => e.stream_id))];
+      formStreams.forEach(sid => {
+        const hasPE = te.some(e =>
+          e.form_id === fid && e.stream_id === sid && e.subject_id && peSubjectIds.has(e.subject_id)
+        );
+        if (!hasPE && peSubjects.length > 0) {
+          conflicts.push({
+            type: 'cbc_missing', severity: 'warning', curriculum: 'CBC',
+            message: `🏃 Missing PE&H — ${getName(fid, forms, 'form')} ${getName(sid, streams, 'stream')}`,
+            details: 'KICD CBC Senior School requires Physical Education & Health (2 periods/week)',
+          });
+        }
+      });
+    });
+  }
+
+  // ── CHECK 10: Subject–Curriculum mismatch (CBC subject in 8-4-4 form) ──
+  if (hasBothCurricula) {
+    te.forEach(e => {
+      if (!e.subject_id) return;
+      const sub = subjects.find(s => s.id === e.subject_id);
+      if (!sub) return;
+      const isCBCForm = cbcFormIds.has(e.form_id);
+      const is844Form = f844Ids.has(e.form_id);
+      const cbcSubj = isCBCSubject(sub.subject_name) || sub.cbc_subject_type === 'CSL';
+      const f844Subj = is844Subject(sub.subject_name);
+      if (is844Form && cbcSubj) {
+        conflicts.push({
+          type: 'curriculum_conflict', severity: 'warning', curriculum: '844',
+          message: `🔀 CBC subject in 8-4-4 class — ${sub.subject_name}`,
+          details: `${getName(e.form_id, forms, 'form')} ${getName(e.stream_id, streams, 'stream')}: "${sub.subject_name}" is a CBC-specific subject`,
+        });
+      }
+      if (isCBCForm && f844Subj) {
+        conflicts.push({
+          type: 'curriculum_conflict', severity: 'info', curriculum: 'CBC',
+          message: `🔀 8-4-4 subject in CBC class — ${sub.subject_name}`,
+          details: `${getName(e.form_id, forms, 'form')} ${getName(e.stream_id, streams, 'stream')}: "${sub.subject_name}" is typically an 8-4-4 subject`,
+        });
+      }
+    });
+  }
+
+  // ── CHECK 11: KICD Minimum Weekly Lessons (Grade 10/11/12 = 40/week) ──
+  cbcFormIds.forEach(fid => {
+    const formName = getName(fid, forms, 'form');
+    const formStreams = [...new Set(te.filter(e => e.form_id === fid).map(e => e.stream_id))];
+    formStreams.forEach(sid => {
+      const streamLessons = te.filter(e => e.form_id === fid && e.stream_id === sid).length;
+      const streamName = getName(sid, streams, 'stream');
+      if (streamLessons < 35 && streamLessons > 0) {
+        conflicts.push({
+          type: 'cbc_missing', severity: 'warning', curriculum: 'CBC',
+          message: `📊 Low lesson count — ${formName} ${streamName}`,
+          details: `Only ${streamLessons} lessons/week. KICD CBC Senior School recommends 38–40 periods/week`,
+        });
+      }
+    });
+  });
+
+  // ── CHECK 12: Practical subjects need double periods (CBC Lab Rule) ──
+  const PRACTICAL_KEYWORDS = ['biology', 'chemistry', 'physics', 'computer', 'agriculture', 'home science', 'art'];
+  cbcFormIds.forEach(fid => {
+    const formStreams = [...new Set(te.filter(e => e.form_id === fid).map(e => e.stream_id))];
+    formStreams.forEach(sid => {
+      PRACTICAL_KEYWORDS.forEach(kw => {
+        const practicalEntries = te.filter(e =>
+          e.form_id === fid && e.stream_id === sid && e.subject_id &&
+          subjects.find(s => s.id === e.subject_id)?.subject_name.toLowerCase().includes(kw)
+        );
+        const hasDouble = practicalEntries.some(e => e.is_double);
+        if (practicalEntries.length >= 2 && !hasDouble) {
+          const subName = subjects.find(s => s.id === practicalEntries[0].subject_id)?.subject_name || kw;
+          conflicts.push({
+            type: 'cbc_missing', severity: 'info', curriculum: 'CBC',
+            message: `🔬 No double period — ${subName} (${getName(fid, forms, 'form')})`,
+            details: 'KICD CBC: Practical subjects (Science, Computer, Art) should have at least one double period for lab work',
+          });
+        }
+      });
+    });
+  });
+
+  // ── CHECK 13: Teacher cross-curriculum daily overload ──
+  // A teacher teaching BOTH CBC and 8-4-4 across the week — warn if > 35 total
+  if (hasBothCurricula) {
+    teachers.forEach(t => {
+      const cbcLessons = te.filter(e => e.teacher_id === t.id && cbcFormIds.has(e.form_id)).length;
+      const f844Lessons = te.filter(e => e.teacher_id === t.id && f844Ids.has(e.form_id)).length;
+      if (cbcLessons > 0 && f844Lessons > 0 && (cbcLessons + f844Lessons) > 30) {
+        conflicts.push({
+          type: 'curriculum_conflict', severity: 'warning',
+          message: `⚡ Cross-curriculum overload — ${t.first_name} ${t.last_name}`,
+          details: `Teaching ${cbcLessons} CBC + ${f844Lessons} 8-4-4 lessons/week (${cbcLessons + f844Lessons} total). Consider curriculum specialization`,
+        });
+      }
+    });
+  }
+
+  // ── CHECK 14: Form 4 (8-4-4) — KCSE 2026 last cohort integrity ──
+  const form4s = forms.filter(f => {
+    const n = f.form_name.toLowerCase();
+    return /form\s*4|f4/.test(n) && formCurriculumMap.get(f.id) === '844';
+  });
+  form4s.forEach(f4 => {
+    const f4Streams = [...new Set(te.filter(e => e.form_id === f4.id).map(e => e.stream_id))];
+    f4Streams.forEach(sid => {
+      const subjectCount = new Set(te.filter(e => e.form_id === f4.id && e.stream_id === sid && e.subject_id).map(e => e.subject_id)).size;
+      if (subjectCount < 7) {
+        conflicts.push({
+          type: 'missing_assignment', severity: 'warning', curriculum: '844',
+          message: `📋 KCSE 2026 Form 4 — ${getName(f4.id, forms, 'form')} ${getName(sid, streams, 'stream')}`,
+          details: `Only ${subjectCount} subjects scheduled. KCSE candidates need minimum 7 subjects. This is the LAST 8-4-4 KCSE cohort — ensure full coverage`,
+        });
+      }
+    });
+  });
+
   return conflicts;
+
 }
 
 // ─── TSC Workload Summary ──────────────────────────────────────────

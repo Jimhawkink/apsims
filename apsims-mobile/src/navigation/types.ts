@@ -37,6 +37,14 @@ export type PrincipalTabParamList = {
     More: undefined;
 };
 
+export type BursarTabParamList = {
+    Dashboard: undefined;
+    Fees: undefined;
+    Expenses: undefined;
+    Income: undefined;
+    More: undefined;
+};
+
 export type RootStackParamList = {
     Login: undefined;
     PINLogin: undefined;
@@ -44,6 +52,7 @@ export type RootStackParamList = {
     ParentTabs: NavigatorScreenParams<ParentTabParamList>;
     StudentTabs: NavigatorScreenParams<StudentTabParamList>;
     PrincipalTabs: NavigatorScreenParams<PrincipalTabParamList>;
+    BursarTabs: NavigatorScreenParams<BursarTabParamList>;
 
     // ── Shared modal / pushed screens ──────────────────────────
     Notifications: { portalUserId: number };
@@ -112,4 +121,10 @@ export type RootStackParamList = {
     FinanceReport: undefined;
     StoresReport: undefined;
     LibraryReport: undefined;
+
+    // ── Bursar screens ─────────────────────────────────────────
+    BursarStudentFees: { studentId: number; studentName: string; formId: number };
+    BursarAddExpense: undefined;
+    BursarAddIncome: undefined;
+    BursarFeeReceipt: { receiptNo: string; studentName: string; amount: number; method: string };
 };
