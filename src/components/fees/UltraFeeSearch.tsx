@@ -299,7 +299,7 @@ export default function UltraFeeSearch({
             backdropFilter: 'blur(20px)',
             border: `2px solid ${isFocused ? '#6366f1' : '#e2e8f0'}`,
             borderRadius: 16, fontSize: 14, fontWeight: 500, color: '#1e293b',
-            outline: 'none', boxSizing: 'border-box', width: '100%',
+            outline: 'none', boxSizing: 'border-box',
             boxShadow: isFocused ? '0 0 0 4px rgba(99,102,241,0.12)' : '0 4px 16px rgba(0,0,0,0.06)',
             transition: 'all 0.2s ease',
           } as React.CSSProperties}

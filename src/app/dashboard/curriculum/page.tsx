@@ -383,7 +383,7 @@ function OverviewTab({ d, coverageAvg }: any) {
           <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
             <FiPieChart className="text-indigo-500" size={15} /> Coverage by Department
           </h3>
-          <div style={{ height: 180 }} className="mx-auto" style2={{ maxWidth: 180 }}>
+          <div style={{ height: 180, maxWidth: 180 }} className="mx-auto">
             <Doughnut data={doughnutData} options={{ ...chartOpts, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8 } } } } as any} />
           </div>
         </div>
