@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (!username?.trim() || !password?.trim()) {
     return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
   }
-  if (user_type !== 'teacher' && user_type !== 'principal' && !linked_student_id) {
+  if (user_type !== 'teacher' && user_type !== 'principal' && user_type !== 'bursar' && !linked_student_id) {
     return NextResponse.json({ error: 'Linked student is required for parent/student users' }, { status: 400 });
   }
 
