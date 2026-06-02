@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import {
@@ -39,8 +40,21 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [refreshKey, setRefreshKey] = useState(0);
     const [userName, setUserName] = useState('Admin');
+    const [userRole, setUserRole] = useState('');
+    const searchParams = useSearchParams();
+    const accessDenied = searchParams.get('access_denied') === '1';
     const currentYear = new Date().getFullYear();
     const today = new Date().toISOString().split('T')[0];
+
+    // Load role from session
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const u = localStorage.getItem('school_user');
+            if (u) { try { setUserRole(JSON.parse(u).role || JSON.parse(u).user_type || ''); } catch { } }
+            const c = document.cookie.split('; ').find(r => r.startsWith('alpha_session='));
+            if (c) { try { const d = JSON.parse(atob(c.split('=')[1])); setUserRole(d.role || d.user_type || ''); } catch { } }
+        }
+    }, []);
 
     // ── Original stats object (for UltraCardsSection) ──
     const [stats, setStats] = useState({
@@ -324,6 +338,29 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-4 ultra-animate">
+
+            {/* ════ AUDITOR READ-ONLY BANNER ════ */}
+            {userRole.toLowerCase() === 'auditor' && (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-800">
+                    <span className="text-xl">🔍</span>
+                    <div className="flex-1">
+                        <p className="font-black text-sm">Auditor Read-Only Access</p>
+                        <p className="text-xs font-medium opacity-80">You have view-only access. Write operations and sensitive pages are restricted.</p>
+                    </div>
+                    <span className="px-3 py-1 bg-amber-200 text-amber-800 rounded-full text-[10px] font-black uppercase tracking-wider">READ ONLY</span>
+                </div>
+            )}
+
+            {/* ════ ACCESS DENIED TOAST ════ */}
+            {accessDenied && (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-red-800">
+                    <span className="text-xl">🚫</span>
+                    <div className="flex-1">
+                        <p className="font-black text-sm">Access Denied</p>
+                        <p className="text-xs font-medium opacity-80">You do not have permission to access that page. Contact your administrator.</p>
+                    </div>
+                </div>
+            )}
 
             {/* ════════════════ HERO HEADER ════════════════ */}
             <div className="relative overflow-hidden rounded-2xl" style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#312e81 100%)' }}>
