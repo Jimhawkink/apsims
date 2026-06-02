@@ -6,13 +6,41 @@ const PUBLIC_ROUTES = [
   '/portal/login',
 ];
 
+// ─── Role hierarchy ─────────────────────────────────────────────────────────
+// auditor  → read-only across entire dashboard (blocked from all write routes)
+// bursar   → finance + fees only
+// teacher  → exams + attendance only
+// admin / principal → full access
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Routes that require specific roles
 const ROLE_ROUTES: Record<string, string[]> = {
-  '/dashboard/settings': ['admin', 'principal'],
-  '/dashboard/payroll': ['admin', 'principal', 'bursar'],
-  '/dashboard/users': ['admin', 'principal'],
-  '/dashboard/sms': ['admin', 'principal'],
+  '/dashboard/settings':        ['admin', 'principal'],
+  '/dashboard/payroll':         ['admin', 'principal', 'bursar'],
+  '/dashboard/users':           ['admin', 'principal'],
+  '/dashboard/sms':             ['admin', 'principal'],
+  '/dashboard/website-builder': ['admin', 'principal'],
+  '/dashboard/bank-reconciliation': ['admin', 'principal', 'bursar'],
+  '/dashboard/staff/salary-slips':  ['admin', 'principal', 'bursar'],
+  '/dashboard/ptm':             ['admin', 'principal', 'teacher'],
 };
+
+// Write-action routes blocked for auditor role (auditor = read-only)
+const AUDITOR_BLOCKED_PATHS = [
+  '/dashboard/fees/collect',
+  '/dashboard/fees/bulk-reminders',
+  '/dashboard/students/new',
+  '/dashboard/expenses',
+  '/dashboard/income',
+  '/dashboard/payroll',
+  '/dashboard/staff/salary-slips',
+  '/dashboard/settings',
+  '/dashboard/users',
+  '/dashboard/sms',
+  '/dashboard/website-builder',
+  '/dashboard/exams/marks',
+  '/dashboard/attendance/mark',
+];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -27,8 +55,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow public routes
-  if (PUBLIC_ROUTES.some(r => pathname === r)) {
+  // Allow public routes + public school website
+  if (PUBLIC_ROUTES.some(r => pathname === r) || pathname.startsWith('/school')) {
     return NextResponse.next();
   }
 
@@ -59,13 +87,27 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
-    // Role-based access check
+    const userRole = (decoded.role || decoded.user_type || '').toLowerCase();
+
+    // ── Auditor: block all write routes ──────────────────────────────────────
+    if (userRole === 'auditor') {
+      const isBlocked = AUDITOR_BLOCKED_PATHS.some(p => pathname.startsWith(p));
+      if (isBlocked) {
+        const url = new URL('/dashboard', req.url);
+        url.searchParams.set('access_denied', '1');
+        url.searchParams.set('reason', 'auditor_readonly');
+        return NextResponse.redirect(url);
+      }
+    }
+
+    // ── Role-based access check ───────────────────────────────────────────────
     for (const [route, roles] of Object.entries(ROLE_ROUTES)) {
       if (pathname.startsWith(route)) {
-        const userRole = decoded.role || decoded.user_type || '';
         if (!roles.includes(userRole)) {
-          // Access denied — redirect to dashboard
-          return NextResponse.redirect(new URL('/dashboard', req.url));
+          // Access denied — redirect to dashboard with notice
+          const url = new URL('/dashboard', req.url);
+          url.searchParams.set('access_denied', '1');
+          return NextResponse.redirect(url);
         }
       }
     }
