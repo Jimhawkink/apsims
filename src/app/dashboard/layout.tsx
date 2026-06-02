@@ -16,6 +16,8 @@ import {
 import OfflineBanner from '@/components/pwa/OfflineBanner';
 import CommandPalette from '@/components/CommandPalette';
 import PremierDashboard from '@/components/PremierDashboard';
+import NotificationsDropdown from '@/components/NotificationsDropdown';
+import QuickActionsButton from '@/components/QuickActionsButton';
 import { useOffline } from '@/hooks/useOffline';
 
 interface UserSession {
@@ -83,6 +85,7 @@ const menuGroups = [
             { href: '/dashboard/exams/cbc-reports', label: '📊 CBC Reports Hub', icon: FiBarChart2, perm: 'exams' },
             { href: '/dashboard/students/subject-combinations', label: 'CBC Subject Combos', icon: FiGrid, perm: 'students' },
             { href: '/dashboard/remedial', label: 'Remedial Programs', icon: FiTrendingUp, perm: 'remedial' },
+            { href: '/dashboard/exams/kcse-prediction', label: '🎯 KCSE/KCPE Prediction', icon: FiBarChart2, perm: 'exams' },
         ]
     },
     {
@@ -105,6 +108,7 @@ const menuGroups = [
             { href: '/dashboard/hr-payroll', label: 'Overview', icon: FiBriefcase, perm: 'payroll' },
             { href: '/dashboard/hr-payroll/staff', label: 'Staff Directory', icon: FiUserCheck, perm: 'staff' },
             { href: '/dashboard/hr-payroll/payroll', label: 'Run Payroll', icon: FiCreditCard, perm: 'payroll' },
+            { href: '/dashboard/staff/salary-slips', label: '💰 Salary Slips / Payslips', icon: FiCreditCard, perm: 'payroll' },
         ]
     },
     {
@@ -137,6 +141,7 @@ const menuGroups = [
             { href: '/dashboard/fees/receipts', label: '🧾 Pro Receipts', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/plans-scholarships', label: '💰 Plans & Scholarships', icon: FiCalendar, perm: 'fees' },
             { href: '/dashboard/fees/audit', label: '🔒 Fee Audit Trail', icon: FiShield, perm: 'fees' },
+            { href: '/dashboard/payments/integration', label: '📲 M-Pesa STK Push', icon: FiSmartphone, perm: 'fees' },
         ]
     },
     {
@@ -177,6 +182,9 @@ const menuGroups = [
             { href: '/dashboard/ptm', label: 'PTM Scheduler', icon: FiCalendar, perm: 'students' },
             { href: '/dashboard/fees/defaulter-automation', label: 'Fee Defaulter Automation', icon: FiAlertCircle, perm: 'fees' },
             { href: '/dashboard/knec-compliance', label: 'KNEC / NEMIS Compliance', icon: FiShield, perm: 'reports' },
+            { href: '/dashboard/tutorials', label: '🎬 Video Tutorials', icon: FiBookOpen, perm: 'dashboard' },
+            { href: '/dashboard/exams/kcse-prediction', label: '🎯 KCSE/KCPE Prediction AI', icon: FiBarChart2, perm: 'exams' },
+            { href: '/dashboard/exams/digital-delivery', label: '📲 Digital Report Delivery', icon: FiSend, perm: 'exams' },
         ]
     },
     {
@@ -353,6 +361,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return (
             <>
                 <CommandPalette />
+                <QuickActionsButton />
                 <PremierDashboard user={user} onLogout={handleLogout}>
                     {children}
                 </PremierDashboard>
@@ -364,6 +373,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
         <div className="min-h-screen bg-[#f0f2f5] flex font-sans text-gray-800">
             <CommandPalette />
+            <QuickActionsButton />
             {pageLoading && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, height: 3, zIndex: 9999,
@@ -549,9 +559,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-gray-500 hover:text-gray-800">
                             <FiMenu size={22} />
                         </button>
-                        <div className="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-72 focus-within:w-96 focus-within:ring-2 focus-within:ring-blue-100 focus-within:bg-white focus-within:border-blue-300 transition-all duration-300">
+                        <div
+                            className="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-72 cursor-pointer hover:bg-white hover:border-blue-300 transition-all duration-300"
+                            onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))}
+                            title="Search (Ctrl+K)"
+                        >
                             <FiSearch className="text-gray-400" size={15} />
-                            <input type="text" placeholder="Search students, staff, reports..." className="bg-transparent text-[13px] text-gray-800 outline-none w-full placeholder:text-gray-400" />
+                            <span className="text-[13px] text-gray-400 select-none">Search students, staff, reports…</span>
+                            <span className="ml-auto text-[10px] text-gray-300 font-mono bg-gray-100 px-1.5 py-0.5 rounded">⌘K</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -562,13 +577,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             : <FiWifi size={13} className="text-green-600" />
                           }
                         </div>
-                        <button className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
-                            <FiBell size={17} />
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-                        </button>
-                        <button className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+                        {/* Notifications - LIVE */}
+                        <NotificationsDropdown />
+                        {/* Settings */}
+                        <Link href="/dashboard/settings" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors" title="Settings">
                             <FiSettings size={17} />
-                        </button>
+                        </Link>
                     </div>
                 </header>
 

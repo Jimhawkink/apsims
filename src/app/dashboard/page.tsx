@@ -20,6 +20,7 @@ import AcademicsPanel from './components/AcademicsPanel';
 import StaffPanel from './components/StaffPanel';
 import StoresPanel from './components/StoresPanel';
 import PortalsPanel from './components/PortalsPanel';
+import AIInsightsWidget from './components/AIInsightsWidget';
 import './components/ultra-dashboard.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
@@ -526,35 +527,14 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* ── ROW 6: Subject Performance + Top Students ── */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* Subject performance table */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">📚 Subject Performance Ranking</p>
-                                <Link href="/dashboard/exams/analysis" className="text-xs text-indigo-600 font-bold flex items-center gap-1">Full Analysis <FiChevronRight size={12} /></Link>
-                            </div>
-                            <div className="divide-y divide-gray-50">
-                                {subjectPerf.slice(0, 8).map((s, i) => (
-                                    <div key={s.name} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50">
-                                        <div className="flex items-center gap-3">
-                                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white ${i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-orange-400' : 'bg-gray-200 text-gray-600'}`}>{i + 1}</span>
-                                            <span className="text-sm font-semibold text-gray-700">{s.name}</span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-20 bg-gray-100 rounded-full h-2">
-                                                <div className="h-2 rounded-full" style={{ width: `${s.avg}%`, background: s.avg >= 70 ? '#22c55e' : s.avg >= 50 ? '#f59e0b' : '#ef4444' }} />
-                                            </div>
-                                            <span className={`text-sm font-black w-10 text-right ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{s.avg}%</span>
-                                        </div>
-                                    </div>
-                                ))}
-                                {subjectPerf.length === 0 && <div className="px-5 py-8 text-center text-gray-400 text-sm">No exam marks recorded yet</div>}
-                            </div>
+                    {/* ── AI INSIGHTS WIDGET ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="lg:col-span-1">
+                            <AIInsightsWidget />
                         </div>
 
                         {/* Top students */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">🏆 Top Performing Students</p>
                                 <Link href="/dashboard/exams/merit-list" className="text-xs text-indigo-600 font-bold flex items-center gap-1">Merit List <FiChevronRight size={12} /></Link>
@@ -580,6 +560,35 @@ export default function DashboardPage() {
                                 {topStudents.length === 0 && <div className="px-5 py-8 text-center text-gray-400 text-sm">No exam data yet</div>}
                             </div>
                         </div>
+                    </div>
+
+                    {/* ── ROW 6: Subject Performance ── */}
+                    <div className="grid grid-cols-1 gap-4">
+                        {/* Subject performance table */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">📚 Subject Performance Ranking</p>
+                                <Link href="/dashboard/exams/analysis" className="text-xs text-indigo-600 font-bold flex items-center gap-1">Full Analysis <FiChevronRight size={12} /></Link>
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {subjectPerf.slice(0, 8).map((s, i) => (
+                                    <div key={s.name} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50">
+                                        <div className="flex items-center gap-3">
+                                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white ${i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-orange-400' : 'bg-gray-200 text-gray-600'}`}>{i + 1}</span>
+                                            <span className="text-sm font-semibold text-gray-700">{s.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-20 bg-gray-100 rounded-full h-2">
+                                                <div className="h-2 rounded-full" style={{ width: `${s.avg}%`, background: s.avg >= 70 ? '#22c55e' : s.avg >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                            </div>
+                                            <span className={`text-sm font-black w-10 text-right ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{s.avg}%</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {subjectPerf.length === 0 && <div className="px-5 py-8 text-center text-gray-400 text-sm">No exam marks recorded yet</div>}
+                            </div>
+                        </div>
+
                     </div>
 
                     {/* ── ROW 7: Recent Payments + Recent Enrollments ── */}

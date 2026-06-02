@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet,
     TextInput, RefreshControl, ActivityIndicator, Modal,
-    Alert, FlatList,
+    Alert, FlatList, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
@@ -236,9 +236,10 @@ export default function BursarStoresScreen() {
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#92400e" translucent={false} />
             {/* HEADER */}
             <LinearGradient colors={['#92400e', '#d97706', '#f59e0b']} style={styles.header}>
-                <View style={{ paddingTop: 52, paddingHorizontal: 18, paddingBottom: 0 }}>
+                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 0 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <View>
                             <Text style={styles.headerTitle}>📦 Stores Management</Text>

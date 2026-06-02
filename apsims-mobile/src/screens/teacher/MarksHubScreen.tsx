@@ -449,7 +449,6 @@ export default function MarksHubScreen() {
                 .from('school_students')
                 .select('id, first_name, last_name, admission_number, stream_id, school_streams(stream_name)')
                 .eq('form_id', activeFormId)
-                .eq('status', 'Active')
                 .order('first_name');
             if (selectedStreamId) studQuery = studQuery.eq('stream_id', selectedStreamId);
             const { data: students } = await studQuery;

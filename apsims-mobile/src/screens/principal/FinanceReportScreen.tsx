@@ -3,7 +3,7 @@
 // Fees, Expenses, Payments, Defaulters · Filters · Charts · Grids
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { COLORS, SHADOWS, fmt, fmtFull } from '../../components/ultra/UltraTheme';
@@ -26,7 +26,7 @@ export default function FinanceReportScreen() {
       const [paymentsR, structuresR, studentsR, formsR, streamsR, expensesR] = await Promise.all([
         supabase.from('school_fee_payments').select('*').order('payment_date', { ascending: false }),
         supabase.from('school_fee_structures').select('*'),
-        supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id, stream_id, status, gender').eq('status', 'Active'),
+        supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id, stream_id, status, gender'),
         supabase.from('school_forms').select('*').order('form_level'),
         supabase.from('school_streams').select('*'),
         supabase.from('school_expenses').select('*').order('expense_date', { ascending: false }),
@@ -176,6 +176,7 @@ export default function FinanceReportScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#059669" translucent={false} />
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[COLORS.green]} />} contentContainerStyle={{ paddingBottom: 30 }}>
         {/* Header */}
         <LinearGradient colors={['#059669', '#10b981', '#34d399']} style={styles.header}>
@@ -307,7 +308,7 @@ const styles = StyleSheet.create({
   loadingWrap: { flex: 1 },
   loadingBg: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 14, fontWeight: '700', color: '#1e293b', marginTop: 10 },
-  header: { paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  header: { paddingTop: 16, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 },

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet,
-    useWindowDimensions,
+    useWindowDimensions, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -58,8 +58,9 @@ export default function BursarMoreScreen({ navigation }: any) {
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#0f172a" translucent={false} />
             <LinearGradient colors={['#0f172a', '#1e293b']} style={styles.header}>
-                <View style={{ paddingTop: 52, paddingHorizontal: 18, paddingBottom: 20 }}>
+                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 20 }}>
                     <Text style={styles.headerTitle}>⚡ More Features</Text>
                     <Text style={styles.headerSub}>Reports · Accounts · Payroll · Stores</Text>
                 </View>

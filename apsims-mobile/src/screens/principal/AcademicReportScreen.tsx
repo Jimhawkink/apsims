@@ -3,7 +3,7 @@
 // Grade distribution · Subject performance · Student rankings
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { COLORS, SHADOWS, fmt, fmtPct } from '../../components/ultra/UltraTheme';
@@ -42,7 +42,7 @@ export default function AcademicReportScreen() {
     try {
       const [marksR, studentsR, formsR, streamsR, subjectsR, teachersR, stR] = await Promise.all([
         supabase.from('school_exam_marks').select('*'),
-        supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id, stream_id, status, gender').eq('status', 'Active'),
+        supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id, stream_id, status, gender'),
         supabase.from('school_forms').select('*').order('form_level'),
         supabase.from('school_streams').select('*'),
         supabase.from('school_subjects').select('*'),
@@ -186,6 +186,7 @@ export default function AcademicReportScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#6c5ce7" translucent={false} />
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[COLORS.purple]} />} contentContainerStyle={{ paddingBottom: 30 }}>
         <LinearGradient colors={['#6c5ce7', '#a78bfa', '#c4b5fd']} style={styles.header}>
           <Text style={styles.headerTitle}>📚 Academic Report</Text>
@@ -358,7 +359,7 @@ export default function AcademicReportScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   content: { paddingHorizontal: 16, paddingTop: 12 },
-  header: { paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  header: { paddingTop: 16, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet,
-    RefreshControl, ActivityIndicator, Share,
+    RefreshControl, ActivityIndicator, Share, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
@@ -75,7 +75,7 @@ export default function BursarReportsScreen() {
                 supabase.from('school_income').select('*').eq('year', currentYear),
                 supabase.from('school_forms').select('*').order('form_level'),
                 supabase.from('school_fee_structures').select('form_id,amount').eq('year', currentYear),
-                supabase.from('school_students').select('id,form_id').eq('status', 'Active'),
+                supabase.from('school_students').select('id,form_id'),
                 supabase.from('school_terms').select('*').eq('year', currentYear),
                 supabase.from('school_details').select('school_name').single(),
             ]);
@@ -179,8 +179,9 @@ Powered by APSIMS - Kenya's #1 School System
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#1e1b4b" translucent={false} />
             <LinearGradient colors={['#1e1b4b', '#4338ca', '#6366f1']} style={styles.header}>
-                <View style={{ paddingTop: 52, paddingHorizontal: 18, paddingBottom: 0 }}>
+                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 0 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <View>
                             <Text style={styles.headerTitle}>📊 Financial Reports</Text>

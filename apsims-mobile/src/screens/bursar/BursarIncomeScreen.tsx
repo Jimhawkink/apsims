@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet,
     TextInput, RefreshControl, ActivityIndicator,
-    Modal, Alert, FlatList,
+    Modal, Alert, FlatList, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
@@ -129,8 +129,9 @@ export default function BursarIncomeScreen() {
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#14532d" translucent={false} />
             <LinearGradient colors={['#14532d', '#16a34a', '#22c55e']} style={styles.header}>
-                <View style={{ paddingTop: 52, paddingHorizontal: 18, paddingBottom: 14 }}>
+                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 14 }}>
                     <Text style={styles.headerTitle}>📈 Income Manager</Text>
                     <Text style={styles.headerSub}>Track all school income streams and sources</Text>
                     <View style={styles.kpiStrip}>

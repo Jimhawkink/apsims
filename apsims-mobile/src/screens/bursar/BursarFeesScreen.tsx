@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet,
     TextInput, RefreshControl, ActivityIndicator, Dimensions,
-    Modal, Alert, FlatList, Animated,
+    Modal, Alert, FlatList, Animated, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
@@ -176,9 +176,9 @@ export default function BursarFeesScreen() {
             ] = await Promise.all([
                 supabase.from('school_forms').select('*').order('form_level'),
                 supabase.from('school_streams').select('*').order('stream_name'),
-                supabase.from('school_fee_payments').select('student_id,amount,form_id,stream_id,year').eq('year', currentYear),
+                supabase.from('school_fee_payments').select('student_id,amount,year').eq('year', currentYear),
                 supabase.from('school_fee_structures').select('form_id,amount').eq('year', currentYear),
-                supabase.from('school_students').select('id,first_name,last_name,admission_no,admission_number,form_id,stream_id,status,gender').eq('status', 'Active'),
+                supabase.from('school_students').select('id,first_name,last_name,admission_no,admission_number,form_id,stream_id,status,gender').order('first_name', { ascending: true }).limit(5000),
             ]);
 
             const pays = payData || [];
@@ -304,8 +304,6 @@ export default function BursarFeesScreen() {
                 payment_method: collectMethod,
                 reference_number: collectRef || receipt,
                 receipt_number: receipt,
-                form_id: collectStudent.form_id,
-                stream_id: collectStudent.stream_id,
                 year: currentYear,
             }]);
             if (error) { Alert.alert('Error', error.message); return; }
@@ -324,9 +322,10 @@ export default function BursarFeesScreen() {
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#0c4a6e" translucent={false} />
             {/* ── HEADER ── */}
             <LinearGradient colors={['#0c4a6e', '#0891b2', '#0e7490']} style={styles.header}>
-                <View style={{ paddingTop: 52, paddingHorizontal: 18, paddingBottom: 12 }}>
+                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 12 }}>
                     <Text style={styles.headerTitle}>💳 Fee Management</Text>
                     <Text style={styles.headerSub}>CBC & 8-4-4 — Full Balance Overview</Text>
                     {/* Grand totals strip */}

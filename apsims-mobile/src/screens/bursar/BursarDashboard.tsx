@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet,
-    RefreshControl, ActivityIndicator, Dimensions, Animated,
+    RefreshControl, ActivityIndicator, Dimensions, Animated, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -122,7 +122,7 @@ export default function BursarDashboard() {
             ] = await Promise.all([
                 supabase.from('school_fee_payments').select('id,amount,payment_date,payment_method,student_id').eq('year', currentYear).order('payment_date', { ascending: false }),
                 supabase.from('school_fee_structures').select('amount,form_id').eq('year', currentYear),
-                supabase.from('school_students').select('id,form_id,status').eq('status', 'Active'),
+                supabase.from('school_students').select('id,form_id,status'),
                 supabase.from('school_expenses').select('amount,expense_date,category,status').eq('year', currentYear),
                 supabase.from('school_income').select('amount,income_date,source').eq('year', currentYear),
                 supabase.from('school_details').select('school_name').single(),
@@ -200,6 +200,7 @@ export default function BursarDashboard() {
 
     return (
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+            <StatusBar barStyle="light-content" backgroundColor="#0c4a6e" translucent={false} />
             <ScrollView style={styles.container} showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0891b2" />}>
 
@@ -364,7 +365,7 @@ export default function BursarDashboard() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f8fafc' },
     loadWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    hero: { paddingTop: 56, paddingBottom: 0 },
+    hero: { paddingTop: 16, paddingBottom: 0 },
     heroOrb1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.06)', top: -60, right: -60 },
     heroOrb2: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.04)', bottom: 40, left: -40 },
     heroContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20 },

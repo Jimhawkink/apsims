@@ -1,48 +1,443 @@
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiSend, FiFileText, FiCheck, FiX, FiSearch, FiRefreshCw, FiChevronLeft, FiChevronRight, FiDownload, FiPhone, FiMail, FiMessageCircle } from 'react-icons/fi';
-const G={blue:'linear-gradient(135deg,#2563eb,#3b82f6)',green:'linear-gradient(135deg,#059669,#0d9488)',amber:'linear-gradient(135deg,#f59e0b,#d97706)',purple:'linear-gradient(135deg,#7c3aed,#8b5cf6)',red:'linear-gradient(135deg,#ef4444,#dc2626)'};
+import Link from 'next/link';
+import {
+    FiSend, FiDownload, FiSearch, FiCheckCircle, FiUsers,
+    FiMessageSquare, FiRefreshCw, FiSmartphone, FiArrowRight,
+    FiCopy, FiShield, FiExternalLink, FiPrinter, FiZap
+} from 'react-icons/fi';
+
+function generateQRCode(text: string): string {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(text)}&bgcolor=ffffff&color=1e40af&qzone=2`;
+}
+
+function generateToken(studentId: number, termId: number): string {
+    const raw = `APSIMS-${studentId}-${termId}-${Math.floor(Date.now() / 86400000)}`;
+    return btoa(raw).replace(/[^A-Z0-9]/gi, '').slice(0, 14).toUpperCase();
+}
 
 export default function DigitalDeliveryPage() {
-  const [loading,setLoading]=useState(true),[deliveries,setDeliveries]=useState<any[]>([]),
-    [students,setStudents]=useState<any[]>([]),[terms,setTerms]=useState<any[]>([]),[examTypes,setExamTypes]=useState<any[]>([]),
-    [saving,setSaving]=useState(false),[search,setSearch]=useState(''),[page,setPage]=useState(1),
-    [tab,setTab]=useState<'deliveries'|'generate'>('deliveries'),[showModal,setShowModal]=useState('');
-  const [genForm,setGenForm]=useState({term_id:0,exam_type_id:0,student_ids:[] as number[],channel:'all'});
+    const [students, setStudents] = useState<any[]>([]);
+    const [terms, setTerms] = useState<any[]>([]);
+    const [forms, setForms] = useState<any[]>([]);
+    const [examTypes, setExamTypes] = useState<any[]>([]);
+    const [selectedTerm, setSelectedTerm] = useState('');
+    const [selectedForm, setSelectedForm] = useState('all');
+    const [search, setSearch] = useState('');
+    const [selected, setSelected] = useState<Set<number>>(new Set());
+    const [loading, setLoading] = useState(true);
+    const [sending, setSending] = useState(false);
+    const [sendProgress, setSendProgress] = useState(0);
+    const [results, setResults] = useState<any[]>([]);
+    const [tab, setTab] = useState<'send' | 'preview' | 'logs'>('send');
+    const [channel, setChannel] = useState<'sms' | 'whatsapp' | 'both'>('whatsapp');
+    const [sentLog, setSentLog] = useState<any[]>([]);
+    const [schoolDetails, setSchoolDetails] = useState<any>(null);
 
-  const fetchAll=useCallback(async()=>{setLoading(true);const[d,s,t,e]=await Promise.all([supabase.from('school_report_card_deliveries').select('*,school_students(first_name,last_name,admission_number)').order('created_at',{ascending:false}),supabase.from('school_students').select('id,first_name,last_name,admission_number').eq('status','Active').order('last_name'),supabase.from('school_terms').select('*').order('year',{ascending:false}),supabase.from('school_exam_types').select('*').eq('is_active',true)]);setDeliveries(d.data||[]);setStudents(s.data||[]);setTerms(t.data||[]);setExamTypes(e.data||[]);setLoading(false)},[]);
-  useEffect(()=>{fetchAll()},[fetchAll]);
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        const [studRes, termRes, formRes, etRes, sdRes, logRes] = await Promise.all([
+            supabase.from('school_students')
+                .select('id,first_name,last_name,admission_no,admission_number,guardian_phone,guardian_name,form_id,stream_id,school_forms(form_name,form_level),school_streams(stream_name)')
+                .order('first_name').limit(5000),
+            supabase.from('school_terms').select('*').order('id', { ascending: false }),
+            supabase.from('school_forms').select('*').order('form_level'),
+            supabase.from('school_exam_types').select('*').eq('is_active', true).order('id'),
+            supabase.from('school_details').select('school_name,school_phone,school_email,principal_name').single(),
+            supabase.from('school_communication_logs').select('*').eq('type', 'report_card')
+                .order('created_at', { ascending: false }).limit(100),
+        ]);
+        setStudents(studRes.data || []);
+        setTerms(termRes.data || []);
+        setForms(formRes.data || []);
+        setExamTypes(etRes.data || []);
+        setSchoolDetails(sdRes.data);
+        setSentLog(logRes.data || []);
+        if (termRes.data?.[0]) setSelectedTerm(String(termRes.data[0].id));
+        setLoading(false);
+    }, []);
 
-  const filtered=useMemo(()=>{if(!search)return deliveries;const q=search.toLowerCase();return deliveries.filter(d=>{const sn=d.school_students?`${d.school_students.last_name} ${d.school_students.first_name}`:'';return sn.toLowerCase().includes(q)})},[deliveries,search]);
-  const tp=Math.max(1,Math.ceil(filtered.length/10)),paged=filtered.slice((page-1)*10,page*10);
+    useEffect(() => { loadData(); }, [loadData]);
 
-  const statusBadge=(s:string)=>{const m:any={pending:{bg:'bg-gray-50',text:'text-gray-600',icon:'⏳'},generated:{bg:'bg-blue-50',text:'text-blue-700',icon:'📄'},signed:{bg:'bg-purple-50',text:'text-purple-700',icon:'✍️'},delivered:{bg:'bg-green-50',text:'text-green-700',icon:'✅'},viewed:{bg:'bg-emerald-50',text:'text-emerald-700',icon:'👁'}};const c=m[s]||m.pending;return<span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.bg} ${c.text}`}>{c.icon} {s.charAt(0).toUpperCase()+s.slice(1)}</span>};
+    const filtered = students.filter(s => {
+        if (selectedForm !== 'all' && String(s.form_id) !== selectedForm) return false;
+        const q = search.toLowerCase();
+        return !q || `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
+            (s.admission_no || s.admission_number || '').toLowerCase().includes(q);
+    });
 
-  const generateReportCards=async()=>{if(!genForm.term_id)return toast.error('Select a term');setSaving(true);try{const targets=genForm.student_ids.length>0?genForm.student_ids:students.map(s=>s.id);const inserts=targets.map(sid=>({student_id:sid,term_id:genForm.term_id,exam_type_id:genForm.exam_type_id||null,delivery_status:'generated',pdf_generated_at:new Date().toISOString()}));const{error}=await supabase.from('school_report_card_deliveries').upsert(inserts,{onConflict:'student_id,term_id,exam_type_id'});if(error)throw error;toast.success(`✅ ${inserts.length} report cards generated!`);setShowModal('');fetchAll()}catch(e:any){toast.error(e.message)}setSaving(false)};
+    const toggleAll = () => {
+        if (selected.size === filtered.length) setSelected(new Set());
+        else setSelected(new Set(filtered.map(s => s.id)));
+    };
+    const toggleOne = (id: number) => {
+        setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    };
 
-  const sendDelivery=async(id:number,channel:string)=>{setSaving(true);const upd:any={delivery_status:'delivered'};if(channel==='whatsapp')upd.whatsapp_sent=true;if(channel==='sms')upd.sms_sent=true;if(channel==='email')upd.email_sent=true;const{error}=await supabase.from('school_report_card_deliveries').update(upd).eq('id',id);if(error)toast.error(error.message);else{toast.success(`✅ Sent via ${channel}!`);fetchAll()}setSaving(false)};
+    const selectedTermData = terms.find(t => String(t.id) === selectedTerm);
+    const schoolName = schoolDetails?.school_name || 'APSIMS School';
 
-  const signReport=async(id:number,role:string)=>{const upd:any={delivery_status:'signed'};if(role==='teacher')upd.teacher_signed_at=new Date().toISOString();if(role==='principal')upd.principal_signed_at=new Date().toISOString();const{error}=await supabase.from('school_report_card_deliveries').update(upd).eq('id',id);if(error)toast.error(error.message);else{toast.success('✅ Signed!');fetchAll()}};
+    const buildMessage = (student: any, token: string, verifyUrl: string) => {
+        const name = `${student.first_name} ${student.last_name}`;
+        const adm = student.admission_no || student.admission_number;
+        const form = student.school_forms?.form_name || '';
+        const termLabel = selectedTermData ? `${selectedTermData.term_name || 'Term'} ${selectedTermData.year || ''}` : 'Current Term';
+        if (channel === 'sms' || channel === 'both') {
+            return `Dear Parent/Guardian of ${name} (${adm}), ${form} ${termLabel} report card is ready. View at: ${verifyUrl} Code: ${token}. ${schoolName} Accounts.`;
+        }
+        return `📊 *Report Card Ready!*\n\nDear Parent of *${name}* (${adm})\n\n📚 *${form}* — ${termLabel}\n\n🔗 View Report Card:\n${verifyUrl}\n\n🔐 Verification Code:\n\`${token}\`\n\n_Scan the QR code to verify authenticity_\n\n— *${schoolName}*`;
+    };
 
-  if(loading)return(<div className="flex flex-col items-center justify-center h-64 gap-3"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{background:G.purple}}>📄</div><p className="text-sm font-bold text-gray-500">Loading Digital Delivery…</p></div>);
+    const sendReportCards = async () => {
+        if (selected.size === 0) { toast.error('Select at least one student'); return; }
+        if (!selectedTerm) { toast.error('Select a term first'); return; }
+        setSending(true); setSendProgress(0); setResults([]);
 
-  return(<div className="animate-fadeIn space-y-5">
-    <div className="flex items-center justify-between flex-wrap gap-3"><div><h1 className="text-2xl font-extrabold text-gray-900" style={{fontFamily:'Outfit,sans-serif',letterSpacing:'-0.03em'}}>📄 Digital Report Card Delivery</h1><p className="text-sm text-gray-500 mt-1">{deliveries.length} deliveries · {deliveries.filter(d=>d.delivery_status==='viewed').length} viewed</p></div><div className="flex items-center gap-2 flex-wrap"><button onClick={fetchAll} className="p-2.5 rounded-xl border border-gray-200 text-gray-400 hover:text-purple-600 transition"><FiRefreshCw size={15}/></button><button onClick={()=>{setGenForm({term_id:0,exam_type_id:0,student_ids:[],channel:'all'});setShowModal('generate')}} className="px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-md" style={{background:G.purple}}>📄 Generate Cards</button></div></div>
+        const toSend = filtered.filter(s => selected.has(s.id));
+        const res: any[] = [];
+        const origin = window.location.origin;
 
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">{[{l:'Generated',v:deliveries.filter(d=>d.delivery_status==='generated').length,e:'📄',c:'#2563eb'},{l:'Signed',v:deliveries.filter(d=>d.delivery_status==='signed').length,e:'✍️',c:'#7c3aed'},{l:'Delivered',v:deliveries.filter(d=>d.delivery_status==='delivered').length,e:'✅',c:'#059669'},{l:'WhatsApp',v:deliveries.filter(d=>d.whatsapp_sent).length,e:'💬',c:'#25d366'},{l:'Viewed',v:deliveries.filter(d=>d.delivery_status==='viewed'||d.parent_viewed).length,e:'👁',c:'#f59e0b'}].map((cd,i)=>(<div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden" style={{borderLeftWidth:4,borderLeftColor:cd.c}}><div className="flex items-center justify-between mb-2"><p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">{cd.l}</p><span className="text-xl">{cd.e}</span></div><p className="text-xl font-extrabold text-gray-900">{cd.v}</p><div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full opacity-[0.06]" style={{background:cd.c}}/></div>))}</div>
+        for (let i = 0; i < toSend.length; i++) {
+            const student = toSend[i];
+            const token = generateToken(student.id, Number(selectedTerm));
+            const verifyUrl = `${origin}/verify/${token}?sid=${student.id}&tid=${selectedTerm}`;
+            const phone = student.guardian_phone;
+            const message = buildMessage(student, token, verifyUrl);
 
-    <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">{[{k:'deliveries',l:'📋 Deliveries'},{k:'generate',l:'📄 Generate'}].map(t=>(<button key={t.k} onClick={()=>setTab(t.k as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab===t.k?'bg-white shadow text-purple-700':'text-gray-500 hover:text-gray-700'}`}>{t.l}</button>))}</div>
+            // Always log to DB
+            await supabase.from('school_communication_logs').insert({
+                type: 'report_card',
+                channel: channel,
+                student_id: student.id,
+                recipient_name: `${student.first_name} ${student.last_name}`,
+                phone: phone || null,
+                message: message.slice(0, 200),
+                verify_token: token,
+                term_id: Number(selectedTerm),
+                status: phone ? 'sent' : 'skipped',
+                created_at: new Date().toISOString(),
+            }).select();
 
-    {tab==='deliveries'&&<><div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm"><div className="flex flex-wrap items-center gap-3"><div className="relative flex-1 min-w-[220px]"><FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={15}/><input value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} placeholder="Search students…" className="w-full pl-10 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:bg-white focus:border-purple-300"/>{search&&<button onClick={()=>{setSearch('');setPage(1)}} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"><FiX size={14}/></button>}</div></div></div>
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"><div className="overflow-x-auto"><table className="w-full border-collapse" style={{fontSize:12}}><thead><tr>{['#','Student','Term','Status','WhatsApp','SMS','Email','Actions'].map((h,i)=><th key={i} className="text-left px-3 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap" style={{background:'#f8fafc',color:'#475569',borderBottom:'2px solid #e2e8f0'}}>{h}</th>)}</tr></thead>
-    <tbody>{paged.map((d,idx)=>{const sn=d.school_students?`${d.school_students.last_name}, ${d.school_students.first_name}`:'-';return(<tr key={d.id} style={{borderBottom:'1px solid #f1f5f9'}} onMouseEnter={e=>(e.currentTarget as HTMLTableRowElement).style.background='#fafbff'} onMouseLeave={e=>(e.currentTarget as HTMLTableRowElement).style.background=''}><td className="px-3 py-3 text-center font-bold text-gray-400">{(page-1)*10+idx+1}</td><td className="px-3 py-3 font-bold text-gray-900">{sn}</td><td className="px-3 py-3 text-gray-600">{d.term_id}</td><td className="px-3 py-3">{statusBadge(d.delivery_status)}</td><td className="px-3 py-3">{d.whatsapp_sent?<FiCheck size={12} className="text-green-500"/>:<span className="text-gray-300">-</span>}</td><td className="px-3 py-3">{d.sms_sent?<FiCheck size={12} className="text-green-500"/>:<span className="text-gray-300">-</span>}</td><td className="px-3 py-3">{d.email_sent?<FiCheck size={12} className="text-green-500"/>:<span className="text-gray-300">-</span>}</td><td className="px-3 py-3"><div className="flex items-center gap-1"><button onClick={()=>signReport(d.id,'teacher')} className="p-1.5 rounded-lg text-purple-400 hover:text-purple-600" title="Teacher Sign"><FiFileText size={11}/></button><button onClick={()=>sendDelivery(d.id,'whatsapp')} className="p-1.5 rounded-lg text-green-400 hover:text-green-600" title="WhatsApp"><FiMessageCircle size={11}/></button><button onClick={()=>sendDelivery(d.id,'sms')} className="p-1.5 rounded-lg text-blue-400 hover:text-blue-600" title="SMS"><FiPhone size={11}/></button><button onClick={()=>sendDelivery(d.id,'email')} className="p-1.5 rounded-lg text-amber-400 hover:text-amber-600" title="Email"><FiMail size={11}/></button></div></td></tr>);})}</tbody></table></div>
-    {filtered.length>10&&<div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between"><p className="text-xs text-gray-400">Page {page} of {tp}</p><div className="flex items-center gap-1.5"><button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30"><FiChevronLeft size={14}/></button><button onClick={()=>setPage(p=>Math.min(tp,p+1))} disabled={page===tp} className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30"><FiChevronRight size={14}/></button></div></div>}</div></>}
+            if (!phone) {
+                res.push({ name: `${student.first_name} ${student.last_name}`, adm: student.admission_no || student.admission_number, phone: '—', status: 'skipped', reason: 'No phone', token, verifyUrl });
+            } else {
+                let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
+                if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.slice(1);
+                let status = 'failed';
+                try {
+                    if (channel === 'sms' || channel === 'both') {
+                        await fetch('/api/send-sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: formattedPhone, message }) });
+                    }
+                    if (channel === 'whatsapp' || channel === 'both') {
+                        await fetch('/api/whatsapp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: formattedPhone, message, student_id: student.id }) });
+                    }
+                    status = 'sent';
+                } catch { status = 'failed'; }
+                res.push({ name: `${student.first_name} ${student.last_name}`, adm: student.admission_no || student.admission_number, phone: formattedPhone, status, token, verifyUrl });
+            }
+            setSendProgress(Math.round(((i + 1) / toSend.length) * 100));
+            await new Promise(r => setTimeout(r, 200));
+        }
 
-    {tab==='generate'&&<div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-5"><h3 className="text-lg font-bold text-gray-900">Generate Report Cards</h3><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-gray-600 mb-1 block uppercase">Term *</label><select value={genForm.term_id} onChange={e=>setGenForm({...genForm,term_id:Number(e.target.value)})} className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none"><option value={0}>Select Term</option>{terms.map(t=><option key={t.id} value={t.id}>{t.name} {t.year}</option>)}</select></div><div><label className="text-xs font-bold text-gray-600 mb-1 block uppercase">Exam Type</label><select value={genForm.exam_type_id} onChange={e=>setGenForm({...genForm,exam_type_id:Number(e.target.value)})} className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none"><option value={0}>All Exams</option>{examTypes.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></div></div><p className="text-xs text-gray-500">This will generate report cards for all active students. {students.length} students will be processed.</p><button onClick={generateReportCards} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-md" style={{background:G.purple}}>{saving?<div className="spinner" style={{width:14,height:14}}/>:<FiFileText size={14}/>} Generate All Report Cards</button></div>}
+        setResults(res);
+        setSending(false);
+        const sent = res.filter(r => r.status === 'sent').length;
+        toast.success(`Report cards delivered to ${sent}/${toSend.length} parents!`);
+        loadData();
+    };
 
-    {/* Generate Modal */}
-    {showModal==='generate'&&<div className="modal-overlay" onClick={()=>setShowModal('')}><div className="modal-content" style={{maxWidth:500}} onClick={e=>e.stopPropagation()}><div className="px-6 py-5 flex items-center justify-between relative overflow-hidden" style={{background:G.purple}}><div className="absolute right-0 top-0 w-32 h-32 rounded-full -translate-y-10 translate-x-10 opacity-10 bg-white"/><h2 className="text-lg font-bold text-white">📄 Generate Report Cards</h2><button onClick={()=>setShowModal('')} className="p-2 rounded-xl bg-white/20 text-white hover:bg-white/30"><FiX size={18}/></button></div><div className="p-6 space-y-4"><div><label className="text-xs font-bold text-gray-600 mb-1 block uppercase">Term *</label><select value={genForm.term_id} onChange={e=>setGenForm({...genForm,term_id:Number(e.target.value)})} className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none"><option value={0}>Select Term</option>{terms.map(t=><option key={t.id} value={t.id}>{t.name} {t.year}</option>)}</select></div><div><label className="text-xs font-bold text-gray-600 mb-1 block uppercase">Exam Type</label><select value={genForm.exam_type_id} onChange={e=>setGenForm({...genForm,exam_type_id:Number(e.target.value)})} className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none"><option value={0}>All</option>{examTypes.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></div><p className="text-xs text-gray-500">{students.length} students will receive report cards</p></div><div className="p-6 border-t border-gray-100 flex gap-3 justify-end bg-gray-50/50"><button onClick={()=>setShowModal('')} className="btn-outline flex items-center gap-2 text-sm"><FiX size={14}/> Cancel</button><button onClick={generateReportCards} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-md" style={{background:G.purple}}>{saving?<div className="spinner" style={{width:14,height:14}}/>:<FiSend size={14}/>} Generate</button></div></div></div>}
-  </div>);
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+            {/* Header */}
+            <div className="rounded-2xl p-6 mb-6 text-white relative overflow-hidden"
+                style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 60%, #3b82f6 100%)' }}>
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-black flex items-center gap-3">
+                            <FiSend size={24} /> Digital Report Card Delivery
+                        </h1>
+                        <p className="text-blue-200 text-sm mt-1">Send term report cards to parents via WhatsApp & SMS with QR verification</p>
+                        <div className="flex gap-3 mt-3">
+                            <Link href="/dashboard/exams/report-cards"
+                                className="flex items-center gap-1.5 text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg font-semibold transition-all">
+                                <FiPrinter size={12} /> Standard Report Cards
+                            </Link>
+                            <Link href="/dashboard/exams/ultra-report-cards"
+                                className="flex items-center gap-1.5 text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg font-semibold transition-all">
+                                <FiZap size={12} /> Ultra Report Cards
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 flex-wrap">
+                        {[
+                            { label: 'Total Students', val: students.length },
+                            { label: 'Have Phone', val: students.filter(s => s.guardian_phone).length },
+                            { label: 'Sent Today', val: sentLog.filter(l => l.created_at?.startsWith(new Date().toISOString().split('T')[0])).length },
+                            { label: 'All Time Sent', val: sentLog.filter(l => l.status === 'sent').length },
+                        ].map(s => (
+                            <div key={s.label} className="bg-white/15 backdrop-blur rounded-xl px-4 py-3 text-center">
+                                <p className="text-2xl font-black">{s.val}</p>
+                                <p className="text-blue-200 text-xs">{s.label}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 mb-6 overflow-x-auto">
+                {[{ key: 'send', label: '📤 Send to Parents' }, { key: 'preview', label: '🔐 QR Codes Preview' }, { key: 'logs', label: '📋 Delivery Logs' }].map(t => (
+                    <button key={t.key} onClick={() => setTab(t.key as any)}
+                        className={`px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${tab === t.key ? 'bg-blue-700 text-white shadow-lg' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
+                        {t.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* SEND TAB */}
+            {tab === 'send' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Config */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+                        <h2 className="font-bold text-gray-900">Delivery Settings</h2>
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Select Term</label>
+                            <select value={selectedTerm} onChange={e => setSelectedTerm(e.target.value)}
+                                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                                {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Filter by Form</label>
+                            <select value={selectedForm} onChange={e => setSelectedForm(e.target.value)}
+                                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="all">All Forms ({students.length} students)</option>
+                                {forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Delivery Channel</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {(['sms', 'whatsapp', 'both'] as const).map(ch => (
+                                    <button key={ch} onClick={() => setChannel(ch)}
+                                        className={`py-2 rounded-xl text-xs font-bold transition-all ${channel === ch ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                                        {ch === 'sms' ? '📱 SMS' : ch === 'whatsapp' ? '💬 WA' : '📡 Both'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        {selectedTermData && (
+                            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                <p className="text-xs font-bold text-blue-700">📅 {selectedTermData.term_name} {selectedTermData.year}</p>
+                                {selectedTermData.start_date && <p className="text-xs text-blue-500 mt-0.5">Opens: {selectedTermData.start_date}</p>}
+                                {selectedTermData.end_date && <p className="text-xs text-blue-500">Closes: {selectedTermData.end_date}</p>}
+                            </div>
+                        )}
+                        <div className="p-3 bg-green-50 border border-green-100 rounded-xl">
+                            <p className="text-xs font-bold text-green-800 flex items-center gap-1.5"><FiShield size={12} /> QR Verification</p>
+                            <p className="text-xs text-green-600 mt-1">Each message includes a unique QR code and token. Parents can scan to verify the report is authentic and from your school.</p>
+                        </div>
+                        <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                            <p className="text-xs font-bold text-amber-800">📋 Already have report cards?</p>
+                            <p className="text-xs text-amber-600 mt-1">Generate report cards first from the links above, then use this page to send to parents digitally.</p>
+                        </div>
+                    </div>
+
+                    {/* Student List */}
+                    <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+                        <div className="p-4 border-b border-gray-100 flex flex-wrap gap-3 items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <input type="checkbox"
+                                    checked={selected.size > 0 && selected.size === filtered.length}
+                                    onChange={toggleAll}
+                                    className="w-4 h-4 accent-blue-600" />
+                                <span className="text-sm font-semibold text-gray-700">
+                                    {selected.size > 0 ? `${selected.size} selected` : `${filtered.length} students`}
+                                </span>
+                                {selected.size > 0 && (
+                                    <button onClick={() => setSelected(new Set())} className="text-xs text-red-500 hover:underline">Clear</button>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+                                <FiSearch size={13} className="text-gray-400" />
+                                <input value={search} onChange={e => setSearch(e.target.value)}
+                                    placeholder="Search name or admission no..." className="text-sm outline-none bg-transparent w-44" />
+                            </div>
+                        </div>
+
+                        {loading ? (
+                            <div className="flex-1 flex items-center justify-center py-12">
+                                <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+                            </div>
+                        ) : (
+                            <div className="flex-1 divide-y divide-gray-50 overflow-y-auto max-h-[420px]">
+                                {filtered.map(s => (
+                                    <label key={s.id} className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50/30 cursor-pointer">
+                                        <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleOne(s.id)}
+                                            className="w-4 h-4 accent-blue-600 flex-shrink-0" />
+                                        <div className="w-9 h-9 rounded-xl text-white font-bold text-xs flex items-center justify-center flex-shrink-0"
+                                            style={{ background: 'linear-gradient(135deg, #1d4ed8, #6366f1)' }}>
+                                            {s.first_name?.[0]}{s.last_name?.[0]}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-gray-800 text-sm">{s.first_name} {s.last_name}</p>
+                                            <p className="text-xs text-gray-400">{s.admission_no || s.admission_number} · {s.school_forms?.form_name} {s.school_streams?.stream_name}</p>
+                                        </div>
+                                        {s.guardian_phone ? (
+                                            <span className="text-[11px] text-green-600 flex items-center gap-1 flex-shrink-0">
+                                                <FiSmartphone size={10} /> {s.guardian_phone}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[11px] text-red-400 flex-shrink-0">No phone</span>
+                                        )}
+                                    </label>
+                                ))}
+                                {filtered.length === 0 && (
+                                    <div className="text-center py-10 text-gray-400">
+                                        <FiUsers size={32} className="mx-auto mb-2 opacity-40" />
+                                        <p className="text-sm">No students match your filters</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="p-4 border-t border-gray-100">
+                            {!sending && results.length === 0 && (
+                                <button onClick={sendReportCards} disabled={selected.size === 0 || !selectedTerm}
+                                    className="w-full py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                                    style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)' }}>
+                                    <FiSend size={16} /> Send to {selected.size || 0} Parent{selected.size !== 1 ? 's' : ''} via {channel === 'both' ? 'SMS + WhatsApp' : channel.toUpperCase()}
+                                </button>
+                            )}
+                            {sending && (
+                                <div>
+                                    <div className="flex justify-between text-sm mb-2">
+                                        <span className="font-semibold text-gray-700">Sending report cards…</span>
+                                        <span className="text-blue-600 font-bold">{sendProgress}%</span>
+                                    </div>
+                                    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full transition-all" style={{ width: `${sendProgress}%`, background: 'linear-gradient(90deg, #1d4ed8, #3b82f6)' }} />
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1 text-center">Please wait — sending to each parent with a 200ms delay to avoid rate limits</p>
+                                </div>
+                            )}
+                            {results.length > 0 && (
+                                <div>
+                                    <div className="flex gap-3 mb-3">
+                                        {[
+                                            { label: '✅ Sent', val: results.filter(r => r.status === 'sent').length, c: '#16a34a' },
+                                            { label: '❌ Failed', val: results.filter(r => r.status === 'failed').length, c: '#dc2626' },
+                                            { label: '⏭ Skipped', val: results.filter(r => r.status === 'skipped').length, c: '#d97706' },
+                                        ].map(s => (
+                                            <div key={s.label} className="flex-1 text-center p-2 bg-gray-50 rounded-xl">
+                                                <p className="text-xl font-black" style={{ color: s.c }}>{s.val}</p>
+                                                <p className="text-xs text-gray-500">{s.label}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setTab('preview')} className="flex-1 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">
+                                            View QR Codes →
+                                        </button>
+                                        <button onClick={() => { setResults([]); setSendProgress(0); setSelected(new Set()); }}
+                                            className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50">
+                                            Send Another
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* QR PREVIEW TAB */}
+            {tab === 'preview' && (
+                <div>
+                    <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-5 flex items-start gap-3">
+                        <FiShield size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-bold text-blue-800">QR Verification System</p>
+                            <p className="text-sm text-blue-600 mt-0.5">Each parent receives a unique token. When they scan the QR code or visit the link, they see a verification page confirming the report card is genuine and issued by your school. Tokens expire daily for security.</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {(results.length > 0 ? results : filtered.slice(0, 10).map(s => ({
+                            name: `${s.first_name} ${s.last_name}`,
+                            adm: s.admission_no || s.admission_number,
+                            phone: s.guardian_phone,
+                            status: 'preview',
+                            token: generateToken(s.id, Number(selectedTerm || 1)),
+                            verifyUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/verify/${generateToken(s.id, Number(selectedTerm || 1))}?sid=${s.id}&tid=${selectedTerm}`,
+                        }))).map((r, i) => (
+                            <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+                                <p className="font-bold text-gray-900 text-xs mb-0.5 truncate">{r.name}</p>
+                                <p className="text-[10px] text-gray-400 mb-2">{r.adm}</p>
+                                <img src={generateQRCode(r.verifyUrl)} alt="QR" className="mx-auto w-24 h-24 rounded-xl mb-2 border border-gray-100" />
+                                <div className="bg-blue-50 rounded-xl p-1.5 mb-2">
+                                    <p className="font-mono text-[10px] font-bold text-blue-700 break-all">{r.token}</p>
+                                </div>
+                                <div className="flex gap-1">
+                                    <button onClick={() => { navigator.clipboard.writeText(r.token); toast.success('Copied!'); }}
+                                        className="flex-1 py-1 bg-gray-100 text-gray-600 rounded-lg text-[10px] font-semibold flex items-center justify-center gap-0.5 hover:bg-gray-200">
+                                        <FiCopy size={9} /> Copy
+                                    </button>
+                                    <button onClick={() => window.open(generateQRCode(r.verifyUrl), '_blank')}
+                                        className="flex-1 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-semibold flex items-center justify-center gap-0.5 hover:bg-blue-700">
+                                        <FiDownload size={9} /> QR
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* LOGS TAB */}
+            {tab === 'logs' && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+                        <h2 className="font-bold text-gray-900">Delivery Logs ({sentLog.length})</h2>
+                        <button onClick={loadData} className="p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50">
+                            <FiRefreshCw size={14} />
+                        </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50">
+                                <tr>{['Date & Time', 'Student', 'Phone', 'Channel', 'Verify Code', 'Status'].map(h => (
+                                    <th key={h} className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">{h}</th>
+                                ))}</tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {sentLog.length === 0 ? (
+                                    <tr><td colSpan={6} className="text-center py-12 text-gray-400">
+                                        <FiMessageSquare size={32} className="mx-auto mb-2 opacity-40" />
+                                        No delivery logs yet. Send report cards to track delivery.
+                                    </td></tr>
+                                ) : sentLog.map((log, i) => (
+                                    <tr key={i} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{new Date(log.created_at).toLocaleString('en-KE')}</td>
+                                        <td className="px-4 py-3 font-semibold text-gray-800">{log.recipient_name}</td>
+                                        <td className="px-4 py-3 font-mono text-xs text-gray-600">{log.phone || '—'}</td>
+                                        <td className="px-4 py-3 text-xs capitalize font-semibold text-gray-600">{log.channel}</td>
+                                        <td className="px-4 py-3 font-mono text-xs text-blue-600 font-bold">{log.verify_token || '—'}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`text-xs font-bold px-2 py-1 rounded-full ${log.status === 'sent' ? 'bg-green-100 text-green-700' : log.status === 'skipped' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                                {log.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }

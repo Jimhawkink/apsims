@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet,
-    RefreshControl, ActivityIndicator, Alert, TextInput, Modal,
+    RefreshControl, ActivityIndicator, Alert, TextInput, Modal, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
@@ -318,9 +318,10 @@ export default function BursarAccountsScreen() {
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#0c4a6e" translucent={false} />
             {/* ── HEADER ── */}
             <LinearGradient colors={['#0c4a6e', '#0891b2', '#0e7490']} style={styles.header}>
-                <View style={{ paddingTop: 52, paddingHorizontal: 18, paddingBottom: 0 }}>
+                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 0 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <View>
                             <Text style={styles.headerTitle}>🏦 School Accounts</Text>

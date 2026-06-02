@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions,
-  TouchableOpacity, ActivityIndicator,
+  TouchableOpacity, ActivityIndicator, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
@@ -26,7 +26,7 @@ export default function PrincipalDashboard({ navigation }: any) {
   const fetchData = useCallback(async () => {
     try {
       const [studentsRes, paymentsRes, formsRes, expensesRes, teachersRes, marksRes] = await Promise.all([
-        supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id, status, gender').eq('status', 'Active'),
+        supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id, status, gender'),
         supabase.from('school_fee_payments').select('*').order('payment_date', { ascending: false }),
         supabase.from('school_forms').select('*').order('form_level'),
         supabase.from('school_expenses').select('*'),
@@ -158,6 +158,7 @@ export default function PrincipalDashboard({ navigation }: any) {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" translucent={false} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.indigo]} />}
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
   loadingSubtext: { fontSize: 11, color: '#94a3b8', marginTop: 4 },
 
   // Header
-  header: { paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  header: { paddingTop: 16, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   headerContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
   headerSubtitle: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 },

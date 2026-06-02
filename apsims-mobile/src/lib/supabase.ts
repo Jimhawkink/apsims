@@ -166,7 +166,7 @@ export async function loginUser(username: string, password: string): Promise<Use
             portal_user_id: data.id,
             username: data.username,
             full_name: data.full_name || data.username,
-            user_type: data.user_type as 'teacher' | 'parent' | 'student' | 'principal',
+            user_type: data.user_type as 'teacher' | 'parent' | 'student' | 'principal' | 'bursar',
             linked_teacher_id: data.linked_teacher_id,
             linked_student_id: data.linked_student_id,
             student_name: student ? `${student.first_name} ${student.last_name}` : undefined,

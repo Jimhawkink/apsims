@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet,
     TextInput, RefreshControl, ActivityIndicator, Dimensions,
-    Modal, Alert, FlatList,
+    Modal, Alert, FlatList, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
@@ -25,7 +25,7 @@ function ExpenseCard({ exp, onEdit, onDelete, onApprove }: { exp:any; onEdit:()=
             <View style={styles.expCardTop}>
                 <View style={[styles.expDot, {backgroundColor: sc.dot}]} />
                 <View style={{flex:1}}>
-                    <Text style={styles.expCategory}>{exp.category}</Text>
+                    <Text style={styles.expCategory}>{exp.school_expense_categories?.category_name || `Category #${exp.category_id}`}</Text>
                     <Text style={styles.expDesc} numberOfLines={1}>{exp.description || 'No description'}</Text>
                     <Text style={styles.expMeta}>{exp.expense_date} · {exp.payment_method || 'Cash'} · {exp.reference_number || '—'}</Text>
                 </View>
@@ -60,7 +60,7 @@ export default function BursarExpensesScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [expenses, setExpenses] = useState<any[]>([]);
-    const [categories, setCategories] = useState<string[]>([]);
+    const [categories, setCategories] = useState<{id:number;category_name:string}[]>([]);
     const [search, setSearch] = useState('');
     const [filterCat, setFilterCat] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -69,7 +69,7 @@ export default function BursarExpensesScreen() {
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState({
         expense_date: new Date().toISOString().split('T')[0],
-        category: '', description: '', amount: '',
+        category_id: 0, description: '', amount: '',
         payment_method: 'Cash', reference_number: '',
         approved_by: '', notes: '', status: 'pending',
         year: new Date().getFullYear(),
@@ -80,11 +80,15 @@ export default function BursarExpensesScreen() {
         try {
             const [{ data: expData }, { data: catData }] = await Promise.all([
                 supabase.from('school_expenses').select('*').eq('year', currentYear).order('expense_date', { ascending: false }),
-                supabase.from('school_expense_categories').select('category_name').order('category_name'),
+                supabase.from('school_expense_categories').select('id,category_name').order('category_name'),
             ]);
             setExpenses(expData || []);
-            const cats = catData?.map((c:any) => c.category_name) || CATEGORIES;
-            setCategories(cats.length ? cats : CATEGORIES);
+            // Use DB categories if available, otherwise seed fallback names with id=0
+            if (catData && catData.length > 0) {
+                setCategories(catData as {id:number;category_name:string}[]);
+            } else {
+                setCategories(CATEGORIES.map((name, i) => ({ id: i + 1, category_name: name })));
+            }
         } catch(e) { console.error(e); }
         finally { setLoading(false); setRefreshing(false); }
     }, [currentYear]);
@@ -94,8 +98,8 @@ export default function BursarExpensesScreen() {
     const filtered = useMemo(() => {
         let d = expenses;
         if (filterStatus !== 'all') d = d.filter(e => e.status === filterStatus);
-        if (filterCat !== 'all') d = d.filter(e => e.category === filterCat);
-        if (search) { const q = search.toLowerCase(); d = d.filter(e => (e.description || '').toLowerCase().includes(q) || (e.category || '').toLowerCase().includes(q)); }
+        if (filterCat !== 'all') d = d.filter(e => String(e.category_id) === filterCat);
+        if (search) { const q = search.toLowerCase(); d = d.filter(e => (e.description || '').toLowerCase().includes(q) || (e.reference_number || '').toLowerCase().includes(q)); }
         return d;
     }, [expenses, filterStatus, filterCat, search]);
 
@@ -109,21 +113,32 @@ export default function BursarExpensesScreen() {
 
     const openAdd = () => {
         setEditId(null);
-        setForm({ expense_date: new Date().toISOString().split('T')[0], category:'', description:'', amount:'', payment_method:'Cash', reference_number:'', approved_by:'', notes:'', status:'pending', year: currentYear });
+        setForm({ expense_date: new Date().toISOString().split('T')[0], category_id: 0, description:'', amount:'', payment_method:'Cash', reference_number:'', approved_by:'', notes:'', status:'pending', year: currentYear });
         setShowModal(true);
     };
     const openEdit = (exp: any) => {
         setEditId(exp.id);
-        setForm({ expense_date: exp.expense_date||'', category: exp.category||'', description: exp.description||'', amount: String(exp.amount||''), payment_method: exp.payment_method||'Cash', reference_number: exp.reference_number||'', approved_by: exp.approved_by||'', notes: exp.notes||'', status: exp.status||'pending', year: exp.year||currentYear });
+        setForm({ expense_date: exp.expense_date||'', category_id: exp.category_id||0, description: exp.description||'', amount: String(exp.amount||''), payment_method: exp.payment_method||'Cash', reference_number: exp.reference_number||'', approved_by: exp.approved_by||'', notes: exp.notes||'', status: exp.status||'pending', year: exp.year||currentYear });
         setShowModal(true);
     };
 
     const handleSave = async () => {
-        if (!form.category) { Alert.alert('Error','Select a category'); return; }
+        if (!form.category_id) { Alert.alert('Error','Select a category'); return; }
         if (!form.amount || Number(form.amount) <= 0) { Alert.alert('Error','Enter a valid amount'); return; }
         setSaving(true);
         try {
-            const payload = { ...form, amount: Number(form.amount), year: currentYear };
+            const payload = {
+                expense_date: form.expense_date,
+                category_id: form.category_id,
+                description: form.description || null,
+                amount: Number(form.amount),
+                payment_method: form.payment_method,
+                reference_number: form.reference_number || null,
+                approved_by: form.approved_by || null,
+                notes: form.notes || null,
+                status: form.status,
+                year: currentYear,
+            };
             let error;
             if (editId) { ({ error } = await supabase.from('school_expenses').update(payload).eq('id', editId)); }
             else { ({ error } = await supabase.from('school_expenses').insert([payload])); }
@@ -157,8 +172,9 @@ export default function BursarExpensesScreen() {
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#7c2d12" translucent={false} />
             <LinearGradient colors={['#7c2d12','#dc2626','#ef4444']} style={styles.header}>
-                <View style={{paddingTop:52, paddingHorizontal:18, paddingBottom:14}}>
+                <View style={{paddingTop:16, paddingHorizontal:18, paddingBottom:14}}>
                     <Text style={styles.headerTitle}>📉 Expense Manager</Text>
                     <Text style={styles.headerSub}>Track, approve and manage all school expenditures</Text>
                     <View style={styles.kpiStrip}>
@@ -224,9 +240,9 @@ export default function BursarExpensesScreen() {
                             <Text style={styles.modalLabel}>Category *</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom:12}}>
                                 {categories.map(c => (
-                                    <TouchableOpacity key={c} onPress={() => setForm({...form, category:c})}
-                                        style={[styles.catChip, form.category===c && {backgroundColor:'#dc2626', borderColor:'#dc2626'}]}>
-                                        <Text style={[styles.catChipText, form.category===c && {color:'#fff'}]}>{c}</Text>
+                                    <TouchableOpacity key={c.id} onPress={() => setForm({...form, category_id:c.id})}
+                                        style={[styles.catChip, form.category_id===c.id && {backgroundColor:'#dc2626', borderColor:'#dc2626'}]}>
+                                        <Text style={[styles.catChipText, form.category_id===c.id && {color:'#fff'}]}>{c.category_name}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>

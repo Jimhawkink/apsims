@@ -3,7 +3,7 @@
 // Availability · Categories · Overdue · Transactions
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { COLORS, fmt } from '../../components/ultra/UltraTheme';
@@ -25,7 +25,7 @@ export default function LibraryReportScreen() {
       const [booksR, loansR, studentsR, formsR] = await Promise.all([
         supabase.from('school_library_books').select('*'),
         supabase.from('school_library_loans').select('*').order('created_at', { ascending: false }),
-        supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id').eq('status', 'Active'),
+        supabase.from('school_students').select('id, first_name, last_name, admission_number, form_id'),
         supabase.from('school_forms').select('*').order('form_level'),
       ]);
       const books = booksR.data || [];
@@ -127,6 +127,7 @@ export default function LibraryReportScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#2563eb" translucent={false} />
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[COLORS.blue]} />} contentContainerStyle={{ paddingBottom: 30 }}>
         <LinearGradient colors={['#2563eb', '#3b82f6', '#60a5fa']} style={styles.header}>
           <Text style={styles.headerTitle}>📖 Library Report</Text>
@@ -227,7 +228,7 @@ export default function LibraryReportScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   content: { paddingHorizontal: 16, paddingTop: 12 },
-  header: { paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  header: { paddingTop: 16, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },

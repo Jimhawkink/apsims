@@ -9,7 +9,7 @@ import RubricLevelBadge from '@/components/cbc/RubricLevelBadge';
 import PathwayBadge from '@/components/cbc/PathwayBadge';
 import { countElectivesForPathway } from '@/lib/cbc-utils';
 
-type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'cbc-pathways' | 'cbc-grading' | 'sms';
+type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'cbc-pathways' | 'cbc-grading' | 'sms' | 'mpesa' | 'whatsapp';
 
 export default function SettingsPage() {
     const [tab, setTab] = useState<Tab>('school-details');
@@ -311,7 +311,9 @@ export default function SettingsPage() {
         { key: 'subject-teachers', label: 'Subject-Teacher', icon: '🔗', count: subjectTeachers.length },
         { key: 'cbc-pathways', label: 'CBC Pathways', icon: '🛤️', count: cbcPathways.length },
         { key: 'cbc-grading', label: 'CBC Grading', icon: '📊', count: cbcRubricConfig.length },
-        { key: 'sms', label: 'SMS & Notifications', icon: '💬', count: 0 },
+        { key: 'sms', label: 'SMS Config', icon: '💬', count: 0 },
+        { key: 'mpesa', label: 'M-Pesa STK', icon: '📲', count: 0 },
+        { key: 'whatsapp', label: 'WhatsApp', icon: '💚', count: 0 },
     ];
 
     const openAdd = () => { if (tab === 'school-details') return; if (tab === 'forms') openAddForm(); else if (tab === 'streams') openAddStream(); else if (tab === 'subjects') openAddSubject(); else if (tab === 'classes') openAddClass(); else openAddSubjectTeacher(); };
@@ -1028,6 +1030,134 @@ export default function SettingsPage() {
                                     ) : (
                                         <><FiSave size={16} /> Save SMS Settings</>
                                     )}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ========== M-PESA STK CONFIG ========== */}
+                    {tab === 'mpesa' && (
+                        <div className="p-6 space-y-6">
+                            <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
+                                <h3 className="font-bold text-green-800 flex items-center gap-2 mb-1 text-base">📲 M-Pesa STK Push Configuration</h3>
+                                <p className="text-sm text-green-600">Configure Safaricom Daraja API for STK Push payments. Parents can pay directly from their phones.</p>
+                            </div>
+                            <div className="border border-gray-200 overflow-hidden rounded-xl" style={{ borderLeft: '4px solid #16a34a' }}>
+                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
+                                    <h4 className="font-bold text-gray-800 text-sm">🔑 Daraja API Credentials</h4>
+                                    <p className="text-xs text-gray-500 mt-0.5">Get these from <a href="https://developer.safaricom.co.ke" target="_blank" rel="noreferrer" className="text-green-600 underline">developer.safaricom.co.ke</a></p>
+                                </div>
+                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    {[
+                                        { key: 'mpesa_consumer_key', label: 'Consumer Key', placeholder: 'Daraja Consumer Key', secret: false },
+                                        { key: 'mpesa_consumer_secret', label: 'Consumer Secret', placeholder: 'Daraja Consumer Secret', secret: true },
+                                        { key: 'mpesa_shortcode', label: 'Business Shortcode', placeholder: '174379' },
+                                        { key: 'mpesa_passkey', label: 'Lipa Na M-Pesa Passkey', placeholder: 'Online passkey', secret: true },
+                                        { key: 'mpesa_callback_url', label: 'Callback URL', placeholder: 'https://yourschool.com/api/mpesa/callback' },
+                                        { key: 'mpesa_environment', label: 'Environment', placeholder: 'sandbox or production' },
+                                    ].map(f => (
+                                        <div key={f.key}>
+                                            <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">{f.label}</label>
+                                            <input type={(f as any).secret ? 'password' : 'text'}
+                                                value={(schoolDetails as any)[f.key] || ''}
+                                                onChange={e => setSchoolDetails({ ...schoolDetails, [f.key]: e.target.value })}
+                                                className="w-full px-4 py-3 border-2 border-gray-200 text-sm bg-white focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition-all rounded-lg"
+                                                placeholder={f.placeholder} />
+                                        </div>
+                                    ))}
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Account Reference Prefix</label>
+                                        <input type="text" value={schoolDetails.mpesa_account_prefix || 'FEE'}
+                                            onChange={e => setSchoolDetails({ ...schoolDetails, mpesa_account_prefix: e.target.value })}
+                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm bg-white focus:border-green-400 outline-none transition-all rounded-lg"
+                                            placeholder="e.g. FEE or ADM" />
+                                        <p className="text-xs text-gray-400 mt-1">This prefix + student admission no becomes the M-Pesa account reference (e.g. FEE-2024001)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-xs text-green-700">
+                                <p className="font-bold mb-1">✅ How M-Pesa STK Push works in APSIMS:</p>
+                                <ol className="list-decimal list-inside space-y-1">
+                                    <li>Admin clicks &quot;Collect Fee via M-Pesa&quot; from the student fee page</li>
+                                    <li>APSIMS sends an STK Push prompt to the parent&apos;s phone</li>
+                                    <li>Parent enters M-Pesa PIN to confirm payment</li>
+                                    <li>Safaricom callback fires to your server and fee is automatically recorded</li>
+                                    <li>Parent receives SMS receipt automatically</li>
+                                </ol>
+                            </div>
+                            <div className="pt-2 flex justify-end">
+                                <button onClick={saveSchoolDetails} disabled={savingInfo}
+                                    className="flex items-center gap-2 px-8 py-3 text-white font-bold text-sm rounded-xl shadow-lg disabled:opacity-60"
+                                    style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}>
+                                    {savingInfo ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <><FiSave size={16} /> Save M-Pesa Config</>}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ========== WHATSAPP CONFIG ========== */}
+                    {tab === 'whatsapp' && (
+                        <div className="p-6 space-y-6">
+                            <div className="p-5 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl">
+                                <h3 className="font-bold text-emerald-800 flex items-center gap-2 mb-1 text-base">💚 WhatsApp Integration</h3>
+                                <p className="text-sm text-emerald-600">Configure WhatsApp API to send report cards, fee reminders and attendance alerts to parents</p>
+                            </div>
+                            <div className="border border-gray-200 overflow-hidden rounded-xl" style={{ borderLeft: '4px solid #25d366' }}>
+                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
+                                    <h4 className="font-bold text-gray-800 text-sm">⚙️ WhatsApp API Settings</h4>
+                                    <p className="text-xs text-gray-500 mt-0.5">Supports UltraMsg, WhatsMate, Twilio, and official WhatsApp Business API</p>
+                                </div>
+                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Provider</label>
+                                        <select value={schoolDetails.whatsapp_provider || 'ultramsg'}
+                                            onChange={e => setSchoolDetails({ ...schoolDetails, whatsapp_provider: e.target.value })}
+                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm bg-white focus:border-emerald-400 outline-none rounded-lg">
+                                            <option value="ultramsg">UltraMsg (Recommended)</option>
+                                            <option value="whatsapp-business">Official WhatsApp Business API</option>
+                                            <option value="twilio">Twilio WhatsApp</option>
+                                            <option value="whatsmate">WhatsMate</option>
+                                            <option value="africas-talking">Africa&apos;s Talking</option>
+                                        </select>
+                                    </div>
+                                    {[
+                                        { key: 'whatsapp_api_url', label: 'API Base URL', placeholder: 'https://api.ultramsg.com/instanceXXX' },
+                                        { key: 'whatsapp_api_key', label: 'API Key / Token', placeholder: 'Your auth token', secret: true },
+                                        { key: 'whatsapp_instance_id', label: 'Instance ID', placeholder: 'Instance identifier' },
+                                        { key: 'whatsapp_from_name', label: 'Sender Name', placeholder: 'Your School Name' },
+                                    ].map(f => (
+                                        <div key={f.key}>
+                                            <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">{f.label}</label>
+                                            <input type={(f as any).secret ? 'password' : 'text'}
+                                                value={(schoolDetails as any)[f.key] || ''}
+                                                onChange={e => setSchoolDetails({ ...schoolDetails, [f.key]: e.target.value })}
+                                                className="w-full px-4 py-3 border-2 border-gray-200 text-sm bg-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition-all rounded-lg"
+                                                placeholder={f.placeholder} />
+                                        </div>
+                                    ))}
+                                    <div className="sm:col-span-2 flex items-center gap-3">
+                                        <input type="checkbox" id="wa_enabled"
+                                            checked={!!schoolDetails.whatsapp_enabled}
+                                            onChange={e => setSchoolDetails({ ...schoolDetails, whatsapp_enabled: e.target.checked })}
+                                            className="w-4 h-4 accent-emerald-600" />
+                                        <label htmlFor="wa_enabled" className="text-sm font-semibold text-gray-700 cursor-pointer">Enable WhatsApp notifications globally</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+                                <p className="font-bold mb-1">💡 What WhatsApp is used for in APSIMS:</p>
+                                <ul className="list-disc list-inside space-y-1">
+                                    <li>Bulk fee reminder campaigns (Communication → WhatsApp Reports)</li>
+                                    <li>Digital report card delivery with QR verification</li>
+                                    <li>Attendance alerts when a student is absent</li>
+                                    <li>Payment receipts after M-Pesa STK push confirmation</li>
+                                </ul>
+                            </div>
+                            <div className="pt-2 flex justify-end">
+                                <button onClick={saveSchoolDetails} disabled={savingInfo}
+                                    className="flex items-center gap-2 px-8 py-3 text-white font-bold text-sm rounded-xl shadow-lg disabled:opacity-60"
+                                    style={{ background: 'linear-gradient(135deg, #25d366, #128c7e)' }}>
+                                    {savingInfo ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <><FiSave size={16} /> Save WhatsApp Config</>}
                                 </button>
                             </div>
                         </div>

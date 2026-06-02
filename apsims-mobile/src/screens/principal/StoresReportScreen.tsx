@@ -3,7 +3,7 @@
 // Stock levels · Category breakdown · Movements · Low stock alerts
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { COLORS, fmt } from '../../components/ultra/UltraTheme';
@@ -96,6 +96,7 @@ export default function StoresReportScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#d97706" translucent={false} />
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[COLORS.amber]} />} contentContainerStyle={{ paddingBottom: 30 }}>
         <LinearGradient colors={['#d97706', '#f59e0b', '#fbbf24']} style={styles.header}>
           <Text style={styles.headerTitle}>📦 Stores & Inventory</Text>
@@ -176,7 +177,7 @@ export default function StoresReportScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   content: { paddingHorizontal: 16, paddingTop: 12 },
-  header: { paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  header: { paddingTop: 16, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },

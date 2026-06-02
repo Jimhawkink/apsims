@@ -534,7 +534,6 @@ export default function CBCTeacherHubScreen() {
                 .from('school_students')
                 .select('id, first_name, last_name, admission_number, stream_id, school_streams(stream_name)')
                 .eq('form_id', activeFormId)
-                .eq('status', 'Active')
                 .order('first_name');
             if (selectedStream) studentQuery = studentQuery.eq('stream_id', selectedStream);
             const { data: studentsData } = await studentQuery;

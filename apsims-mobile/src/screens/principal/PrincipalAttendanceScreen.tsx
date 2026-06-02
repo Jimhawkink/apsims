@@ -55,8 +55,7 @@ export default function PrincipalAttendanceScreen() {
 
             const { data: studentsData } = await supabase
                 .from('school_students')
-                .select('id, form_id')
-                .eq('status', 'Active');
+                .select('id, form_id');
 
             // Get attendance for selected date
             const { data: attendanceData } = await supabase
@@ -116,7 +115,7 @@ export default function PrincipalAttendanceScreen() {
                 `)
                 .eq('status', 'Absent')
                 .order('attendance_date', { ascending: false })
-                .limit(10);
+                .limit(5000);
 
             setRecentAbsentees(absentees || []);
         } catch (e) {
