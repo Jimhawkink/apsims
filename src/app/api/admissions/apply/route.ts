@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createHmac } from 'crypto';
+
+const SECRET         = process.env.OTP_SECRET || 'apsims-otp-2026-xK9mP3qR';
+const DEFAULT_TENANT = process.env.DEFAULT_TENANT_ID || '00000000-0000-0000-0000-000000000001';
+const MAX_PER_PHONE  = 3;   // max applications per phone per year
+const MAX_PER_IP     = 10;  // max applications per IP per day
+const MIN_AGE        = 10;  // youngest acceptable student
+const MAX_AGE        = 22;  // oldest acceptable student
 
 function getServiceClient() {
   return createClient(
@@ -8,83 +16,167 @@ function getServiceClient() {
   );
 }
 
-// Default tenant ID — override via env in production
-const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || '00000000-0000-0000-0000-000000000001';
+// ── Verify the phone OTP token issued by /api/admissions/verify-otp ──────────
+function verifyToken(token: string, phone: string): boolean {
+  try {
+    const decoded  = Buffer.from(token, 'base64url').toString('utf8');
+    const [tPhone, tsStr, sig] = decoded.split('|');
+    if (tPhone !== phone) return false;
+    const ts = Number(tsStr);
+    if (isNaN(ts) || Date.now() - ts > 30 * 60 * 1000) return false; // 30-min expiry
+    const h = createHmac('sha256', SECRET);
+    h.update(`verified:${phone}:${ts}`);
+    return h.digest('hex') === sig;
+  } catch { return false; }
+}
 
-// ─── POST /api/admissions/apply ───
-// Public endpoint — no auth required
+// ── Compute rough age from DOB ────────────────────────────────────────────────
+function getAge(dob: string): number {
+  const born = new Date(dob);
+  const now  = new Date();
+  let age = now.getFullYear() - born.getFullYear();
+  if (now.getMonth() < born.getMonth() || (now.getMonth() === born.getMonth() && now.getDate() < born.getDate())) age--;
+  return age;
+}
+
+// ── GET client IP from headers ────────────────────────────────────────────────
+function getIP(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+         req.headers.get('x-real-ip') || 'unknown';
+}
+
+// ─── POST /api/admissions/apply ───────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   let body: any;
-  try {
-    body = await req.json();
-  } catch {
+  try { body = await req.json(); } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
   const {
-    student_first_name,
-    student_last_name,
-    student_middle_name,
-    date_of_birth,
-    gender,
-    previous_school,
-    kcpe_index_number,
-    kcpe_total_marks,
-    guardian_full_name,
-    guardian_phone,
-    guardian_email,
-    guardian_national_id,
+    student_first_name, student_last_name, student_middle_name,
+    date_of_birth, gender, previous_school,
+    kcpe_index_number, kcpe_total_marks,
+    guardian_full_name, guardian_phone, guardian_email, guardian_national_id,
     form_applied_for,
+    verification_token,    // ← OTP-verified token
+    honeypot,              // ← must be empty/absent
+    terms_agreed,          // ← must be true
   } = body;
 
-  // ─── Required field validation ───
-  const missing: string[] = [];
-  if (!student_first_name?.trim()) missing.push('student_first_name');
-  if (!student_last_name?.trim()) missing.push('student_last_name');
-  if (!date_of_birth) missing.push('date_of_birth');
-  if (!gender) missing.push('gender');
-  if (!kcpe_index_number?.trim()) missing.push('kcpe_index_number');
-  if (!guardian_full_name?.trim()) missing.push('guardian_full_name');
-  if (!guardian_phone?.trim()) missing.push('guardian_phone');
-  if (!guardian_national_id?.trim()) missing.push('guardian_national_id');
-  if (!form_applied_for) missing.push('form_applied_for');
-
-  if (missing.length > 0) {
-    return NextResponse.json(
-      { error: `Missing required fields: ${missing.join(', ')}` },
-      { status: 400 }
-    );
+  // ── LAYER 1: Honeypot — bots fill this, humans don't ─────────────────────
+  if (honeypot && String(honeypot).trim() !== '') {
+    // Silent fail — don't tell bots we caught them
+    return NextResponse.json({ reference_number: 'BOT-0000-000000', status: 'Submitted' }, { status: 201 });
   }
 
+  // ── LAYER 2: Terms must be agreed ─────────────────────────────────────────
+  if (!terms_agreed) {
+    return NextResponse.json({ error: 'You must agree to the terms and declaration to submit.' }, { status: 400 });
+  }
+
+  // ── LAYER 3: OTP Token verification ───────────────────────────────────────
+  const cleanPhone = (guardian_phone || '').replace(/\s+/g, '').trim();
+  if (!verification_token || !verifyToken(String(verification_token), cleanPhone)) {
+    return NextResponse.json({ error: 'Phone number not verified. Please complete OTP verification.' }, { status: 403 });
+  }
+
+  // ── LAYER 4: Required fields ───────────────────────────────────────────────
+  const missing: string[] = [];
+  if (!student_first_name?.trim())   missing.push('First name');
+  if (!student_last_name?.trim())    missing.push('Last name');
+  if (!date_of_birth)                missing.push('Date of birth');
+  if (!gender)                       missing.push('Gender');
+  if (!kcpe_index_number?.trim())    missing.push('KCPE index number');
+  if (!guardian_full_name?.trim())   missing.push('Guardian name');
+  if (!cleanPhone)                   missing.push('Guardian phone');
+  if (!guardian_national_id?.trim()) missing.push('Guardian National ID');
+  if (!form_applied_for)             missing.push('Form applied for');
+  if (missing.length > 0) {
+    return NextResponse.json({ error: `Missing required fields: ${missing.join(', ')}` }, { status: 400 });
+  }
+
+  // ── LAYER 4b: Format validations ──────────────────────────────────────────
+  if (!/^(\+254|0)[17]\d{8}$/.test(cleanPhone)) {
+    return NextResponse.json({ error: 'Invalid Kenyan phone number format.' }, { status: 400 });
+  }
+  const kcpeClean = kcpe_index_number.trim().replace(/\s+/g, '');
+  if (!/^\d{11,12}$/.test(kcpeClean)) {
+    return NextResponse.json({ error: 'KCPE index number must be 11–12 digits (e.g. 10100101001).' }, { status: 400 });
+  }
+  const idClean = guardian_national_id.trim().replace(/\s+/g, '');
+  if (!/^\d{7,8}$/.test(idClean)) {
+    return NextResponse.json({ error: 'Guardian National ID must be 7–8 digits.' }, { status: 400 });
+  }
+  if (![1, 2, 3, 4, 10, 11, 12].includes(Number(form_applied_for))) {
+    return NextResponse.json({ error: 'Form applied for must be Form 1-4 (8-4-4) or Grade 10-12 (CBC).' }, { status: 400 });
+  }
   if (kcpe_total_marks !== undefined && kcpe_total_marks !== null) {
-    const marks = Number(kcpe_total_marks);
-    if (isNaN(marks) || marks < 0 || marks > 500) {
-      return NextResponse.json({ error: 'kcpe_total_marks must be between 0 and 500' }, { status: 400 });
+    const m = Number(kcpe_total_marks);
+    if (isNaN(m) || m < 100 || m > 500) {
+      return NextResponse.json({ error: 'KCPE marks must be between 100 and 500.' }, { status: 400 });
     }
   }
 
-  const supabase = getServiceClient();
+  // ── LAYER 5: Age validation ────────────────────────────────────────────────
+  const age = getAge(date_of_birth);
+  if (age < MIN_AGE || age > MAX_AGE) {
+    return NextResponse.json({
+      error: `Student age (${age}) is outside the valid range (${MIN_AGE}–${MAX_AGE} years). Please check the date of birth.`
+    }, { status: 400 });
+  }
 
-  // ─── Duplicate check: same tenant + KCPE index ───
+  const supabase = getServiceClient();
+  const ip       = getIP(req);
+  const yearNow  = new Date().getFullYear();
+  const yearStart = `${yearNow}-01-01T00:00:00.000Z`;
+  const yearEnd   = `${yearNow}-12-31T23:59:59.999Z`;
+
+  // ── LAYER 6a: Phone rate limit — max 3 per phone this year ────────────────
+  const { count: phoneCount } = await supabase
+    .from('school_admission_applications')
+    .select('id', { count: 'exact', head: true })
+    .eq('guardian_phone', cleanPhone)
+    .gte('submitted_at', yearStart)
+    .lte('submitted_at', yearEnd);
+
+  if ((phoneCount ?? 0) >= MAX_PER_PHONE) {
+    return NextResponse.json({
+      error: `This phone number (${cleanPhone}) has reached the maximum of ${MAX_PER_PHONE} applications this year. Contact the school for assistance.`
+    }, { status: 429 });
+  }
+
+  // ── LAYER 6b: IP rate limit — max 10 per IP per day ──────────────────────
+  if (ip !== 'unknown') {
+    const today = new Date().toISOString().split('T')[0];
+    const { count: ipCount } = await supabase
+      .from('school_admission_applications')
+      .select('id', { count: 'exact', head: true })
+      .eq('submitter_ip', ip)
+      .gte('submitted_at', `${today}T00:00:00.000Z`)
+      .lte('submitted_at', `${today}T23:59:59.999Z`);
+
+    if ((ipCount ?? 0) >= MAX_PER_IP) {
+      return NextResponse.json({
+        error: 'Too many applications submitted from your location today. Please try again tomorrow or contact the school.'
+      }, { status: 429 });
+    }
+  }
+
+  // ── Duplicate check: same KCPE index ──────────────────────────────────────
   const { data: existing } = await supabase
     .from('school_admission_applications')
     .select('id, reference_number')
-    .eq('tenant_id', DEFAULT_TENANT_ID)
-    .eq('kcpe_index_number', kcpe_index_number.trim())
+    .eq('tenant_id', DEFAULT_TENANT)
+    .eq('kcpe_index_number', kcpeClean)
     .maybeSingle();
 
   if (existing) {
-    return NextResponse.json(
-      { error: 'Duplicate application: an application with this KCPE index number already exists.' },
-      { status: 409 }
-    );
+    return NextResponse.json({
+      error: `An application for KCPE index ${kcpeClean} already exists (Ref: ${existing.reference_number}). Contact the school if this is an error.`
+    }, { status: 409 });
   }
 
-  // ─── Generate reference number: ADM-YYYY-XXXXXX ───
-  const currentYear = new Date().getFullYear();
-  const yearStart = `${currentYear}-01-01T00:00:00.000Z`;
-  const yearEnd = `${currentYear}-12-31T23:59:59.999Z`;
-
+  // ── Generate reference number ──────────────────────────────────────────────
   const { count: existingCount } = await supabase
     .from('school_admission_applications')
     .select('id', { count: 'exact', head: true })
@@ -92,63 +184,55 @@ export async function POST(req: NextRequest) {
     .lte('submitted_at', yearEnd);
 
   const seq = (existingCount ?? 0) + 1;
-  const reference_number = `ADM-${currentYear}-${String(seq).padStart(6, '0')}`;
+  const reference_number = `ADM-${yearNow}-${String(seq).padStart(6, '0')}`;
 
-  // ─── Insert application ───
+  // ── Insert application ─────────────────────────────────────────────────────
   const { data, error } = await supabase
     .from('school_admission_applications')
     .insert([{
-      tenant_id: DEFAULT_TENANT_ID,
+      tenant_id:           DEFAULT_TENANT,
       reference_number,
-      student_first_name: student_first_name.trim(),
+      student_first_name:  student_first_name.trim(),
       student_middle_name: student_middle_name?.trim() || null,
-      student_last_name: student_last_name.trim(),
+      student_last_name:   student_last_name.trim(),
       date_of_birth,
       gender,
-      previous_school: previous_school?.trim() || null,
-      kcpe_index_number: kcpe_index_number.trim(),
-      kcpe_total_marks: kcpe_total_marks !== undefined && kcpe_total_marks !== null ? Number(kcpe_total_marks) : null,
-      form_applied_for: Number(form_applied_for),
-      guardian_full_name: guardian_full_name.trim(),
-      guardian_phone: guardian_phone.trim(),
-      guardian_email: guardian_email?.trim() || null,
-      guardian_national_id: guardian_national_id.trim(),
-      status: 'Submitted',
-      submitted_at: new Date().toISOString(),
+      previous_school:     previous_school?.trim() || null,
+      kcpe_index_number:   kcpeClean,
+      kcpe_total_marks:    kcpe_total_marks !== undefined && kcpe_total_marks !== null ? Number(kcpe_total_marks) : null,
+      form_applied_for:    Number(form_applied_for),
+      guardian_full_name:  guardian_full_name.trim(),
+      guardian_phone:      cleanPhone,
+      guardian_email:      guardian_email?.trim() || null,
+      guardian_national_id: idClean,
+      status:              'Submitted',
+      submitted_at:        new Date().toISOString(),
+      submitter_ip:        ip,
+      phone_verified:      true,
     }])
     .select()
     .single();
 
   if (error) {
-    // Handle race condition on unique constraint
     if (error.code === '23505') {
-      return NextResponse.json(
-        { error: 'Duplicate application: an application with this KCPE index number already exists.' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Duplicate application: KCPE index already exists.' }, { status: 409 });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // ─── Send SMS to guardian (best-effort) ───
+  // ── Send confirmation SMS ──────────────────────────────────────────────────
   try {
-    const studentName = `${student_first_name.trim()} ${student_last_name.trim()}`;
-    const smsMessage = `Dear ${guardian_full_name.trim()}, your admission application for ${studentName} has been received. Reference: ${reference_number}. - APSIMS`;
-
+    const name = `${student_first_name.trim()} ${student_last_name.trim()}`;
     await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/send-sms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: guardian_phone.trim(), message: smsMessage }),
+      body: JSON.stringify({
+        phone: cleanPhone,
+        message: `Dear ${guardian_full_name.trim()}, your admission application for ${name} has been received. Ref: ${reference_number}. Track status at apsims.vercel.app/admissions/status - APSIMS School`,
+      }),
     });
-
-    // Mark SMS as sent
-    await supabase
-      .from('school_admission_applications')
-      .update({ sms_sent: true })
-      .eq('id', data.id);
-  } catch {
-    // SMS failure should not block the response
-  }
+    await supabase.from('school_admission_applications').update({ sms_sent: true }).eq('id', data.id);
+  } catch { /* SMS failure is non-blocking */ }
 
   return NextResponse.json({ reference_number, status: 'Submitted' }, { status: 201 });
 }

@@ -6,8 +6,28 @@ import {
     FiUser, FiSearch, FiRefreshCw, FiEye, FiCheckCircle, FiXCircle,
     FiClock, FiAlertCircle, FiFilter, FiDownload, FiUserPlus,
     FiPrinter, FiX, FiChevronDown, FiChevronUp, FiPhone, FiMail,
-    FiCalendar, FiFileText,
+    FiCalendar, FiFileText, FiFolder, FiExternalLink,
 } from 'react-icons/fi';
+
+// Form / Grade display helper
+const formLabel = (n?: number) => {
+    if (!n) return '—';
+    if (n === 10) return 'Grade 10 (CBC)';
+    if (n === 11) return 'Grade 11 (CBC)';
+    if (n === 12) return 'Grade 12 (CBC)';
+    return `Form ${n} (8-4-4)`;
+};
+
+// Document type icon
+const docIcon = (type: string) => {
+    const t = (type || '').toLowerCase();
+    if (t.includes('birth'))    return '🪪';
+    if (t.includes('kcpe') || t.includes('result')) return '📋';
+    if (t.includes('photo'))    return '📷';
+    if (t.includes('medical'))  return '🏥';
+    if (t.includes('pdf'))      return '📄';
+    return '📎';
+};
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -175,8 +195,25 @@ function ConvertModal({ app, onClose, onSaved }: { app: Application; onClose: ()
 
 // ── Application Detail Drawer ─────────────────────────────────────────────────
 function DetailDrawer({ app, onClose, onRefresh }: { app: Application; onClose: () => void; onRefresh: () => void }) {
-    const [showStatus, setShowStatus] = useState(false);
+    const [showStatus, setShowStatus]   = useState(false);
     const [showConvert, setShowConvert] = useState(false);
+    const [documents, setDocuments]     = useState<any[]>([]);
+    const [docsLoading, setDocsLoading] = useState(false);
+    const [docsLoaded, setDocsLoaded]   = useState(false);
+
+    const loadDocuments = useCallback(async () => {
+        if (docsLoaded) return;
+        setDocsLoading(true);
+        try {
+            const res = await fetch(`/api/admissions/applications/${app.id}/documents`);
+            const r   = await res.json();
+            if (res.ok) setDocuments(r.data || []);
+        } catch { /* silent */ }
+        finally { setDocsLoading(false); setDocsLoaded(true); }
+    }, [app.id, docsLoaded]);
+
+    // Load docs when drawer opens
+    useEffect(() => { loadDocuments(); }, [loadDocuments]);
 
     const printLetter = () => {
         const w = window.open('', '_blank');
@@ -267,7 +304,7 @@ ${app.kcpe_total_marks ? `<div class="row"><span>KCPE Marks</span><span>${app.kc
                                     ['Previous School', app.previous_school || '—'],
                                     ['KCPE Index No', app.kcpe_index_number],
                                     ['KCPE Marks', app.kcpe_total_marks ? `${app.kcpe_total_marks}/500` : '—'],
-                                    ['Form Applied', app.school_forms?.form_name || (app.form_applied_for ? `Form ${app.form_applied_for}` : '—')],
+                                    ['Form Applied', app.school_forms?.form_name || formLabel(app.form_applied_for)],
                                 ].map(([l, v]) => (
                                     <div key={l} className="flex justify-between">
                                         <span className="text-xs text-gray-400">{l}</span>
@@ -317,6 +354,57 @@ ${app.kcpe_total_marks ? `<div class="row"><span>KCPE Marks</span><span>${app.kc
                                     <div className="mt-2 p-3 bg-violet-50 border border-violet-100 rounded-xl">
                                         <p className="text-[10px] font-bold text-violet-600 uppercase mb-1">Review Notes</p>
                                         <p className="text-xs text-gray-700">{app.review_notes}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ── Submitted Documents ── */}
+                        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                    <FiFolder size={11} className="text-violet-500" /> Submitted Documents
+                                </p>
+                                <button onClick={() => { setDocsLoaded(false); loadDocuments(); }}
+                                    className="text-[10px] text-violet-600 flex items-center gap-1 hover:underline">
+                                    <FiRefreshCw size={10} /> Refresh
+                                </button>
+                            </div>
+                            <div className="p-4">
+                                {docsLoading ? (
+                                    <div className="flex justify-center py-6">
+                                        <div className="w-5 h-5 border-2 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
+                                    </div>
+                                ) : documents.length === 0 ? (
+                                    <div className="text-center py-6">
+                                        <p className="text-3xl mb-2">📂</p>
+                                        <p className="text-xs font-medium text-gray-400">No documents uploaded yet</p>
+                                        <p className="text-[11px] text-gray-300 mt-1">Applicant can upload via the admissions portal</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {documents.map((doc: any) => (
+                                            <div key={doc.id} className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-xl border border-gray-100 hover:border-violet-200 transition-colors">
+                                                <span className="text-xl flex-shrink-0">{docIcon(doc.document_type)}</span>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-semibold text-gray-800 truncate">{doc.file_name || doc.document_type}</p>
+                                                    <p className="text-[10px] text-gray-400">{doc.document_type} · {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-KE') : '—'}</p>
+                                                </div>
+                                                {doc.file_url && (
+                                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                                                            className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold bg-violet-50 text-violet-700 rounded-lg hover:bg-violet-100 transition">
+                                                            <FiExternalLink size={10} /> View
+                                                        </a>
+                                                        <a href={doc.file_url} download
+                                                            className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition">
+                                                            <FiDownload size={10} /> Save
+                                                        </a>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                        <p className="text-[10px] text-gray-400 text-center pt-1">{documents.length} document(s) submitted</p>
                                     </div>
                                 )}
                             </div>
