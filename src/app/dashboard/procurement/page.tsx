@@ -15,7 +15,7 @@ const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-KE', { day
 const CATEGORIES = ['General', 'Stationery', 'Food & Kitchen', 'Cleaning', 'Laboratory', 'Uniforms', 'Construction', 'IT & Electronics', 'Fuel & Energy', 'Medical', 'Furniture', 'Transport', 'Textbooks', 'Sports'];
 const UNITS = ['Pieces', 'Reams', 'Boxes', 'Kg', 'Litres', 'Metres', 'Pairs', 'Sets', 'Cartons', 'Bags', 'Rolls', 'Packets'];
 const PAY_METHODS = ['Bank Transfer', 'Cheque', 'Cash', 'M-Pesa', 'RTGS', 'EFT'];
-type Tab = 'suppliers' | 'orders' | 'invoices' | 'payments';
+type Tab = 'suppliers' | 'orders' | 'invoices' | 'payments' | 'statements';
 
 /* ─── auto-number helpers ─────────────────────────── */
 const genPONumber = (count: number) => `LPO-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
@@ -159,6 +159,28 @@ export default function ProcurementPage() {
             toast.error('Invoice #, supplier, and total amount are required'); return;
         }
         setSaving(true);
+        // ✅ Duplicate invoice number check
+        const { data: existing } = await supabase
+            .from('school_supplier_invoices')
+            .select('id, invoice_number')
+            .eq('invoice_number', invForm.invoice_number)
+            .maybeSingle();
+        if (existing) {
+            toast.error(`⚠️ Invoice ${invForm.invoice_number} already exists! Edit or void the existing one.`);
+            setSaving(false); return;
+        }
+        // ✅ Duplicate PO check — prevent recording 2nd invoice for same LPO
+        if (invForm.po_id) {
+            const { data: poInv } = await supabase
+                .from('school_supplier_invoices')
+                .select('id, invoice_number')
+                .eq('po_id', Number(invForm.po_id))
+                .maybeSingle();
+            if (poInv) {
+                toast.error(`⚠️ LPO already has invoice ${poInv.invoice_number}. Edit that invoice instead.`);
+                setSaving(false); return;
+            }
+        }
         const total = Number(invForm.total_amount);
         const { error } = await supabase.from('school_supplier_invoices').insert([{
             invoice_number: invForm.invoice_number,
@@ -426,8 +448,22 @@ ${inv.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
         { k: 'orders', l: '📋 Purchase Orders', count: orders.length },
         { k: 'invoices', l: '🧾 Supplier Invoices', count: invoices.length },
         { k: 'payments', l: '💳 Payments', count: payments.length },
+        { k: 'statements', l: '📊 Supplier Statements', count: suppliers.length },
         { k: 'suppliers', l: '🏢 Suppliers', count: suppliers.length },
     ];
+
+    /* ─── per-supplier statement helper ─────────────── */
+    const getSupplierStatement = (supplierId: number) => {
+        const supOrders = orders.filter(o => o.supplier_id === supplierId && o.status !== 'Cancelled');
+        const supInvoices = invoices.filter(i => i.supplier_id === supplierId);
+        const supPayments = payments.filter(p => p.supplier_id === supplierId);
+        const totalInvoiced = supInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0);
+        const totalPaid = supPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+        const balance = totalInvoiced - totalPaid;
+        return { supOrders, supInvoices, supPayments, totalInvoiced, totalPaid, balance };
+    };
+
+    const poHasInvoice = (poId: number) => invoices.find(i => i.po_id === poId);
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center h-64 gap-3">
@@ -566,10 +602,22 @@ ${inv.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                                         <button onClick={() => printLPO(po)} className="px-3 py-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-1 transition">
                                             <FiPrinter size={10} /> Print LPO
                                         </button>
-                                        <button onClick={() => { setInvForm({ ...freshInvoice(), po_id: String(po.id), supplier_id: String(po.supplier_id), total_amount: String(po.grand_total || po.total_amount || ''), vat_amount: String(po.vat_amount || '0'), subtotal: String(po.subtotal_amount || po.total_amount || ''), description: `Invoice for ${po.po_number}` }); setShowInvoiceModal(true); }}
-                                            className="px-3 py-1.5 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-1 transition">
-                                            <FiArrowRight size={10} /> Record Invoice
-                                        </button>
+                                        {(() => {
+                                            const existingInv = poHasInvoice(po.id);
+                                            if (existingInv) {
+                                                return (
+                                                    <span className="px-3 py-1.5 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 rounded-lg flex items-center gap-1" title={`Invoice ${existingInv.invoice_number} already recorded`}>
+                                                        <FiCheckCircle size={10} /> {existingInv.invoice_number}
+                                                    </span>
+                                                );
+                                            }
+                                            return (
+                                                <button onClick={() => { setInvForm({ ...freshInvoice(), po_id: String(po.id), supplier_id: String(po.supplier_id), total_amount: String(po.grand_total || po.total_amount || ''), vat_amount: String(po.vat_amount || '0'), subtotal: String(po.subtotal_amount || po.total_amount || ''), description: `Invoice for ${po.po_number}` }); setShowInvoiceModal(true); }}
+                                                    className="px-3 py-1.5 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-1 transition">
+                                                    <FiArrowRight size={10} /> Record Invoice
+                                                </button>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                                 {items.length > 0 && (
@@ -605,6 +653,146 @@ ${inv.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                                             </tbody>
                                         </table>
                                     </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* ════ SUPPLIER STATEMENTS ════ */}
+            {tab === 'statements' && (
+                <div className="space-y-3">
+                    {suppliers.length === 0 ? (
+                        <div className="bg-white rounded-2xl border border-gray-200 p-16 text-center">
+                            <span className="text-4xl block mb-2">📊</span>
+                            <p className="text-sm font-bold text-gray-600">No suppliers found — add suppliers first</p>
+                        </div>
+                    ) : suppliers.filter(s => !search || s.supplier_name?.toLowerCase().includes(search.toLowerCase())).map(sup => {
+                        const { supOrders, supInvoices, supPayments, totalInvoiced, totalPaid, balance } = getSupplierStatement(sup.id);
+                        const isCreditor = balance > 0;
+                        return (
+                            <div key={sup.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                {/* Supplier header */}
+                                <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-sm font-black shadow-md" style={{ background: 'linear-gradient(135deg,#1e40af,#3b82f6)' }}>
+                                            {sup.supplier_name?.charAt(0)?.toUpperCase() || 'S'}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-extrabold text-gray-800">{sup.supplier_name}</p>
+                                            <p className="text-[10px] text-gray-400">{sup.phone || '—'} · {sup.category || 'General'} · {sup.payment_terms || 'Net 30'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 flex-wrap">
+                                        <div className="text-center">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase">LPOs</p>
+                                            <p className="text-lg font-black text-blue-600">{supOrders.length}</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase">Invoiced</p>
+                                            <p className="text-sm font-black text-gray-700">{fmt(totalInvoiced)}</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase">Paid</p>
+                                            <p className="text-sm font-black text-green-600">{fmt(totalPaid)}</p>
+                                        </div>
+                                        <div className="text-center px-3 py-1.5 rounded-xl" style={{ background: isCreditor ? '#fef2f2' : '#f0fdf4', border: `1px solid ${isCreditor ? '#fecaca' : '#bbf7d0'}` }}>
+                                            <p className="text-[9px] font-bold uppercase" style={{ color: isCreditor ? '#dc2626' : '#16a34a' }}>Balance Due</p>
+                                            <p className="text-base font-black" style={{ color: isCreditor ? '#dc2626' : '#16a34a' }}>{fmt(balance)}</p>
+                                        </div>
+                                        {isCreditor && (
+                                            <button onClick={() => { setPayForm({ ...freshPayment(), supplier_id: String(sup.id) }); setShowPaymentModal(true); }}
+                                                className="px-3 py-1.5 text-[10px] font-bold text-white rounded-lg shadow-sm" style={{ background: 'linear-gradient(135deg,#22c55e,#16a34a)' }}>
+                                                💳 Pay Now
+                                            </button>
+                                        )}
+                                        <button onClick={() => {
+                                            const s = getSupplierStatement(sup.id);
+                                            const w = window.open('', '_blank');
+                                            w?.document.write(`<!DOCTYPE html><html><head><title>Statement - ${sup.supplier_name}</title>
+<style>body{font-family:'Segoe UI',sans-serif;padding:24px;color:#1e293b;font-size:12px;}
+.h{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:12px;border-bottom:3px solid #1e40af;}
+.hn{font-size:18px;font-weight:900;color:#1e40af;}table{width:100%;border-collapse:collapse;margin:12px 0;}
+th{background:#1e40af;color:#fff;padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;}
+td{padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:11px;}tr:nth-child(even)td{background:#f8fafc;}
+.total-row td{font-weight:900;background:#eff6ff;border-top:2px solid #1e40af;}
+.balance-box{background:${balance>0?'#fef2f2':'#f0fdf4'};border:2px solid ${balance>0?'#fca5a5':'#86efac'};border-radius:12px;padding:16px;margin:16px 0;display:flex;justify-content:space-between;align-items:center;}
+</style></head><body>
+<div class='h'><div><p class='hn'>${schoolInfo?.school_name||'APSIMS School'}</p><p style='font-size:11px;color:#64748b'>${schoolInfo?.address||''}</p></div>
+<div style='text-align:right'><p style='font-size:10px;text-transform:uppercase;color:#64748b'>Supplier Statement</p>
+<p style='font-size:14px;font-weight:900'>${sup.supplier_name}</p><p style='font-size:11px;color:#64748b'>${sup.phone||''}</p>
+<p style='font-size:10px;color:#94a3b8'>Generated: ${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</p></div></div>
+<h3 style='font-size:11px;text-transform:uppercase;color:#64748b;margin:16px 0 4px'>Invoices</h3>
+<table><thead><tr><th>#</th><th>Invoice No</th><th>Date</th><th>Due Date</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead><tbody>
+${s.supInvoices.map((inv,i)=>`<tr><td>${i+1}</td><td style='font-family:monospace;font-weight:700'>${inv.invoice_number}</td><td>${inv.invoice_date?new Date(inv.invoice_date).toLocaleDateString('en-KE',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td><td>${inv.due_date?new Date(inv.due_date).toLocaleDateString('en-KE',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td><td style='text-align:right'>${Number(inv.total_amount||0).toLocaleString('en-KE',{minimumFractionDigits:2})}</td><td style='text-align:right;color:#16a34a'>${Number(inv.amount_paid||0).toLocaleString('en-KE',{minimumFractionDigits:2})}</td><td style='text-align:right;font-weight:700;color:${Number(inv.balance||0)>0?'#dc2626':'#16a34a'}'>${Number(inv.balance||0).toLocaleString('en-KE',{minimumFractionDigits:2})}</td><td>${inv.status}</td></tr>`).join('')}
+<tr class='total-row'><td colspan='4' style='text-align:right'>TOTALS</td><td style='text-align:right'>${s.totalInvoiced.toLocaleString('en-KE',{minimumFractionDigits:2})}</td><td style='text-align:right;color:#16a34a'>${s.totalPaid.toLocaleString('en-KE',{minimumFractionDigits:2})}</td><td style='text-align:right;color:${balance>0?'#dc2626':'#16a34a'};font-size:14px'>${balance.toLocaleString('en-KE',{minimumFractionDigits:2})}</td><td></td></tr>
+</tbody></table>
+<h3 style='font-size:11px;text-transform:uppercase;color:#64748b;margin:16px 0 4px'>Payments Made</h3>
+<table><thead><tr><th>#</th><th>Payment No</th><th>Date</th><th>Method</th><th>Reference</th><th>Amount</th></tr></thead><tbody>
+${s.supPayments.map((p,i)=>`<tr><td>${i+1}</td><td style='font-family:monospace'>${p.payment_number||'—'}</td><td>${p.payment_date?new Date(p.payment_date).toLocaleDateString('en-KE',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td><td>${p.payment_method||'—'}</td><td>${p.reference_number||'—'}</td><td style='text-align:right;font-weight:700;color:#16a34a'>${Number(p.amount||0).toLocaleString('en-KE',{minimumFractionDigits:2})}</td></tr>`).join('')}
+</tbody></table>
+<div class='balance-box'><div><p style='font-size:10px;font-weight:700;text-transform:uppercase;color:${balance>0?'#dc2626':'#16a34a'}'>Current Balance Due to Supplier</p><p style='font-size:11px;color:#64748b'>As of ${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</p></div><p style='font-size:28px;font-weight:900;color:${balance>0?'#dc2626':'#16a34a'}'>KES ${balance.toLocaleString('en-KE',{minimumFractionDigits:2})}</p></div>
+<p style='text-align:center;margin-top:24px;font-size:10px;color:#94a3b8'>Generated by APSIMS Procurement System</p>
+<script>window.onload=()=>{window.print();}<\/script></body></html>`);
+                                            w?.document.close();
+                                        }} className="p-2 rounded-lg hover:bg-blue-50 transition" title="Print Statement">
+                                            <FiPrinter size={14} className="text-blue-600" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Invoice rows */}
+                                {supInvoices.length > 0 && (
+                                    <div className="overflow-x-auto border-t border-gray-100">
+                                        <table className="w-full">
+                                            <thead><tr className="bg-gray-50">
+                                                {['Invoice #', 'Date', 'Due', 'LPO', 'Total', 'Paid', 'Balance', 'Status', 'Action'].map(h => (
+                                                    <th key={h} className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-left whitespace-nowrap">{h}</th>
+                                                ))}
+                                            </tr></thead>
+                                            <tbody>
+                                                {supInvoices.map(inv => {
+                                                    const po = inv.po_id ? orders.find((o: any) => o.id === inv.po_id) : null;
+                                                    const isOverdue = inv.status !== 'Paid' && inv.due_date && new Date(inv.due_date) < new Date();
+                                                    return (
+                                                        <tr key={inv.id} className={`border-t border-gray-100 hover:bg-gray-50 ${isOverdue ? 'bg-red-50/30' : ''}`}>
+                                                            <td className="px-3 py-2 text-xs font-mono font-bold text-indigo-600">{inv.invoice_number}</td>
+                                                            <td className="px-3 py-2 text-xs text-gray-500">{fmtDate(inv.invoice_date)}</td>
+                                                            <td className="px-3 py-2 text-xs" style={{ color: isOverdue ? '#ef4444' : '#6b7280' }}>{fmtDate(inv.due_date)}</td>
+                                                            <td className="px-3 py-2 text-xs font-mono text-blue-600">{po?.po_number || '—'}</td>
+                                                            <td className="px-3 py-2 text-xs font-bold text-gray-700">{fmt(inv.total_amount)}</td>
+                                                            <td className="px-3 py-2 text-xs font-bold text-green-600">{fmt(inv.amount_paid)}</td>
+                                                            <td className="px-3 py-2 text-xs font-black" style={{ color: Number(inv.balance) > 0 ? '#dc2626' : '#16a34a' }}>{fmt(inv.balance)}</td>
+                                                            <td className="px-3 py-2">
+                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor[isOverdue ? 'Overdue' : inv.status] || 'bg-gray-100 text-gray-500'}`}>
+                                                                    {isOverdue ? 'Overdue' : inv.status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                {inv.status !== 'Paid' && (
+                                                                    <button onClick={() => { setPayForm({ ...freshPayment(), supplier_id: String(sup.id), invoice_id: String(inv.id), amount: String(inv.balance || inv.total_amount) }); setShowPaymentModal(true); }}
+                                                                        className="px-2 py-1 text-[10px] font-bold text-white rounded-lg" style={{ background: 'linear-gradient(135deg,#22c55e,#16a34a)' }}>
+                                                                        💳 Pay
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                <tr className="border-t-2 border-blue-200 bg-blue-50">
+                                                    <td colSpan={4} className="px-3 py-2 text-xs font-bold text-blue-700 text-right">SUPPLIER TOTAL</td>
+                                                    <td className="px-3 py-2 text-sm font-black text-gray-800">{fmt(totalInvoiced)}</td>
+                                                    <td className="px-3 py-2 text-sm font-black text-green-600">{fmt(totalPaid)}</td>
+                                                    <td className="px-3 py-2 text-sm font-black" style={{ color: balance > 0 ? '#dc2626' : '#16a34a' }}>{fmt(balance)}</td>
+                                                    <td colSpan={2} />
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                                {supInvoices.length === 0 && (
+                                    <div className="px-5 py-4 text-xs text-gray-400 border-t border-gray-100">No invoices recorded for this supplier yet.</div>
                                 )}
                             </div>
                         );
