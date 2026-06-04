@@ -4,19 +4,19 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import {
-    FiBookOpen, FiBox, FiPlus, FiSearch, FiEdit2, FiTrash2,
+    FiBookOpen, FiPlus, FiSearch, FiEdit2, FiTrash2,
     FiDownload, FiX, FiSave, FiRefreshCw, FiCheck,
     FiAlertCircle, FiClock, FiChevronLeft, FiChevronRight,
-    FiArrowRight, FiBarChart2, FiUsers, FiZap, FiBell,
+    FiArrowRight, FiBarChart2, FiUsers, FiBell,
     FiMapPin, FiPrinter, FiChevronDown, FiChevronUp,
-    FiCheckCircle, FiXCircle, FiGrid, FiList,
-    FiActivity, FiArchive, FiPackage, FiCopy,
+    FiCheckCircle, FiGrid, FiList,
+    FiArchive, FiTrendingUp, FiDollarSign,
 } from 'react-icons/fi';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TYPES & CONSTANTS
+// TYPES
 // ─────────────────────────────────────────────────────────────────────────────
-type LibraryTab = 'books' | 'checkout' | 'history' | 'assets' | 'reports' | 'stores';
+type LibraryTab = 'books' | 'checkouts' | 'history' | 'overdue' | 'reports';
 type ViewMode = 'table' | 'grid';
 type SortField = 'title' | 'author' | 'category' | 'available_copies' | 'total_copies' | 'year_published';
 type SortDir = 'asc' | 'desc';
@@ -35,7 +35,6 @@ interface Book {
     condition: string;
     notes: string;
     status: string;
-    created_at: string;
     cover_color?: string;
 }
 
@@ -52,7 +51,6 @@ interface Checkout {
     status: string;
     fine_amount: number;
     notes: string;
-    created_at: string;
     renewed_count?: number;
 }
 
@@ -85,7 +83,7 @@ interface CheckoutFormData {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONFIGURATION
+// CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 const fmt = (n: number) =>
     new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(n);
@@ -97,12 +95,12 @@ const bookCategories = [
     'Textbook', 'Reference', 'Fiction', 'Non-Fiction', 'Science',
     'Mathematics', 'History', 'Language', 'Religious', 'General',
     'Periodical', 'Biography', 'Geography', 'Agriculture', 'Business',
-    'Art & Music', 'Technology', 'Health & PE', 'Swahili Literature'
+    'Art & Music', 'Technology', 'Health & PE', 'Swahili Literature',
 ];
 
 const coverColors = [
     '#0d9488', '#2563eb', '#7c3aed', '#db2777', '#ea580c',
-    '#16a34a', '#0891b2', '#9333ea', '#e11d48', '#d97706'
+    '#16a34a', '#0891b2', '#9333ea', '#e11d48', '#d97706',
 ];
 
 const FINE_PER_DAY = 5;
@@ -116,44 +114,15 @@ const conditionConfig: Record<string, { color: string; bg: string; label: string
     'Damaged': { color: '#dc2626', bg: '#fee2e2', label: 'Damaged' },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUB-COMPONENTS
-// ─────────────────────────────────────────────────────────────────────────────
+const borrowerTypeConfig: Record<string, { color: string; bg: string }> = {
+    'Student': { color: '#0891b2', bg: '#cffafe' },
+    'Teacher': { color: '#7c3aed', bg: '#ede9fe' },
+    'Staff': { color: '#d97706', bg: '#fef3c7' },
+};
 
-function StatCard({
-    label, value, sub, gradient, icon: Icon, pulse, onClick
-}: {
-    label: string; value: string | number; sub?: string;
-    gradient: string; icon: React.ElementType;
-    pulse?: boolean; onClick?: () => void;
-}) {
-    return (
-        <div
-            onClick={onClick}
-            className={`relative rounded-2xl p-5 text-white overflow-hidden group ${onClick ? 'cursor-pointer' : ''}`}
-            style={{ background: gradient }}
-        >
-            <div className="absolute inset-0 opacity-10 group-hover:opacity-20 transition-opacity"
-                style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-            <div className="relative z-10">
-                <div className="flex items-start justify-between mb-3">
-                    <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
-                        <Icon size={18} className="text-white" />
-                    </div>
-                    {pulse && (
-                        <span className="flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-white opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
-                        </span>
-                    )}
-                </div>
-                <p className="text-3xl font-black tracking-tight">{value}</p>
-                <p className="text-xs font-semibold opacity-90 mt-1 uppercase tracking-widest">{label}</p>
-                {sub && <p className="text-[10px] opacity-70 mt-1">{sub}</p>}
-            </div>
-        </div>
-    );
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// REUSABLE SUB-COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
 
 function Badge({ color, bg, children }: { color: string; bg: string; children: React.ReactNode }) {
     return (
@@ -173,12 +142,12 @@ function AvailabilityBar({ total, available }: { total: number; available: numbe
     const pct = total > 0 ? (available / total) * 100 : 0;
     const color = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626';
     return (
-        <div className="flex items-center gap-2 min-w-[80px]">
+        <div className="flex items-center gap-2 min-w-[90px]">
             <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: color }} />
             </div>
-            <span className="text-xs font-bold tabular-nums" style={{ color }}>
+            <span className="text-xs font-black tabular-nums" style={{ color }}>
                 {available}/{total}
             </span>
         </div>
@@ -186,114 +155,21 @@ function AvailabilityBar({ total, available }: { total: number; available: numbe
 }
 
 function OverdueDaysTag({ dueDate }: { dueDate: string }) {
-    const days = Math.floor((new Date().getTime() - new Date(dueDate).getTime()) / 86400000);
+    const days = Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000);
     if (days <= 0) return null;
     const fine = days * FINE_PER_DAY;
     return (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 mt-0.5">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-black">
-                <FiAlertCircle size={10} /> {days}d overdue
+                <FiAlertCircle size={9} /> {days}d overdue
             </span>
             <span className="text-[10px] text-red-500 font-bold">{fmt(fine)}</span>
         </div>
     );
 }
 
-function BookCard({ book, onEdit, onDelete, onIssue }: {
-    book: Book;
-    onEdit: (b: Book) => void;
-    onDelete: (id: number) => void;
-    onIssue: (b: Book) => void;
-}) {
-    const color = book.cover_color || coverColors[book.id % coverColors.length];
-    const pct = book.total_copies > 0 ? (book.available_copies / book.total_copies) * 100 : 0;
-    return (
-        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col">
-            <div className="relative h-32 flex items-end p-4"
-                style={{ background: `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
-                <div className="absolute inset-0 opacity-10"
-                    style={{ backgroundImage: `repeating-linear-gradient(45deg, white 0, white 1px, transparent 0, transparent 50%)`, backgroundSize: '12px 12px' }} />
-                <div className="relative z-10">
-                    <span className="inline-block px-2 py-0.5 bg-white/20 backdrop-blur rounded text-white text-[10px] font-bold uppercase tracking-widest mb-2">
-                        {book.category}
-                    </span>
-                    <h3 className="text-white font-black text-sm leading-tight line-clamp-2">{book.title}</h3>
-                    <p className="text-white/80 text-[11px] mt-0.5">{book.author || 'Unknown Author'}</p>
-                </div>
-                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                    <button onClick={() => onEdit(book)}
-                        className="p-1.5 bg-white/90 rounded-lg text-gray-700 hover:bg-white shadow">
-                        <FiEdit2 size={12} />
-                    </button>
-                    <button onClick={() => onDelete(book.id)}
-                        className="p-1.5 bg-white/90 rounded-lg text-red-600 hover:bg-white shadow">
-                        <FiTrash2 size={12} />
-                    </button>
-                </div>
-            </div>
-            <div className="p-4 flex-1 flex flex-col gap-3">
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span className="font-mono">{book.isbn || 'No ISBN'}</span>
-                    <ConditionBadge condition={book.condition} />
-                </div>
-                <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Availability</span>
-                        <span className="text-[10px] font-bold" style={{ color: pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626' }}>
-                            {book.available_copies} of {book.total_copies} available
-                        </span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all"
-                            style={{ width: `${pct}%`, background: pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626' }} />
-                    </div>
-                </div>
-                {book.shelf_location && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                        <FiMapPin size={10} />
-                        <span>Shelf: <strong className="text-gray-700">{book.shelf_location}</strong></span>
-                    </div>
-                )}
-                <button
-                    onClick={() => onIssue(book)}
-                    disabled={book.available_copies === 0}
-                    className="mt-auto w-full py-2 rounded-xl text-xs font-bold transition-all"
-                    style={{
-                        background: book.available_copies > 0 ? `linear-gradient(135deg, ${color}, ${color}bb)` : '#f3f4f6',
-                        color: book.available_copies > 0 ? 'white' : '#9ca3af',
-                        cursor: book.available_copies > 0 ? 'pointer' : 'not-allowed'
-                    }}>
-                    {book.available_copies > 0 ? '📤 Issue This Book' : '✗ All Copies Out'}
-                </button>
-            </div>
-        </div>
-    );
-}
-
-function SectionHeader({
-    title, sub, icon: Icon, color, actions
-}: {
-    title: string; sub?: string; icon: React.ElementType;
-    color: string; actions?: React.ReactNode
-}) {
-    return (
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-            <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl" style={{ backgroundColor: `${color}15` }}>
-                    <Icon size={18} style={{ color }} />
-                </div>
-                <div>
-                    <h3 className="text-sm font-bold text-gray-800">{title}</h3>
-                    {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
-                </div>
-            </div>
-            {actions && <div className="flex items-center gap-2">{actions}</div>}
-        </div>
-    );
-}
-
 function EmptyState({ icon: Icon, title, sub, action }: {
-    icon: React.ElementType; title: string; sub?: string; action?: React.ReactNode
+    icon: React.ElementType; title: string; sub?: string; action?: React.ReactNode;
 }) {
     return (
         <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
@@ -307,22 +183,20 @@ function EmptyState({ icon: Icon, title, sub, action }: {
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MODAL COMPONENTS
-// ─────────────────────────────────────────────────────────────────────────────
-function Modal({ title, subtitle, onClose, headerColor = '#0d9488', children, wide = false }: {
+function Modal({ title, subtitle, onClose, headerGradient, children, wide = false }: {
     title: string; subtitle?: string; onClose: () => void;
-    headerColor?: string; children: React.ReactNode; wide?: boolean;
+    headerGradient?: string; children: React.ReactNode; wide?: boolean;
 }) {
+    const grad = headerGradient || 'linear-gradient(135deg,#134e4a,#0f766e)';
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={onClose}>
             <div
                 className={`bg-white rounded-3xl shadow-2xl w-full ${wide ? 'max-w-3xl' : 'max-w-xl'} max-h-[92vh] flex flex-col`}
                 onClick={e => e.stopPropagation()}
-                style={{ animation: 'modalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                style={{ animation: 'libModalIn 0.25s cubic-bezier(0.34,1.56,0.64,1)' }}>
                 <div className="flex items-center justify-between px-7 py-5 rounded-t-3xl flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${headerColor}, ${headerColor}bb)` }}>
+                    style={{ background: grad }}>
                     <div>
                         <h2 className="text-lg font-black text-white tracking-tight">{title}</h2>
                         {subtitle && <p className="text-xs text-white/70 mt-0.5">{subtitle}</p>}
@@ -336,22 +210,17 @@ function Modal({ title, subtitle, onClose, headerColor = '#0d9488', children, wi
                     {children}
                 </div>
             </div>
-            <style>{`
-                @keyframes modalIn {
-                    from { opacity: 0; transform: scale(0.92) translateY(20px); }
-                    to { opacity: 1; transform: scale(1) translateY(0); }
-                }
-            `}</style>
+            <style>{`@keyframes libModalIn{from{opacity:0;transform:scale(0.92) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}`}</style>
         </div>
     );
 }
 
 function FormField({ label, required, hint, children }: {
-    label: string; required?: boolean; hint?: string; children: React.ReactNode
+    label: string; required?: boolean; hint?: string; children: React.ReactNode;
 }) {
     return (
         <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">
+            <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">
                 {label} {required && <span className="text-red-500">*</span>}
             </label>
             {children}
@@ -360,17 +229,85 @@ function FormField({ label, required, hint, children }: {
     );
 }
 
-const inputCls = "w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:border-teal-400 outline-none transition-all placeholder:text-gray-300";
+const inputCls = 'w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:border-teal-400 outline-none transition-all placeholder:text-gray-300';
 const selectCls = `${inputCls} cursor-pointer`;
+
+function BookCard({ book, onEdit, onDelete, onIssue }: {
+    book: Book; onEdit: (b: Book) => void; onDelete: (id: number) => void; onIssue: (b: Book) => void;
+}) {
+    const color = book.cover_color || coverColors[book.id % coverColors.length];
+    const pct = book.total_copies > 0 ? (book.available_copies / book.total_copies) * 100 : 0;
+    const avColor = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626';
+    return (
+        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col">
+            <div className="relative h-32 flex items-end p-4"
+                style={{ background: `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
+                <div className="absolute inset-0 opacity-10"
+                    style={{ backgroundImage: 'repeating-linear-gradient(45deg,white 0,white 1px,transparent 0,transparent 50%)', backgroundSize: '12px 12px' }} />
+                <div className="relative z-10 w-full">
+                    <span className="inline-block px-2 py-0.5 bg-white/20 backdrop-blur rounded text-white text-[10px] font-bold uppercase tracking-widest mb-1.5">
+                        {book.category}
+                    </span>
+                    <h3 className="text-white font-black text-sm leading-tight line-clamp-2">{book.title}</h3>
+                    <p className="text-white/80 text-[11px] mt-0.5">{book.author || 'Unknown Author'}</p>
+                </div>
+                <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                    <button onClick={() => onEdit(book)}
+                        className="p-1.5 bg-white/90 rounded-lg text-gray-700 hover:bg-white shadow text-xs">
+                        <FiEdit2 size={11} />
+                    </button>
+                    <button onClick={() => onDelete(book.id)}
+                        className="p-1.5 bg-white/90 rounded-lg text-red-600 hover:bg-white shadow">
+                        <FiTrash2 size={11} />
+                    </button>
+                </div>
+            </div>
+            <div className="p-4 flex-1 flex flex-col gap-3">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span className="font-mono truncate">{book.isbn || 'No ISBN'}</span>
+                    <ConditionBadge condition={book.condition} />
+                </div>
+                <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Availability</span>
+                        <span className="text-[10px] font-black" style={{ color: avColor }}>
+                            {book.available_copies}/{book.total_copies}
+                        </span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: avColor }} />
+                    </div>
+                </div>
+                {book.shelf_location && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                        <FiMapPin size={9} />
+                        <span>Shelf: <strong className="text-gray-700">{book.shelf_location}</strong></span>
+                    </div>
+                )}
+                <button onClick={() => onIssue(book)} disabled={book.available_copies === 0}
+                    className="mt-auto w-full py-2 rounded-xl text-xs font-bold transition-all"
+                    style={{
+                        background: book.available_copies > 0 ? `linear-gradient(135deg,${color},${color}bb)` : '#f3f4f6',
+                        color: book.available_copies > 0 ? 'white' : '#9ca3af',
+                        cursor: book.available_copies > 0 ? 'pointer' : 'not-allowed',
+                    }}>
+                    {book.available_copies > 0 ? '📤 Issue This Book' : '✗ All Copies Out'}
+                </button>
+            </div>
+        </div>
+    );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN PAGE COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function LibraryInventoryPage() {
+    // State
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [tab, setTab] = useState<LibraryTab>('books');
     const [search, setSearch] = useState('');
+    const [historySearch, setHistorySearch] = useState('');
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [sortField, setSortField] = useState<SortField>('title');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -382,14 +319,12 @@ export default function LibraryInventoryPage() {
 
     const [books, setBooks] = useState<Book[]>([]);
     const [checkouts, setCheckouts] = useState<Checkout[]>([]);
-    const [assets, setAssets] = useState<any[]>([]);
 
     const [showBookModal, setShowBookModal] = useState(false);
     const [showCheckoutModal, setShowCheckoutModal] = useState(false);
     const [showReturnModal, setShowReturnModal] = useState(false);
-    const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-    const [selectedCheckout, setSelectedCheckout] = useState<Checkout | null>(null);
     const [editingBook, setEditingBook] = useState<Book | null>(null);
+    const [selectedCheckout, setSelectedCheckout] = useState<Checkout | null>(null);
     const [returnFineAmount, setReturnFineAmount] = useState(0);
     const [fineWaived, setFineWaived] = useState(false);
 
@@ -406,7 +341,24 @@ export default function LibraryInventoryPage() {
         due_date: '', notes: '', loan_period: 14,
     });
 
-    // ─── Derived / memoized ─────────────────────────────────────────────────
+    // ── Derived data ─────────────────────────────────────────────────────────
+    const activeCheckouts = useMemo(() => checkouts.filter(c => c.status === 'Checked Out'), [checkouts]);
+    const overdueCheckouts = useMemo(() => activeCheckouts.filter(c => new Date(c.due_date) < new Date()), [activeCheckouts]);
+    const returnHistory = useMemo(() => checkouts.filter(c => c.status === 'Returned'), [checkouts]);
+
+    const stats = useMemo(() => ({
+        totalCopies: books.reduce((s, b) => s + (b.total_copies || 0), 0),
+        availableCopies: books.reduce((s, b) => s + (b.available_copies || 0), 0),
+        uniqueTitles: books.length,
+        checkedOut: activeCheckouts.length,
+        overdue: overdueCheckouts.length,
+        totalFines: overdueCheckouts.reduce((s, c) => {
+            const days = Math.floor((Date.now() - new Date(c.due_date).getTime()) / 86400000);
+            return s + Math.max(0, days) * FINE_PER_DAY;
+        }, 0),
+        finesCollected: returnHistory.reduce((s, c) => s + Number(c.fine_amount || 0), 0),
+    }), [books, activeCheckouts, overdueCheckouts, returnHistory]);
+
     const filteredBooks = useMemo(() => {
         let result = [...books];
         if (filterCategory !== 'all') result = result.filter(b => b.category === filterCategory);
@@ -424,9 +376,11 @@ export default function LibraryInventoryPage() {
             );
         }
         result.sort((a, b) => {
-            const av = (a as any)[sortField] ?? '';
-            const bv = (b as any)[sortField] ?? '';
-            const cmp = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
+            const av = (a as unknown as Record<string, unknown>)[sortField] ?? '';
+            const bv = (b as unknown as Record<string, unknown>)[sortField] ?? '';
+            const cmp = typeof av === 'string' && typeof bv === 'string'
+                ? av.localeCompare(bv)
+                : (av as number) - (bv as number);
             return sortDir === 'asc' ? cmp : -cmp;
         });
         return result;
@@ -435,50 +389,66 @@ export default function LibraryInventoryPage() {
     const totalPages = Math.ceil(filteredBooks.length / perPage);
     const paginatedBooks = filteredBooks.slice((page - 1) * perPage, page * perPage);
 
-    const activeCheckouts = checkouts.filter(c => c.status === 'Checked Out');
-    const overdueCheckouts = activeCheckouts.filter(c => new Date(c.due_date) < new Date());
-    const returnHistory = checkouts.filter(c => c.status === 'Returned');
+    const filteredHistory = useMemo(() => {
+        if (!historySearch.trim()) return returnHistory;
+        const q = historySearch.toLowerCase();
+        return returnHistory.filter(c =>
+            c.book_title.toLowerCase().includes(q) ||
+            c.borrower_name.toLowerCase().includes(q) ||
+            (c.borrower_id || '').toLowerCase().includes(q)
+        );
+    }, [returnHistory, historySearch]);
 
-    const stats = useMemo(() => ({
-        totalCopies: books.reduce((s, b) => s + (b.total_copies || 0), 0),
-        availableCopies: books.reduce((s, b) => s + (b.available_copies || 0), 0),
-        uniqueTitles: books.length,
-        checkedOut: activeCheckouts.length,
-        overdue: overdueCheckouts.length,
-        totalFines: overdueCheckouts.reduce((s, c) => {
-            const days = Math.floor((Date.now() - new Date(c.due_date).getTime()) / 86400000);
-            return s + Math.max(0, days) * FINE_PER_DAY;
-        }, 0),
-        categories: new Set(books.map(b => b.category)).size,
-        assetValue: assets.reduce((s, a) => s + Number(a.current_value || a.purchase_price || 0), 0),
-        checkoutsThisMonth: checkouts.filter(c => {
+    // ── Category stats for reports ────────────────────────────────────────────
+    const categoryStats = useMemo(() => {
+        const map: Record<string, number> = {};
+        books.forEach(b => { map[b.category] = (map[b.category] || 0) + b.total_copies; });
+        return Object.entries(map)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10);
+    }, [books]);
+
+    const topBorrowed = useMemo(() => {
+        const map: Record<string, number> = {};
+        checkouts.forEach(c => { map[c.book_title] = (map[c.book_title] || 0) + 1; });
+        return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    }, [checkouts]);
+
+    const borrowerBreakdown = useMemo(() => {
+        const map: Record<string, number> = {};
+        checkouts.forEach(c => { map[c.borrower_type] = (map[c.borrower_type] || 0) + 1; });
+        return map;
+    }, [checkouts]);
+
+    const monthlyCheckouts = useMemo(() => {
+        const map: Record<string, number> = {};
+        checkouts.forEach(c => {
             const d = new Date(c.checkout_date);
-            const now = new Date();
-            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-        }).length,
-    }), [books, checkouts, assets, activeCheckouts, overdueCheckouts]);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            map[key] = (map[key] || 0) + 1;
+        });
+        return Object.entries(map).sort().slice(-6);
+    }, [checkouts]);
 
-    // ─── Data fetching ───────────────────────────────────────────────────────
+    // ── Data fetching ─────────────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [booksRes, checkoutsRes, assetsRes] = await Promise.all([
+            const [booksRes, checkoutsRes] = await Promise.all([
                 supabase.from('school_library_books').select('*').order('title'),
                 supabase.from('school_library_checkouts').select('*').order('checkout_date', { ascending: false }),
-                supabase.from('school_assets').select('*').order('asset_name'),
             ]);
             setBooks(booksRes.data || []);
             setCheckouts(checkoutsRes.data || []);
-            setAssets(assetsRes.data || []);
-        } catch (e) {
-            console.error('Fetch error:', e);
-            toast.error('Failed to load data');
+        } catch {
+            toast.error('Failed to load library data');
         }
         setLoading(false);
     }, []);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
+    // Auto-calculate due date
     useEffect(() => {
         if (checkoutForm.checkout_date && checkoutForm.loan_period) {
             const d = new Date(checkoutForm.checkout_date);
@@ -487,26 +457,21 @@ export default function LibraryInventoryPage() {
         }
     }, [checkoutForm.checkout_date, checkoutForm.loan_period]);
 
-    // ─── Sort handler ────────────────────────────────────────────────────────
+    // ── Sort handler ──────────────────────────────────────────────────────────
     const handleSort = (field: SortField) => {
-        if (sortField === field) {
-            setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDir('asc');
-        }
+        if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        else { setSortField(field); setSortDir('asc'); }
         setPage(1);
     };
 
-    const SortIcon = ({ field }: { field: SortField }) => (
+    const SortIcon = ({ field }: { field: SortField }) =>
         sortField === field
             ? (sortDir === 'asc'
-                ? <FiChevronUp size={12} className="inline ml-1 text-teal-500" />
-                : <FiChevronDown size={12} className="inline ml-1 text-teal-500" />)
-            : <span className="inline ml-1 text-gray-300">↕</span>
-    );
+                ? <FiChevronUp size={11} className="inline ml-0.5 text-teal-500" />
+                : <FiChevronDown size={11} className="inline ml-0.5 text-teal-500" />)
+            : <span className="inline ml-0.5 text-gray-300 text-xs">↕</span>;
 
-    // ─── Book CRUD ───────────────────────────────────────────────────────────
+    // ── Book CRUD ─────────────────────────────────────────────────────────────
     const openAddBook = () => {
         setEditingBook(null);
         setBookForm({
@@ -534,8 +499,7 @@ export default function LibraryInventoryPage() {
     const handleSaveBook = async () => {
         if (!bookForm.title.trim()) { toast.error('Book title is required'); return; }
         if (bookForm.available_copies > bookForm.total_copies) {
-            toast.error('Available copies cannot exceed total copies');
-            return;
+            toast.error('Available copies cannot exceed total copies'); return;
         }
         setSaving(true);
         try {
@@ -554,35 +518,28 @@ export default function LibraryInventoryPage() {
                 status: bookForm.status,
                 cover_color: bookForm.cover_color,
             };
-
             if (editingBook) {
-                const { error } = await supabase
-                    .from('school_library_books')
-                    .update(payload as any)
-                    .eq('id', editingBook.id);
+                const { error } = await supabase.from('school_library_books')
+                    .update(payload as Record<string, unknown>).eq('id', editingBook.id);
                 if (error) throw error;
+                toast.success('✅ Book updated successfully');
             } else {
-                const { error } = await supabase
-                    .from('school_library_books')
-                    .insert([payload]);
+                const { error } = await supabase.from('school_library_books').insert([payload]);
                 if (error) throw error;
+                toast.success('✅ Book added to catalog');
             }
-
-            toast.success(editingBook ? '✅ Book updated successfully' : '✅ Book added to catalog');
             setShowBookModal(false);
             setEditingBook(null);
             fetchData();
-        } catch (e: any) {
-            toast.error(e.message || 'Failed to save book');
+        } catch (e: unknown) {
+            toast.error((e as Error).message || 'Failed to save book');
         }
         setSaving(false);
     };
 
     const handleDeleteBook = async (id: number) => {
-        const hasCheckouts = activeCheckouts.some(c => c.book_id === id);
-        if (hasCheckouts) {
-            toast.error('Cannot delete — this book has active checkouts');
-            return;
+        if (activeCheckouts.some(c => c.book_id === id)) {
+            toast.error('Cannot delete — this book has active checkouts'); return;
         }
         if (!confirm('Permanently delete this book from the catalog?')) return;
         const { error } = await supabase.from('school_library_books').delete().eq('id', id);
@@ -591,7 +548,7 @@ export default function LibraryInventoryPage() {
         fetchData();
     };
 
-    // ─── Checkout ────────────────────────────────────────────────────────────
+    // ── Checkout ──────────────────────────────────────────────────────────────
     const openIssueBook = (book?: Book) => {
         setCheckoutForm({
             book_id: book?.id || 0,
@@ -607,50 +564,40 @@ export default function LibraryInventoryPage() {
         if (!checkoutForm.book_id) { toast.error('Please select a book'); return; }
         if (!checkoutForm.borrower_name.trim()) { toast.error('Borrower name is required'); return; }
         if (!checkoutForm.due_date) { toast.error('Due date is required'); return; }
-
         setSaving(true);
         try {
             const book = books.find(b => b.id === checkoutForm.book_id);
             if (!book || book.available_copies <= 0) {
-                toast.error('No copies available for checkout');
-                setSaving(false);
-                return;
+                toast.error('No copies available for checkout'); setSaving(false); return;
             }
-
-            const { error: checkoutErr } = await supabase
-                .from('school_library_checkouts')
-                .insert([{
-                    book_id: checkoutForm.book_id,
-                    book_title: book.title,
-                    borrower_name: checkoutForm.borrower_name.trim(),
-                    borrower_type: checkoutForm.borrower_type,
-                    borrower_id: checkoutForm.borrower_id.trim() || null,
-                    checkout_date: checkoutForm.checkout_date,
-                    due_date: checkoutForm.due_date,
-                    status: 'Checked Out',
-                    notes: checkoutForm.notes || null,
-                    fine_amount: 0,
-                    renewed_count: 0,
-                }]);
-            if (checkoutErr) throw checkoutErr;
-
-            // FIX 1: cast update payload as any to avoid Supabase generated type mismatch
-            const { error: updateErr } = await supabase
-                .from('school_library_books')
-                .update({ available_copies: book.available_copies - 1 } as any)
+            const { error: ce } = await supabase.from('school_library_checkouts').insert([{
+                book_id: checkoutForm.book_id,
+                book_title: book.title,
+                borrower_name: checkoutForm.borrower_name.trim(),
+                borrower_type: checkoutForm.borrower_type,
+                borrower_id: checkoutForm.borrower_id.trim() || null,
+                checkout_date: checkoutForm.checkout_date,
+                due_date: checkoutForm.due_date,
+                status: 'Checked Out',
+                notes: checkoutForm.notes || null,
+                fine_amount: 0,
+                renewed_count: 0,
+            }]);
+            if (ce) throw ce;
+            const { error: be } = await supabase.from('school_library_books')
+                .update({ available_copies: book.available_copies - 1 } as Record<string, unknown>)
                 .eq('id', book.id);
-            if (updateErr) throw updateErr;
-
+            if (be) throw be;
             toast.success(`📤 "${book.title}" issued to ${checkoutForm.borrower_name}`);
             setShowCheckoutModal(false);
             fetchData();
-        } catch (e: any) {
-            toast.error(e.message || 'Checkout failed');
+        } catch (e: unknown) {
+            toast.error((e as Error).message || 'Checkout failed');
         }
         setSaving(false);
     };
 
-    // ─── Return ──────────────────────────────────────────────────────────────
+    // ── Return ────────────────────────────────────────────────────────────────
     const openReturnModal = (checkout: Checkout) => {
         setSelectedCheckout(checkout);
         const days = Math.floor((Date.now() - new Date(checkout.due_date).getTime()) / 86400000);
@@ -664,70 +611,59 @@ export default function LibraryInventoryPage() {
         setSaving(true);
         try {
             const finalFine = fineWaived ? 0 : returnFineAmount;
-
-            // FIX 2: cast update payload as any to avoid Supabase generated type mismatch
-            const { error: returnErr } = await supabase
-                .from('school_library_checkouts')
+            const { error: re } = await supabase.from('school_library_checkouts')
                 .update({
                     status: 'Returned',
                     return_date: new Date().toISOString().split('T')[0],
                     fine_amount: finalFine,
-                } as any)
+                } as Record<string, unknown>)
                 .eq('id', selectedCheckout.id);
-            if (returnErr) throw returnErr;
-
+            if (re) throw re;
             const book = books.find(b => b.id === selectedCheckout.book_id);
             if (book) {
-                // FIX 3: cast update payload as any to avoid Supabase generated type mismatch
-                const { error: bookErr } = await supabase
-                    .from('school_library_books')
-                    .update({ available_copies: (book.available_copies || 0) + 1 } as any)
+                await supabase.from('school_library_books')
+                    .update({ available_copies: (book.available_copies || 0) + 1 } as Record<string, unknown>)
                     .eq('id', book.id);
-                if (bookErr) console.error('Book update error:', bookErr);
             }
-
-            toast.success(`📥 "${selectedCheckout.book_title}" returned${finalFine > 0 ? ` — Fine: ${fmt(finalFine)}` : ''}`);
+            toast.success(`📥 "${selectedCheckout.book_title}" returned${finalFine > 0 ? ` — Fine: ${fmt(finalFine)}` : ' — No fine'}`);
             setShowReturnModal(false);
             setSelectedCheckout(null);
             fetchData();
-        } catch (e: any) {
-            toast.error(e.message || 'Return failed');
+        } catch (e: unknown) {
+            toast.error((e as Error).message || 'Return failed');
         }
         setSaving(false);
     };
 
-    // ─── Renew ───────────────────────────────────────────────────────────────
+    // ── Renew ─────────────────────────────────────────────────────────────────
     const handleRenew = async (checkout: Checkout, extraDays: number) => {
         setSaving(true);
         try {
             const newDue = new Date(checkout.due_date);
             newDue.setDate(newDue.getDate() + extraDays);
-
-            // FIX 4: cast update payload as any to avoid Supabase generated type mismatch
-            const { error: renewErr } = await supabase
-                .from('school_library_checkouts')
+            const { error } = await supabase.from('school_library_checkouts')
                 .update({
                     due_date: newDue.toISOString().split('T')[0],
                     renewed_count: (checkout.renewed_count || 0) + 1,
-                } as any)
+                } as Record<string, unknown>)
                 .eq('id', checkout.id);
-            if (renewErr) throw renewErr;
+            if (error) throw error;
             toast.success(`🔄 Renewed for ${extraDays} more days`);
             fetchData();
-        } catch (e: any) {
-            toast.error(e.message || 'Renewal failed');
+        } catch (e: unknown) {
+            toast.error((e as Error).message || 'Renewal failed');
         }
         setSaving(false);
     };
 
-    // ─── Export functions ────────────────────────────────────────────────────
+    // ── Export functions ──────────────────────────────────────────────────────
     const exportCatalogCSV = () => {
         if (filteredBooks.length === 0) { toast.error('No books to export'); return; }
         const headers = ['#', 'Title', 'Author', 'ISBN', 'Category', 'Publisher', 'Year', 'Total Copies', 'Available', 'Shelf', 'Condition', 'Status'];
         const rows = filteredBooks.map((b, i) => [
             i + 1, `"${b.title}"`, `"${b.author || ''}"`, b.isbn || '',
             b.category, `"${b.publisher || ''}"`, b.year_published,
-            b.total_copies, b.available_copies, b.shelf_location || '', b.condition, b.status
+            b.total_copies, b.available_copies, b.shelf_location || '', b.condition, b.status,
         ]);
         const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -739,11 +675,10 @@ export default function LibraryInventoryPage() {
     };
 
     const exportCheckoutsCSV = () => {
-        const headers = ['#', 'Book Title', 'Borrower', 'Type', 'ID/Adm No', 'Checkout Date', 'Due Date', 'Return Date', 'Status', 'Fine (KES)'];
+        const headers = ['#', 'Book Title', 'Borrower', 'Type', 'ID/Adm No', 'Checkout Date', 'Due Date', 'Status'];
         const rows = activeCheckouts.map((c, i) => [
             i + 1, `"${c.book_title}"`, `"${c.borrower_name}"`,
-            c.borrower_type, c.borrower_id || '',
-            c.checkout_date, c.due_date, c.return_date || 'N/A', c.status, c.fine_amount || 0
+            c.borrower_type, c.borrower_id || '', c.checkout_date, c.due_date, c.status,
         ]);
         const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -754,63 +689,82 @@ export default function LibraryInventoryPage() {
         toast.success('Checkouts exported');
     };
 
-    const printOverdueReport = () => {
-        const html = `
-            <html><head><title>Overdue Books Report</title>
-            <style>
-                body { font-family: Arial; font-size: 12px; }
-                h1 { color: #dc2626; font-size: 18px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-                th { background: #dc2626; color: white; padding: 8px; text-align: left; font-size: 11px; }
-                td { padding: 7px 8px; border-bottom: 1px solid #f3f4f6; }
-                tr:nth-child(even) { background: #fff5f5; }
-                .fine { color: #dc2626; font-weight: bold; }
-            </style>
-            </head><body>
-            <h1>⚠ Overdue Books Report</h1>
-            <p>Generated: ${new Date().toLocaleString('en-KE')} | Total Overdue: ${overdueCheckouts.length}</p>
-            <table>
-                <thead><tr>
-                    <th>#</th><th>Book Title</th><th>Borrower</th><th>Type</th>
-                    <th>ID/Adm No</th><th>Due Date</th><th>Days Overdue</th><th>Fine (KES)</th>
-                </tr></thead>
-                <tbody>
-                ${overdueCheckouts.map((c, i) => {
+    const printOverdueReport = async () => {
+        const schoolRes = await supabase.from('school_details').select('school_name,address,phone').single();
+        const school = schoolRes.data;
+        const html = `<!DOCTYPE html><html><head><title>Overdue Books Report</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;color:#1f2937;background:#fff;padding:24px}
+.header{background:linear-gradient(135deg,#991b1b,#b91c1c);color:white;padding:20px 24px;border-radius:12px;margin-bottom:20px}
+.header h1{font-size:20px;font-weight:800;letter-spacing:-0.5px}
+.header p{font-size:12px;opacity:0.8;margin-top:4px}
+.school{font-size:13px;font-weight:700;margin-bottom:2px}
+.meta{display:flex;gap:24px;margin-bottom:16px;background:#fef2f2;border:1px solid #fecaca;padding:12px 16px;border-radius:8px}
+.meta-item{text-align:center}.meta-item .val{font-size:22px;font-weight:900;color:#dc2626}
+.meta-item .lbl{font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:1px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead tr{background:#991b1b;color:white}
+thead th{padding:10px 8px;text-align:left;font-weight:700;font-size:10px;letter-spacing:1px;text-transform:uppercase}
+tbody tr:nth-child(even){background:#fff5f5}
+tbody tr:hover{background:#fee2e2}
+td{padding:8px;border-bottom:1px solid #f3f4f6}
+.fine{color:#dc2626;font-weight:800}
+tfoot tr{background:#fee2e2}
+tfoot td{padding:10px 8px;font-weight:800;color:#991b1b;font-size:12px}
+@media print{body{padding:0}.header{border-radius:0}}
+</style></head><body>
+<div class="header">
+  <div class="school">${school?.school_name || 'School Library'}</div>
+  <div>${school?.address || ''} ${school?.phone ? '· ' + school.phone : ''}</div>
+  <h1 style="margin-top:10px">⚠ Overdue Books Report</h1>
+  <p>Generated: ${new Date().toLocaleString('en-KE')}</p>
+</div>
+<div class="meta">
+  <div class="meta-item"><div class="val">${overdueCheckouts.length}</div><div class="lbl">Overdue Books</div></div>
+  <div class="meta-item"><div class="val" style="color:#b45309">KES ${stats.totalFines.toLocaleString()}</div><div class="lbl">Total Fines Due</div></div>
+  <div class="meta-item"><div class="val" style="color:#065f46">${FINE_PER_DAY}</div><div class="lbl">KES/Day Fine</div></div>
+</div>
+<table>
+<thead><tr><th>#</th><th>Book Title</th><th>Borrower</th><th>Type</th><th>ID/Adm No</th><th>Due Date</th><th>Days Overdue</th><th>Fine (KES)</th></tr></thead>
+<tbody>
+${overdueCheckouts.map((c, i) => {
             const days = Math.floor((Date.now() - new Date(c.due_date).getTime()) / 86400000);
             const fine = Math.max(0, days) * FINE_PER_DAY;
             return `<tr>
-                        <td>${i + 1}</td>
-                        <td><strong>${c.book_title}</strong></td>
-                        <td>${c.borrower_name}</td>
-                        <td>${c.borrower_type}</td>
-                        <td>${c.borrower_id || '-'}</td>
-                        <td>${fmtDate(c.due_date)}</td>
-                        <td style="color:#dc2626;font-weight:bold">${days} days</td>
-                        <td class="fine">KES ${fine.toLocaleString()}</td>
-                    </tr>`;
+  <td>${i + 1}</td>
+  <td><strong>${c.book_title}</strong></td>
+  <td>${c.borrower_name}</td>
+  <td>${c.borrower_type}</td>
+  <td>${c.borrower_id || '—'}</td>
+  <td>${fmtDate(c.due_date)}</td>
+  <td class="fine">${days} days</td>
+  <td class="fine">KES ${fine.toLocaleString()}</td>
+</tr>`;
         }).join('')}
-                <tr style="background:#fee2e2">
-                    <td colspan="7"><strong>TOTAL OUTSTANDING FINES</strong></td>
-                    <td class="fine">KES ${stats.totalFines.toLocaleString()}</td>
-                </tr>
-                </tbody>
-            </table>
-            </body></html>`;
+</tbody>
+<tfoot><tr>
+  <td colspan="7">TOTAL OUTSTANDING FINES</td>
+  <td>KES ${stats.totalFines.toLocaleString()}</td>
+</tr></tfoot>
+</table>
+</body></html>`;
         const w = window.open('', '_blank');
         if (w) { w.document.write(html); w.document.close(); w.print(); }
     };
 
-    // ─── Loading state ───────────────────────────────────────────────────────
+    // ── Loading ───────────────────────────────────────────────────────────────
     if (loading) return (
         <div className="flex items-center justify-center h-[70vh]">
             <div className="text-center">
                 <div className="relative w-16 h-16 mx-auto mb-5">
-                    <div className="absolute inset-0 rounded-2xl" style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)', opacity: 0.15 }} />
+                    <div className="absolute inset-0 rounded-2xl opacity-15"
+                        style={{ background: 'linear-gradient(135deg,#134e4a,#0d9488)' }} />
                     <div className="absolute inset-0 border-4 border-transparent border-t-teal-500 rounded-full animate-spin" />
                     <FiBookOpen className="absolute inset-0 m-auto text-teal-500" size={22} />
                 </div>
                 <p className="text-sm font-bold text-gray-600">Loading Library System...</p>
-                <p className="text-xs text-gray-400 mt-1">Fetching books, checkouts & assets</p>
+                <p className="text-xs text-gray-400 mt-1">Fetching books & checkouts</p>
             </div>
         </div>
     );
@@ -819,127 +773,183 @@ export default function LibraryInventoryPage() {
     // RENDER
     // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div className="space-y-6 pb-8">
+        <div className="space-y-0 pb-10">
             <style>{`
-                .tbl th { position: sticky; top: 0; }
-                .badge-overdue { animation: pulseBadge 2s infinite; }
-                @keyframes pulseBadge { 0%,100% { opacity:1 } 50% { opacity:0.6 } }
-                .tab-active { background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+                @keyframes libPulseBadge{0%,100%{opacity:1}50%{opacity:.6}}
+                .lib-pulse{animation:libPulseBadge 2s infinite}
+                .lib-tbl th{position:sticky;top:0;z-index:1;background:#f9fafb}
             `}</style>
 
-            {/* ── PAGE HEADER ── */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                        <div className="p-2.5 rounded-2xl" style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)' }}>
-                            <FiBookOpen size={22} className="text-white" />
-                        </div>
+            {/* ═══════════════════════════════════════════════════════════════
+                HERO SECTION
+            ═══════════════════════════════════════════════════════════════ */}
+            <div className="relative overflow-hidden rounded-3xl mb-6"
+                style={{ background: 'linear-gradient(135deg,#134e4a 0%,#0f766e 40%,#0d9488 100%)' }}>
+                {/* Decorative pattern */}
+                <div className="absolute inset-0 opacity-5"
+                    style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+                <div className="absolute top-0 right-0 w-72 h-72 rounded-full opacity-10"
+                    style={{ background: 'radial-gradient(circle, #99f6e4, transparent)', transform: 'translate(30%,-30%)' }} />
+                <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-10"
+                    style={{ background: 'radial-gradient(circle, #5eead4, transparent)', transform: 'translate(-30%,30%)' }} />
+
+                <div className="relative z-10 p-8 pb-0">
+                    {/* Title row */}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 mb-8">
                         <div>
-                            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-                                Library & Inventory
-                            </h1>
-                            <p className="text-xs text-gray-400 mt-0.5 font-medium">
-                                Comprehensive library management · Books · Checkouts · Assets · Reports
-                            </p>
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-3 rounded-2xl bg-white/15 backdrop-blur">
+                                    <FiBookOpen size={26} className="text-white" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h1 className="text-2xl font-black text-white tracking-tight">
+                                            📚 Library Management System
+                                        </h1>
+                                        <span className="px-2.5 py-0.5 bg-white/20 backdrop-blur rounded-full text-white text-[10px] font-black tracking-widest uppercase border border-white/30">
+                                            ULTRA
+                                        </span>
+                                    </div>
+                                    <p className="text-teal-100/80 text-sm mt-0.5 font-medium">
+                                        Books · Checkouts · Fines · Reports · Asset Tracking
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {stats.overdue > 0 && (
+                                <button onClick={() => setTab('overdue')}
+                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-red-500/20 border border-red-300/40 rounded-xl text-white text-xs font-bold hover:bg-red-500/30 transition-colors lib-pulse">
+                                    <FiBell size={13} /> {stats.overdue} Overdue
+                                </button>
+                            )}
+                            <button onClick={openAddBook}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-white text-teal-800 rounded-xl text-xs font-black hover:bg-teal-50 transition-colors shadow-lg">
+                                <FiPlus size={14} /> Add Book
+                            </button>
+                            <button onClick={() => openIssueBook()}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-white/15 border border-white/30 text-white rounded-xl text-xs font-bold hover:bg-white/25 transition-colors backdrop-blur">
+                                <FiArrowRight size={14} /> Issue Book
+                            </button>
+                            <button onClick={exportCatalogCSV}
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-white/15 border border-white/30 text-white rounded-xl text-xs font-bold hover:bg-white/25 transition-colors backdrop-blur">
+                                <FiDownload size={14} /> Export
+                            </button>
+                            <button onClick={fetchData}
+                                className="p-2.5 bg-white/15 border border-white/30 text-white rounded-xl hover:bg-white/25 transition-colors backdrop-blur">
+                                <FiRefreshCw size={15} />
+                            </button>
                         </div>
                     </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    {stats.overdue > 0 && (
-                        <button onClick={() => setTab('checkout')}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold hover:bg-red-100 transition-colors badge-overdue">
-                            <FiBell size={13} /> {stats.overdue} Overdue
-                        </button>
-                    )}
-                    <button onClick={fetchData}
-                        className="p-2.5 bg-white border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors shadow-sm">
-                        <FiRefreshCw size={16} />
-                    </button>
-                </div>
-            </div>
 
-            {/* ── STATS GRID ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <StatCard label="Total Volumes" value={stats.totalCopies}
-                    sub={`${stats.uniqueTitles} unique titles`}
-                    gradient="linear-gradient(135deg, #0d9488, #14b8a6)"
-                    icon={FiBookOpen} onClick={() => { setTab('books'); setFilterAvailability('all'); }} />
-                <StatCard label="Available Now" value={stats.availableCopies}
-                    sub={`${stats.totalCopies > 0 ? Math.round((stats.availableCopies / stats.totalCopies) * 100) : 0}% of collection`}
-                    gradient="linear-gradient(135deg, #16a34a, #22c55e)"
-                    icon={FiCheckCircle} onClick={() => { setTab('books'); setFilterAvailability('available'); }} />
-                <StatCard label="Checked Out" value={stats.checkedOut}
-                    sub={`${stats.checkoutsThisMonth} issued this month`}
-                    gradient="linear-gradient(135deg, #2563eb, #3b82f6)"
-                    icon={FiUsers} onClick={() => setTab('checkout')} />
-                <StatCard label="Overdue" value={stats.overdue}
-                    sub={stats.overdue > 0 ? `Fines: ${fmt(stats.totalFines)}` : 'All on time ✓'}
-                    gradient={stats.overdue > 0 ? "linear-gradient(135deg, #dc2626, #ef4444)" : "linear-gradient(135deg, #6b7280, #9ca3af)"}
-                    icon={FiAlertCircle} pulse={stats.overdue > 0}
-                    onClick={() => setTab('checkout')} />
-                <StatCard label="Asset Value" value={fmt(stats.assetValue)}
-                    sub={`${assets.length} assets registered`}
-                    gradient="linear-gradient(135deg, #7c3aed, #8b5cf6)"
-                    icon={FiBox} onClick={() => setTab('assets')} />
-            </div>
-
-            {/* ── SECONDARY STATS ── */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                {[
-                    { label: 'Categories', value: stats.categories, color: '#d97706' },
-                    { label: 'Textbooks', value: books.filter(b => b.category === 'Textbook').length, color: '#0891b2' },
-                    { label: 'Reference', value: books.filter(b => b.category === 'Reference').length, color: '#7c3aed' },
-                    { label: 'Fiction', value: books.filter(b => b.category === 'Fiction').length, color: '#db2777' },
-                    { label: 'Good Condition', value: books.filter(b => ['New', 'Good'].includes(b.condition)).length, color: '#16a34a' },
-                    { label: 'Needs Repair', value: books.filter(b => ['Poor', 'Damaged'].includes(b.condition)).length, color: '#dc2626' },
-                ].map((s, i) => (
-                    <div key={i} className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm">
-                        <p className="text-xl font-black" style={{ color: s.color }}>{s.value}</p>
-                        <p className="text-[10px] font-semibold text-gray-400 mt-0.5 uppercase tracking-wide">{s.label}</p>
+                    {/* KPI Cards Strip */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-6">
+                        {[
+                            {
+                                label: 'Total Titles', value: stats.uniqueTitles.toLocaleString(),
+                                sub: `${stats.totalCopies} total copies`, icon: FiBookOpen,
+                                onClick: () => { setTab('books'); setFilterAvailability('all'); },
+                            },
+                            {
+                                label: 'Total Copies', value: stats.totalCopies.toLocaleString(),
+                                sub: `across ${stats.uniqueTitles} titles`, icon: FiArchive,
+                                onClick: () => setTab('books'),
+                            },
+                            {
+                                label: 'Available', value: stats.availableCopies.toLocaleString(),
+                                sub: `${stats.totalCopies > 0 ? Math.round((stats.availableCopies / stats.totalCopies) * 100) : 0}% of collection`,
+                                icon: FiCheckCircle, highlight: true,
+                                onClick: () => { setTab('books'); setFilterAvailability('available'); },
+                            },
+                            {
+                                label: 'Checked Out', value: stats.checkedOut.toLocaleString(),
+                                sub: 'currently borrowed', icon: FiUsers,
+                                onClick: () => setTab('checkouts'),
+                            },
+                            {
+                                label: 'Overdue', value: stats.overdue.toLocaleString(),
+                                sub: stats.overdue > 0 ? `${fmt(stats.totalFines)} due` : 'All on time ✓',
+                                icon: FiAlertCircle, danger: stats.overdue > 0,
+                                onClick: () => setTab('overdue'),
+                            },
+                            {
+                                label: 'Fines Due', value: fmt(stats.totalFines),
+                                sub: `${fmt(stats.finesCollected)} collected`, icon: FiDollarSign,
+                                onClick: () => setTab('overdue'),
+                            },
+                        ].map((kpi, i) => {
+                            const Icon = kpi.icon;
+                            return (
+                                <button key={i} onClick={kpi.onClick}
+                                    className="group text-left bg-white/10 hover:bg-white/20 backdrop-blur border border-white/20 rounded-2xl p-4 transition-all hover:-translate-y-0.5 cursor-pointer">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="p-1.5 rounded-xl bg-white/20">
+                                            <Icon size={15} className="text-white" />
+                                        </div>
+                                        {kpi.danger && (
+                                            <span className="flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-red-300 opacity-75" />
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-200" />
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xl font-black text-white leading-none">{kpi.value}</p>
+                                    <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-1">{kpi.label}</p>
+                                    {kpi.sub && <p className="text-[9px] text-white/50 mt-0.5">{kpi.sub}</p>}
+                                </button>
+                            );
+                        })}
                     </div>
-                ))}
+                </div>
             </div>
 
-            {/* ── TABS ── */}
-            <div className="flex gap-1 bg-gray-100/80 rounded-2xl p-1.5 overflow-x-auto">
+            {/* ═══════════════════════════════════════════════════════════════
+                TABS
+            ═══════════════════════════════════════════════════════════════ */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 mb-5">
                 {([
-                    { key: 'books' as LibraryTab, label: 'Book Catalog', icon: FiBookOpen, count: books.length },
-                    { key: 'checkout' as LibraryTab, label: 'Active Loans', icon: FiClock, count: stats.checkedOut, alert: stats.overdue > 0 },
-                    { key: 'history' as LibraryTab, label: 'Return History', icon: FiArchive, count: returnHistory.length },
-                    { key: 'assets' as LibraryTab, label: 'Assets', icon: FiBox, count: assets.length },
-                    { key: 'reports' as LibraryTab, label: 'Reports', icon: FiBarChart2 },
-                    { key: 'stores' as LibraryTab, label: 'Stores', icon: FiPackage },
-                ] as Array<{ key: LibraryTab; label: string; icon: React.ElementType; count?: number; alert?: boolean }>).map(t => {
-                    const Icon = t.icon;
+                    { key: 'books' as LibraryTab, label: '📚 Books Catalog', count: books.length },
+                    { key: 'checkouts' as LibraryTab, label: '📤 Active Checkouts', count: activeCheckouts.length, alert: stats.overdue > 0 },
+                    { key: 'history' as LibraryTab, label: '🕐 History', count: returnHistory.length },
+                    { key: 'overdue' as LibraryTab, label: '⚠️ Overdue', count: overdueCheckouts.length, danger: true },
+                    { key: 'reports' as LibraryTab, label: '📊 Reports' },
+                ] as Array<{ key: LibraryTab; label: string; count?: number; alert?: boolean; danger?: boolean }>).map(t => {
                     const active = tab === t.key;
                     return (
                         <button key={t.key} onClick={() => setTab(t.key)}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 ${active ? 'tab-active text-teal-700' : 'text-gray-500 hover:text-gray-700'}`}>
-                            <Icon size={13} />
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex-shrink-0 border ${active
+                                ? 'text-white border-transparent shadow-lg'
+                                : 'text-gray-500 bg-white border-gray-200 hover:border-teal-200 hover:text-teal-700'
+                                }`}
+                            style={active ? { background: 'linear-gradient(135deg,#134e4a,#0d9488)' } : {}}>
                             {t.label}
                             {t.count !== undefined && (
-                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${active ? 'bg-teal-100 text-teal-700' : 'bg-gray-200 text-gray-500'} ${t.alert ? '!bg-red-100 !text-red-600' : ''}`}>
+                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${active
+                                    ? 'bg-white/25 text-white'
+                                    : t.danger && t.count > 0
+                                        ? 'bg-red-100 text-red-600'
+                                        : 'bg-gray-100 text-gray-500'
+                                    }`}>
                                     {t.count}
                                 </span>
                             )}
-                            {t.alert && <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />}
                         </button>
                     );
                 })}
             </div>
 
-            {/* ════════════════════════════════════════════════════════════════
-                BOOKS TAB
-            ════════════════════════════════════════════════════════════════ */}
+            {/* ═══════════════════════════════════════════════════════════════
+                📚 BOOKS TAB
+            ═══════════════════════════════════════════════════════════════ */}
             {tab === 'books' && (
                 <div className="space-y-4">
                     {/* Toolbar */}
                     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
                         <div className="flex flex-col sm:flex-row gap-3">
                             <div className="flex-1 relative">
-                                <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
+                                <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" size={15} />
                                 <input type="text"
-                                    placeholder="Search by title, author, ISBN, shelf, publisher..."
+                                    placeholder="Search title, author, ISBN, shelf, publisher..."
                                     value={search}
                                     onChange={e => { setSearch(e.target.value); setPage(1); }}
                                     className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-medium focus:border-teal-400 outline-none transition-all" />
@@ -956,21 +966,20 @@ export default function LibraryInventoryPage() {
                                 <option value="all">All Categories</option>
                                 {bookCategories.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
-                            <select value={filterAvailability}
-                                onChange={e => { setFilterAvailability(e.target.value as any); setPage(1); }}
-                                className="px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:border-teal-400 outline-none cursor-pointer min-w-[130px]">
-                                <option value="all">All Status</option>
-                                <option value="available">Available</option>
-                                <option value="unavailable">All Out</option>
-                            </select>
                             <select value={filterCondition}
                                 onChange={e => { setFilterCondition(e.target.value); setPage(1); }}
                                 className="px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:border-teal-400 outline-none cursor-pointer min-w-[130px]">
                                 <option value="all">All Conditions</option>
                                 {Object.keys(conditionConfig).map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
+                            <select value={filterAvailability}
+                                onChange={e => { setFilterAvailability(e.target.value as 'all' | 'available' | 'unavailable'); setPage(1); }}
+                                className="px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-medium bg-white focus:border-teal-400 outline-none cursor-pointer min-w-[130px]">
+                                <option value="all">All Status</option>
+                                <option value="available">Available</option>
+                                <option value="unavailable">All Out</option>
+                            </select>
                         </div>
-
                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-400 font-medium">
@@ -987,20 +996,20 @@ export default function LibraryInventoryPage() {
                                 <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                                     <button onClick={() => setViewMode('table')}
                                         className={`p-1.5 rounded-md transition-all ${viewMode === 'table' ? 'bg-white shadow text-teal-600' : 'text-gray-400'}`}>
-                                        <FiList size={14} />
+                                        <FiList size={13} />
                                     </button>
                                     <button onClick={() => setViewMode('grid')}
                                         className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow text-teal-600' : 'text-gray-400'}`}>
-                                        <FiGrid size={14} />
+                                        <FiGrid size={13} />
                                     </button>
                                 </div>
                                 <button onClick={exportCatalogCSV}
                                     className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl transition-colors">
-                                    <FiDownload size={13} /> Export CSV
+                                    <FiDownload size={12} /> Export CSV
                                 </button>
                                 <button onClick={openAddBook}
                                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white rounded-xl shadow-md transition-all hover:opacity-90 active:scale-95"
-                                    style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)' }}>
+                                    style={{ background: 'linear-gradient(135deg,#134e4a,#0d9488)' }}>
                                     <FiPlus size={13} /> Add Book
                                 </button>
                             </div>
@@ -1010,13 +1019,12 @@ export default function LibraryInventoryPage() {
                     {/* Grid View */}
                     {viewMode === 'grid' ? (
                         paginatedBooks.length === 0 ? (
-                            <EmptyState icon={FiBookOpen}
-                                title="No books found"
+                            <EmptyState icon={FiBookOpen} title="No books found"
                                 sub="Try adjusting your filters or add books to the catalog"
                                 action={
                                     <button onClick={openAddBook}
                                         className="px-5 py-2.5 text-sm font-bold text-white rounded-xl"
-                                        style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)' }}>
+                                        style={{ background: 'linear-gradient(135deg,#134e4a,#0d9488)' }}>
                                         <FiPlus size={13} className="inline mr-1" /> Add First Book
                                     </button>
                                 } />
@@ -1034,10 +1042,10 @@ export default function LibraryInventoryPage() {
                         /* Table View */
                         <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
                             <div className="overflow-x-auto">
-                                <table className="w-full tbl">
+                                <table className="w-full lib-tbl">
                                     <thead>
-                                        <tr className="bg-gray-50/80 border-b border-gray-200">
-                                            {[
+                                        <tr className="bg-gray-50/90 border-b border-gray-200">
+                                            {([
                                                 { key: null, label: '#', cls: 'w-10' },
                                                 { key: 'title' as SortField, label: 'Title & Publisher', cls: 'min-w-[220px]' },
                                                 { key: 'author' as SortField, label: 'Author', cls: '' },
@@ -1047,9 +1055,9 @@ export default function LibraryInventoryPage() {
                                                 { key: null, label: 'Shelf', cls: '' },
                                                 { key: null, label: 'Condition', cls: '' },
                                                 { key: null, label: 'Actions', cls: 'w-28' },
-                                            ].map((col, ci) => (
+                                            ] as Array<{ key: SortField | null; label: string; cls: string }>).map((col, ci) => (
                                                 <th key={ci}
-                                                    className={`px-4 py-3.5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest ${col.cls} ${col.key ? 'cursor-pointer hover:text-gray-600' : ''}`}
+                                                    className={`px-4 py-3.5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest ${col.cls} ${col.key ? 'cursor-pointer hover:text-teal-600' : ''}`}
                                                     onClick={() => col.key && handleSort(col.key)}>
                                                     {col.label} {col.key && <SortIcon field={col.key} />}
                                                 </th>
@@ -1058,32 +1066,29 @@ export default function LibraryInventoryPage() {
                                     </thead>
                                     <tbody>
                                         {paginatedBooks.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={9}>
-                                                    <EmptyState icon={FiBookOpen}
-                                                        title="No books found"
-                                                        sub="Try adjusting your filters or search terms"
-                                                        action={
-                                                            <button onClick={openAddBook}
-                                                                className="px-5 py-2.5 text-sm font-bold text-white rounded-xl"
-                                                                style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)' }}>
-                                                                Add First Book
-                                                            </button>
-                                                        } />
-                                                </td>
-                                            </tr>
+                                            <tr><td colSpan={9}>
+                                                <EmptyState icon={FiBookOpen} title="No books found"
+                                                    sub="Try adjusting your filters or search terms"
+                                                    action={
+                                                        <button onClick={openAddBook}
+                                                            className="px-5 py-2.5 text-sm font-bold text-white rounded-xl"
+                                                            style={{ background: 'linear-gradient(135deg,#134e4a,#0d9488)' }}>
+                                                            Add First Book
+                                                        </button>
+                                                    } />
+                                            </td></tr>
                                         ) : paginatedBooks.map((b, i) => {
                                             const color = b.cover_color || coverColors[b.id % coverColors.length];
                                             return (
                                                 <tr key={b.id}
                                                     className="border-b border-gray-100 hover:bg-teal-50/30 transition-colors group">
-                                                    <td className="px-4 py-3 text-xs text-gray-300 font-mono">
+                                                    <td className="px-4 py-3.5 text-xs text-gray-300 font-mono">
                                                         {(page - 1) * perPage + i + 1}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-4 py-3.5">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-1.5 h-10 rounded-full flex-shrink-0"
-                                                                style={{ background: `linear-gradient(to bottom, ${color}, ${color}88)` }} />
+                                                            <div className="w-1 h-10 rounded-full flex-shrink-0"
+                                                                style={{ background: `linear-gradient(to bottom,${color},${color}55)` }} />
                                                             <div>
                                                                 <p className="text-sm font-bold text-gray-800 leading-tight">{b.title}</p>
                                                                 <p className="text-[11px] text-gray-400 mt-0.5">
@@ -1092,39 +1097,39 @@ export default function LibraryInventoryPage() {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-gray-600">{b.author || <span className="text-gray-300">—</span>}</td>
-                                                    <td className="px-4 py-3 text-xs font-mono text-gray-400">{b.isbn || <span className="text-gray-300">—</span>}</td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-4 py-3.5 text-sm text-gray-600">{b.author || <span className="text-gray-300">—</span>}</td>
+                                                    <td className="px-4 py-3.5 text-xs font-mono text-gray-400">{b.isbn || <span className="text-gray-300">—</span>}</td>
+                                                    <td className="px-4 py-3.5">
                                                         <Badge color="#0891b2" bg="#cffafe">{b.category}</Badge>
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-4 py-3.5">
                                                         <AvailabilityBar total={b.total_copies} available={b.available_copies} />
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-4 py-3.5">
                                                         {b.shelf_location
-                                                            ? <span className="inline-flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-lg"><FiMapPin size={10} />{b.shelf_location}</span>
+                                                            ? <span className="inline-flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-lg">
+                                                                <FiMapPin size={10} />{b.shelf_location}
+                                                            </span>
                                                             : <span className="text-gray-300 text-xs">—</span>}
                                                     </td>
-                                                    <td className="px-4 py-3">
-                                                        <ConditionBadge condition={b.condition} />
-                                                    </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-4 py-3.5"><ConditionBadge condition={b.condition} /></td>
+                                                    <td className="px-4 py-3.5">
                                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <button onClick={() => openIssueBook(b)}
                                                                 disabled={b.available_copies === 0}
                                                                 title="Issue book"
                                                                 className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                                                                <FiArrowRight size={14} />
+                                                                <FiArrowRight size={13} />
                                                             </button>
                                                             <button onClick={() => openEditBook(b)}
-                                                                title="Edit book"
+                                                                title="Edit"
                                                                 className="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-all">
-                                                                <FiEdit2 size={14} />
+                                                                <FiEdit2 size={13} />
                                                             </button>
                                                             <button onClick={() => handleDeleteBook(b.id)}
-                                                                title="Delete book"
+                                                                title="Delete"
                                                                 className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all">
-                                                                <FiTrash2 size={14} />
+                                                                <FiTrash2 size={13} />
                                                             </button>
                                                         </div>
                                                     </td>
@@ -1145,10 +1150,12 @@ export default function LibraryInventoryPage() {
                                     </p>
                                     <div className="flex items-center gap-1">
                                         <button onClick={() => setPage(1)} disabled={page === 1}
-                                            className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:bg-gray-100 disabled:opacity-30 font-medium">First</button>
+                                            className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:bg-gray-100 disabled:opacity-30 font-medium">
+                                            First
+                                        </button>
                                         <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                                             className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30">
-                                            <FiChevronLeft size={14} />
+                                            <FiChevronLeft size={13} />
                                         </button>
                                         {Array.from({ length: Math.min(5, totalPages) }, (_, idx) => {
                                             const p = Math.max(1, Math.min(page - 2, totalPages - 4)) + idx;
@@ -1161,10 +1168,12 @@ export default function LibraryInventoryPage() {
                                         })}
                                         <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
                                             className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30">
-                                            <FiChevronRight size={14} />
+                                            <FiChevronRight size={13} />
                                         </button>
                                         <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
-                                            className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:bg-gray-100 disabled:opacity-30 font-medium">Last</button>
+                                            className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:bg-gray-100 disabled:opacity-30 font-medium">
+                                            Last
+                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -1173,53 +1182,57 @@ export default function LibraryInventoryPage() {
                 </div>
             )}
 
-            {/* ════════════════════════════════════════════════════════════════
-                ACTIVE LOANS TAB
-            ════════════════════════════════════════════════════════════════ */}
-            {tab === 'checkout' && (
+            {/* ═══════════════════════════════════════════════════════════════
+                📤 ACTIVE CHECKOUTS TAB
+            ═══════════════════════════════════════════════════════════════ */}
+            {tab === 'checkouts' && (
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            {overdueCheckouts.length > 0 && (
-                                <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-xl">
-                                    <FiAlertCircle size={14} className="text-red-600" />
-                                    <span className="text-sm font-bold text-red-700">
-                                        {overdueCheckouts.length} overdue · {fmt(stats.totalFines)} outstanding
-                                    </span>
-                                    <button onClick={printOverdueReport}
-                                        className="flex items-center gap-1 px-2.5 py-1 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700">
-                                        <FiPrinter size={11} /> Print Report
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button onClick={exportCheckoutsCSV}
-                                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 shadow-sm">
-                                <FiDownload size={13} /> Export
-                            </button>
-                            <button onClick={() => openIssueBook()}
-                                className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold text-white rounded-xl shadow-md hover:opacity-90 active:scale-95 transition-all"
-                                style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
-                                <FiPlus size={15} /> Issue Book
+                    {overdueCheckouts.length > 0 && (
+                        <div className="flex items-center gap-3 px-5 py-3.5 bg-red-50 border border-red-200 rounded-2xl lib-pulse">
+                            <FiAlertCircle size={18} className="text-red-600 flex-shrink-0" />
+                            <div className="flex-1">
+                                <p className="text-sm font-black text-red-700">
+                                    {overdueCheckouts.length} book{overdueCheckouts.length > 1 ? 's' : ''} overdue
+                                </p>
+                                <p className="text-xs text-red-500">{fmt(stats.totalFines)} in outstanding fines</p>
+                            </div>
+                            <button onClick={printOverdueReport}
+                                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-colors">
+                                <FiPrinter size={12} /> Print Report
                             </button>
                         </div>
-                    </div>
+                    )}
 
                     <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                        <SectionHeader
-                            title="Active Checkouts"
-                            sub={`${activeCheckouts.length} books currently borrowed`}
-                            icon={FiClock} color="#2563eb"
-                            actions={<span className="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">{activeCheckouts.length}</span>}
-                        />
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-blue-50">
+                                    <FiClock size={17} className="text-blue-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-gray-800">Active Checkouts</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">{activeCheckouts.length} books currently borrowed</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button onClick={exportCheckoutsCSV}
+                                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
+                                    <FiDownload size={12} /> Export CSV
+                                </button>
+                                <button onClick={() => openIssueBook()}
+                                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white rounded-xl transition-all hover:opacity-90 active:scale-95"
+                                    style={{ background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)' }}>
+                                    <FiPlus size={13} /> Issue Book
+                                </button>
+                            </div>
+                        </div>
+
                         {activeCheckouts.length === 0 ? (
-                            <EmptyState icon={FiCheckCircle}
-                                title="No active checkouts"
-                                sub="All books are currently in the library. Issue a book to get started." />
+                            <EmptyState icon={FiCheckCircle} title="No active checkouts"
+                                sub="All books are in the library. Issue a book to get started." />
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full">
+                                <table className="w-full lib-tbl">
                                     <thead>
                                         <tr className="bg-gray-50/80 border-b border-gray-200">
                                             {['#', 'Book', 'Borrower', 'ID/Adm No', 'Issued', 'Due Date', 'Status', 'Renewals', 'Actions'].map(h => (
@@ -1231,20 +1244,17 @@ export default function LibraryInventoryPage() {
                                         {activeCheckouts.map((c, i) => {
                                             const isOverdue = new Date(c.due_date) < new Date();
                                             const daysLeft = Math.ceil((new Date(c.due_date).getTime() - Date.now()) / 86400000);
+                                            const btc = borrowerTypeConfig[c.borrower_type] || { color: '#6b7280', bg: '#f3f4f6' };
                                             return (
                                                 <tr key={c.id}
-                                                    className={`border-b border-gray-100 transition-colors ${isOverdue ? 'bg-red-50/40 hover:bg-red-50/70' : 'hover:bg-gray-50'}`}>
+                                                    className={`border-b border-gray-100 transition-colors ${isOverdue ? 'bg-red-50/40 hover:bg-red-50/70' : 'hover:bg-gray-50/60'}`}>
                                                     <td className="px-4 py-3.5 text-xs text-gray-300 font-mono">{i + 1}</td>
                                                     <td className="px-4 py-3.5">
-                                                        <p className="text-sm font-bold text-gray-800">{c.book_title}</p>
+                                                        <p className="text-sm font-bold text-gray-800 leading-tight">{c.book_title}</p>
                                                     </td>
                                                     <td className="px-4 py-3.5">
                                                         <p className="text-sm font-semibold text-gray-700">{c.borrower_name}</p>
-                                                        <Badge
-                                                            color={c.borrower_type === 'Student' ? '#0891b2' : c.borrower_type === 'Teacher' ? '#7c3aed' : '#d97706'}
-                                                            bg={c.borrower_type === 'Student' ? '#cffafe' : c.borrower_type === 'Teacher' ? '#ede9fe' : '#fef3c7'}>
-                                                            {c.borrower_type}
-                                                        </Badge>
+                                                        <Badge color={btc.color} bg={btc.bg}>{c.borrower_type}</Badge>
                                                     </td>
                                                     <td className="px-4 py-3.5 text-xs font-mono text-gray-500">{c.borrower_id || '—'}</td>
                                                     <td className="px-4 py-3.5 text-xs text-gray-500">{fmtDate(c.checkout_date)}</td>
@@ -1254,7 +1264,7 @@ export default function LibraryInventoryPage() {
                                                         </p>
                                                         {isOverdue
                                                             ? <OverdueDaysTag dueDate={c.due_date} />
-                                                            : <p className="text-[10px] text-gray-400">{daysLeft}d remaining</p>}
+                                                            : <p className="text-[10px] text-gray-400 mt-0.5">{daysLeft}d remaining</p>}
                                                     </td>
                                                     <td className="px-4 py-3.5">
                                                         {isOverdue
@@ -1264,10 +1274,10 @@ export default function LibraryInventoryPage() {
                                                                 : <Badge color="#16a34a" bg="#dcfce7">✓ On Time</Badge>}
                                                     </td>
                                                     <td className="px-4 py-3.5 text-center">
-                                                        <span className="text-xs font-bold text-gray-500">{c.renewed_count || 0}x</span>
+                                                        <span className="text-xs font-black text-gray-500">{c.renewed_count || 0}×</span>
                                                     </td>
                                                     <td className="px-4 py-3.5">
-                                                        <div className="flex items-center gap-1">
+                                                        <div className="flex items-center gap-1.5">
                                                             <button onClick={() => openReturnModal(c)}
                                                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-xs font-bold transition-colors">
                                                                 <FiCheck size={11} /> Return
@@ -1291,630 +1301,701 @@ export default function LibraryInventoryPage() {
                 </div>
             )}
 
-            {/* ════════════════════════════════════════════════════════════════
-                RETURN HISTORY TAB
-            ════════════════════════════════════════════════════════════════ */}
+            {/* ═══════════════════════════════════════════════════════════════
+                🕐 HISTORY TAB
+            ═══════════════════════════════════════════════════════════════ */}
             {tab === 'history' && (
-                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                    <SectionHeader title="Return History" sub={`${returnHistory.length} transactions recorded`}
-                        icon={FiArchive} color="#7c3aed"
-                        actions={
-                            <span className="text-xs text-gray-400 font-medium">
-                                Total fines collected: <strong className="text-purple-600">
-                                    {fmt(returnHistory.reduce((s, c) => s + Number(c.fine_amount || 0), 0))}
-                                </strong>
-                            </span>
-                        }
-                    />
-                    {returnHistory.length === 0 ? (
-                        <EmptyState icon={FiArchive} title="No return history yet"
-                            sub="Returned books will appear here with full transaction records" />
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-50/80 border-b border-gray-200">
-                                        {['#', 'Book Title', 'Borrower', 'Type', 'Checked Out', 'Returned', 'Duration', 'Fine', 'Status'].map(h => (
-                                            <th key={h} className="px-4 py-3.5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {returnHistory.map((c, i) => {
-                                        const duration = c.return_date
-                                            ? Math.ceil((new Date(c.return_date).getTime() - new Date(c.checkout_date).getTime()) / 86400000)
-                                            : null;
-                                        const wasLate = c.return_date && new Date(c.return_date) > new Date(c.due_date);
-                                        return (
-                                            <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                                                <td className="px-4 py-3 text-xs text-gray-300 font-mono">{i + 1}</td>
-                                                <td className="px-4 py-3 text-sm font-bold text-gray-800">{c.book_title}</td>
-                                                <td className="px-4 py-3 text-sm text-gray-600">{c.borrower_name}</td>
-                                                <td className="px-4 py-3">
-                                                    <Badge color="#6b7280" bg="#f3f4f6">{c.borrower_type}</Badge>
-                                                </td>
-                                                <td className="px-4 py-3 text-xs text-gray-500">{fmtDate(c.checkout_date)}</td>
-                                                <td className="px-4 py-3 text-xs font-semibold text-green-600">{c.return_date ? fmtDate(c.return_date) : '—'}</td>
-                                                <td className="px-4 py-3 text-xs text-gray-500">{duration ? `${duration} days` : '—'}</td>
-                                                <td className="px-4 py-3 text-xs font-bold">
-                                                    {Number(c.fine_amount) > 0
-                                                        ? <span className="text-red-600">{fmt(Number(c.fine_amount))}</span>
-                                                        : <span className="text-gray-300">—</span>}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    {wasLate
-                                                        ? <Badge color="#d97706" bg="#fef3c7">Returned Late</Badge>
-                                                        : <Badge color="#16a34a" bg="#dcfce7">On Time</Badge>}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                                <tfoot>
-                                    <tr className="bg-purple-50 border-t-2 border-purple-100">
-                                        <td colSpan={7} className="px-4 py-3 text-xs font-black text-purple-700 uppercase tracking-wide">
-                                            Total Fines Collected
-                                        </td>
-                                        <td className="px-4 py-3 text-sm font-black text-purple-700">
-                                            {fmt(returnHistory.reduce((s, c) => s + Number(c.fine_amount || 0), 0))}
-                                        </td>
-                                        <td />
-                                    </tr>
-                                </tfoot>
-                            </table>
+                <div className="space-y-4">
+                    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-purple-50">
+                                    <FiArchive size={17} className="text-purple-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-gray-800">Return History</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">{returnHistory.length} transactions · Fines collected: <strong className="text-purple-600">{fmt(stats.finesCollected)}</strong></p>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={13} />
+                                <input type="text"
+                                    placeholder="Search history..."
+                                    value={historySearch}
+                                    onChange={e => setHistorySearch(e.target.value)}
+                                    className="pl-8 pr-4 py-2 border-2 border-gray-200 rounded-xl text-xs font-medium focus:border-teal-400 outline-none w-48" />
+                            </div>
                         </div>
-                    )}
-                </div>
-            )}
-
-            {/* ════════════════════════════════════════════════════════════════
-                ASSETS TAB
-            ════════════════════════════════════════════════════════════════ */}
-            {tab === 'assets' && (
-                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                    <SectionHeader title="School Assets Register" sub={`${assets.length} assets · Total value: ${fmt(stats.assetValue)}`}
-                        icon={FiBox} color="#7c3aed"
-                        actions={
-                            <a href="/dashboard/assets"
-                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
-                                Manage Assets <FiArrowRight size={11} />
-                            </a>
-                        }
-                    />
-                    {assets.length === 0 ? (
-                        <EmptyState icon={FiBox} title="No assets registered"
-                            sub="Use the Assets Manager to register school assets"
-                            action={
-                                <a href="/dashboard/assets"
-                                    className="px-5 py-2.5 text-sm font-bold text-white rounded-xl inline-flex items-center gap-2"
-                                    style={{ background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)' }}>
-                                    <FiArrowRight size={14} /> Go to Assets Manager
-                                </a>
-                            } />
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-50/80 border-b border-gray-200">
-                                        {['#', 'Asset Name', 'Code', 'Category', 'Location', 'Qty', 'Purchase Value', 'Current Value', 'Condition', 'Status'].map(h => (
-                                            <th key={h} className="px-4 py-3.5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {assets.map((a, i) => (
-                                        <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                                            <td className="px-4 py-3 text-xs text-gray-300 font-mono">{i + 1}</td>
-                                            <td className="px-4 py-3 text-sm font-bold text-gray-800">{a.asset_name}</td>
-                                            <td className="px-4 py-3 text-xs font-mono text-purple-600 bg-purple-50 rounded">{a.asset_code || '—'}</td>
-                                            <td className="px-4 py-3"><Badge color="#0891b2" bg="#cffafe">{a.category || '—'}</Badge></td>
-                                            <td className="px-4 py-3 text-sm text-gray-500">{a.location || '—'}</td>
-                                            <td className="px-4 py-3 text-center font-black text-gray-700">{a.quantity || 1}</td>
-                                            <td className="px-4 py-3 text-sm text-gray-500">{fmt(Number(a.purchase_price || 0))}</td>
-                                            <td className="px-4 py-3 text-sm font-bold text-green-600">{fmt(Number(a.current_value || a.purchase_price || 0))}</td>
-                                            <td className="px-4 py-3">
-                                                <ConditionBadge condition={a.condition || 'Good'} />
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <Badge color={a.status === 'Active' ? '#16a34a' : '#dc2626'}
-                                                    bg={a.status === 'Active' ? '#dcfce7' : '#fee2e2'}>
-                                                    {a.status || 'Active'}
-                                                </Badge>
-                                            </td>
+                        {filteredHistory.length === 0 ? (
+                            <EmptyState icon={FiArchive} title="No return history yet"
+                                sub="Returned books will appear here with full transaction records" />
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full lib-tbl">
+                                    <thead>
+                                        <tr className="bg-gray-50/80 border-b border-gray-200">
+                                            {['#', 'Book Title', 'Borrower', 'Type', 'Checked Out', 'Returned', 'Duration', 'Fine', 'Status'].map(h => (
+                                                <th key={h} className="px-4 py-3.5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                            ))}
                                         </tr>
-                                    ))}
-                                </tbody>
-                                <tfoot>
-                                    <tr className="bg-purple-50 border-t-2 border-purple-100">
-                                        <td colSpan={6} className="px-4 py-3 text-xs font-black text-purple-700 uppercase tracking-wide">
-                                            Total Asset Value
-                                        </td>
-                                        <td className="px-4 py-3 text-sm font-black text-gray-500">
-                                            {fmt(assets.reduce((s, a) => s + Number(a.purchase_price || 0), 0))}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm font-black text-purple-700">
-                                            {fmt(stats.assetValue)}
-                                        </td>
-                                        <td colSpan={2} />
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    )}
+                                    </thead>
+                                    <tbody>
+                                        {filteredHistory.map((c, i) => {
+                                            const duration = c.return_date
+                                                ? Math.ceil((new Date(c.return_date).getTime() - new Date(c.checkout_date).getTime()) / 86400000)
+                                                : null;
+                                            const wasLate = c.return_date && new Date(c.return_date) > new Date(c.due_date);
+                                            return (
+                                                <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                                    <td className="px-4 py-3 text-xs text-gray-300 font-mono">{i + 1}</td>
+                                                    <td className="px-4 py-3 text-sm font-bold text-gray-800">{c.book_title}</td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600">{c.borrower_name}</td>
+                                                    <td className="px-4 py-3">
+                                                        <Badge color="#6b7280" bg="#f3f4f6">{c.borrower_type}</Badge>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-xs text-gray-500">{fmtDate(c.checkout_date)}</td>
+                                                    <td className="px-4 py-3 text-xs font-semibold text-green-600">{c.return_date ? fmtDate(c.return_date) : '—'}</td>
+                                                    <td className="px-4 py-3 text-xs text-gray-500">{duration ? `${duration} days` : '—'}</td>
+                                                    <td className="px-4 py-3 text-xs font-bold">
+                                                        {Number(c.fine_amount) > 0
+                                                            ? <span className="text-red-600">{fmt(Number(c.fine_amount))}</span>
+                                                            : <span className="text-gray-300">—</span>}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {wasLate
+                                                            ? <Badge color="#d97706" bg="#fef3c7">Returned Late</Badge>
+                                                            : <Badge color="#16a34a" bg="#dcfce7">On Time</Badge>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className="bg-purple-50 border-t-2 border-purple-100">
+                                            <td colSpan={7} className="px-4 py-3 text-xs font-black text-purple-700 uppercase tracking-wide">
+                                                Total Fines Collected
+                                            </td>
+                                            <td className="px-4 py-3 text-sm font-black text-purple-700">
+                                                {fmt(returnHistory.reduce((s, c) => s + Number(c.fine_amount || 0), 0))}
+                                            </td>
+                                            <td />
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
-            {/* ════════════════════════════════════════════════════════════════
-                REPORTS TAB
-            ════════════════════════════════════════════════════════════════ */}
+            {/* ═══════════════════════════════════════════════════════════════
+                ⚠️ OVERDUE TAB
+            ═══════════════════════════════════════════════════════════════ */}
+            {tab === 'overdue' && (
+                <div className="space-y-4">
+                    {/* Overdue summary banner */}
+                    <div className="rounded-2xl p-5 text-white relative overflow-hidden"
+                        style={{ background: 'linear-gradient(135deg,#7f1d1d,#991b1b,#b91c1c)' }}>
+                        <div className="absolute inset-0 opacity-10"
+                            style={{ backgroundImage: 'radial-gradient(circle at 80% 20%,white 1px,transparent 1px)', backgroundSize: '20px 20px' }} />
+                        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <FiAlertCircle size={20} className="text-red-200" />
+                                    <h2 className="text-lg font-black">Overdue Books</h2>
+                                </div>
+                                <p className="text-red-200 text-sm">
+                                    {overdueCheckouts.length} book{overdueCheckouts.length !== 1 ? 's' : ''} overdue ·
+                                    <span className="font-black ml-1">{fmt(stats.totalFines)}</span> total outstanding
+                                </p>
+                                <p className="text-red-300/70 text-xs mt-1">Fine rate: KES {FINE_PER_DAY} per day</p>
+                            </div>
+                            <button onClick={printOverdueReport}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-white text-red-700 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors shadow-lg">
+                                <FiPrinter size={15} /> Print Overdue Report
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                        {overdueCheckouts.length === 0 ? (
+                            <EmptyState icon={FiCheckCircle} title="No overdue books! 🎉"
+                                sub="All borrowed books are within their due dates. Great job!" />
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full lib-tbl">
+                                    <thead>
+                                        <tr className="bg-red-50 border-b border-red-100">
+                                            {['#', 'Book', 'Borrower', 'Type', 'ID/Adm No', 'Due Date', 'Days Overdue', 'Fine (KES)', 'Actions'].map(h => (
+                                                <th key={h} className="px-4 py-3.5 text-left text-[10px] font-black text-red-400 uppercase tracking-widest">{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {overdueCheckouts.map((c, i) => {
+                                            const days = Math.floor((Date.now() - new Date(c.due_date).getTime()) / 86400000);
+                                            const fine = Math.max(0, days) * FINE_PER_DAY;
+                                            const btc = borrowerTypeConfig[c.borrower_type] || { color: '#6b7280', bg: '#f3f4f6' };
+                                            return (
+                                                <tr key={c.id}
+                                                    className="border-b border-red-50 hover:bg-red-50/60 transition-colors">
+                                                    <td className="px-4 py-3.5 text-xs text-red-300 font-mono">{i + 1}</td>
+                                                    <td className="px-4 py-3.5 text-sm font-bold text-gray-800">{c.book_title}</td>
+                                                    <td className="px-4 py-3.5">
+                                                        <p className="text-sm font-semibold text-gray-700">{c.borrower_name}</p>
+                                                    </td>
+                                                    <td className="px-4 py-3.5">
+                                                        <Badge color={btc.color} bg={btc.bg}>{c.borrower_type}</Badge>
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-xs font-mono text-gray-500">{c.borrower_id || '—'}</td>
+                                                    <td className="px-4 py-3.5 text-sm font-bold text-red-600">{fmtDate(c.due_date)}</td>
+                                                    <td className="px-4 py-3.5">
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-black">
+                                                            <FiAlertCircle size={10} /> {days} days
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-sm font-black text-red-600">{fmt(fine)}</td>
+                                                    <td className="px-4 py-3.5">
+                                                        <button onClick={() => openReturnModal(c)}
+                                                            className="flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-xs font-bold transition-colors">
+                                                            <FiCheck size={11} /> Return & Collect Fine
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className="bg-red-50 border-t-2 border-red-200">
+                                            <td colSpan={7} className="px-4 py-3 text-xs font-black text-red-700 uppercase tracking-wide">
+                                                Total Outstanding Fines
+                                            </td>
+                                            <td className="px-4 py-3 text-base font-black text-red-700">{fmt(stats.totalFines)}</td>
+                                            <td />
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ═══════════════════════════════════════════════════════════════
+                📊 REPORTS TAB
+            ═══════════════════════════════════════════════════════════════ */}
             {tab === 'reports' && (
                 <div className="space-y-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Books by Category */}
-                        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-                            <h3 className="text-sm font-black text-gray-700 mb-4 flex items-center gap-2">
-                                <FiBarChart2 className="text-teal-500" size={16} /> Books by Category
-                            </h3>
-                            <div className="space-y-3">
-                                {bookCategories
-                                    .map(cat => ({ cat, count: books.filter(b => b.category === cat).length }))
-                                    .filter(x => x.count > 0)
-                                    .sort((a, b) => b.count - a.count)
-                                    .slice(0, 8)
-                                    .map(({ cat, count }) => {
-                                        const pct = books.length > 0 ? (count / books.length) * 100 : 0;
-                                        return (
-                                            <div key={cat}>
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-xs font-semibold text-gray-600">{cat}</span>
-                                                    <span className="text-xs font-black text-gray-800">{count} <span className="text-gray-400 font-normal">titles</span></span>
-                                                </div>
-                                                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(to right, #0d9488, #14b8a6)' }} />
+                    {/* Summary row */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {[
+                            { label: 'Total Titles', value: stats.uniqueTitles, color: '#0d9488', icon: FiBookOpen },
+                            { label: 'Total Volumes', value: stats.totalCopies, color: '#2563eb', icon: FiArchive },
+                            { label: 'Transactions', value: checkouts.length, color: '#7c3aed', icon: FiTrendingUp },
+                            { label: 'Fines Collected', value: fmt(stats.finesCollected), color: '#d97706', icon: FiDollarSign },
+                        ].map((s, i) => {
+                            const Icon = s.icon;
+                            return (
+                                <div key={i} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="p-2 rounded-xl" style={{ backgroundColor: `${s.color}15` }}>
+                                            <Icon size={17} style={{ color: s.color }} />
+                                        </div>
+                                    </div>
+                                    <p className="text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{s.label}</p>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        {/* Books by Category Chart */}
+                        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-teal-50">
+                                    <FiBarChart2 size={16} className="text-teal-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-gray-800">Books by Category</h3>
+                                    <p className="text-xs text-gray-400">Top 10 categories by volume</p>
+                                </div>
+                            </div>
+                            <div className="p-6 space-y-3">
+                                {categoryStats.length === 0 ? (
+                                    <p className="text-sm text-gray-400 text-center py-8">No data available</p>
+                                ) : (() => {
+                                    const maxVal = categoryStats[0][1];
+                                    const barColors = ['#0d9488', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2', '#9333ea', '#e11d48', '#d97706'];
+                                    return categoryStats.map(([cat, count], i) => (
+                                        <div key={cat} className="flex items-center gap-3 group">
+                                            <div className="w-24 text-xs font-semibold text-gray-500 truncate text-right flex-shrink-0">
+                                                {cat}
+                                            </div>
+                                            <div className="flex-1 h-6 bg-gray-100 rounded-lg overflow-hidden">
+                                                <div
+                                                    className="h-full rounded-lg flex items-center justify-end pr-2 transition-all duration-700"
+                                                    style={{
+                                                        width: `${(count / maxVal) * 100}%`,
+                                                        background: `linear-gradient(90deg,${barColors[i % barColors.length]}99,${barColors[i % barColors.length]})`,
+                                                        minWidth: '24px',
+                                                    }}>
+                                                    <span className="text-[9px] text-white font-black">{count}</span>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
+                                        </div>
+                                    ));
+                                })()}
                             </div>
                         </div>
 
-                        {/* Condition breakdown */}
-                        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-                            <h3 className="text-sm font-black text-gray-700 mb-4 flex items-center gap-2">
-                                <FiActivity className="text-blue-500" size={16} /> Book Conditions
-                            </h3>
-                            <div className="space-y-3">
-                                {Object.entries(conditionConfig).map(([cond, cfg]) => {
-                                    const count = books.filter(b => b.condition === cond).length;
-                                    const pct = books.length > 0 ? (count / books.length) * 100 : 0;
-                                    return (
-                                        <div key={cond}>
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-xs font-semibold" style={{ color: cfg.color }}>{cond}</span>
-                                                <span className="text-xs font-black text-gray-700">{count} <span className="text-gray-400 font-normal">({Math.round(pct)}%)</span></span>
-                                            </div>
-                                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: cfg.color }} />
-                                            </div>
+                        {/* Borrower Type Breakdown */}
+                        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-blue-50">
+                                    <FiUsers size={16} className="text-blue-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-gray-800">Borrower Breakdown</h3>
+                                    <p className="text-xs text-gray-400">Checkouts by borrower type</p>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                {checkouts.length === 0 ? (
+                                    <p className="text-sm text-gray-400 text-center py-8">No checkout data</p>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {Object.entries(borrowerBreakdown).map(([type, count]) => {
+                                            const total = checkouts.length;
+                                            const pct = Math.round((count / total) * 100);
+                                            const btc = borrowerTypeConfig[type] || { color: '#6b7280', bg: '#f3f4f6' };
+                                            return (
+                                                <div key={type}>
+                                                    <div className="flex items-center justify-between mb-1.5">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: btc.color }} />
+                                                            <span className="text-sm font-bold text-gray-700">{type}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-black" style={{ color: btc.color }}>{count}</span>
+                                                            <span className="text-xs text-gray-400">({pct}%)</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                                                        <div className="h-full rounded-full transition-all duration-700"
+                                                            style={{ width: `${pct}%`, backgroundColor: btc.color }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        <div className="pt-3 border-t border-gray-100">
+                                            <p className="text-xs text-gray-400 font-medium">Total checkouts: <strong className="text-gray-700">{checkouts.length}</strong></p>
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Borrower type breakdown */}
-                        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-                            <h3 className="text-sm font-black text-gray-700 mb-4 flex items-center gap-2">
-                                <FiUsers className="text-purple-500" size={16} /> Borrower Summary
-                            </h3>
-                            <div className="space-y-3">
-                                {['Student', 'Teacher', 'Staff'].map(type => {
-                                    const total = checkouts.filter(c => c.borrower_type === type).length;
-                                    const active = activeCheckouts.filter(c => c.borrower_type === type).length;
-                                    const overdue = overdueCheckouts.filter(c => c.borrower_type === type).length;
-                                    const colors: Record<string, string> = { Student: '#0891b2', Teacher: '#7c3aed', Staff: '#d97706' };
+                        {/* Top 10 Most Borrowed */}
+                        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-yellow-50">
+                                    <FiTrendingUp size={16} className="text-yellow-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-gray-800">Top 10 Most Borrowed</h3>
+                                    <p className="text-xs text-gray-400">All-time popular titles</p>
+                                </div>
+                            </div>
+                            <div className="p-6 space-y-2">
+                                {topBorrowed.length === 0 ? (
+                                    <p className="text-sm text-gray-400 text-center py-8">No checkout data</p>
+                                ) : topBorrowed.map(([title, count], i) => (
+                                    <div key={title} className="flex items-center gap-3">
+                                        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0 ${i < 3 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>
+                                            {i + 1}
+                                        </span>
+                                        <span className="flex-1 text-sm text-gray-700 font-medium truncate">{title}</span>
+                                        <span className="px-2 py-0.5 bg-teal-100 text-teal-700 rounded-full text-xs font-black flex-shrink-0">
+                                            {count}×
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Monthly Checkouts */}
+                        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-purple-50">
+                                    <FiBarChart2 size={16} className="text-purple-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-gray-800">Monthly Checkouts</h3>
+                                    <p className="text-xs text-gray-400">Last 6 months activity</p>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                {monthlyCheckouts.length === 0 ? (
+                                    <p className="text-sm text-gray-400 text-center py-8">No checkout data</p>
+                                ) : (() => {
+                                    const maxM = Math.max(...monthlyCheckouts.map(m => m[1]));
                                     return (
-                                        <div key={type} className="p-3 rounded-xl border border-gray-100 bg-gray-50/50">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-black" style={{ color: colors[type] }}>{type}s</span>
-                                                <span className="text-xs font-bold text-gray-600">{total} total borrows</span>
-                                            </div>
-                                            <div className="flex gap-3 text-[10px]">
-                                                <span className="text-blue-600 font-bold">{active} active</span>
-                                                {overdue > 0 && <span className="text-red-600 font-bold">{overdue} overdue</span>}
-                                            </div>
+                                        <div className="space-y-3">
+                                            {monthlyCheckouts.map(([month, count]) => {
+                                                const [yr, mo] = month.split('-');
+                                                const label = new Date(Number(yr), Number(mo) - 1, 1)
+                                                    .toLocaleDateString('en-KE', { month: 'short', year: 'numeric' });
+                                                return (
+                                                    <div key={month} className="flex items-center gap-3">
+                                                        <div className="w-16 text-xs font-semibold text-gray-500 flex-shrink-0">{label}</div>
+                                                        <div className="flex-1 h-6 bg-gray-100 rounded-lg overflow-hidden">
+                                                            <div
+                                                                className="h-full rounded-lg flex items-center justify-end pr-2 transition-all duration-700"
+                                                                style={{
+                                                                    width: `${maxM > 0 ? (count / maxM) * 100 : 0}%`,
+                                                                    background: 'linear-gradient(90deg,#9333ea99,#9333ea)',
+                                                                    minWidth: '24px',
+                                                                }}>
+                                                                <span className="text-[9px] text-white font-black">{count}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     );
-                                })}
+                                })()}
                             </div>
                         </div>
                     </div>
 
-                    {/* Quick actions */}
-                    <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-                        <h3 className="text-sm font-black text-gray-700 mb-4 flex items-center gap-2">
-                            <FiZap className="text-amber-500" size={16} /> Quick Reports & Exports
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            {[
-                                { label: 'Full Book Catalog', sub: `${books.length} titles`, icon: FiDownload, color: '#0d9488', action: exportCatalogCSV },
-                                { label: 'Active Checkouts', sub: `${activeCheckouts.length} records`, icon: FiDownload, color: '#2563eb', action: exportCheckoutsCSV },
-                                { label: 'Overdue Report', sub: `${overdueCheckouts.length} books`, icon: FiPrinter, color: '#dc2626', action: printOverdueReport },
-                                {
-                                    label: 'Return History', sub: `${returnHistory.length} returns`, icon: FiDownload, color: '#7c3aed', action: () => {
-                                        const headers = ['#', 'Book', 'Borrower', 'Type', 'Checked Out', 'Returned', 'Fine'];
-                                        const rows = returnHistory.map((c, i) => [i + 1, `"${c.book_title}"`, `"${c.borrower_name}"`, c.borrower_type, c.checkout_date, c.return_date || '', c.fine_amount || 0]);
-                                        const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-                                        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                                        const a = document.createElement('a');
-                                        a.href = URL.createObjectURL(blob);
-                                        a.download = `return_history_${new Date().toISOString().split('T')[0]}.csv`;
-                                        a.click();
-                                        toast.success('History exported');
-                                    }
-                                },
-                            ].map((item, i) => (
-                                <button key={i} onClick={item.action}
-                                    className="p-4 rounded-xl border border-gray-100 bg-gray-50 hover:shadow-md hover:-translate-y-0.5 transition-all text-left group">
-                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
-                                        style={{ backgroundColor: `${item.color}15` }}>
-                                        <item.icon size={16} style={{ color: item.color }} />
+                    {/* Condition breakdown */}
+                    <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-100">
+                            <h3 className="text-sm font-black text-gray-800">Book Condition Summary</h3>
+                            <p className="text-xs text-gray-400 mt-0.5">Physical state of the entire collection</p>
+                        </div>
+                        <div className="p-6 grid grid-cols-2 sm:grid-cols-5 gap-4">
+                            {Object.entries(conditionConfig).map(([cond, cfg]) => {
+                                const count = books.filter(b => b.condition === cond).length;
+                                const pct = books.length > 0 ? Math.round((count / books.length) * 100) : 0;
+                                return (
+                                    <div key={cond} className="text-center p-4 rounded-2xl border-2"
+                                        style={{ borderColor: `${cfg.color}30`, backgroundColor: cfg.bg }}>
+                                        <p className="text-2xl font-black" style={{ color: cfg.color }}>{count}</p>
+                                        <p className="text-xs font-black uppercase tracking-wide mt-1" style={{ color: cfg.color }}>{cond}</p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5">{pct}% of collection</p>
                                     </div>
-                                    <p className="text-xs font-black text-gray-700 group-hover:text-gray-900">{item.label}</p>
-                                    <p className="text-[10px] text-gray-400 mt-0.5">{item.sub}</p>
-                                </button>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ════════════════════════════════════════════════════════════════
-                STORES TAB
-            ════════════════════════════════════════════════════════════════ */}
-            {tab === 'stores' && (
-                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                    <SectionHeader title="Store Items & Consumables" sub="Quick links to consumable inventory modules"
-                        icon={FiPackage} color="#d97706" />
-                    <div className="p-8">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
-                            {[
-                                // FIX 5: replaced FiCopy (was not imported) — now imported at top
-                                { href: '/dashboard/rim-paper', icon: FiCopy, label: 'Rim Paper', sub: 'Track paper stock & usage', color: '#d97706', bg: '#fffbeb' },
-                                { href: '/dashboard/assets', icon: FiBox, label: 'Assets Manager', sub: 'Manage all school assets', color: '#7c3aed', bg: '#faf5ff' },
-                                { href: '/dashboard/stores', icon: FiPackage, label: 'General Stores', sub: 'Lab, Kitchen & more', color: '#0891b2', bg: '#f0f9ff' },
-                            ].map((item, i) => (
-                                <a key={i} href={item.href}
-                                    className="rounded-2xl p-6 border-2 hover:shadow-lg hover:-translate-y-1 transition-all group flex flex-col items-center text-center"
-                                    style={{ backgroundColor: item.bg, borderColor: `${item.color}30` }}>
-                                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-                                        style={{ backgroundColor: `${item.color}15` }}>
-                                        <item.icon size={28} style={{ color: item.color }} />
-                                    </div>
-                                    <p className="text-sm font-black text-gray-800 group-hover:text-gray-900">{item.label}</p>
-                                    <p className="text-xs text-gray-500 mt-1">{item.sub}</p>
-                                    <span className="mt-4 flex items-center gap-1 text-xs font-bold" style={{ color: item.color }}>
-                                        Open Module <FiArrowRight size={11} />
-                                    </span>
-                                </a>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ════════════════════════════════════════════════════════════════
-                MODALS
-            ════════════════════════════════════════════════════════════════ */}
-
-            {/* ── ADD / EDIT BOOK MODAL ── */}
+            {/* ═══════════════════════════════════════════════════════════════
+                ADD/EDIT BOOK MODAL
+            ═══════════════════════════════════════════════════════════════ */}
             {showBookModal && (
                 <Modal
-                    title={editingBook ? 'Edit Book Record' : 'Add New Book'}
-                    subtitle={editingBook ? `Updating: ${editingBook.title}` : 'Add a new book to the library catalog'}
-                    onClose={() => { setShowBookModal(false); setEditingBook(null); }}
-                    headerColor="#0d9488"
+                    title={editingBook ? '✏️ Edit Book' : '📖 Add New Book'}
+                    subtitle={editingBook ? `Editing: ${editingBook.title}` : 'Add a book to the library catalog'}
+                    onClose={() => setShowBookModal(false)}
+                    headerGradient="linear-gradient(135deg,#134e4a,#0f766e)"
                     wide>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div className="sm:col-span-2">
                             <FormField label="Book Title" required>
-                                <input type="text" value={bookForm.title}
-                                    onChange={e => setBookForm({ ...bookForm, title: e.target.value })}
-                                    className={inputCls} placeholder="Enter the full book title" autoFocus />
+                                <input type="text" placeholder="e.g. Kenya Certificate of Secondary Education Biology"
+                                    value={bookForm.title}
+                                    onChange={e => setBookForm(p => ({ ...p, title: e.target.value }))}
+                                    className={inputCls} />
                             </FormField>
                         </div>
                         <FormField label="Author">
-                            <input type="text" value={bookForm.author}
-                                onChange={e => setBookForm({ ...bookForm, author: e.target.value })}
-                                className={inputCls} placeholder="Author name(s)" />
+                            <input type="text" placeholder="Author name"
+                                value={bookForm.author}
+                                onChange={e => setBookForm(p => ({ ...p, author: e.target.value }))}
+                                className={inputCls} />
                         </FormField>
-                        <FormField label="ISBN" hint="International Standard Book Number">
-                            <input type="text" value={bookForm.isbn}
-                                onChange={e => setBookForm({ ...bookForm, isbn: e.target.value })}
-                                className={inputCls} placeholder="e.g. 978-0-00-000000-0" />
+                        <FormField label="ISBN">
+                            <input type="text" placeholder="978-..."
+                                value={bookForm.isbn}
+                                onChange={e => setBookForm(p => ({ ...p, isbn: e.target.value }))}
+                                className={inputCls} />
                         </FormField>
                         <FormField label="Category" required>
                             <select value={bookForm.category}
-                                onChange={e => setBookForm({ ...bookForm, category: e.target.value })}
+                                onChange={e => setBookForm(p => ({ ...p, category: e.target.value }))}
                                 className={selectCls}>
-                                {bookCategories.map(c => <option key={c}>{c}</option>)}
+                                {bookCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </FormField>
+                        <FormField label="Condition" required>
+                            <select value={bookForm.condition}
+                                onChange={e => setBookForm(p => ({ ...p, condition: e.target.value }))}
+                                className={selectCls}>
+                                {Object.keys(conditionConfig).map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </FormField>
                         <FormField label="Publisher">
-                            <input type="text" value={bookForm.publisher}
-                                onChange={e => setBookForm({ ...bookForm, publisher: e.target.value })}
-                                className={inputCls} placeholder="Publishing house" />
-                        </FormField>
-                        <FormField label="Year Published">
-                            <input type="number" value={bookForm.year_published} min={1900} max={new Date().getFullYear()}
-                                onChange={e => setBookForm({ ...bookForm, year_published: Number(e.target.value) })}
+                            <input type="text" placeholder="Publisher name"
+                                value={bookForm.publisher}
+                                onChange={e => setBookForm(p => ({ ...p, publisher: e.target.value }))}
                                 className={inputCls} />
                         </FormField>
-                        <FormField label="Shelf Location" hint="e.g. A1, B3, C-12">
-                            <input type="text" value={bookForm.shelf_location}
-                                onChange={e => setBookForm({ ...bookForm, shelf_location: e.target.value })}
-                                className={inputCls} placeholder="Shelf / rack location" />
+                        <FormField label="Year Published">
+                            <input type="number" min={1900} max={new Date().getFullYear()}
+                                value={bookForm.year_published}
+                                onChange={e => setBookForm(p => ({ ...p, year_published: Number(e.target.value) }))}
+                                className={inputCls} />
                         </FormField>
-                        <div className="sm:col-span-2">
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
-                                Copy Inventory
-                            </label>
-                            <div className="grid grid-cols-2 gap-3">
-                                <FormField label="Total Copies">
-                                    <input type="number" value={bookForm.total_copies} min={1}
-                                        onChange={e => {
-                                            const total = Number(e.target.value);
-                                            setBookForm({ ...bookForm, total_copies: total, available_copies: Math.min(bookForm.available_copies, total) });
-                                        }}
-                                        className={inputCls} />
-                                </FormField>
-                                <FormField label="Available Copies" hint="Must not exceed total">
-                                    <input type="number" value={bookForm.available_copies} min={0} max={bookForm.total_copies}
-                                        onChange={e => setBookForm({ ...bookForm, available_copies: Math.min(Number(e.target.value), bookForm.total_copies) })}
-                                        className={inputCls} />
-                                </FormField>
-                            </div>
-                            <div className="mt-2 flex items-center gap-2">
-                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full rounded-full transition-all" style={{
-                                        width: `${bookForm.total_copies > 0 ? (bookForm.available_copies / bookForm.total_copies) * 100 : 0}%`,
-                                        backgroundColor: '#0d9488'
-                                    }} />
-                                </div>
-                                <span className="text-xs text-gray-500 font-medium">
-                                    {bookForm.available_copies}/{bookForm.total_copies} available
-                                </span>
-                            </div>
-                        </div>
-                        <FormField label="Condition">
-                            <select value={bookForm.condition}
-                                onChange={e => setBookForm({ ...bookForm, condition: e.target.value })}
-                                className={selectCls}>
-                                {Object.keys(conditionConfig).map(c => <option key={c}>{c}</option>)}
-                            </select>
+                        <FormField label="Total Copies" required>
+                            <input type="number" min={1}
+                                value={bookForm.total_copies}
+                                onChange={e => setBookForm(p => ({ ...p, total_copies: Number(e.target.value) }))}
+                                className={inputCls} />
+                        </FormField>
+                        <FormField label="Available Copies" required>
+                            <input type="number" min={0} max={bookForm.total_copies}
+                                value={bookForm.available_copies}
+                                onChange={e => setBookForm(p => ({ ...p, available_copies: Number(e.target.value) }))}
+                                className={inputCls} />
+                        </FormField>
+                        <FormField label="Shelf Location">
+                            <input type="text" placeholder="e.g. A3, Science-Shelf-2"
+                                value={bookForm.shelf_location}
+                                onChange={e => setBookForm(p => ({ ...p, shelf_location: e.target.value }))}
+                                className={inputCls} />
                         </FormField>
                         <FormField label="Status">
                             <select value={bookForm.status}
-                                onChange={e => setBookForm({ ...bookForm, status: e.target.value })}
+                                onChange={e => setBookForm(p => ({ ...p, status: e.target.value }))}
                                 className={selectCls}>
-                                <option>Active</option>
-                                <option>Withdrawn</option>
-                                <option>Lost</option>
-                                <option>On Repair</option>
+                                <option value="Active">Active</option>
+                                <option value="Withdrawn">Withdrawn</option>
+                                <option value="Lost">Lost</option>
                             </select>
                         </FormField>
                         <div className="sm:col-span-2">
-                            <FormField label="Cover Color" hint="Used for visual identification in grid view">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    {coverColors.map(color => (
-                                        <button key={color} type="button"
-                                            onClick={() => setBookForm({ ...bookForm, cover_color: color })}
-                                            className={`w-8 h-8 rounded-xl border-2 transition-all ${bookForm.cover_color === color ? 'scale-125 shadow-lg' : 'border-transparent'}`}
-                                            style={{ backgroundColor: color, borderColor: bookForm.cover_color === color ? '#374151' : 'transparent' }} />
-                                    ))}
-                                </div>
+                            <FormField label="Notes">
+                                <textarea rows={2} placeholder="Additional notes about this book..."
+                                    value={bookForm.notes}
+                                    onChange={e => setBookForm(p => ({ ...p, notes: e.target.value }))}
+                                    className={inputCls + ' resize-none'} />
                             </FormField>
                         </div>
                         <div className="sm:col-span-2">
-                            <FormField label="Notes">
-                                <textarea value={bookForm.notes}
-                                    onChange={e => setBookForm({ ...bookForm, notes: e.target.value })}
-                                    className={inputCls} rows={2}
-                                    placeholder="Any additional notes about this book..." />
+                            <FormField label="Cover Color" hint="Pick a color for the book card accent">
+                                <div className="flex items-center gap-2 flex-wrap mt-1">
+                                    {coverColors.map(color => (
+                                        <button key={color} type="button"
+                                            onClick={() => setBookForm(p => ({ ...p, cover_color: color }))}
+                                            className={`w-9 h-9 rounded-xl border-2 transition-all ${bookForm.cover_color === color ? 'border-gray-800 scale-110 shadow-lg' : 'border-transparent hover:scale-105'}`}
+                                            style={{ backgroundColor: color }} />
+                                    ))}
+                                    <div className="flex items-center gap-2 ml-2">
+                                        <div className="w-9 h-9 rounded-xl border-2 border-gray-200"
+                                            style={{ backgroundColor: bookForm.cover_color }} />
+                                        <span className="text-xs text-gray-400 font-mono">{bookForm.cover_color}</span>
+                                    </div>
+                                </div>
                             </FormField>
                         </div>
                     </div>
-                    <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                        <button onClick={() => { setShowBookModal(false); setEditingBook(null); }}
-                            className="px-5 py-2.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
+
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                        <button onClick={() => setShowBookModal(false)}
+                            className="px-5 py-2.5 text-sm font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
                             Cancel
                         </button>
                         <button onClick={handleSaveBook} disabled={saving}
-                            className="px-8 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow-lg hover:opacity-90 disabled:opacity-50 active:scale-95 transition-all"
-                            style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)' }}>
-                            {saving ? <FiRefreshCw size={14} className="animate-spin" /> : <FiSave size={14} />}
-                            {editingBook ? 'Update Book' : 'Add to Catalog'}
+                            className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-md hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
+                            style={{ background: 'linear-gradient(135deg,#134e4a,#0d9488)' }}>
+                            {saving ? <><FiRefreshCw size={15} className="animate-spin" /> Saving...</> : <><FiSave size={15} /> {editingBook ? 'Update Book' : 'Add to Catalog'}</>}
                         </button>
                     </div>
                 </Modal>
             )}
 
-            {/* ── ISSUE BOOK MODAL ── */}
+            {/* ═══════════════════════════════════════════════════════════════
+                ISSUE BOOK MODAL
+            ═══════════════════════════════════════════════════════════════ */}
             {showCheckoutModal && (
                 <Modal
-                    title="Issue Book to Borrower"
-                    subtitle="Complete the form to check out a book"
+                    title="📤 Issue Book"
+                    subtitle="Loan a book from the library catalog"
                     onClose={() => setShowCheckoutModal(false)}
-                    headerColor="#2563eb">
-                    <div className="space-y-4">
+                    headerGradient="linear-gradient(135deg,#1e3a5f,#1d4ed8)">
+                    <div className="space-y-5">
                         <FormField label="Select Book" required>
                             <select value={checkoutForm.book_id}
                                 onChange={e => {
-                                    const b = books.find(bb => bb.id === Number(e.target.value));
-                                    setCheckoutForm({ ...checkoutForm, book_id: Number(e.target.value), book_title: b?.title || '' });
+                                    const book = books.find(b => b.id === Number(e.target.value));
+                                    setCheckoutForm(p => ({ ...p, book_id: Number(e.target.value), book_title: book?.title || '' }));
                                 }}
                                 className={selectCls}>
-                                <option value={0}>— Choose a book —</option>
-                                {books.filter(b => b.available_copies > 0 && b.status === 'Active').map(b => (
+                                <option value={0}>— Choose an available book —</option>
+                                {books.filter(b => b.available_copies > 0).map(b => (
                                     <option key={b.id} value={b.id}>
-                                        {b.title} · {b.category} · {b.available_copies} avail.
+                                        {b.title} ({b.available_copies} available)
                                     </option>
                                 ))}
                             </select>
-                            {checkoutForm.book_id > 0 && (
-                                <div className="mt-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                                    {(() => {
-                                        const b = books.find(bb => bb.id === checkoutForm.book_id);
-                                        return b ? (
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-10 rounded-md flex-shrink-0"
-                                                    style={{ background: b.cover_color || coverColors[b.id % coverColors.length] }} />
-                                                <div>
-                                                    <p className="text-xs font-black text-gray-800">{b.title}</p>
-                                                    <p className="text-[10px] text-gray-500">{b.author} · {b.category} · Shelf: {b.shelf_location || 'N/A'}</p>
-                                                    <p className="text-[10px] font-bold text-blue-600 mt-0.5">{b.available_copies} of {b.total_copies} copies available</p>
-                                                </div>
-                                            </div>
-                                        ) : null;
-                                    })()}
-                                </div>
-                            )}
                         </FormField>
-                        <FormField label="Borrower Full Name" required>
-                            <input type="text" value={checkoutForm.borrower_name}
-                                onChange={e => setCheckoutForm({ ...checkoutForm, borrower_name: e.target.value })}
-                                className={inputCls} placeholder="Enter full name" />
-                        </FormField>
-                        <div className="grid grid-cols-2 gap-3">
-                            <FormField label="Borrower Type">
+
+                        <div className="grid grid-cols-2 gap-5">
+                            <FormField label="Borrower Type" required>
                                 <select value={checkoutForm.borrower_type}
-                                    onChange={e => setCheckoutForm({ ...checkoutForm, borrower_type: e.target.value })}
+                                    onChange={e => setCheckoutForm(p => ({ ...p, borrower_type: e.target.value }))}
                                     className={selectCls}>
-                                    <option>Student</option>
-                                    <option>Teacher</option>
-                                    <option>Staff</option>
+                                    <option value="Student">Student</option>
+                                    <option value="Teacher">Teacher</option>
+                                    <option value="Staff">Staff</option>
                                 </select>
                             </FormField>
-                            <FormField label="Adm / Staff No" hint="Optional">
-                                <input type="text" value={checkoutForm.borrower_id}
-                                    onChange={e => setCheckoutForm({ ...checkoutForm, borrower_id: e.target.value })}
-                                    className={inputCls} placeholder="e.g. 4521" />
+                            <FormField label="ID / Adm No">
+                                <input type="text" placeholder="Student/Staff ID"
+                                    value={checkoutForm.borrower_id}
+                                    onChange={e => setCheckoutForm(p => ({ ...p, borrower_id: e.target.value }))}
+                                    className={inputCls} />
                             </FormField>
                         </div>
-                        <FormField label="Loan Period">
-                            <div className="flex gap-2">
-                                {LOAN_PERIODS.map(days => (
-                                    <button key={days} type="button"
-                                        onClick={() => setCheckoutForm({ ...checkoutForm, loan_period: days })}
-                                        className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-all ${checkoutForm.loan_period === days ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-                                        {days}d
-                                    </button>
-                                ))}
+
+                        <FormField label="Borrower Full Name" required>
+                            <input type="text" placeholder="Enter borrower's full name"
+                                value={checkoutForm.borrower_name}
+                                onChange={e => setCheckoutForm(p => ({ ...p, borrower_name: e.target.value }))}
+                                className={inputCls} />
+                        </FormField>
+
+                        <div className="grid grid-cols-2 gap-5">
+                            <FormField label="Checkout Date" required>
+                                <input type="date"
+                                    value={checkoutForm.checkout_date}
+                                    onChange={e => setCheckoutForm(p => ({ ...p, checkout_date: e.target.value }))}
+                                    className={inputCls} />
+                            </FormField>
+                            <FormField label="Loan Period">
+                                <select value={checkoutForm.loan_period}
+                                    onChange={e => setCheckoutForm(p => ({ ...p, loan_period: Number(e.target.value) }))}
+                                    className={selectCls}>
+                                    {LOAN_PERIODS.map(d => <option key={d} value={d}>{d} days</option>)}
+                                </select>
+                            </FormField>
+                        </div>
+
+                        {checkoutForm.due_date && (
+                            <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl">
+                                <FiClock size={15} className="text-blue-500" />
+                                <span className="text-sm font-medium text-blue-700">
+                                    Due date: <strong>{fmtDate(checkoutForm.due_date)}</strong>
+                                </span>
                             </div>
+                        )}
+
+                        <FormField label="Notes">
+                            <textarea rows={2} placeholder="Optional notes..."
+                                value={checkoutForm.notes}
+                                onChange={e => setCheckoutForm(p => ({ ...p, notes: e.target.value }))}
+                                className={inputCls + ' resize-none'} />
                         </FormField>
-                        <div className="grid grid-cols-2 gap-3">
-                            <FormField label="Issue Date">
-                                <input type="date" value={checkoutForm.checkout_date}
-                                    onChange={e => setCheckoutForm({ ...checkoutForm, checkout_date: e.target.value })}
-                                    className={inputCls} />
-                            </FormField>
-                            <FormField label="Due Date">
-                                <input type="date" value={checkoutForm.due_date}
-                                    onChange={e => setCheckoutForm({ ...checkoutForm, due_date: e.target.value })}
-                                    className={inputCls} />
-                            </FormField>
+
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                            <button onClick={() => setShowCheckoutModal(false)}
+                                className="px-5 py-2.5 text-sm font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200">
+                                Cancel
+                            </button>
+                            <button onClick={handleCheckout} disabled={saving}
+                                className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-md hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
+                                style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)' }}>
+                                {saving ? <><FiRefreshCw size={15} className="animate-spin" /> Processing...</> : <><FiArrowRight size={15} /> Issue Book</>}
+                            </button>
                         </div>
-                        <FormField label="Notes" hint="Optional">
-                            <textarea value={checkoutForm.notes}
-                                onChange={e => setCheckoutForm({ ...checkoutForm, notes: e.target.value })}
-                                className={inputCls} rows={2} placeholder="Any remarks..." />
-                        </FormField>
-                    </div>
-                    <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                        <button onClick={() => setShowCheckoutModal(false)}
-                            className="px-5 py-2.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl">Cancel</button>
-                        <button onClick={handleCheckout} disabled={saving}
-                            className="px-8 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow-lg hover:opacity-90 disabled:opacity-50 active:scale-95 transition-all"
-                            style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
-                            {saving ? <FiRefreshCw size={14} className="animate-spin" /> : <FiArrowRight size={14} />}
-                            Issue Book
-                        </button>
                     </div>
                 </Modal>
             )}
 
-            {/* ── RETURN BOOK MODAL ── */}
+            {/* ═══════════════════════════════════════════════════════════════
+                RETURN MODAL
+            ═══════════════════════════════════════════════════════════════ */}
             {showReturnModal && selectedCheckout && (
                 <Modal
-                    title="Return Book"
-                    subtitle={`Processing return for: ${selectedCheckout.book_title}`}
-                    onClose={() => { setShowReturnModal(false); setSelectedCheckout(null); }}
-                    headerColor="#16a34a">
-                    <div className="space-y-4">
-                        <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
-                            <div className="grid grid-cols-2 gap-3 text-xs">
-                                <div><span className="text-gray-400 font-semibold">Book</span><p className="font-black text-gray-800 mt-0.5">{selectedCheckout.book_title}</p></div>
-                                <div><span className="text-gray-400 font-semibold">Borrower</span><p className="font-black text-gray-800 mt-0.5">{selectedCheckout.borrower_name}</p></div>
-                                <div><span className="text-gray-400 font-semibold">Issued</span><p className="font-bold text-gray-700 mt-0.5">{fmtDate(selectedCheckout.checkout_date)}</p></div>
-                                <div>
-                                    <span className="text-gray-400 font-semibold">Due Date</span>
-                                    <p className={`font-bold mt-0.5 ${new Date(selectedCheckout.due_date) < new Date() ? 'text-red-600' : 'text-gray-700'}`}>
-                                        {fmtDate(selectedCheckout.due_date)}
-                                    </p>
-                                </div>
+                    title="📥 Return Book"
+                    subtitle="Process book return and collect any outstanding fines"
+                    onClose={() => setShowReturnModal(false)}
+                    headerGradient="linear-gradient(135deg,#14532d,#16a34a)">
+                    <div className="space-y-5">
+                        {/* Book info */}
+                        <div className="bg-gray-50 rounded-2xl p-5 border border-gray-200">
+                            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Checkout Details</h4>
+                            <div className="grid grid-cols-2 gap-y-3 gap-x-4">
+                                {[
+                                    { label: 'Book', value: selectedCheckout.book_title },
+                                    { label: 'Borrower', value: selectedCheckout.borrower_name },
+                                    { label: 'Type', value: selectedCheckout.borrower_type },
+                                    { label: 'ID/Adm No', value: selectedCheckout.borrower_id || '—' },
+                                    { label: 'Issued', value: fmtDate(selectedCheckout.checkout_date) },
+                                    { label: 'Due Date', value: fmtDate(selectedCheckout.due_date) },
+                                ].map(({ label, value }) => (
+                                    <div key={label}>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</p>
+                                        <p className="text-sm font-bold text-gray-800 mt-0.5">{value}</p>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
+                        {/* Fine summary */}
                         {returnFineAmount > 0 ? (
-                            <div className="p-4 bg-red-50 rounded-2xl border border-red-200">
-                                <div className="flex items-start justify-between">
+                            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <FiAlertCircle size={18} className="text-red-600" />
+                                    <h4 className="text-sm font-black text-red-700">Overdue Fine</h4>
+                                </div>
+                                <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-black text-red-700 flex items-center gap-1.5">
-                                            <FiAlertCircle size={14} /> Overdue Fine
-                                        </p>
-                                        <p className="text-[11px] text-red-500 mt-1">
-                                            {fmt(FINE_PER_DAY)} per day ×{' '}
-                                            {Math.floor((Date.now() - new Date(selectedCheckout.due_date).getTime()) / 86400000)} days
+                                        <p className="text-3xl font-black text-red-600">{fmt(fineWaived ? 0 : returnFineAmount)}</p>
+                                        <p className="text-xs text-red-400 mt-1">
+                                            {Math.round(returnFineAmount / FINE_PER_DAY)} days × KES {FINE_PER_DAY}/day
                                         </p>
                                     </div>
-                                    <p className="text-2xl font-black text-red-700">{fmt(returnFineAmount)}</p>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <div className={`relative w-11 h-6 rounded-full transition-colors ${fineWaived ? 'bg-green-500' : 'bg-gray-300'}`}
+                                            onClick={() => setFineWaived(f => !f)}>
+                                            <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${fineWaived ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                        </div>
+                                        <span className="text-sm font-bold text-gray-600">Waive Fine</span>
+                                    </label>
                                 </div>
-                                <div className="mt-3 flex items-center gap-2">
-                                    <button
-                                        onClick={() => setFineWaived(!fineWaived)}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all ${fineWaived ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
-                                        {fineWaived ? <FiCheckCircle size={13} /> : <FiXCircle size={13} />}
-                                        {fineWaived ? 'Fine Waived' : 'Waive Fine'}
-                                    </button>
-                                    {fineWaived && <span className="text-xs text-green-600 font-semibold">Fine has been waived</span>}
-                                </div>
+                                {fineWaived && (
+                                    <div className="mt-3 flex items-center gap-2 text-green-600 text-xs font-bold">
+                                        <FiCheckCircle size={13} /> Fine waived — student returns for free
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            <div className="p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center gap-3">
-                                <FiCheckCircle size={20} className="text-green-600" />
+                            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
+                                <FiCheckCircle size={18} className="text-green-600" />
                                 <div>
-                                    <p className="text-sm font-black text-green-700">No Fine — Returned on Time</p>
-                                    <p className="text-xs text-green-500">Book returned before due date</p>
+                                    <p className="text-sm font-bold text-green-700">No fine applicable</p>
+                                    <p className="text-xs text-green-500">Book returned on or before due date</p>
                                 </div>
                             </div>
                         )}
 
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                            <span className="text-xs font-semibold text-gray-500">Return Date</span>
-                            <span className="text-sm font-black text-gray-800">
-                                {new Date().toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' })}
-                            </span>
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                            <button onClick={() => setShowReturnModal(false)}
+                                className="px-5 py-2.5 text-sm font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200">
+                                Cancel
+                            </button>
+                            <button onClick={handleReturn} disabled={saving}
+                                className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-md hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
+                                style={{ background: 'linear-gradient(135deg,#14532d,#16a34a)' }}>
+                                {saving ? <><FiRefreshCw size={15} className="animate-spin" /> Processing...</> : <><FiCheck size={15} /> Confirm Return{returnFineAmount > 0 && !fineWaived ? ` & Collect ${fmt(returnFineAmount)}` : ''}</>}
+                            </button>
                         </div>
-                    </div>
-                    <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                        <button onClick={() => { setShowReturnModal(false); setSelectedCheckout(null); }}
-                            className="px-5 py-2.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl">Cancel</button>
-                        <button onClick={handleReturn} disabled={saving}
-                            className="px-8 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow-lg hover:opacity-90 disabled:opacity-50 active:scale-95 transition-all"
-                            style={{ background: 'linear-gradient(135deg, #16a34a, #22c55e)' }}>
-                            {saving ? <FiRefreshCw size={14} className="animate-spin" /> : <FiCheck size={14} />}
-                            Confirm Return {returnFineAmount > 0 && !fineWaived && `· ${fmt(returnFineAmount)}`}
-                        </button>
                     </div>
                 </Modal>
             )}
