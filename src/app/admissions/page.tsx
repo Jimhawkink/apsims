@@ -433,9 +433,18 @@ export default function AdmissionsPage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div><label className={lbl}>Form Applying For <span className="text-red-400">*</span></label>
                                         <select value={form.form_applied_for} onChange={e => setField('form_applied_for', e.target.value)} className={inp}>
-                                            <option value="">— Select Form —</option>
-                                            <option value="1">Form 1</option><option value="2">Form 2</option>
-                                            <option value="3">Form 3</option><option value="4">Form 4</option>
+                                            <option value="">— Select Form / Grade —</option>
+                                            <optgroup label="─── 8-4-4 System ───">
+                                                <option value="1">Form 1</option>
+                                                <option value="2">Form 2</option>
+                                                <option value="3">Form 3</option>
+                                                <option value="4">Form 4</option>
+                                            </optgroup>
+                                            <optgroup label="─── CBC System ───">
+                                                <option value="10">Grade 10</option>
+                                                <option value="11">Grade 11</option>
+                                                <option value="12">Grade 12</option>
+                                            </optgroup>
                                         </select></div>
                                     <div><label className={lbl}>Previous School <span className="text-gray-300">(opt.)</span></label>
                                         <input type="text" value={form.previous_school} onChange={e => setField('previous_school', e.target.value)} placeholder="e.g. Nairobi Primary" className={inp} /></div>
