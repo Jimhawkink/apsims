@@ -492,7 +492,7 @@ export default function AdminAdmissionsPage() {
     return (
         <div className="space-y-5">
             {/* ════ HERO ════ */}
-            <div className="relative overflow-hidden rounded-2xl" style={{ background: 'linear-gradient(135deg,#3b0764 0%,#581c87 40%,#7c3aed 100%)' }}>
+            <div className="relative overflow-hidden rounded-2xl" style={{ background: 'linear-gradient(135deg,#4c1d95 0%,#6d28d9 50%,#8b5cf6 100%)' }}>
                 <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px,#fff 1px,transparent 0)', backgroundSize: '24px 24px' }} />
                 <div className="absolute top-0 right-0 w-56 h-56 rounded-full opacity-10" style={{ background: 'radial-gradient(circle,#c084fc,transparent)', transform: 'translate(30%,-30%)' }} />
                 <div className="relative px-6 py-5">
@@ -558,10 +558,24 @@ export default function AdminAdmissionsPage() {
                     <div>
                         <label className={lbl}>Form Applied</label>
                         <select value={filterForm} onChange={e => setFilterForm(e.target.value)} className={inp}>
-                            <option value="">All Forms</option>
+                            <option value="">All Forms / Grades</option>
                             {forms.length > 0
                                 ? forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)
-                                : [1, 2, 3, 4].map(n => <option key={n} value={n}>Form {n}</option>)
+                                : (
+                                    <>
+                                        <optgroup label="─── 8-4-4 System ───">
+                                            <option value="1">Form 1</option>
+                                            <option value="2">Form 2</option>
+                                            <option value="3">Form 3</option>
+                                            <option value="4">Form 4</option>
+                                        </optgroup>
+                                        <optgroup label="─── CBC System ───">
+                                            <option value="10">Grade 10</option>
+                                            <option value="11">Grade 11</option>
+                                            <option value="12">Grade 12</option>
+                                        </optgroup>
+                                    </>
+                                )
                             }
                         </select>
                     </div>
@@ -641,7 +655,7 @@ export default function AdminAdmissionsPage() {
                                                 </span>
                                             ) : <span className="text-gray-300">—</span>}
                                         </td>
-                                        <td className="px-3 py-2.5 text-xs text-gray-600">{app.school_forms?.form_name || (app.form_applied_for ? `Form ${app.form_applied_for}` : '—')}</td>
+                                        <td className="px-3 py-2.5 text-xs text-gray-600">{app.school_forms?.form_name || formLabel(app.form_applied_for)}</td>
                                         <td className="px-3 py-2.5">
                                             <p className="text-xs font-medium text-gray-700">{app.guardian_full_name}</p>
                                             <p className="text-[10px] text-blue-600">{app.guardian_phone}</p>
