@@ -230,14 +230,6 @@ const EMPTY: FormData = {
 const inp = 'w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm font-medium bg-white focus:border-teal-400 focus:ring-4 focus:ring-teal-100 outline-none transition-all placeholder-gray-300';
 const lbl = 'block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function getAge(dob: string): number {
-    const born = new Date(dob); const now = new Date();
-    let age = now.getFullYear() - born.getFullYear();
-    if (now.getMonth() < born.getMonth() || (now.getMonth() === born.getMonth() && now.getDate() < born.getDate())) age--;
-    return age;
-}
-
 // ── Step Indicator ─────────────────────────────────────────────────────────────
 const STEPS = [
     { n: 1, label: 'Student',  icon: '🎓' },

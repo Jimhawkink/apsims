@@ -551,259 +551,101 @@ export default function MeritListPage() {
     const SortIcon = ({ field }: { field: typeof sortField }) =>
         sortField === field ? (sortDir === 'asc' ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />) : null;
 
-    // ── Premium Excel Export (xlsx) ──────────────────────────────────────
+    // World-Class Excel Export
     const exportExcel = async () => {
         try {
             const XLSX = await import('xlsx');
-            const wb = XLSX.utils.book_new();
-
-            // ── Helper: column width from content ──────────────────────────
-            const colWidth = (data: any[][], colIdx: number) =>
-                Math.min(60, Math.max(10, ...data.map(r => String(r[colIdx] ?? '').length + 2)));
-
-            // ── Grade fill colours (ARGB) ──────────────────────────────────
-            const gradeArgb: Record<string, string> = {
-                'A': 'FF059669', 'A-': 'FF10b981', 'B+': 'FF0ea5e9', 'B': 'FF3b82f6',
-                'B-': 'FF6366f1', 'C+': 'FF8b5cf6', 'C': 'FFa78bfa', 'C-': 'FFf59e0b',
-                'D+': 'FFf97316', 'D': 'FFef4444', 'D-': 'FFdc2626', 'E': 'FF991b1b',
-            };
-
-            // ─────────────────────────────────────────────────────────────────
-            // SHEET 1 — MERIT LIST
-            // ─────────────────────────────────────────────────────────────────
-            const formName  = forms.find(f => f.id === Number(selForm))?.form_name || 'Unknown Form';
-            const termName  = terms.find(t => t.id === Number(selTerm))?.term_name || 'Unknown Term';
-            const streamName = selStream ? (streams.find(s => s.id === Number(selStream))?.stream_name || '') : 'All Streams';
-            const dateStr   = new Date().toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' });
-            const method    = showBest7 ? 'Best 7 Subjects' : 'All Subjects';
-
-            // Subject list (only those with at least 1 mark)
-            const usedSubjectIds = new Set(filtered.flatMap(r => r.subjectResults.map(sr => sr.subId)));
-            const usedSubjects   = subjects.filter(s => usedSubjectIds.has(s.id));
-
-            // Stats for narration
-            const n         = filtered.length;
-            const mean      = n > 0 ? (filtered.reduce((a, b) => a + b.avgScore, 0) / n).toFixed(1) : '0';
-            const passCount = filtered.filter(r => r.meanGrade.points >= 4).length;
-            const passRate  = n > 0 ? Math.round((passCount / n) * 100) : 0;
-            const top1      = filtered[0];
-            const top1Name  = top1 ? `${top1.student.first_name} ${top1.student.last_name}` : '—';
-
-            // Fixed column headers
-            const fixedHeaders = ['RANK', 'ADM NO', 'STUDENT NAME', 'GENDER', 'STREAM',
-                showBest7 ? 'BEST 7 PTS' : 'TOTAL PTS', 'AVG SCORE (%)', 'MEAN GRADE', 'REMARKS', 'SUBJECTS DONE'];
-            const subjectHeaders = usedSubjects.map(s => s.subject_name.toUpperCase());
-            const allHeaders     = [...fixedHeaders, ...subjectHeaders];
-            const totalCols      = allHeaders.length;
-
-            // Build data rows
-            const dataRows = filtered.map(row => {
-                const scores = usedSubjects.map(s => {
-                    const sr = row.subjectResults.find(r => r.subId === s.id);
-                    return sr ? sr.score : '';
-                });
-                return [
-                    (row as any).rank,
-                    row.student.admission_no || row.student.admission_number,
-                    `${row.student.first_name} ${row.student.last_name}`,
-                    row.student.gender || '',
-                    getStreamName(row.student.stream_id),
-                    row.totalPoints,
-                    Number(row.avgScore.toFixed(1)),
-                    row.meanGrade.grade,
-                    row.meanGrade.remarks,
-                    row.subjectCount,
-                    ...scores,
-                ];
+            const wb   = XLSX.utils.book_new();
+            const NAVY='FF1e1b4b';const IND='FF4338ca';const IND2='FF6366f1';
+            const GOLD='FFb45309';const AMBE='FFf59e0b';const GOLDBG='FFfde68a';
+            const WH='FFFFFFFF';const DK='FF0f172a';const LAVN='FFede9fe';
+            const PURP='FF6d28d9';const HAIR='FFe2e8f0';
+            const gradeC:Record<string,string>={'A':'FF059669','A-':'FF10b981','B+':'FF0ea5e9','B':'FF3b82f6','B-':'FF6366f1','C+':'FF8b5cf6','C':'FFa78bfa','C-':'FFf59e0b','D+':'FFf97316','D':'FFef4444','D-':'FFdc2626','E':'FF991b1b'};
+            const sc=(ws:any,r:number,c:number,s:any,v?:any)=>{const a=XLSX.utils.encode_cell({r,c});if(!ws[a])ws[a]={v:v??'',t:typeof v==='number'?'n':'s'};if(v!==undefined){ws[a].v=v;ws[a].t=typeof v==='number'?'n':'s';}ws[a].s=s;};
+            const fillRow=(ws:any,row:number,tc:number,s:any,v0?:string)=>{for(let c=0;c<tc;c++)sc(ws,row,c,s,c===0?(v0??''):'');};
+            const autoW=(rows:any[][],ci:number)=>Math.min(52,Math.max(9,...rows.map(r=>String(r[ci]??'').length+3)));
+            const tB=(rgb=HAIR)=>({style:'hair',color:{rgb}});
+            const mB=(rgb=GOLD)=>({style:'medium',color:{rgb}});
+            const formName=forms.find(f=>f.id===Number(selForm))?.form_name??'Form';
+            const termName=terms.find(t=>t.id===Number(selTerm))?.term_name??'Term';
+            const strmLabel=selStream?(streams.find(s=>s.id===Number(selStream))?.stream_name??'All'):'All Streams';
+            const dateStr=new Date().toLocaleDateString('en-KE',{day:'numeric',month:'long',year:'numeric'});
+            const method=showBest7?'Best 7 Subjects':'All Subjects';
+            const usedIds=new Set(filtered.flatMap(r=>r.subjectResults.map(sr=>sr.subId)));
+            const usedSubj=subjects.filter(s=>usedIds.has(s.id));
+            const n=filtered.length;
+            const meanNum=n>0?filtered.reduce((a,b)=>a+b.avgScore,0)/n:0;
+            const meanStr=meanNum.toFixed(1);
+            const passed=filtered.filter(r=>r.meanGrade.points>=4).length;
+            const pRate=n>0?Math.round((passed/n)*100):0;
+            const top1=filtered[0];
+            const top1N=top1?`${top1.student.first_name} ${top1.student.last_name}`:'—';
+            const rl=(ri:number,rank:number)=>ri===0?'🥇 1st':ri===1?'🥈 2nd':ri===2?'🥉 3rd':String(rank);
+            const fixedH=['RANK','ADM NO','STUDENT NAME','GENDER','STREAM',showBest7?'BEST 7 PTS':'TOTAL PTS','AVG SCORE (%)','MEAN GRADE','REMARKS','SUBJS'];
+            const subjH=usedSubj.map(s=>s.subject_name.toUpperCase());
+            const allH=[...fixedH,...subjH];
+            const TC=allH.length;
+            const dataRows=filtered.map((row,ri)=>{
+                const ss=usedSubj.map(s=>{const sr=row.subjectResults.find(r=>r.subId===s.id);return sr?sr.score:'';});
+                return [rl(ri,(row as any).rank),row.student.admission_no||row.student.admission_number,`${row.student.first_name} ${row.student.last_name}`,row.student.gender||'',getStreamName(row.student.stream_id),row.totalPoints,Number(row.avgScore.toFixed(1)),row.meanGrade.grade,row.meanGrade.remarks,row.subjectCount,...ss];
             });
-
-            // Build worksheet data (with blank rows for header section)
-            const wsData: any[][] = [
-                // Row 1: School name (will merge across all cols)
-                ['APSIMS SCHOOL — OFFICIAL MERIT LIST', ...Array(totalCols - 1).fill('')],
-                // Row 2: Context
-                [`${formName} | ${streamName} | ${termName} | ${selExamType} | Method: ${method}`, ...Array(totalCols - 1).fill('')],
-                // Row 3: Generated
-                [`Generated: ${dateStr}    Students: ${n}    Class Mean: ${mean}%    Pass Rate: ${passRate}%    Top Student: ${top1Name}`, ...Array(totalCols - 1).fill('')],
-                // Row 4: Empty separator
-                Array(totalCols).fill(''),
-                // Row 5: Column headers
-                allHeaders,
-                // Rows 6+: Data
-                ...dataRows,
-                // Last row: empty then summary
-                Array(totalCols).fill(''),
-                [`SUMMARY NARRATION: This merit list covers ${n} students in ${formName} (${streamName}) for ${selExamType}, ${termName}. ` +
-                 `The class achieved an average score of ${mean}% with a pass rate of ${passRate}%. ` +
-                 `Rankings are based on ${method}. Top performer: ${top1Name} (${top1?.totalPoints || '—'} pts, ${top1?.meanGrade.grade || '—'}). ` +
-                 `Generated by APSIMS on ${dateStr}.`, ...Array(totalCols - 1).fill('')],
-            ];
-
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-            // ── Merge title rows across all columns ────────────────────────
-            ws['!merges'] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }, // School name
-                { s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } }, // Context
-                { s: { r: 2, c: 0 }, e: { r: 2, c: totalCols - 1 } }, // Date/stats
-                { s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: totalCols - 1 } }, // Narration
-            ];
-
-            // ── Column widths (auto-fit from content) ─────────────────────
-            ws['!cols'] = allHeaders.map((_h, ci) => ({
-                wch: ci < fixedHeaders.length
-                    ? colWidth(dataRows, ci)
-                    : Math.max(12, usedSubjects[ci - fixedHeaders.length]?.subject_name.length + 2 || 12),
-            }));
-
-            // ── Row heights ───────────────────────────────────────────────
-            ws['!rows'] = [
-                { hpt: 28 }, // School title
-                { hpt: 20 }, // Context
-                { hpt: 18 }, // Date
-                { hpt: 6  }, // Spacer
-                { hpt: 22 }, // Headers
-                ...dataRows.map(() => ({ hpt: 18 })),
-                { hpt: 6  }, // Spacer
-                { hpt: 36 }, // Narration
-            ];
-
-            // ── Cell styles ───────────────────────────────────────────────
-            const headerRowIdx = 4; // 0-indexed
-            const dataStartIdx = 5;
-
-            // Style title row
-            const titleCell = ws['A1'];
-            if (titleCell) {
-                titleCell.s = {
-                    font: { bold: true, sz: 16, color: { rgb: 'FFFFFFFF' } },
-                    fill: { fgColor: { rgb: 'FF1e1b4b' } },
-                    alignment: { horizontal: 'center', vertical: 'center', wrapText: false },
-                };
-            }
-
-            // Style context row
-            for (let c = 0; c < totalCols; c++) {
-                const addr = XLSX.utils.encode_cell({ r: 1, c });
-                if (!ws[addr]) ws[addr] = { v: '', t: 's' };
-                ws[addr].s = { fill: { fgColor: { rgb: 'FF312e81' } }, font: { color: { rgb: 'FFc7d2fe' }, sz: 11, bold: true }, alignment: { horizontal: 'center' } };
-            }
-
-            // Style date/stats row
-            for (let c = 0; c < totalCols; c++) {
-                const addr = XLSX.utils.encode_cell({ r: 2, c });
-                if (!ws[addr]) ws[addr] = { v: '', t: 's' };
-                ws[addr].s = { fill: { fgColor: { rgb: 'FF4338ca' } }, font: { color: { rgb: 'FFe0e7ff' }, sz: 10 }, alignment: { horizontal: 'center' } };
-            }
-
-            // Style column headers row
-            for (let c = 0; c < totalCols; c++) {
-                const addr = XLSX.utils.encode_cell({ r: headerRowIdx, c });
-                if (!ws[addr]) ws[addr] = { v: allHeaders[c], t: 's' };
-                ws[addr].s = {
-                    font: { bold: true, sz: 11, color: { rgb: 'FF0f172a' } },
-                    fill: { fgColor: { rgb: 'FFfde68a' } },
-                    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-                    border: {
-                        top: { style: 'medium', color: { rgb: 'FFd97706' } },
-                        bottom: { style: 'medium', color: { rgb: 'FFd97706' } },
-                        left: { style: 'thin', color: { rgb: 'FFd97706' } },
-                        right: { style: 'thin', color: { rgb: 'FFd97706' } },
-                    },
-                };
-            }
-
-            // Style data rows
-            dataRows.forEach((row, ri) => {
-                const rowIdx = dataStartIdx + ri;
-                const isEven = ri % 2 === 0;
-                const rowBg  = isEven ? 'FFfafbff' : 'FFffffff';
-
-                row.forEach((_val, ci) => {
-                    const addr = XLSX.utils.encode_cell({ r: rowIdx, c: ci });
-                    if (!ws[addr]) ws[addr] = { v: '', t: 's' };
-                    const isGradeCol = ci === 7; // MEAN GRADE column
-                    const isRankCol  = ci === 0;
-                    const grade      = String(row[7] || '');
-                    const gradeRgb   = gradeArgb[grade] || 'FF64748b';
-
-                    ws[addr].s = {
-                        fill: isGradeCol
-                            ? { fgColor: { rgb: gradeRgb } }
-                            : { fgColor: { rgb: isRankCol && ri < 3 ? 'FFfef3c7' : rowBg } },
-                        font: {
-                            sz: 11,
-                            bold: ci <= 1 || isGradeCol || isRankCol,
-                            color: isGradeCol ? { rgb: 'FFffffff' } : { rgb: 'FF0f172a' },
-                        },
-                        alignment: { horizontal: ci === 2 ? 'left' : 'center', vertical: 'center' },
-                        border: {
-                            top: { style: 'hair', color: { rgb: 'FFe2e8f0' } },
-                            bottom: { style: 'hair', color: { rgb: 'FFe2e8f0' } },
-                            left: { style: 'hair', color: { rgb: 'FFe2e8f0' } },
-                            right: { style: 'hair', color: { rgb: 'FFe2e8f0' } },
-                        },
-                    };
+            const narText=`OFFICIAL NARRATION: This merit list documents ${n} students in ${formName} (${strmLabel}) for ${selExamType as string}, ${termName}. Rankings: ${method}. Mean: ${meanStr}% | ${passed} students (${pRate}%) grade C+. Top: ${top1N} — ${top1?.totalPoints??'—'} pts Grade ${top1?.meanGrade.grade??'—'} (${top1?.meanGrade.remarks??'—'}). APSIMS · ${dateStr} · CONFIDENTIAL.`;
+            const RD=5,RH=6,RX=7,REND=RX+dataRows.length,RNAR=REND+1;
+            const aoa:any[][]=[[`APSIMS SCHOOL — OFFICIAL ACADEMIC MERIT LIST`,...Array(TC-1).fill('')],Array(TC).fill(''),Array(TC).fill(''),[`${formName}  ·  ${strmLabel}  ·  ${termName}  ·  ${selExamType as string}  ·  ${method}`,...Array(TC-1).fill('')],[`Students: ${n}  |  Mean: ${meanStr}%  |  Pass Rate: ${pRate}%  |  Top: ${top1N}  |  ${dateStr}`,...Array(TC-1).fill('')],Array(TC).fill(''),allH,...dataRows,Array(TC).fill(''),[narText,...Array(TC-1).fill('')]];
+            const ws=XLSX.utils.aoa_to_sheet(aoa);
+            ws['!merges']=[{s:{r:0,c:0},e:{r:2,c:TC-1}},{s:{r:3,c:0},e:{r:3,c:TC-1}},{s:{r:4,c:0},e:{r:4,c:TC-1}},{s:{r:RD,c:0},e:{r:RD,c:TC-1}},{s:{r:REND,c:0},e:{r:REND,c:TC-1}},{s:{r:RNAR,c:0},e:{r:RNAR,c:TC-1}}];
+            ws['!cols']=allH.map((_,ci)=>({wch:ci<fixedH.length?(ci===2?32:autoW(dataRows,ci)):Math.max(14,(usedSubj[ci-fixedH.length]?.subject_name.length||12)+2)}));
+            ws['!rows']=[{hpt:28},{hpt:14},{hpt:14},{hpt:22},{hpt:20},{hpt:7},{hpt:24},...dataRows.map(()=>({hpt:20})),{hpt:7},{hpt:56}];
+            ws['!freeze']={xSplit:0,ySplit:RH+1};
+            const logoS={fill:{fgColor:{rgb:NAVY}},font:{bold:true,sz:18,color:{rgb:WH}},alignment:{horizontal:'center',vertical:'center'},border:{top:mB(IND2),bottom:mB(IND2),left:mB(IND2),right:mB(IND2)}};
+            for(let r=0;r<=2;r++)fillRow(ws,r,TC,logoS);
+            sc(ws,0,0,logoS,'APSIMS SCHOOL — OFFICIAL ACADEMIC MERIT LIST');
+            const ctxS={fill:{fgColor:{rgb:IND}},font:{bold:true,sz:12,color:{rgb:'FFe0e7ff'}},alignment:{horizontal:'center',vertical:'center'}};
+            fillRow(ws,3,TC,ctxS,`${formName}  ·  ${strmLabel}  ·  ${termName}  ·  ${selExamType as string}  ·  ${method}`);
+            const stS={fill:{fgColor:{rgb:IND2}},font:{sz:11,color:{rgb:WH}},alignment:{horizontal:'center',vertical:'center'}};
+            fillRow(ws,4,TC,stS,`Students: ${n}  |  Mean: ${meanStr}%  |  Pass Rate: ${pRate}%  |  Top: ${top1N}  |  ${dateStr}`);
+            const divS={fill:{fgColor:{rgb:AMBE}},border:{top:mB(),bottom:mB()}};
+            fillRow(ws,RD,TC,divS);fillRow(ws,REND,TC,divS);
+            const hdrS={fill:{fgColor:{rgb:GOLDBG}},font:{bold:true,sz:11,color:{rgb:DK}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:mB(),bottom:{style:'double',color:{rgb:GOLD}},left:tB(GOLD),right:tB(GOLD)}};
+            for(let c=0;c<TC;c++)sc(ws,RH,c,hdrS,allH[c]);
+            dataRows.forEach((row,ri)=>{
+                const ri3bg=ri===0?'FFfef08a':ri===1?'FFf1f5f9':ri===2?'FFfed7aa':null;
+                const defBg=ri%2===0?'FFf8f9ff':WH;
+                const bg=ri3bg??defBg;
+                const gr=String(row[7]||'');
+                const gRgb=gradeC[gr]||'FF94a3b8';
+                row.forEach((val,ci)=>{
+                    const isG=ci===7,isR=ci===0,isN=ci===2,isSb=ci>=fixedH.length;
+                    const sv=isSb?Number(val):NaN;
+                    const sbBg=isSb&&!isNaN(sv)&&val!==''?(sv>=70?'FFd1fae5':sv>=50?'FFfef3c7':sv>=40?'FFffedd5':'FFfee2e2'):bg;
+                    sc(ws,RX+ri,ci,{fill:{fgColor:{rgb:isG?gRgb:sbBg}},font:{sz:11,bold:isG||isR||isN,color:{rgb:isG?WH:DK}},alignment:{horizontal:isN?'left':'center',vertical:'center'},border:{top:tB(),bottom:tB(),left:{style:ci===0?'medium':'hair',color:{rgb:ci===0?GOLD:HAIR}},right:{style:ci===TC-1?'medium':'hair',color:{rgb:ci===TC-1?GOLD:HAIR}}}});
                 });
             });
-
-            // Style narration row
-            const narRowIdx = wsData.length - 1;
-            const narAddr   = XLSX.utils.encode_cell({ r: narRowIdx, c: 0 });
-            if (ws[narAddr]) {
-                ws[narAddr].s = {
-                    fill: { fgColor: { rgb: 'FFf0f4ff' } },
-                    font: { italic: true, sz: 10, color: { rgb: 'FF4338ca' } },
-                    alignment: { wrapText: true, vertical: 'top', horizontal: 'left' },
-                };
-            }
-
-            XLSX.utils.book_append_sheet(wb, ws, 'Merit List');
-
-            // ─────────────────────────────────────────────────────────────
-            // SHEET 2 — SUBJECT PERFORMANCE SUMMARY
-            // ─────────────────────────────────────────────────────────────
-            const subjectAvgs = usedSubjects.map(sub => {
-                const scores = filtered.flatMap(r =>
-                    r.subjectResults.filter(sr => sr.subId === sub.id).map(sr => sr.score)
-                );
-                const avg  = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-                const high = scores.length > 0 ? Math.max(...scores) : 0;
-                const low  = scores.length > 0 ? Math.min(...scores) : 0;
-                const pass = scores.filter(s => s >= 50).length;
-                return [sub.subject_name, scores.length, avg.toFixed(1), high, low, `${Math.round((pass / (scores.length || 1)) * 100)}%`];
-            });
-
-            const ws2Data = [
-                ['SUBJECT PERFORMANCE SUMMARY', '', '', '', '', ''],
-                [`${formName} | ${termName} | ${selExamType}`, '', '', '', '', ''],
-                [''],
-                ['SUBJECT', 'ENTRIES', 'CLASS AVG', 'HIGHEST', 'LOWEST', 'PASS RATE'],
-                ...subjectAvgs,
-            ];
-            const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
-            ws2['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
-            ws2['!merges'] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
-                { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
-            ];
-            // Style subject summary headers
-            if (ws2['A1']) ws2['A1'].s = { font: { bold: true, sz: 14, color: { rgb: 'FFffffff' } }, fill: { fgColor: { rgb: 'FF1e1b4b' } }, alignment: { horizontal: 'center' } };
-            if (ws2['A2']) ws2['A2'].s = { font: { sz: 11, color: { rgb: 'FFc7d2fe' } }, fill: { fgColor: { rgb: 'FF4338ca' } }, alignment: { horizontal: 'center' } };
-            ['A4','B4','C4','D4','E4','F4'].forEach(addr => {
-                if (ws2[addr]) ws2[addr].s = { font: { bold: true, sz: 11, color: { rgb: 'FF0f172a' } }, fill: { fgColor: { rgb: 'FFfde68a' } }, alignment: { horizontal: 'center' }, border: { bottom: { style: 'medium', color: { rgb: 'FFd97706' } } } };
-            });
-
-            XLSX.utils.book_append_sheet(wb, ws2, 'Subject Summary');
-
-            // ── Write and download ────────────────────────────────────────
-            const fileName = `APSIMS_MeritList_${formName.replace(/\s/g,'_')}_${selExamType.replace(/\s/g,'_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-            XLSX.writeFile(wb, fileName, { bookSST: false, type: 'binary', cellStyles: true });
-            toast.success('📊 Premium Excel file downloaded!');
-        } catch (err) {
-            console.error('Excel export error:', err);
-            toast.error('Excel export failed. Try again.');
-        }
+            const narS={fill:{fgColor:{rgb:LAVN}},font:{italic:true,sz:10,color:{rgb:PURP}},alignment:{wrapText:true,vertical:'top',horizontal:'left'},border:{top:mB(PURP),bottom:mB(PURP),left:mB(PURP),right:mB(PURP)}};
+            fillRow(ws,RNAR,TC,narS,narText);
+            wb.SheetNames.push('📊 Merit List');wb.Sheets['📊 Merit List']=ws;
+            const subStats=usedSubj.map(sub=>{const sc2=filtered.flatMap(r=>r.subjectResults.filter(sr=>sr.subId===sub.id).map(sr=>sr.score));const avg=sc2.length>0?sc2.reduce((a,b)=>a+b,0)/sc2.length:0;const high=sc2.length>0?Math.max(...sc2):0;const low=sc2.length>0?Math.min(...sc2):0;const pass=sc2.filter(v=>v>=50).length;return{name:sub.subject_name,entries:sc2.length,avg,high,low,pr:Math.round((pass/(sc2.length||1))*100)};}).sort((a,b)=>b.avg-a.avg);
+            const TC2=7;
+            const ws2aoa:any[][]=[[`APSIMS SCHOOL — SUBJECT PERFORMANCE SUMMARY`,...Array(TC2-1).fill('')],[`${formName}  ·  ${termName}  ·  ${selExamType as string}`,...Array(TC2-1).fill('')],[`${dateStr}  ·  ${n} students  ·  Mean: ${meanStr}%`,...Array(TC2-1).fill('')],Array(TC2).fill(''),['SUBJECT','ENTRIES','CLASS AVG (%)','HIGHEST','LOWEST','PASS RATE','PERFORMANCE'],...subStats.map(s=>[s.name,s.entries,Number(s.avg.toFixed(1)),s.high,s.low,`${s.pr}%`,s.avg>=70?'Excellent':s.avg>=50?'Good':s.avg>=40?'Fair':'Poor']),Array(TC2).fill(''),[`${subStats.length} subjects  |  Mean: ${meanStr}%  |  APSIMS`,...Array(TC2-1).fill('')]];
+            const ws2=XLSX.utils.aoa_to_sheet(ws2aoa);
+            ws2['!cols']=[{wch:32},{wch:10},{wch:14},{wch:10},{wch:10},{wch:12},{wch:22}];
+            ws2['!rows']=[{hpt:28},{hpt:20},{hpt:18},{hpt:7},{hpt:24},...subStats.map(()=>({hpt:20})),{hpt:7},{hpt:20}];
+            ws2['!merges']=[{s:{r:0,c:0},e:{r:0,c:TC2-1}},{s:{r:1,c:0},e:{r:1,c:TC2-1}},{s:{r:2,c:0},e:{r:2,c:TC2-1}},{s:{r:3,c:0},e:{r:3,c:TC2-1}},{s:{r:ws2aoa.length-1,c:0},e:{r:ws2aoa.length-1,c:TC2-1}}];
+            const ssc2=(r:number,c:number,s:any,v?:any)=>sc(ws2,r,c,s,v);
+            const sfr=(r:number,s:any,v0?:string)=>{for(let c=0;c<TC2;c++)ssc2(r,c,s,c===0?(v0??''):'');};
+            sfr(0,{fill:{fgColor:{rgb:NAVY}},font:{bold:true,sz:16,color:{rgb:WH}},alignment:{horizontal:'center',vertical:'center'}},'APSIMS SCHOOL — SUBJECT PERFORMANCE SUMMARY');
+            sfr(1,{fill:{fgColor:{rgb:IND}},font:{bold:true,sz:12,color:{rgb:'FFe0e7ff'}},alignment:{horizontal:'center',vertical:'center'}},`${formName}  ·  ${termName}  ·  ${selExamType as string}`);
+            sfr(2,{fill:{fgColor:{rgb:IND2}},font:{sz:11,color:{rgb:WH}},alignment:{horizontal:'center',vertical:'center'}},`${dateStr}  ·  ${n} students  ·  Mean: ${meanStr}%`);
+            sfr(3,{fill:{fgColor:{rgb:AMBE}}});
+            ['SUBJECT','ENTRIES','CLASS AVG (%)','HIGHEST','LOWEST','PASS RATE','PERFORMANCE'].forEach((h,c)=>ssc2(4,c,{fill:{fgColor:{rgb:GOLDBG}},font:{bold:true,sz:11,color:{rgb:DK}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:mB(),bottom:{style:'double',color:{rgb:GOLD}},left:tB(GOLD),right:tB(GOLD)}},h));
+            subStats.forEach((s,ri)=>{const r=5+ri;const bg=s.avg>=70?'FFd1fae5':s.avg>=50?'FFfef3c7':s.avg>=40?'FFffedd5':'FFfee2e2';const fc=s.avg>=70?'FF065f46':s.avg>=50?'FF78350f':s.avg>=40?'FF9a3412':'FF991b1b';[s.name,s.entries,Number(s.avg.toFixed(1)),s.high,s.low,`${s.pr}%`,s.avg>=70?'Excellent':s.avg>=50?'Good':s.avg>=40?'Fair':'Poor'].forEach((v,c)=>ssc2(r,c,{fill:{fgColor:{rgb:bg}},font:{sz:11,bold:c===0||c===6,color:{rgb:fc}},alignment:{horizontal:c===0?'left':'center',vertical:'center'},border:{top:tB(),bottom:tB(),left:tB(),right:tB()}},v));});
+            const lr2=ws2aoa.length-1;
+            sfr(lr2,{fill:{fgColor:{rgb:LAVN}},font:{italic:true,sz:10,color:{rgb:PURP}},alignment:{horizontal:'center'}},`${subStats.length} subjects  |  Mean: ${meanStr}%  |  APSIMS`);
+            wb.SheetNames.push('📚 Subject Summary');wb.Sheets['📚 Subject Summary']=ws2;
+            const fn=`APSIMS_MeritList_${formName.replace(/\s/g,'_')}_${(selExamType as string).replace(/\s/g,'_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb,fn,{bookSST:false,type:'binary',cellStyles:true});
+            toast.success('📊 World-class Excel downloaded!');
+        } catch(err){console.error('Excel error:',err);toast.error('Excel export failed');}
     };
 
     const exportCSV = () => {
