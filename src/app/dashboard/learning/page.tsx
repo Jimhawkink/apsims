@@ -1788,13 +1788,18 @@ export default function LearningPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {(paperSubject ? PAPER_SUBJECTS.filter(s => s === paperSubject) : PAPER_SUBJECTS).map(subject => {
                             const subjectData = SUBJECTS.find(s => s.name === subject || subject.includes(s.name.split(' ')[0]));
+                            // Build smart links to real paper repositories
+                            const subSlug = subject.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
+                            const kcseOnlineBase = `https://www.kcse-online.com/kcse_past_papers/${paperYear}`;
+                            const freePapersBase = `https://www.freekcsepastpapers.com/?s=${encodeURIComponent(subject + ' ' + paperYear)}`;
+                            const ytSearch = (paper: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(`KCSE ${paperYear} ${subject} ${paper} Kenya solved`)}`;
                             return (
                                 <div key={subject} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-lg transition-all">
                                     <div className="p-4 flex items-center gap-3" style={{ background: subjectData?.gradient || 'linear-gradient(135deg,#374151,#6b7280)' }}>
                                         <span className="text-2xl">{subjectData?.icon || '📄'}</span>
                                         <div>
                                             <p className="text-white font-black text-sm">{subject}</p>
-                                            <p className="text-white/70 text-[10px]">KCSE {paperYear}</p>
+                                            <p className="text-white/70 text-[10px]">KCSE {paperYear} · 3 sources</p>
                                         </div>
                                     </div>
                                     <div className="p-4 space-y-2">
@@ -1808,13 +1813,13 @@ export default function LearningPage() {
                                                     <span className="text-sm font-semibold text-gray-700">{paper}</span>
                                                 </div>
                                                 <div className="flex gap-1.5">
-                                                    <a href={`https://www.knec-portal.ac.ke/`} target="_blank" rel="noopener noreferrer"
+                                                    <a href={kcseOnlineBase} target="_blank" rel="noopener noreferrer"
                                                         className="px-2.5 py-1.5 text-[10px] font-bold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all flex items-center gap-1">
-                                                        <FiExternalLink size={10} /> Questions
+                                                        <FiExternalLink size={10} /> KCSE-Online
                                                     </a>
-                                                    <a href={`https://www.knec-portal.ac.ke/`} target="_blank" rel="noopener noreferrer"
-                                                        className="px-2.5 py-1.5 text-[10px] font-bold text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-all flex items-center gap-1">
-                                                        <FiCheck size={10} /> Marking
+                                                    <a href={ytSearch(paper)} target="_blank" rel="noopener noreferrer"
+                                                        className="px-2.5 py-1.5 text-[10px] font-bold text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all flex items-center gap-1">
+                                                        <FiPlay size={10} /> YouTube
                                                     </a>
                                                 </div>
                                             </div>
@@ -1826,7 +1831,7 @@ export default function LearningPage() {
                                                     <span className="text-sm font-semibold text-gray-700">Paper 3 (Practical)</span>
                                                 </div>
                                                 <div className="flex gap-1.5">
-                                                    <a href={`https://www.knec-portal.ac.ke/`} target="_blank" rel="noopener noreferrer"
+                                                    <a href={kcseOnlineBase} target="_blank" rel="noopener noreferrer"
                                                         className="px-2.5 py-1.5 text-[10px] font-bold text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-all flex items-center gap-1">
                                                         <FiExternalLink size={10} /> View
                                                     </a>
