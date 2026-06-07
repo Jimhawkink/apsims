@@ -136,30 +136,38 @@ export async function POST(req: NextRequest) {
   const yearStart = `${yearNow}-01-01T00:00:00.000Z`;
   const yearEnd   = `${yearNow}-12-31T23:59:59.999Z`;
 
-  // ── LAYER 6a: Phone duplicate check — block same phone + same form ──────────
-  // Siblings sharing a parent phone are allowed IF they apply for different forms/grades
-  const { data: existingByPhone } = await supabase
+  // ── LAYER 6a: KCPE Duplicate check — one KCPE index per year ────────────────
+  // The KCPE index number is NATIONALLY UNIQUE per student in Kenya.
+  // This correctly identifies re-submissions of the same student regardless of form.
+  // Twins or siblings in the same form will have DIFFERENT KCPE index numbers → allowed.
+  const kcpeCleanForCheck = kcpe_index_number.trim().replace(/\s+/g, '');
+  const { data: kcpeDuplicate } = await supabase
     .from('school_admission_applications')
-    .select('id, form_applied_for')
+    .select('id, reference_number, status')
+    .eq('kcpe_index_number', kcpeCleanForCheck)
+    .gte('submitted_at', yearStart)
+    .lte('submitted_at', yearEnd)
+    .limit(1)
+    .maybeSingle();
+
+  if (kcpeDuplicate) {
+    return NextResponse.json({
+      error: `An application with KCPE Index No. ${kcpeCleanForCheck} was already submitted this year (Ref: ${kcpeDuplicate.reference_number}, Status: ${kcpeDuplicate.status}). You cannot submit duplicate applications. Contact the school if you need to make changes.`
+    }, { status: 409 });
+  }
+
+  // ── LAYER 6b: Phone family cap — allow siblings, cap at MAX_PER_PHONE ────────
+  // Siblings (different KCPE numbers) sharing a parent phone are allowed up to the cap.
+  const { count: phoneCount } = await supabase
+    .from('school_admission_applications')
+    .select('id', { count: 'exact', head: true })
     .eq('guardian_phone', cleanPhone)
     .gte('submitted_at', yearStart)
     .lte('submitted_at', yearEnd);
 
-  const existingApps = existingByPhone || [];
-
-  // Hard block: exact same phone + exact same form = duplicate application
-  const sameFormApp = existingApps.find(a => Number(a.form_applied_for) === Number(form_applied_for));
-  if (sameFormApp) {
-    const formLabels: Record<number, string> = { 1: 'Form 1', 2: 'Form 2', 3: 'Form 3', 4: 'Form 4', 10: 'Grade 10', 11: 'Grade 11', 12: 'Grade 12' };
+  if ((phoneCount ?? 0) >= MAX_PER_PHONE) {
     return NextResponse.json({
-      error: `An application for ${formLabels[Number(form_applied_for)] || `Form ${form_applied_for}`} using this phone number already exists this year. If you are a different sibling, please apply for a different form/grade.`
-    }, { status: 409 });
-  }
-
-  // Soft limit: same phone used across too many different forms (family max)
-  if (existingApps.length >= MAX_PER_PHONE) {
-    return NextResponse.json({
-      error: `This phone number has reached the maximum of ${MAX_PER_PHONE} applications this year. Contact the school office directly for assistance.`
+      error: `This phone number has ${phoneCount} applications this year (max ${MAX_PER_PHONE}). If you have more children applying, please contact the school office directly.`
     }, { status: 429 });
   }
 

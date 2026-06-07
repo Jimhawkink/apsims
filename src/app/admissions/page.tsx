@@ -15,9 +15,200 @@ import {
     FiUser, FiPhone, FiMail, FiFileText, FiCheckCircle,
     FiCopy, FiExternalLink, FiChevronRight, FiChevronLeft,
     FiStar, FiShield, FiClock, FiBook, FiAlertCircle,
-    FiUpload, FiRefreshCw, FiLock,
+    FiUpload, FiRefreshCw, FiLock, FiCalendar,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+
+// ── Premium DatePicker Component ─────────────────────────────────────────────
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+function getAge(dob: string): number {
+    if (!dob) return 0;
+    const d = new Date(dob); const n = new Date();
+    let age = n.getFullYear() - d.getFullYear();
+    if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) age--;
+    return age;
+}
+
+interface DatePickerProps {
+    value: string;                 // ISO 'YYYY-MM-DD'
+    onChange: (v: string) => void;
+    label?: string;
+    required?: boolean;
+    minAge?: number;               // student must be at least this old
+    maxAge?: number;               // student must be at most this old
+    className?: string;
+}
+
+function DatePicker({ value, onChange, required, minAge = 10, maxAge = 22, className }: DatePickerProps) {
+    const today    = new Date();
+    const maxDate  = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
+    const minDate  = new Date(today.getFullYear() - maxAge, today.getMonth(), today.getDate());
+
+    const parsed   = value ? new Date(value + 'T00:00:00') : null;
+    const initYear = parsed ? parsed.getFullYear() : maxDate.getFullYear();
+    const initMonth= parsed ? parsed.getMonth()    : maxDate.getMonth();
+
+    const [open, setOpen]       = useState(false);
+    const [viewYear, setViewYear] = useState(initYear);
+    const [viewMonth, setViewMonth] = useState(initMonth);
+    const ref = useRef<HTMLDivElement>(null);
+
+    // Close on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    // When value changes externally, sync view
+    useEffect(() => {
+        if (value) { const d = new Date(value + 'T00:00:00'); setViewYear(d.getFullYear()); setViewMonth(d.getMonth()); }
+    }, [value]);
+
+    const age   = value ? getAge(value) : null;
+    const valid = age !== null && age >= minAge && age <= maxAge;
+
+    // Calendar grid
+    const firstDay  = new Date(viewYear, viewMonth, 1).getDay();
+    const daysInMon = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMon }, (_, i) => i + 1)];
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const selectDay = (day: number) => {
+        const m = String(viewMonth + 1).padStart(2, '0');
+        const d = String(day).padStart(2, '0');
+        onChange(`${viewYear}-${m}-${d}`);
+        setOpen(false);
+    };
+
+    const isDayDisabled = (day: number) => {
+        const dt = new Date(viewYear, viewMonth, day);
+        return dt > maxDate || dt < minDate;
+    };
+
+    const isDaySelected = (day: number) => {
+        if (!parsed) return false;
+        return parsed.getFullYear() === viewYear && parsed.getMonth() === viewMonth && parsed.getDate() === day;
+    };
+
+    const yearRange = Array.from({ length: maxAge - minAge + 1 }, (_, i) => maxDate.getFullYear() - i);
+
+    const displayVal = parsed
+        ? parsed.toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' })
+        : 'Select date of birth';
+
+    return (
+        <div ref={ref} style={{ position: 'relative' }} className={className}>
+            {/* Trigger button */}
+            <button type="button" onClick={() => setOpen(o => !o)}
+                style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                    border: `2px solid ${open ? '#0d9488' : value ? '#99f6e4' : '#e2e8f0'}`,
+                    borderRadius: 14, background: value ? '#f0fdfa' : '#fff',
+                    cursor: 'pointer', transition: 'all 0.2s',
+                    boxShadow: open ? '0 0 0 4px rgba(13,148,136,0.12)' : 'none',
+                }}>
+                <FiCalendar size={16} color={value ? '#0d9488' : '#94a3b8'} style={{ flexShrink: 0 }} />
+                <span style={{ flex: 1, textAlign: 'left', fontSize: 13, fontWeight: value ? 700 : 400, color: value ? '#0f172a' : '#94a3b8' }}>
+                    {displayVal}
+                </span>
+                {age !== null && (
+                    <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                        background: valid ? '#ccfbf1' : '#fee2e2',
+                        color: valid ? '#0d9488' : '#dc2626',
+                    }}>
+                        {age} yrs {valid ? '✓' : '✗'}
+                    </span>
+                )}
+                <span style={{ fontSize: 10, color: '#94a3b8', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+            </button>
+
+            {/* Calendar Popover */}
+            {open && (
+                <div style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 9999,
+                    background: '#fff', borderRadius: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08)',
+                    border: '1px solid #e2e8f0', minWidth: 300, overflow: 'hidden',
+                    animation: 'dpFadeIn 0.18s ease',
+                }}>
+                    <style>{`
+                        @keyframes dpFadeIn { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:translateY(0) } }
+                        .dp-day:hover:not(:disabled) { background: #0d9488 !important; color: #fff !important; }
+                    `}</style>
+
+                    {/* Header */}
+                    <div style={{ background: 'linear-gradient(135deg,#0f766e,#0d9488)', padding: '14px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            <FiCalendar size={14} color="#99f6e4" />
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#99f6e4', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Date of Birth</span>
+                            {age !== null && (
+                                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 800, color: valid ? '#ccfbf1' : '#fca5a5' }}>
+                                    Age: {age} {valid ? '✓ Valid' : `✗ Must be ${minAge}–${maxAge} yrs`}
+                                </span>
+                            )}
+                        </div>
+                        {/* Month + Year selectors */}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <select value={viewMonth} onChange={e => setViewMonth(Number(e.target.value))}
+                                style={{ flex: 2, padding: '6px 10px', borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', outline: 'none' }}>
+                                {MONTHS.map((m, i) => <option key={i} value={i} style={{ background: '#0f766e', color: '#fff' }}>{m}</option>)}
+                            </select>
+                            <select value={viewYear} onChange={e => setViewYear(Number(e.target.value))}
+                                style={{ flex: 1, padding: '6px 10px', borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', outline: 'none' }}>
+                                {yearRange.map(y => <option key={y} value={y} style={{ background: '#0f766e', color: '#fff' }}>{y}</option>)}
+                            </select>
+                            {/* Prev / Next month arrows */}
+                            <button type="button" onClick={() => { if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1); }}
+                                style={{ padding: '6px 10px', borderRadius: 10, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 900 }}>‹</button>
+                            <button type="button" onClick={() => { if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1); }}
+                                style={{ padding: '6px 10px', borderRadius: 10, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 900 }}>›</button>
+                        </div>
+                    </div>
+
+                    {/* Day grid */}
+                    <div style={{ padding: '12px 14px 16px' }}>
+                        {/* Weekday labels */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 6 }}>
+                            {DAYS.map(d => (
+                                <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#94a3b8', padding: '4px 0', letterSpacing: '0.05em' }}>{d}</div>
+                            ))}
+                        </div>
+                        {/* Day cells */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+                            {cells.map((day, idx) => {
+                                if (!day) return <div key={idx} />;
+                                const disabled = isDayDisabled(day);
+                                const selected = isDaySelected(day);
+                                return (
+                                    <button key={idx} type="button" className="dp-day"
+                                        disabled={disabled}
+                                        onClick={() => !disabled && selectDay(day)}
+                                        style={{
+                                            width: '100%', aspectRatio: '1', borderRadius: 10, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+                                            fontSize: 12, fontWeight: selected ? 900 : 500, transition: 'all 0.15s',
+                                            background: selected ? '#0d9488' : 'transparent',
+                                            color: selected ? '#fff' : disabled ? '#d1d5db' : '#0f172a',
+                                            boxShadow: selected ? '0 2px 8px rgba(13,148,136,0.4)' : 'none',
+                                        }}>
+                                        {day}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {/* Footer hint */}
+                        <p style={{ margin: '10px 0 0', fontSize: 10, color: '#94a3b8', textAlign: 'center', fontStyle: 'italic' }}>
+                            Valid age range: {minAge}–{maxAge} years · Greyed dates are outside range
+                        </p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FormData {
@@ -417,7 +608,13 @@ export default function AdmissionsPage() {
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div><label className={lbl}>Date of Birth <span className="text-red-400">*</span></label>
-                                        <input type="date" value={form.date_of_birth} onChange={e => setField('date_of_birth', e.target.value)} max={new Date().toISOString().split('T')[0]} className={inp} /></div>
+                                        <DatePicker
+                                            value={form.date_of_birth}
+                                            onChange={v => setField('date_of_birth', v)}
+                                            minAge={10}
+                                            maxAge={22}
+                                            required
+                                        /></div>
                                     <div><label className={lbl}>Gender <span className="text-red-400">*</span></label>
                                         <div className="flex gap-3">
                                             {['Male', 'Female'].map(g => (
