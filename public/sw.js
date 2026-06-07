@@ -1,12 +1,12 @@
 // ============================================================
-// APSIMS Ultra Service Worker v1
+// APSIMS Ultra Service Worker v2
 // Cache-first static, Network-first API, Stale-while-revalidate pages
 // Background Sync, Push Notifications, Update Lifecycle
 // ============================================================
 
-const STATIC_CACHE = 'apsims-static-v1';
-const API_CACHE = 'apsims-api-v1';
-const PAGES_CACHE = 'apsims-pages-v1';
+const STATIC_CACHE = 'apsims-static-v2';
+const API_CACHE = 'apsims-api-v2';
+const PAGES_CACHE = 'apsims-pages-v2';
 const API_CACHE_MAX = 50;
 
 const STATIC_PATTERNS = [

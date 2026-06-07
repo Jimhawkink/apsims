@@ -1157,31 +1157,52 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                 {/* ── Player area ─────────────────────────────────────────── */}
                 <div style={{ background: '#000', position: 'relative', paddingBottom: '56.25%', minHeight: 200 }}>
 
-                    {/* NOT yet clicked → show thumbnail + play button */}
+                    {/* NOT yet clicked → show thumbnail via CSS background-image + play button */}
                     {!playing && (
                         <button
                             onClick={() => setPlaying(true)}
-                            style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:'none', background:'#000', cursor:'pointer' }}>
-                            <img src={thumbUrl} alt={video.title}
-                                style={{ width:'100%', height:'100%', objectFit:'cover', opacity:0.85 }}
-                                onError={(e:any) => { e.target.style.display='none'; }} />
-                            {/* Play button overlay */}
-                            <div style={{
-                                position:'absolute', inset:0, display:'flex', flexDirection:'column',
-                                alignItems:'center', justifyContent:'center', gap:12,
+                            style={{
+                                position: 'absolute', inset: 0,
+                                width: '100%', height: '100%',
+                                border: 'none', cursor: 'pointer',
+                                // CSS background-image is NOT blocked by img-src CSP
+                                backgroundImage: `url(https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg)`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                backgroundColor: '#0f172a',  // fallback if thumbnail fails
+                                // Use flex to center the play button — no absolute children needed
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 14,
                             }}>
-                                <div style={{
-                                    width:72, height:72, borderRadius:'50%', display:'flex',
-                                    alignItems:'center', justifyContent:'center',
-                                    background: subject.gradient, boxShadow:'0 8px 32px rgba(0,0,0,0.6)',
-                                    transition:'transform 0.15s',
-                                }}>
-                                    <FiPlay size={28} color="#fff" style={{ marginLeft:4 }} />
-                                </div>
-                                <span style={{ color:'rgba(255,255,255,0.85)', fontSize:12, fontWeight:700, background:'rgba(0,0,0,0.5)', padding:'4px 12px', borderRadius:999 }}>
-                                    Click to play
-                                </span>
+                            {/* Dark gradient overlay so play button is always visible */}
+                            <div style={{
+                                position: 'absolute', inset: 0,
+                                background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.45) 100%)',
+                                pointerEvents: 'none',
+                            }} />
+                            {/* Play circle */}
+                            <div style={{
+                                position: 'relative', zIndex: 2,
+                                width: 76, height: 76, borderRadius: '50%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: subject.gradient,
+                                boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
+                            }}>
+                                <FiPlay size={30} color="#fff" style={{ marginLeft: 5 }} />
                             </div>
+                            {/* Label */}
+                            <span style={{
+                                position: 'relative', zIndex: 2,
+                                color: '#fff', fontSize: 13, fontWeight: 800,
+                                background: 'rgba(0,0,0,0.55)',
+                                padding: '5px 16px', borderRadius: 999,
+                                letterSpacing: 0.5,
+                            }}>
+                                ▶ Click to Play
+                            </span>
                         </button>
                     )}
 
