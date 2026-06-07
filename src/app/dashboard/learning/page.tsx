@@ -22,7 +22,7 @@ const CBC_JSS_GRADES = ['Grade 7', 'Grade 8', 'Grade 9'];   // Junior Secondary
 const CBC_SSS_GRADES = ['Grade 10', 'Grade 11', 'Grade 12']; // Senior Secondary
 const CBC_ALL_GRADES  = [...CBC_JSS_GRADES, ...CBC_SSS_GRADES];
 
-interface Video { id: string; title: string; duration: string; youtubeId: string; channel: string; }
+interface Video { id: string; title: string; duration: string; youtubeId: string; channel: string; isVerified?: boolean; }
 interface Topic { name: string; videos: Video[]; }
 interface SubjectData {
     id: string; name: string; icon: string; color: string;
@@ -1127,17 +1127,17 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
     const [loaded,     setLoaded]     = useState(false);
     const [thumbError, setThumbError] = useState(false);
 
-    const hasRealId   = !!(video.youtubeId && video.youtubeId.length === 11);
-    const thumbUrl    = hasRealId ? `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg` : null;
-    const directEmbed = hasRealId
+    const isVerified   = !!(video.youtubeId && video.youtubeId.length === 11);
+    const thumbUrl    = isVerified ? `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg` : null;
+    const directEmbed = isVerified
         ? `https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&rel=0&modestbranding=1`
         : null;
-    const searchQ     = encodeURIComponent(video.title + ' ' + subject.name + ' Kenya');
+    const searchQ     = encodeURIComponent(video.title + ' ' + subject.name + ' Kenya Ministry of Education KICD');
     const searchEmbed = `https://www.youtube-nocookie.com/embed?listType=search&list=${searchQ}&autoplay=1&rel=0&modestbranding=1`;
     const embedSrc    = directEmbed || searchEmbed;
-    const ytUrl       = hasRealId
+    const ytUrl       = isVerified
         ? `https://www.youtube.com/watch?v=${video.youtubeId}`
-        : `https://www.youtube.com/results?search_query=${encodeURIComponent(video.title + ' ' + subject.name + ' Kenya KICD')}`;
+        : `https://www.youtube.com/results?search_query=${encodeURIComponent(video.title + ' ' + subject.name + ' Kenya Ministry of Education KICD')}`;
 
     return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4"
@@ -1155,7 +1155,7 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                             <p className="text-white font-extrabold text-sm leading-snug truncate">{video.title}</p>
                             <p className="text-white/70 text-xs">
                                 {subject.name} · {video.channel} · {video.duration}
-                                {hasRealId && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-black bg-green-500/30 text-green-300">✓ Verified</span>}
+                                {isVerified && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-black bg-green-500/30 text-green-300">✓ Verified</span>}
                             </p>
                         </div>
                     </div>
@@ -1168,7 +1168,7 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                 <div style={{ background: '#000f1a', position: 'relative', paddingBottom: '56.25%' }}>
                     {!playing && (
                         <div style={{ position: 'absolute', inset: 0 }}>
-                            {hasRealId && !thumbError ? (
+                            {isVerified && !thumbError ? (
                                 <img src={thumbUrl!} alt={video.title}
                                     onError={() => setThumbError(true)}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -1180,7 +1180,7 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                                 }}>
                                     <span style={{ fontSize: 64, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.7))' }}>{subject.icon}</span>
                                     <p style={{ color: '#fff', fontWeight: 900, fontSize: 14, textAlign: 'center', maxWidth: 440, padding: '0 20px', lineHeight: 1.5 }}>{video.title}</p>
-                                    {!hasRealId && (<p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>🔍 Will search YouTube live for the best matching lesson</p>)}
+                                    {!isVerified && (<p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>🔍 Will search YouTube live for the best matching lesson</p>)}
                                 </div>
                             )}
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,0.65) 100%)' }} />
@@ -1200,7 +1200,7 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                                     color: '#fff', fontSize: 13, fontWeight: 800,
                                     background: 'rgba(0,0,0,0.65)', padding: '6px 20px', borderRadius: 999,
                                     backdropFilter: 'blur(4px)', letterSpacing: 0.3,
-                                }}>{hasRealId ? '▶ Play Video' : '🔍 Find & Play on YouTube'}</span>
+                                }}>{isVerified ? '▶ Play Video' : '🔍 Find & Play on YouTube'}</span>
                             </button>
                         </div>
                     )}
@@ -1219,7 +1219,7 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                                         animation: 'spin 0.9s linear infinite',
                                     }} />
                                     <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 600 }}>
-                                        {hasRealId ? 'Loading video...' : 'Finding best video on YouTube...'}
+                                        {isVerified ? 'Loading video...' : 'Finding best video on YouTube...'}
                                     </p>
                                 </div>
                             )}
@@ -1242,7 +1242,7 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                     <div className="flex items-center gap-2">
                         <a href={ytUrl} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all">
-                            🔍 {hasRealId ? 'Watch on YouTube' : 'Search YouTube'}
+                            🔍 {isVerified ? 'Watch on YouTube' : 'Search YouTube'}
                         </a>
                         <a href={ytUrl} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90"
@@ -1419,11 +1419,11 @@ export default function LearningPage() {
     ];
 
     // Merge DB videos into static topics: DB videos for matching subject+form come first
-    const getVideosForTopic = (subjectId: string, formLevel: string, topicName: string): Video[] => {
+    const getVideosForTopic = (subjectId: string, formLevel: string, topicName: string, staticVideos: Video[] = []): Video[] => {
         const dbMatches = dbVideos
             .filter(v => v.subject_id === subjectId && v.form_level === formLevel && v.topic.toLowerCase() === topicName.toLowerCase())
-            .map(v => ({ id: v.id, title: v.title, duration: v.duration || '00:00', youtubeId: v.youtube_id || '', channel: v.channel || 'Custom' }));
-        return dbMatches; // Return only DB videos if available (they're verified by admin)
+            .map(v => ({ id: v.id, title: v.title, duration: v.duration || '00:00', youtubeId: v.youtube_id || '', channel: v.channel || 'Custom', isVerified: true }));
+        return dbMatches.length > 0 ? dbMatches : staticVideos;
     };
 
     return (
