@@ -1689,27 +1689,38 @@ export default function LearningPage() {
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        {topics.map((topic, ti) => (
+                                        {topics.map((topic, ti) => {
+                                            const mergedVids = getVideosForTopic(selectedSubject.id, activeGrade, topic.name, topic.videos);
+                                            const hasVerified = mergedVids.some(v => v.isVerified);
+                                            return (
                                             <div key={ti} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                                                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between" style={{ background: `${selectedSubject.color}08` }}>
                                                     <div className="flex items-center gap-2">
                                                         <span className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black text-white" style={{ background: selectedSubject.gradient }}>{ti + 1}</span>
                                                         <h4 className="text-sm font-black text-gray-800">{topic.name}</h4>
+                                                        {hasVerified && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-green-100 text-green-700">✓ Verified</span>}
                                                     </div>
-                                                    <span className="text-[10px] font-bold text-gray-400">{topic.videos.length} video{topic.videos.length !== 1 ? 's' : ''}</span>
+                                                    <span className="text-[10px] font-bold text-gray-400">{mergedVids.length} video{mergedVids.length !== 1 ? 's' : ''}</span>
                                                 </div>
                                                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    {topic.videos.map(vid => {
+                                                    {mergedVids.map(vid => {
                                                         const isWatched = progress[selectedSubject.id]?.watched?.includes(vid.id);
                                                         return (
                                                             <button key={vid.id} onClick={() => setSelectedVideo(vid)}
                                                                 className="group flex items-start gap-3 p-3 rounded-xl border text-left transition-all hover:shadow-md"
                                                                 style={{ border: `1.5px solid ${isWatched ? selectedSubject.color+'40' : '#e5e7eb'}`, background: isWatched ? `${selectedSubject.color}08` : '#fafafa' }}>
                                                                 {/* Thumbnail */}
-                                                                <div className="relative flex-shrink-0 w-24 rounded-lg overflow-hidden">
-                                                                    <img src={ytThumb(vid.youtubeId)} alt={vid.title}
-                                                                        className="w-24 h-14 object-cover"
-                                                                        onError={(e: any) => { e.target.style.display='none'; }} />
+                                                                <div className="relative flex-shrink-0 w-24 h-14 rounded-lg overflow-hidden">
+                                                                    {vid.isVerified ? (
+                                                                        <img src={ytThumb(vid.youtubeId)} alt={vid.title}
+                                                                            className="w-24 h-14 object-cover block"
+                                                                            onError={(e: any) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+                                                                    ) : null}
+                                                                    <div className="w-24 h-14 items-center justify-center text-2xl rounded-lg"
+                                                                        style={{ background: `${selectedSubject.color}22`, display: vid.isVerified ? 'none' : 'flex' }}>
+                                                                        {selectedSubject.icon}
+                                                                    </div>
+                                                                    {/* Hover play overlay */}
                                                                     <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-all rounded-lg">
                                                                         <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: selectedSubject.gradient }}>
                                                                             <FiPlay size={12} className="text-white ml-0.5" />
@@ -1721,14 +1732,16 @@ export default function LearningPage() {
                                                                 <div className="flex-1 min-w-0">
                                                                     <p className="text-xs font-bold text-gray-800 leading-tight line-clamp-2 mb-1">{vid.title}</p>
                                                                     <p className="text-[10px] text-gray-400">{vid.channel}</p>
-                                                                    {isWatched && <span className="inline-flex items-center gap-1 text-[9px] font-bold mt-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700"><FiCheck size={8} /> Watched</span>}
+                                                                    {vid.isVerified && <span className="inline-flex items-center gap-1 text-[9px] font-bold mt-0.5 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">✓ Verified</span>}
+                                                                    {isWatched && <span className="inline-flex items-center gap-1 text-[9px] font-bold mt-0.5 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1"><FiCheck size={8} /> Watched</span>}
                                                                 </div>
                                                             </button>
                                                         );
                                                     })}
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
