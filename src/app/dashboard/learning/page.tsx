@@ -1409,7 +1409,7 @@ export default function LearningPage() {
     // Load custom videos added by admin from Supabase
     useEffect(() => {
         supabase.from('learning_videos').select('*').eq('is_active', true)
-            .order('sort_order').then(({ data }) => { if (data) setDbVideos(data); });
+            .order('sort_order').then(({ data, error }) => { if (data && !error) setDbVideos(data); });
     }, []);
 
     // Derived
