@@ -1118,15 +1118,34 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
         return () => window.removeEventListener('keydown', h);
     }, []);
 
+    const [playing, setPlaying]       = useState(false);
+    const [embedOk, setEmbedOk]       = useState<boolean | null>(null); // null=loading, true=ok, false=failed
+    const ytUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
+    const embedUrl = `https://www.youtube.com/embed/${video.youtubeId}?autoplay=1&rel=0&modestbranding=1&showinfo=0`;
+    const thumbUrl = `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`;
+
+    // After 6s if iframe hasn't fired onLoad, assume embedding blocked
+    useEffect(() => {
+        if (!playing) return;
+        setEmbedOk(null);
+        const t = setTimeout(() => setEmbedOk(v => v === null ? false : v), 6000);
+        return () => clearTimeout(t);
+    }, [playing]);
+
     return (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }} onClick={onClose}>
-            <div className="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl" style={{ animation: 'scaleIn 0.2s ease-out' }} onClick={e => e.stopPropagation()}>
-                {/* Header */}
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(14px)' }}
+            onClick={onClose}>
+            <div className="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl"
+                style={{ animation: 'scaleIn 0.2s ease-out' }}
+                onClick={e => e.stopPropagation()}>
+
+                {/* ── Header ─────────────────────────────────────────────── */}
                 <div className="flex items-center justify-between px-5 py-4" style={{ background: subject.gradient }}>
                     <div className="flex items-center gap-3">
                         <span className="text-2xl">{subject.icon}</span>
                         <div>
-                            <p className="text-white font-extrabold text-sm">{video.title}</p>
+                            <p className="text-white font-extrabold text-sm leading-snug">{video.title}</p>
                             <p className="text-white/70 text-xs">{subject.name} · {video.channel} · {video.duration}</p>
                         </div>
                     </div>
@@ -1134,25 +1153,107 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                         <FiX size={20} />
                     </button>
                 </div>
-                {/* YouTube Player */}
-                <div style={{ background: '#000', position: 'relative', paddingBottom: '56.25%' }}>
-                    <iframe
-                        src={ytEmbed(video.youtubeId)}
-                        title={video.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
-                    />
+
+                {/* ── Player area ─────────────────────────────────────────── */}
+                <div style={{ background: '#000', position: 'relative', paddingBottom: '56.25%', minHeight: 200 }}>
+
+                    {/* NOT yet clicked → show thumbnail + play button */}
+                    {!playing && (
+                        <button
+                            onClick={() => setPlaying(true)}
+                            style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:'none', background:'#000', cursor:'pointer' }}>
+                            <img src={thumbUrl} alt={video.title}
+                                style={{ width:'100%', height:'100%', objectFit:'cover', opacity:0.85 }}
+                                onError={(e:any) => { e.target.style.display='none'; }} />
+                            {/* Play button overlay */}
+                            <div style={{
+                                position:'absolute', inset:0, display:'flex', flexDirection:'column',
+                                alignItems:'center', justifyContent:'center', gap:12,
+                            }}>
+                                <div style={{
+                                    width:72, height:72, borderRadius:'50%', display:'flex',
+                                    alignItems:'center', justifyContent:'center',
+                                    background: subject.gradient, boxShadow:'0 8px 32px rgba(0,0,0,0.6)',
+                                    transition:'transform 0.15s',
+                                }}>
+                                    <FiPlay size={28} color="#fff" style={{ marginLeft:4 }} />
+                                </div>
+                                <span style={{ color:'rgba(255,255,255,0.85)', fontSize:12, fontWeight:700, background:'rgba(0,0,0,0.5)', padding:'4px 12px', borderRadius:999 }}>
+                                    Click to play
+                                </span>
+                            </div>
+                        </button>
+                    )}
+
+                    {/* CLICKED → try iframe, show fallback if blocked */}
+                    {playing && (
+                        <>
+                            {/* Fallback shown while loading or if blocked */}
+                            {embedOk !== true && (
+                                <div style={{
+                                    position:'absolute', inset:0, display:'flex', flexDirection:'column',
+                                    alignItems:'center', justifyContent:'center', gap:16,
+                                    background: 'linear-gradient(135deg,#0f172a,#1e1b4b)',
+                                    zIndex: embedOk === false ? 10 : 1,
+                                }}>
+                                    <span style={{ fontSize:48 }}>🎬</span>
+                                    {embedOk === null
+                                        ? <p style={{ color:'rgba(255,255,255,0.7)', fontSize:13 }}>Loading video…</p>
+                                        : <>
+                                            <p style={{ color:'#fff', fontWeight:900, fontSize:15, textAlign:'center', maxWidth:320 }}>
+                                                This video cannot be embedded
+                                            </p>
+                                            <p style={{ color:'rgba(255,255,255,0.6)', fontSize:12, textAlign:'center', maxWidth:300 }}>
+                                                The channel owner has disabled embedding. Watch it directly on YouTube — it's free!
+                                            </p>
+                                        </>
+                                    }
+                                    <a href={ytUrl} target="_blank" rel="noopener noreferrer"
+                                        style={{
+                                            display:'flex', alignItems:'center', gap:8,
+                                            padding:'12px 28px', borderRadius:14, fontWeight:900, fontSize:14,
+                                            background:'#ef4444', color:'#fff', textDecoration:'none',
+                                            boxShadow:'0 8px 24px rgba(239,68,68,0.5)',
+                                        }}>
+                                        <FiYoutube size={18} />
+                                        Watch on YouTube →
+                                    </a>
+                                </div>
+                            )}
+                            {/* The actual iframe — hidden behind fallback if blocked */}
+                            <iframe
+                                src={embedUrl}
+                                title={video.title}
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowFullScreen
+                                onLoad={() => setEmbedOk(true)}
+                                style={{
+                                    position:'absolute', top:0, left:0,
+                                    width:'100%', height:'100%', border:'none',
+                                    zIndex: embedOk === true ? 5 : 0,
+                                }}
+                            />
+                        </>
+                    )}
                 </div>
-                {/* Footer */}
-                <div className="bg-white px-5 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-green-600 font-bold flex items-center gap-1"><FiCheck size={12} /> Marked as watched</span>
+
+                {/* ── Footer ─────────────────────────────────────────────── */}
+                <div className="bg-white px-5 py-3 flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs text-green-600 font-bold flex items-center gap-1">
+                        <FiCheck size={12} /> Marked as watched
+                    </span>
+                    <div className="flex items-center gap-3">
+                        {playing && embedOk === false && (
+                            <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-lg">
+                                ⚠️ Embedding blocked by channel
+                            </span>
+                        )}
+                        <a href={ytUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90"
+                            style={{ background: '#ef4444' }}>
+                            <FiYoutube size={13} /> Watch on YouTube
+                        </a>
                     </div>
-                    <a href={`https://www.youtube.com/watch?v=${video.youtubeId}`} target="_blank" rel="noopener noreferrer"
-                        className="text-xs text-blue-600 font-semibold flex items-center gap-1 hover:underline">
-                        <FiYoutube size={12} /> Open in YouTube
-                    </a>
                 </div>
             </div>
             <style>{`@keyframes scaleIn{from{transform:scale(0.9);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
