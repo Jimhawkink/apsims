@@ -1126,18 +1126,29 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
     const [playing,    setPlaying]    = useState(false);
     const [loaded,     setLoaded]     = useState(false);
     const [thumbError, setThumbError] = useState(false);
+    const [useFallback, setUseFallback] = useState(false);
 
-    const isVerified   = !!(video.youtubeId && video.youtubeId.length === 11);
-    const thumbUrl    = isVerified ? `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg` : null;
-    const directEmbed = isVerified
+    // isVerified = ONLY admin DB videos have this flag — static topic videos always use search
+    const isVerified   = !!(video.isVerified && video.youtubeId && video.youtubeId.length === 11);
+    const useSearch    = !isVerified || useFallback;
+    const thumbUrl     = (!useSearch) ? `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg` : null;
+    const directEmbed  = (!useSearch)
         ? `https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&rel=0&modestbranding=1`
         : null;
-    const searchQ     = encodeURIComponent(video.title + ' ' + subject.name + ' Kenya Ministry of Education KICD');
-    const searchEmbed = `https://www.youtube-nocookie.com/embed?listType=search&list=${searchQ}&autoplay=1&rel=0&modestbranding=1`;
-    const embedSrc    = directEmbed || searchEmbed;
-    const ytUrl       = isVerified
+    const moeQuery     = encodeURIComponent(video.title + ' ' + subject.name + ' Kenya Ministry of Education KICD');
+    const searchEmbed  = `https://www.youtube-nocookie.com/embed?listType=search&list=${moeQuery}&autoplay=1&rel=0&modestbranding=1`;
+    const embedSrc     = directEmbed || searchEmbed;
+    const ytSearchUrl  = `https://www.youtube.com/results?search_query=${moeQuery}`;
+    const ytUrl        = (!useSearch)
         ? `https://www.youtube.com/watch?v=${video.youtubeId}`
-        : `https://www.youtube.com/results?search_query=${encodeURIComponent(video.title + ' ' + subject.name + ' Kenya Ministry of Education KICD')}`;
+        : ytSearchUrl;
+
+    // Auto-fallback: if verified video not loaded after 5s, switch to MoE search embed
+    useEffect(() => {
+        if (!playing || useSearch) return;
+        const t = setTimeout(() => { if (!loaded) { setUseFallback(true); setLoaded(false); } }, 5000);
+        return () => clearTimeout(t);
+    }, [playing, useSearch, loaded]);
 
     return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4"
@@ -1239,11 +1250,19 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                     <span className="text-xs text-green-600 font-bold flex items-center gap-1">
                         <FiCheck size={12} /> Marked as watched
                     </span>
-                    <div className="flex items-center gap-2">
-                        <a href={ytUrl} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all">
-                            🔍 {isVerified ? 'Watch on YouTube' : 'Search YouTube'}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Always visible MoE search button */}
+                        <a href={ytSearchUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-all">
+                            🎓 Search MoE YouTube
                         </a>
+                        {/* Video unavailable fallback button — only for verified videos */}
+                        {isVerified && !useFallback && (
+                            <button onClick={() => { setUseFallback(true); setLoaded(false); setPlaying(true); }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 transition-all border border-amber-200">
+                                ⚠️ Video Unavailable? Click Here
+                            </button>
+                        )}
                         <a href={ytUrl} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90"
                             style={{ background: '#ef4444' }}>
