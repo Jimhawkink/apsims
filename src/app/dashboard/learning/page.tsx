@@ -1830,9 +1830,13 @@ export default function LearningPage() {
                                                     <span className="text-sm font-semibold text-gray-700">Paper 3 (Practical)</span>
                                                 </div>
                                                 <div className="flex gap-1.5">
-                                                    <a href={kcseOnlineBase} target="_blank" rel="noopener noreferrer"
+                                                    <a href={googleSearch('Paper 3 Practical')} target="_blank" rel="noopener noreferrer"
                                                         className="px-2.5 py-1.5 text-[10px] font-bold text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-all flex items-center gap-1">
-                                                        <FiExternalLink size={10} /> View
+                                                        <FiExternalLink size={10} /> Google
+                                                    </a>
+                                                    <a href={ytSearch('Paper 3 Practical')} target="_blank" rel="noopener noreferrer"
+                                                        className="px-2.5 py-1.5 text-[10px] font-bold text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all flex items-center gap-1">
+                                                        <FiPlay size={10} /> YouTube
                                                     </a>
                                                 </div>
                                             </div>
