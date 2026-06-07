@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Phone formatter for Meta WhatsApp API (no + prefix) ───────────────────────

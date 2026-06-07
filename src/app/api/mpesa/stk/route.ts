@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 
 const MPESA_BASE = process.env.MPESA_ENV === 'live' 

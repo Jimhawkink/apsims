@@ -1,12 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Force dynamic rendering — data fetched at request time, not build time
+export const dynamic = 'force-dynamic';
 
 async function getData() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Guard: if env vars missing (build time), return empty data
+  if (!url || !key) return { school: {}, cfg: {}, news: [], forms: [] };
+
+  const supabase = createClient(url, key);
   const [school, configRows, news, forms] = await Promise.all([
     supabase.from('school_details').select('*').single(),
     supabase.from('school_website_config').select('*'),

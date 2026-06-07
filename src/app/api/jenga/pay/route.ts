@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 
 const JENGA_BASE = process.env.JENGA_ENV === 'live'
