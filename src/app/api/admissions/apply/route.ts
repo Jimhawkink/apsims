@@ -96,8 +96,13 @@ export async function POST(req: NextRequest) {
   }
 
   // ── LAYER 4b: Format validations ──────────────────────────────────────────
-  if (!/^(\+254|0)[17]\d{8}$/.test(cleanPhone)) {
-    return NextResponse.json({ error: 'Invalid Kenyan phone number format.' }, { status: 400 });
+  // Kenya mobile numbers: Safaricom 07xx, Airtel 073x/010x, Telkom 077x/011x
+  // Valid: 070-079, 010, 011 (after country prefix stripping)
+  const KENYA_PHONE_RE = /^(\+254|0)(7\d{8}|1[01]\d{7})$/;
+  if (!KENYA_PHONE_RE.test(cleanPhone)) {
+    return NextResponse.json({
+      error: 'Invalid Kenyan phone number. Valid formats: 07XXXXXXXX, 01XXXXXXXX, +2547XXXXXXXX, +2541XXXXXXXX'
+    }, { status: 400 });
   }
   const kcpeClean = kcpe_index_number.trim().replace(/\s+/g, '');
   if (!/^\d{11,12}$/.test(kcpeClean)) {
@@ -131,17 +136,30 @@ export async function POST(req: NextRequest) {
   const yearStart = `${yearNow}-01-01T00:00:00.000Z`;
   const yearEnd   = `${yearNow}-12-31T23:59:59.999Z`;
 
-  // ── LAYER 6a: Phone rate limit — max 3 per phone this year ────────────────
-  const { count: phoneCount } = await supabase
+  // ── LAYER 6a: Phone duplicate check — block same phone + same form ──────────
+  // Siblings sharing a parent phone are allowed IF they apply for different forms/grades
+  const { data: existingByPhone } = await supabase
     .from('school_admission_applications')
-    .select('id', { count: 'exact', head: true })
+    .select('id, form_applied_for')
     .eq('guardian_phone', cleanPhone)
     .gte('submitted_at', yearStart)
     .lte('submitted_at', yearEnd);
 
-  if ((phoneCount ?? 0) >= MAX_PER_PHONE) {
+  const existingApps = existingByPhone || [];
+
+  // Hard block: exact same phone + exact same form = duplicate application
+  const sameFormApp = existingApps.find(a => Number(a.form_applied_for) === Number(form_applied_for));
+  if (sameFormApp) {
+    const formLabels: Record<number, string> = { 1: 'Form 1', 2: 'Form 2', 3: 'Form 3', 4: 'Form 4', 10: 'Grade 10', 11: 'Grade 11', 12: 'Grade 12' };
     return NextResponse.json({
-      error: `This phone number (${cleanPhone}) has reached the maximum of ${MAX_PER_PHONE} applications this year. Contact the school for assistance.`
+      error: `An application for ${formLabels[Number(form_applied_for)] || `Form ${form_applied_for}`} using this phone number already exists this year. If you are a different sibling, please apply for a different form/grade.`
+    }, { status: 409 });
+  }
+
+  // Soft limit: same phone used across too many different forms (family max)
+  if (existingApps.length >= MAX_PER_PHONE) {
+    return NextResponse.json({
+      error: `This phone number has reached the maximum of ${MAX_PER_PHONE} applications this year. Contact the school office directly for assistance.`
     }, { status: 429 });
   }
 
