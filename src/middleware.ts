@@ -156,22 +156,23 @@ export async function middleware(req: NextRequest) {
   }
 
   // ─── Security Headers ───
-
-  // Content Security Policy
+  // Content Security Policy — permissive to allow YouTube embeds + thumbnails
   res.headers.set('Content-Security-Policy',
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live; " +
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live https://www.youtube.com https://s.ytimg.com https://www.google.com https://www.gstatic.com; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; " +
-    "img-src 'self' data: https://*.supabase.co https://images.unsplash.com; " +
-    "connect-src 'self' https://*.supabase.co https://api.safaricom.co.ke https://sandbox.safaricom.co.ke https://api.openai.com; " +
-    "frame-ancestors 'none'; " +
+    "font-src 'self' https://fonts.gstatic.com data:; " +
+    "img-src * data: blob:; " +
+    "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; " +
+    "connect-src 'self' https: wss:; " +
+    "media-src 'self' https://www.youtube.com https://www.youtube-nocookie.com blob:; " +
+    "worker-src 'self' blob:; " +
     "base-uri 'self'; " +
     "form-action 'self';"
   );
 
   // Other security headers
-  res.headers.set('X-Frame-Options', 'DENY');
+  // NOTE: X-Frame-Options removed — we use frame-src in CSP instead (DENY would break YouTube iframes)
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.headers.set('X-XSS-Protection', '1; mode=block');
