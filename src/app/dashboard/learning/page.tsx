@@ -1,13 +1,18 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     FiBook, FiPlay, FiX, FiSearch, FiStar, FiAward, FiTrendingUp,
     FiChevronRight, FiExternalLink, FiDownload, FiCheck, FiClock,
     FiYoutube, FiFilter, FiRefreshCw, FiChevronDown, FiTarget,
-    FiUsers, FiGrid, FiList, FiZap, FiBarChart2,
+    FiUsers, FiGrid, FiList, FiZap, FiBarChart2, FiSettings, FiVideo,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
+
+// DB video type (from learning_videos table)
+interface DBVideo { id: string; title: string; youtube_id: string | null; youtube_url: string | null; topic: string; form_level: string; subject_id: string; duration: string; channel: string; }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KICD-ALIGNED CURRICULUM DATA — 15 Subjects, Form 1-4 + CBC
@@ -1108,7 +1113,7 @@ function saveQuizScore(subjectId: string, topic: string, score: number) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VIDEO PLAYER MODAL
+// VIDEO PLAYER MODAL — Smart: Real ID → direct embed | No ID → live search
 // ─────────────────────────────────────────────────────────────────────────────
 function VideoModal({ video, subject, onClose }: { video: Video; subject: SubjectData; onClose: () => void }) {
     useEffect(() => {
@@ -1118,23 +1123,21 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
         return () => window.removeEventListener('keydown', h);
     }, []);
 
-    const [playing,      setPlaying]      = useState(false);
-    const [thumbError,   setThumbError]   = useState(false);
-    const [embedOk,      setEmbedOk]      = useState<boolean | null>(null);
+    const [playing,    setPlaying]    = useState(false);
+    const [loaded,     setLoaded]     = useState(false);
+    const [thumbError, setThumbError] = useState(false);
 
-    const ytUrl      = `https://www.youtube.com/watch?v=${video.youtubeId}`;
-    const ytSearch   = `https://www.youtube.com/results?search_query=${encodeURIComponent(video.title + ' Kenya KICD')}`;
-    const embedUrl   = `https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&rel=0&modestbranding=1`;
-    const thumbHQ    = `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`;
-    const thumbMQ    = `https://img.youtube.com/vi/${video.youtubeId}/mqdefault.jpg`;
-
-    // 7s timeout: if iframe hasn't loaded, assume blocked / unavailable
-    useEffect(() => {
-        if (!playing) return;
-        setEmbedOk(null);
-        const t = setTimeout(() => setEmbedOk(prev => prev === null ? false : prev), 7000);
-        return () => clearTimeout(t);
-    }, [playing]);
+    const hasRealId   = !!(video.youtubeId && video.youtubeId.length === 11);
+    const thumbUrl    = hasRealId ? `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg` : null;
+    const directEmbed = hasRealId
+        ? `https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&rel=0&modestbranding=1`
+        : null;
+    const searchQ     = encodeURIComponent(video.title + ' ' + subject.name + ' Kenya');
+    const searchEmbed = `https://www.youtube-nocookie.com/embed?listType=search&list=${searchQ}&autoplay=1&rel=0&modestbranding=1`;
+    const embedSrc    = directEmbed || searchEmbed;
+    const ytUrl       = hasRealId
+        ? `https://www.youtube.com/watch?v=${video.youtubeId}`
+        : `https://www.youtube.com/results?search_query=${encodeURIComponent(video.title + ' ' + subject.name + ' Kenya KICD')}`;
 
     return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4"
@@ -1144,13 +1147,16 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                 style={{ animation: 'scaleIn 0.2s ease-out' }}
                 onClick={e => e.stopPropagation()}>
 
-                {/* ── Header ── */}
+                {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4" style={{ background: subject.gradient }}>
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                         <span className="text-2xl flex-shrink-0">{subject.icon}</span>
                         <div className="min-w-0">
                             <p className="text-white font-extrabold text-sm leading-snug truncate">{video.title}</p>
-                            <p className="text-white/70 text-xs">{subject.name} · {video.channel} · {video.duration}</p>
+                            <p className="text-white/70 text-xs">
+                                {subject.name} · {video.channel} · {video.duration}
+                                {hasRealId && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-black bg-green-500/30 text-green-300">✓ Verified</span>}
+                            </p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/20 transition-all ml-3">
@@ -1158,153 +1164,90 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                     </button>
                 </div>
 
-                {/* ── Player ── */}
+                {/* Player */}
                 <div style={{ background: '#000f1a', position: 'relative', paddingBottom: '56.25%' }}>
-
-                    {/* ── STATE 1: Thumbnail + Click to Play ── */}
                     {!playing && (
                         <div style={{ position: 'absolute', inset: 0 }}>
-                            {/* Thumbnail image — CSP img-src * now allows all images */}
-                            {!thumbError ? (
-                                <img
-                                    src={thumbHQ}
-                                    alt={video.title}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                            {hasRealId && !thumbError ? (
+                                <img src={thumbUrl!} alt={video.title}
                                     onError={() => setThumbError(true)}
-                                />
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                             ) : (
-                                // Fallback when thumbnail fails — gradient background with subject color
                                 <div style={{
                                     width: '100%', height: '100%',
-                                    background: `linear-gradient(135deg, ${subject.color}44, #0f172a)`,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    background: `linear-gradient(135deg, ${subject.color}44 0%, #0f172a 55%, #1e1b4b 100%)`,
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16,
                                 }}>
-                                    <span style={{ fontSize: 64 }}>{subject.icon}</span>
+                                    <span style={{ fontSize: 64, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.7))' }}>{subject.icon}</span>
+                                    <p style={{ color: '#fff', fontWeight: 900, fontSize: 14, textAlign: 'center', maxWidth: 440, padding: '0 20px', lineHeight: 1.5 }}>{video.title}</p>
+                                    {!hasRealId && (<p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>🔍 Will search YouTube live for the best matching lesson</p>)}
                                 </div>
                             )}
-
-                            {/* Dark scrim */}
-                            <div style={{
-                                position: 'absolute', inset: 0,
-                                background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.5) 100%)',
-                            }} />
-
-                            {/* Play button — centered absolutely */}
-                            <button
-                                onClick={() => setPlaying(true)}
-                                style={{
-                                    position: 'absolute', inset: 0, width: '100%', height: '100%',
-                                    background: 'transparent', border: 'none', cursor: 'pointer',
-                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12,
-                                }}>
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,0.65) 100%)' }} />
+                            <button onClick={() => setPlaying(true)} style={{
+                                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                                background: 'transparent', border: 'none', cursor: 'pointer',
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14,
+                            }}>
                                 <div style={{
-                                    width: 80, height: 80, borderRadius: '50%',
-                                    background: subject.gradient,
+                                    width: 80, height: 80, borderRadius: '50%', background: subject.gradient,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    boxShadow: '0 8px 48px rgba(0,0,0,0.8), 0 0 0 4px rgba(255,255,255,0.15)',
+                                    boxShadow: `0 8px 48px ${subject.color}80, 0 0 0 4px rgba(255,255,255,0.15)`,
                                 }}>
                                     <FiPlay size={32} color="#fff" style={{ marginLeft: 5 }} />
                                 </div>
                                 <span style={{
                                     color: '#fff', fontSize: 13, fontWeight: 800,
-                                    background: 'rgba(0,0,0,0.6)', padding: '6px 18px', borderRadius: 999,
-                                    letterSpacing: 0.4, backdropFilter: 'blur(4px)',
-                                }}>
-                                    ▶ Click to Play
-                                </span>
+                                    background: 'rgba(0,0,0,0.65)', padding: '6px 20px', borderRadius: 999,
+                                    backdropFilter: 'blur(4px)', letterSpacing: 0.3,
+                                }}>{hasRealId ? '▶ Play Video' : '🔍 Find & Play on YouTube'}</span>
                             </button>
                         </div>
                     )}
 
-                    {/* ── STATE 2: Loading + iframe attempt ── */}
                     {playing && (
                         <>
-                            {/* Loading / failed overlay */}
-                            {embedOk !== true && (
+                            {!loaded && (
                                 <div style={{
                                     position: 'absolute', inset: 0, zIndex: 10,
-                                    background: 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%)',
-                                    display: 'flex', flexDirection: 'column',
-                                    alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24,
+                                    background: 'linear-gradient(135deg,#0f172a,#1e1b4b)',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14,
                                 }}>
-                                    {embedOk === null ? (
-                                        <>
-                                            {/* Spinner */}
-                                            <div style={{
-                                                width: 52, height: 52, borderRadius: '50%',
-                                                border: `4px solid ${subject.color}30`,
-                                                borderTop: `4px solid ${subject.color}`,
-                                                animation: 'spin 0.9s linear infinite',
-                                            }} />
-                                            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
-                                                Loading video…
-                                            </p>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span style={{ fontSize: 48 }}>📺</span>
-                                            <p style={{ color: '#fff', fontWeight: 900, fontSize: 16, textAlign: 'center' }}>
-                                                Video unavailable to embed
-                                            </p>
-                                            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, textAlign: 'center', maxWidth: 300, lineHeight: 1.6 }}>
-                                                This video may be deleted, private, or embedding was disabled by the channel.
-                                                Watch it on YouTube or search for similar content.
-                                            </p>
-                                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                                <a href={ytUrl} target="_blank" rel="noopener noreferrer" style={{
-                                                    display: 'flex', alignItems: 'center', gap: 8,
-                                                    padding: '11px 22px', borderRadius: 14, fontWeight: 900, fontSize: 13,
-                                                    background: '#ef4444', color: '#fff', textDecoration: 'none',
-                                                    boxShadow: '0 6px 20px rgba(239,68,68,0.45)',
-                                                }}>
-                                                    <FiYoutube size={16} /> Watch on YouTube →
-                                                </a>
-                                                <a href={ytSearch} target="_blank" rel="noopener noreferrer" style={{
-                                                    display: 'flex', alignItems: 'center', gap: 8,
-                                                    padding: '11px 22px', borderRadius: 14, fontWeight: 900, fontSize: 13,
-                                                    background: 'rgba(255,255,255,0.12)', color: '#fff', textDecoration: 'none',
-                                                    border: '1px solid rgba(255,255,255,0.2)',
-                                                }}>
-                                                    🔍 Search Similar Videos
-                                                </a>
-                                            </div>
-                                        </>
-                                    )}
+                                    <div style={{
+                                        width: 48, height: 48, borderRadius: '50%',
+                                        border: `4px solid ${subject.color}30`, borderTop: `4px solid ${subject.color}`,
+                                        animation: 'spin 0.9s linear infinite',
+                                    }} />
+                                    <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 600 }}>
+                                        {hasRealId ? 'Loading video...' : 'Finding best video on YouTube...'}
+                                    </p>
                                 </div>
                             )}
-
-                            {/* Actual iframe — using youtube-nocookie for better embed compatibility */}
-                            <iframe
-                                src={embedUrl}
-                                title={video.title}
+                            <iframe src={embedSrc} title={video.title}
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                allowFullScreen
-                                onLoad={() => setEmbedOk(true)}
+                                allowFullScreen onLoad={() => setLoaded(true)}
                                 style={{
-                                    position: 'absolute', top: 0, left: 0,
-                                    width: '100%', height: '100%', border: 'none',
-                                    zIndex: embedOk === true ? 15 : 0,
-                                    opacity: embedOk === true ? 1 : 0,
-                                }}
-                            />
+                                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                                    border: 'none', zIndex: loaded ? 15 : 0, opacity: loaded ? 1 : 0,
+                                }} />
                         </>
                     )}
                 </div>
 
-                {/* ── Footer ── */}
+                {/* Footer */}
                 <div className="bg-white px-5 py-3 flex items-center justify-between flex-wrap gap-2">
                     <span className="text-xs text-green-600 font-bold flex items-center gap-1">
                         <FiCheck size={12} /> Marked as watched
                     </span>
                     <div className="flex items-center gap-2">
-                        <a href={ytSearch} target="_blank" rel="noopener noreferrer"
+                        <a href={ytUrl} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all">
-                            🔍 Search Topic
+                            🔍 {hasRealId ? 'Watch on YouTube' : 'Search YouTube'}
                         </a>
                         <a href={ytUrl} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90"
                             style={{ background: '#ef4444' }}>
-                            <FiYoutube size={13} /> Watch on YouTube
+                            <FiYoutube size={13} /> Open YouTube
                         </a>
                     </div>
                 </div>
@@ -1316,6 +1259,7 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
         </div>
     );
 }
+
 
 
 
@@ -1438,8 +1382,16 @@ export default function LearningPage() {
     const [curriculumMode, setCurriculumMode] = useState<'8-4-4' | 'CBC'>('8-4-4');
     const [cbcLevel, setCbcLevel]       = useState<'JSS' | 'SSS'>('JSS');
     const [cbcGrade, setCbcGrade]       = useState('Grade 7');
+    // DB custom videos from super admin
+    const [dbVideos, setDbVideos]       = useState<DBVideo[]>([]);
 
     useEffect(() => { setProgress(getProgress()); }, [selectedVideo, tab]);
+
+    // Load custom videos added by admin from Supabase
+    useEffect(() => {
+        supabase.from('learning_videos').select('*').eq('is_active', true)
+            .order('sort_order').then(({ data }) => { if (data) setDbVideos(data); });
+    }, []);
 
     // Derived
     const activeLibrary  = curriculumMode === '8-4-4' ? SUBJECTS : CBC_SUBJECTS;
@@ -1465,6 +1417,14 @@ export default function LearningPage() {
         { key: 'quizzes',   label: '🧠 Topical Quizzes', icon: '🧠', color: '#8b5cf6' },
         { key: 'progress',  label: '📊 My Progress',    icon: '📊', color: '#10b981' },
     ];
+
+    // Merge DB videos into static topics: DB videos for matching subject+form come first
+    const getVideosForTopic = (subjectId: string, formLevel: string, topicName: string): Video[] => {
+        const dbMatches = dbVideos
+            .filter(v => v.subject_id === subjectId && v.form_level === formLevel && v.topic.toLowerCase() === topicName.toLowerCase())
+            .map(v => ({ id: v.id, title: v.title, duration: v.duration || '00:00', youtubeId: v.youtube_id || '', channel: v.channel || 'Custom' }));
+        return dbMatches; // Return only DB videos if available (they're verified by admin)
+    };
 
     return (
         <div className="space-y-5 animate-fade-in">
@@ -1499,6 +1459,12 @@ export default function LearningPage() {
                                     className="pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none text-white placeholder-white/40"
                                     style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', width: 200 }} />
                             </div>
+                            <Link href="/dashboard/learning/manage-videos"
+                                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-white/80 text-xs font-bold hover:text-white hover:bg-white/15 transition-all"
+                                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+                                title="Super Admin: Manage Videos">
+                                <FiVideo size={14} /> Manage Videos
+                            </Link>
                         </div>
                     </div>
 
