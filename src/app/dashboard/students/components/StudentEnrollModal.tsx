@@ -1,10 +1,216 @@
 'use client';
 
-import { FiX, FiSave } from 'react-icons/fi';
+import { useState, useEffect, useRef } from 'react';
+import { FiX, FiSave, FiCalendar, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { getEducationSystem } from '@/lib/cbc-utils';
 import EducationSystemBadge from '@/components/cbc/EducationSystemBadge';
 import CBCEnrollmentStep from '@/components/cbc/CBCEnrollmentStep';
 import { KENYAN_COUNTIES, COUNTY_NAMES, NATIONALITIES } from '@/lib/kenyan-data';
+
+// ─────────────────────────────────────────────────────────────────
+// WORLD-CLASS DATEPICKER COMPONENT
+// ─────────────────────────────────────────────────────────────────
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAY_LABELS  = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+function calcAge(dob: string): number {
+    const d = new Date(dob + 'T00:00:00'); const n = new Date();
+    let a = n.getFullYear() - d.getFullYear();
+    if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
+    return a;
+}
+
+interface SmartDatePickerProps {
+    value: string;                 // ISO YYYY-MM-DD
+    onChange: (v: string) => void;
+    label?: string;
+    mode?: 'dob' | 'date';        // 'dob' shows age, restricts future; 'date' is free
+    accentColor?: string;         // CSS gradient string
+    placeholder?: string;
+}
+
+function SmartDatePicker({ value, onChange, mode = 'date', accentColor = 'linear-gradient(135deg,#3b82f6,#6366f1)', placeholder = 'Pick a date' }: SmartDatePickerProps) {
+    const today    = new Date();
+    const todayISO = today.toISOString().split('T')[0];
+
+    const parsed   = value ? new Date(value + 'T00:00:00') : null;
+    const initY    = parsed ? parsed.getFullYear() : (mode === 'dob' ? today.getFullYear() - 14 : today.getFullYear());
+    const initM    = parsed ? parsed.getMonth() : today.getMonth();
+
+    const [open, setOpen]   = useState(false);
+    const [vy, setVy]       = useState(initY);
+    const [vm, setVm]       = useState(initM);
+    const wrapRef           = useRef<HTMLDivElement>(null);
+
+    // Close on outside click
+    useEffect(() => {
+        const h = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false); };
+        document.addEventListener('mousedown', h);
+        return () => document.removeEventListener('mousedown', h);
+    }, []);
+
+    // Sync view when value changes externally
+    useEffect(() => {
+        if (value) { const d = new Date(value + 'T00:00:00'); setVy(d.getFullYear()); setVm(d.getMonth()); }
+    }, [value]);
+
+    const age       = (mode === 'dob' && value) ? calcAge(value) : null;
+    const ageValid  = age !== null && age >= 10 && age <= 25;
+
+    // Calendar grid
+    const firstDay  = new Date(vy, vm, 1).getDay();
+    const daysInMon = new Date(vy, vm + 1, 0).getDate();
+    const cells: (number|null)[] = [...Array(firstDay).fill(null), ...Array.from({length:daysInMon},(_,i)=>i+1)];
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const pickDay = (day: number) => {
+        const iso = `${vy}-${String(vm+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        onChange(iso); setOpen(false);
+    };
+
+    const isToday   = (day: number) => `${vy}-${String(vm+1).padStart(2,'0')}-${String(day).padStart(2,'0')}` === todayISO;
+    const isSelected= (day: number) => `${vy}-${String(vm+1).padStart(2,'0')}-${String(day).padStart(2,'0')}` === value;
+    const isFuture  = (day: number) => mode === 'dob' && new Date(vy, vm, day) > today;
+
+    const prevMonth = () => { if (vm===0){setVm(11);setVy(y=>y-1);}else setVm(m=>m-1); };
+    const nextMonth = () => { if (vm===11){setVm(0);setVy(y=>y+1);}else setVm(m=>m+1); };
+
+    // Year range: dob = last 25 yrs; date = ±5 yrs from today
+    const yearRange = mode === 'dob'
+        ? Array.from({length:26},(_,i)=>today.getFullYear()-i)
+        : Array.from({length:11},(_,i)=>today.getFullYear()-5+i);
+
+    const displayVal = parsed
+        ? parsed.toLocaleDateString('en-KE',{day:'numeric',month:'long',year:'numeric'})
+        : placeholder;
+
+    return (
+        <div ref={wrapRef} style={{position:'relative',width:'100%'}}>
+            {/* ── TRIGGER BUTTON ── */}
+            <button type="button" onClick={()=>setOpen(o=>!o)}
+                style={{
+                    width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
+                    border:`2px solid ${open?'#3b82f6':value?'#93c5fd':'#e5e7eb'}`,
+                    borderRadius:14, background: value?'#eff6ff':'#fff',
+                    cursor:'pointer', transition:'all 0.2s',
+                    boxShadow: open?'0 0 0 4px rgba(59,130,246,0.12)':'0 1px 3px rgba(0,0,0,0.06)',
+                }}>
+                <span style={{fontSize:15, color: value?'#3b82f6':'#9ca3af'}}>
+                    <FiCalendar size={16}/>
+                </span>
+                <span style={{flex:1,textAlign:'left',fontSize:13,fontWeight:value?700:400,color:value?'#1e3a5f':'#9ca3af'}}>
+                    {displayVal}
+                </span>
+                {age !== null && (
+                    <span style={{fontSize:11,fontWeight:800,padding:'2px 9px',borderRadius:20,background:ageValid?'#dbeafe':'#fee2e2',color:ageValid?'#1d4ed8':'#dc2626'}}>
+                        {age} yrs {ageValid?'✓':'✗'}
+                    </span>
+                )}
+                <span style={{fontSize:9,color:'#9ca3af',transition:'transform 0.2s',transform:open?'rotate(180deg)':'rotate(0deg)'}}>▼</span>
+            </button>
+
+            {/* ── CALENDAR POPOVER ── */}
+            {open && (
+                <div style={{
+                    position:'absolute',top:'calc(100% + 6px)',left:0,zIndex:99999,
+                    background:'#fff',borderRadius:20,
+                    boxShadow:'0 25px 60px rgba(0,0,0,0.18),0 8px 24px rgba(0,0,0,0.10)',
+                    border:'1px solid #e5e7eb',minWidth:310,overflow:'hidden',
+                    animation:'dpSlideIn 0.16s cubic-bezier(0.34,1.56,0.64,1)',
+                }}>
+                    <style>{`
+                        @keyframes dpSlideIn{from{opacity:0;transform:translateY(-8px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+                        .dp-cell:hover:not([disabled]){background:#3b82f6!important;color:#fff!important;transform:scale(1.1);box-shadow:0 4px 12px rgba(59,130,246,0.4)!important;}
+                        .dp-cell{transition:all 0.12s cubic-bezier(0.34,1.56,0.64,1);}
+                    `}</style>
+
+                    {/* Header gradient */}
+                    <div style={{background:accentColor,padding:'16px 18px'}}>
+                        {/* Title row */}
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                <FiCalendar size={14} color="rgba(255,255,255,0.85)"/>
+                                <span style={{fontSize:11,fontWeight:800,color:'rgba(255,255,255,0.9)',letterSpacing:'0.1em',textTransform:'uppercase'}}>
+                                    {mode==='dob'?'Date of Birth':'Select Date'}
+                                </span>
+                            </div>
+                            {age !== null && (
+                                <span style={{fontSize:11,fontWeight:900,color:ageValid?'#bbf7d0':'#fca5a5'}}>
+                                    Age: {age} {ageValid?'✓ Valid':`✗ Must be 10-25`}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Month / Year selectors + arrows */}
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                            <button type="button" onClick={prevMonth}
+                                style={{padding:'6px 8px',borderRadius:10,background:'rgba(255,255,255,0.2)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center'}}>
+                                <FiChevronLeft size={14}/>
+                            </button>
+
+                            <select value={vm} onChange={e=>setVm(Number(e.target.value))}
+                                style={{flex:2,padding:'7px 10px',borderRadius:10,border:'none',background:'rgba(255,255,255,0.18)',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer',outline:'none',appearance:'none',textAlign:'center'}}>
+                                {MONTH_NAMES.map((m,i)=><option key={i} value={i} style={{background:'#3b82f6',color:'#fff'}}>{m}</option>)}
+                            </select>
+
+                            <select value={vy} onChange={e=>setVy(Number(e.target.value))}
+                                style={{flex:1,padding:'7px 10px',borderRadius:10,border:'none',background:'rgba(255,255,255,0.18)',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer',outline:'none',appearance:'none',textAlign:'center'}}>
+                                {yearRange.map(y=><option key={y} value={y} style={{background:'#3b82f6',color:'#fff'}}>{y}</option>)}
+                            </select>
+
+                            <button type="button" onClick={nextMonth}
+                                style={{padding:'6px 8px',borderRadius:10,background:'rgba(255,255,255,0.2)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center'}}>
+                                <FiChevronRight size={14}/>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Day grid */}
+                    <div style={{padding:'14px 16px 18px'}}>
+                        {/* Weekday headers */}
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',marginBottom:8}}>
+                            {DAY_LABELS.map(d=>(
+                                <div key={d} style={{textAlign:'center',fontSize:10,fontWeight:800,color:'#94a3b8',letterSpacing:'0.06em',padding:'3px 0'}}>{d}</div>
+                            ))}
+                        </div>
+
+                        {/* Day cells */}
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3}}>
+                            {cells.map((day,idx)=>{
+                                if (!day) return <div key={idx}/>;
+                                const sel  = isSelected(day);
+                                const tod  = isToday(day);
+                                const dis  = isFuture(day);
+                                return (
+                                    <button key={idx} type="button" className="dp-cell"
+                                        disabled={dis}
+                                        onClick={()=>!dis&&pickDay(day)}
+                                        style={{
+                                            width:'100%',aspectRatio:'1',borderRadius:11,border:'none',
+                                            cursor:dis?'not-allowed':'pointer',
+                                            fontSize:12,fontWeight:sel?900:tod?700:500,
+                                            background:sel?'#3b82f6':tod?'#eff6ff':'transparent',
+                                            color:sel?'#fff':dis?'#d1d5db':tod?'#3b82f6':'#1e293b',
+                                            boxShadow:sel?'0 4px 12px rgba(59,130,246,0.5)':tod?'inset 0 0 0 2px #bfdbfe':'none',
+                                            outline:tod&&!sel?'2px solid #93c5fd':'none',
+                                        }}>
+                                        {day}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Footer hint */}
+                        <p style={{margin:'12px 0 0',fontSize:10,color:'#94a3b8',textAlign:'center',fontStyle:'italic'}}>
+                            {mode==='dob'?'Student DOB · Valid age 10–25 years · Future dates disabled':'Click any date to select'}
+                        </p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 
 interface EnrollModalProps {
     showModal: boolean;
@@ -81,7 +287,13 @@ export default function StudentEnrollModal({
                             <div><label className={labelClass}>Middle Name</label><input type="text" value={formData.middle_name} onChange={e => setFormData({ ...formData, middle_name: e.target.value })} className={inputClass} /></div>
                             <div><label className={labelClass}>Last Name *</label><input type="text" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} className={inputClass} /></div>
                             <div><label className={labelClass}>Gender *</label><select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className={inputClass}><option value="Male">👦 Male</option><option value="Female">👧 Female</option></select></div>
-                            <div><label className={labelClass}>Date of Birth</label><input type="date" value={formData.date_of_birth} onChange={e => setFormData({ ...formData, date_of_birth: e.target.value })} className={inputClass} /></div>
+                            <div><label className={labelClass}>Date of Birth 🎂</label>
+                                <SmartDatePicker
+                                    value={formData.date_of_birth}
+                                    onChange={v => setFormData({ ...formData, date_of_birth: v })}
+                                    mode="dob"
+                                    placeholder="Select date of birth"
+                                /></div>
                             <div>
                                 <label className={labelClass}>Form</label>
                                 <select value={formData.form_id || ''} onChange={e => setFormData({ ...formData, form_id: e.target.value ? Number(e.target.value) : null })} className={inputClass}>
@@ -94,7 +306,13 @@ export default function StudentEnrollModal({
                                 })()}
                             </div>
                             <div><label className={labelClass}>Stream</label><select value={formData.stream_id || ''} onChange={e => setFormData({ ...formData, stream_id: e.target.value ? Number(e.target.value) : null })} className={inputClass}><option value="">Select Stream</option>{streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}</select></div>
-                            <div><label className={labelClass}>Admission Date</label><input type="date" value={formData.admission_date} onChange={e => setFormData({ ...formData, admission_date: e.target.value })} className={inputClass} /></div>
+                            <div><label className={labelClass}>Admission Date 📅</label>
+                                <SmartDatePicker
+                                    value={formData.admission_date}
+                                    onChange={v => setFormData({ ...formData, admission_date: v })}
+                                    mode="date"
+                                    placeholder="Select admission date"
+                                /></div>
                             <div><label className={labelClass}>Status</label><select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className={inputClass}><option value="Active">✅ Active</option><option value="Inactive">❌ Inactive</option><option value="Transferred">🔄 Transferred</option><option value="Graduated">🎓 Graduated</option><option value="Suspended">⚠️ Suspended</option></select></div>
                             <div><label className={labelClass}>Religion</label><select value={formData.religion} onChange={e => setFormData({ ...formData, religion: e.target.value })} className={inputClass}><option value="">Select</option><option value="Christian">Christian</option><option value="Muslim">Muslim</option><option value="Hindu">Hindu</option><option value="Traditional">Traditional</option><option value="Other">Other</option></select></div>
                         </div>
