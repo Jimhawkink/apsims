@@ -1118,17 +1118,21 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
         return () => window.removeEventListener('keydown', h);
     }, []);
 
-    const [playing, setPlaying]       = useState(false);
-    const [embedOk, setEmbedOk]       = useState<boolean | null>(null); // null=loading, true=ok, false=failed
-    const ytUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
-    const embedUrl = `https://www.youtube.com/embed/${video.youtubeId}?autoplay=1&rel=0&modestbranding=1&showinfo=0`;
-    const thumbUrl = `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`;
+    const [playing,      setPlaying]      = useState(false);
+    const [thumbError,   setThumbError]   = useState(false);
+    const [embedOk,      setEmbedOk]      = useState<boolean | null>(null);
 
-    // After 6s if iframe hasn't fired onLoad, assume embedding blocked
+    const ytUrl      = `https://www.youtube.com/watch?v=${video.youtubeId}`;
+    const ytSearch   = `https://www.youtube.com/results?search_query=${encodeURIComponent(video.title + ' Kenya KICD')}`;
+    const embedUrl   = `https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&rel=0&modestbranding=1`;
+    const thumbHQ    = `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`;
+    const thumbMQ    = `https://img.youtube.com/vi/${video.youtubeId}/mqdefault.jpg`;
+
+    // 7s timeout: if iframe hasn't loaded, assume blocked / unavailable
     useEffect(() => {
         if (!playing) return;
         setEmbedOk(null);
-        const t = setTimeout(() => setEmbedOk(v => v === null ? false : v), 6000);
+        const t = setTimeout(() => setEmbedOk(prev => prev === null ? false : prev), 7000);
         return () => clearTimeout(t);
     }, [playing]);
 
@@ -1140,108 +1144,136 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                 style={{ animation: 'scaleIn 0.2s ease-out' }}
                 onClick={e => e.stopPropagation()}>
 
-                {/* ── Header ─────────────────────────────────────────────── */}
+                {/* ── Header ── */}
                 <div className="flex items-center justify-between px-5 py-4" style={{ background: subject.gradient }}>
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl">{subject.icon}</span>
-                        <div>
-                            <p className="text-white font-extrabold text-sm leading-snug">{video.title}</p>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="text-2xl flex-shrink-0">{subject.icon}</span>
+                        <div className="min-w-0">
+                            <p className="text-white font-extrabold text-sm leading-snug truncate">{video.title}</p>
                             <p className="text-white/70 text-xs">{subject.name} · {video.channel} · {video.duration}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/20 transition-all">
+                    <button onClick={onClose} className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/20 transition-all ml-3">
                         <FiX size={20} />
                     </button>
                 </div>
 
-                {/* ── Player area ─────────────────────────────────────────── */}
-                <div style={{ background: '#000', position: 'relative', paddingBottom: '56.25%', minHeight: 200 }}>
+                {/* ── Player ── */}
+                <div style={{ background: '#000f1a', position: 'relative', paddingBottom: '56.25%' }}>
 
-                    {/* NOT yet clicked → show thumbnail via CSS background-image + play button */}
+                    {/* ── STATE 1: Thumbnail + Click to Play ── */}
                     {!playing && (
-                        <button
-                            onClick={() => setPlaying(true)}
-                            style={{
-                                position: 'absolute', inset: 0,
-                                width: '100%', height: '100%',
-                                border: 'none', cursor: 'pointer',
-                                // CSS background-image is NOT blocked by img-src CSP
-                                backgroundImage: `url(https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg)`,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
-                                backgroundColor: '#0f172a',  // fallback if thumbnail fails
-                                // Use flex to center the play button — no absolute children needed
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 14,
-                            }}>
-                            {/* Dark gradient overlay so play button is always visible */}
-                            <div style={{
-                                position: 'absolute', inset: 0,
-                                background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.45) 100%)',
-                                pointerEvents: 'none',
-                            }} />
-                            {/* Play circle */}
-                            <div style={{
-                                position: 'relative', zIndex: 2,
-                                width: 76, height: 76, borderRadius: '50%',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: subject.gradient,
-                                boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
-                            }}>
-                                <FiPlay size={30} color="#fff" style={{ marginLeft: 5 }} />
-                            </div>
-                            {/* Label */}
-                            <span style={{
-                                position: 'relative', zIndex: 2,
-                                color: '#fff', fontSize: 13, fontWeight: 800,
-                                background: 'rgba(0,0,0,0.55)',
-                                padding: '5px 16px', borderRadius: 999,
-                                letterSpacing: 0.5,
-                            }}>
-                                ▶ Click to Play
-                            </span>
-                        </button>
-                    )}
-
-                    {/* CLICKED → try iframe, show fallback if blocked */}
-                    {playing && (
-                        <>
-                            {/* Fallback shown while loading or if blocked */}
-                            {embedOk !== true && (
+                        <div style={{ position: 'absolute', inset: 0 }}>
+                            {/* Thumbnail image — CSP img-src * now allows all images */}
+                            {!thumbError ? (
+                                <img
+                                    src={thumbHQ}
+                                    alt={video.title}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                    onError={() => setThumbError(true)}
+                                />
+                            ) : (
+                                // Fallback when thumbnail fails — gradient background with subject color
                                 <div style={{
-                                    position:'absolute', inset:0, display:'flex', flexDirection:'column',
-                                    alignItems:'center', justifyContent:'center', gap:16,
-                                    background: 'linear-gradient(135deg,#0f172a,#1e1b4b)',
-                                    zIndex: embedOk === false ? 10 : 1,
+                                    width: '100%', height: '100%',
+                                    background: `linear-gradient(135deg, ${subject.color}44, #0f172a)`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
-                                    <span style={{ fontSize:48 }}>🎬</span>
-                                    {embedOk === null
-                                        ? <p style={{ color:'rgba(255,255,255,0.7)', fontSize:13 }}>Loading video…</p>
-                                        : <>
-                                            <p style={{ color:'#fff', fontWeight:900, fontSize:15, textAlign:'center', maxWidth:320 }}>
-                                                This video cannot be embedded
-                                            </p>
-                                            <p style={{ color:'rgba(255,255,255,0.6)', fontSize:12, textAlign:'center', maxWidth:300 }}>
-                                                The channel owner has disabled embedding. Watch it directly on YouTube — it's free!
-                                            </p>
-                                        </>
-                                    }
-                                    <a href={ytUrl} target="_blank" rel="noopener noreferrer"
-                                        style={{
-                                            display:'flex', alignItems:'center', gap:8,
-                                            padding:'12px 28px', borderRadius:14, fontWeight:900, fontSize:14,
-                                            background:'#ef4444', color:'#fff', textDecoration:'none',
-                                            boxShadow:'0 8px 24px rgba(239,68,68,0.5)',
-                                        }}>
-                                        <FiYoutube size={18} />
-                                        Watch on YouTube →
-                                    </a>
+                                    <span style={{ fontSize: 64 }}>{subject.icon}</span>
                                 </div>
                             )}
-                            {/* The actual iframe — hidden behind fallback if blocked */}
+
+                            {/* Dark scrim */}
+                            <div style={{
+                                position: 'absolute', inset: 0,
+                                background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.5) 100%)',
+                            }} />
+
+                            {/* Play button — centered absolutely */}
+                            <button
+                                onClick={() => setPlaying(true)}
+                                style={{
+                                    position: 'absolute', inset: 0, width: '100%', height: '100%',
+                                    background: 'transparent', border: 'none', cursor: 'pointer',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12,
+                                }}>
+                                <div style={{
+                                    width: 80, height: 80, borderRadius: '50%',
+                                    background: subject.gradient,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: '0 8px 48px rgba(0,0,0,0.8), 0 0 0 4px rgba(255,255,255,0.15)',
+                                }}>
+                                    <FiPlay size={32} color="#fff" style={{ marginLeft: 5 }} />
+                                </div>
+                                <span style={{
+                                    color: '#fff', fontSize: 13, fontWeight: 800,
+                                    background: 'rgba(0,0,0,0.6)', padding: '6px 18px', borderRadius: 999,
+                                    letterSpacing: 0.4, backdropFilter: 'blur(4px)',
+                                }}>
+                                    ▶ Click to Play
+                                </span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ── STATE 2: Loading + iframe attempt ── */}
+                    {playing && (
+                        <>
+                            {/* Loading / failed overlay */}
+                            {embedOk !== true && (
+                                <div style={{
+                                    position: 'absolute', inset: 0, zIndex: 10,
+                                    background: 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%)',
+                                    display: 'flex', flexDirection: 'column',
+                                    alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24,
+                                }}>
+                                    {embedOk === null ? (
+                                        <>
+                                            {/* Spinner */}
+                                            <div style={{
+                                                width: 52, height: 52, borderRadius: '50%',
+                                                border: `4px solid ${subject.color}30`,
+                                                borderTop: `4px solid ${subject.color}`,
+                                                animation: 'spin 0.9s linear infinite',
+                                            }} />
+                                            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                                                Loading video…
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span style={{ fontSize: 48 }}>📺</span>
+                                            <p style={{ color: '#fff', fontWeight: 900, fontSize: 16, textAlign: 'center' }}>
+                                                Video unavailable to embed
+                                            </p>
+                                            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, textAlign: 'center', maxWidth: 300, lineHeight: 1.6 }}>
+                                                This video may be deleted, private, or embedding was disabled by the channel.
+                                                Watch it on YouTube or search for similar content.
+                                            </p>
+                                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                                <a href={ytUrl} target="_blank" rel="noopener noreferrer" style={{
+                                                    display: 'flex', alignItems: 'center', gap: 8,
+                                                    padding: '11px 22px', borderRadius: 14, fontWeight: 900, fontSize: 13,
+                                                    background: '#ef4444', color: '#fff', textDecoration: 'none',
+                                                    boxShadow: '0 6px 20px rgba(239,68,68,0.45)',
+                                                }}>
+                                                    <FiYoutube size={16} /> Watch on YouTube →
+                                                </a>
+                                                <a href={ytSearch} target="_blank" rel="noopener noreferrer" style={{
+                                                    display: 'flex', alignItems: 'center', gap: 8,
+                                                    padding: '11px 22px', borderRadius: 14, fontWeight: 900, fontSize: 13,
+                                                    background: 'rgba(255,255,255,0.12)', color: '#fff', textDecoration: 'none',
+                                                    border: '1px solid rgba(255,255,255,0.2)',
+                                                }}>
+                                                    🔍 Search Similar Videos
+                                                </a>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Actual iframe — using youtube-nocookie for better embed compatibility */}
                             <iframe
                                 src={embedUrl}
                                 title={video.title}
@@ -1249,26 +1281,26 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                                 allowFullScreen
                                 onLoad={() => setEmbedOk(true)}
                                 style={{
-                                    position:'absolute', top:0, left:0,
-                                    width:'100%', height:'100%', border:'none',
-                                    zIndex: embedOk === true ? 5 : 0,
+                                    position: 'absolute', top: 0, left: 0,
+                                    width: '100%', height: '100%', border: 'none',
+                                    zIndex: embedOk === true ? 15 : 0,
+                                    opacity: embedOk === true ? 1 : 0,
                                 }}
                             />
                         </>
                     )}
                 </div>
 
-                {/* ── Footer ─────────────────────────────────────────────── */}
+                {/* ── Footer ── */}
                 <div className="bg-white px-5 py-3 flex items-center justify-between flex-wrap gap-2">
                     <span className="text-xs text-green-600 font-bold flex items-center gap-1">
                         <FiCheck size={12} /> Marked as watched
                     </span>
-                    <div className="flex items-center gap-3">
-                        {playing && embedOk === false && (
-                            <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-lg">
-                                ⚠️ Embedding blocked by channel
-                            </span>
-                        )}
+                    <div className="flex items-center gap-2">
+                        <a href={ytSearch} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all">
+                            🔍 Search Topic
+                        </a>
                         <a href={ytUrl} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90"
                             style={{ background: '#ef4444' }}>
@@ -1277,10 +1309,15 @@ function VideoModal({ video, subject, onClose }: { video: Video; subject: Subjec
                     </div>
                 </div>
             </div>
-            <style>{`@keyframes scaleIn{from{transform:scale(0.9);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
+            <style>{`
+                @keyframes scaleIn { from{transform:scale(0.9);opacity:0} to{transform:scale(1);opacity:1} }
+                @keyframes spin    { to{transform:rotate(360deg)} }
+            `}</style>
         </div>
     );
 }
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QUIZ COMPONENT
