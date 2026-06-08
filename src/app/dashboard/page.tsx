@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import AppHub from '@/components/AppHub';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
@@ -33,6 +35,7 @@ const pct = (a: number, b: number) => b > 0 ? Math.round((a / b) * 100) : 0;
 type DateRange = 'today' | 'week' | 'month' | 'term' | 'year' | 'custom';
 
 export default function DashboardPage() {
+    const { theme } = useTheme();
     const [activeTab, setActiveTab] = useState<TabKey>('overview');
     const [dateRange, setDateRange] = useState<DateRange>('term');
     const [customFrom, setCustomFrom] = useState('');
@@ -321,6 +324,9 @@ export default function DashboardPage() {
     };
 
     const chartBase = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
+
+    // ── Theme-aware: show App Hub for non-default themes ──
+    if (theme === 'light-soft' || theme === 'full-system') return <AppHub />;
 
     if (loading) return (
         <div className="flex items-center justify-center h-[60vh]">

@@ -15,6 +15,8 @@ import {
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
 import CommandPalette from '@/components/CommandPalette';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import LayoutThemeExtras, { ThemeSwitcher } from '@/components/LayoutThemeExtras';
 import PremierDashboard from '@/components/PremierDashboard';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import QuickActionsButton from '@/components/QuickActionsButton';
@@ -360,18 +362,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // ═══ PREMIER THEME ═══
     if (dashTheme === 'premier') {
         return (
-            <>
-                <CommandPalette />
-                <QuickActionsButton />
-                <PremierDashboard user={user} onLogout={handleLogout}>
-                    {children}
-                </PremierDashboard>
-            </>
+            <ThemeProvider>
+                <LayoutThemeExtras>
+                    <CommandPalette />
+                    <QuickActionsButton />
+                    <PremierDashboard user={user} onLogout={handleLogout}>
+                        {children}
+                    </PremierDashboard>
+                </LayoutThemeExtras>
+            </ThemeProvider>
         );
     }
 
     // ═══ SIDEBAR THEME (default) ═══
     return (
+        <ThemeProvider>
+        <LayoutThemeExtras>
         <div className="min-h-screen bg-[#f0f2f5] flex font-sans text-gray-800">
             <CommandPalette />
             <QuickActionsButton />
@@ -584,6 +590,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Link href="/dashboard/settings" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors" title="Settings">
                             <FiSettings size={17} />
                         </Link>
+                        {/* 🎨 Theme Switcher */}
+                        <ThemeSwitcher />
                     </div>
                 </header>
 
@@ -593,6 +601,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
             </main>
         </div>
+        </LayoutThemeExtras>
+        </ThemeProvider>
     );
 }
 
