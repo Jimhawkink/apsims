@@ -11,7 +11,7 @@ import {
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
     FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive,
-    FiWifi, FiWifiOff, FiTruck
+    FiWifi, FiWifiOff, FiTruck, FiAward
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
 import CommandPalette from '@/components/CommandPalette';
@@ -88,6 +88,33 @@ const menuGroups = [
             { href: '/dashboard/students/subject-combinations', label: 'CBC Subject Combos', icon: FiGrid, perm: 'students' },
             { href: '/dashboard/remedial', label: 'Remedial Programs', icon: FiTrendingUp, perm: 'remedial' },
             { href: '/dashboard/exams/kcse-prediction', label: '🎯 KCSE/KCPE Prediction', icon: FiBarChart2, perm: 'exams' },
+        ]
+    },
+    {
+        label: "🏆 Exam Analytics",
+        icon: FiBarChart2,
+        name: 'exam-analytics',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/exams/analytics-hub',        label: '📊 Analytics Command Center', icon: FiBarChart2, perm: 'exams' },
+            { href: '/dashboard/exams/executive-dashboard',  label: '🏛️ Executive Dashboard',      icon: FiPieChart,  perm: 'exams' },
+            { href: '/dashboard/exams/ai-insights',          label: '🤖 AI Insights Engine',       icon: FiZap,       perm: 'exams' },
+            { href: '/dashboard/exams/grade-heatmap',        label: '🌡️ Grade Heatmap',            icon: FiGrid,      perm: 'exams' },
+            { href: '/dashboard/exams/student-trajectory',   label: '📈 Student Trajectory',       icon: FiTrendingUp, perm: 'exams' },
+            { href: '/dashboard/exams/national-readiness',   label: '🇰🇪 KCSE Readiness',          icon: FiAward,     perm: 'exams' },
+            { href: '/dashboard/exams/value-added',          label: '➕ Value-Added Analysis',     icon: FiTrendingUp, perm: 'exams' },
+            { href: '/dashboard/exams/teacher-correlation',  label: '👩‍🏫 Teacher Analytics',       icon: FiUsers,     perm: 'exams' },
+            { href: '/dashboard/exams/stream-battle',        label: '⚡ Stream Battle',            icon: FiBarChart2, perm: 'exams' },
+            { href: '/dashboard/exams/grade-distribution',   label: '🔔 Grade Distribution',       icon: FiBarChart2, perm: 'exams' },
+            { href: '/dashboard/exams/intervention-engine',  label: '🚨 Intervention Engine',      icon: FiAlertCircle, perm: 'exams' },
+            { href: '/dashboard/exams/exam-integrity',       label: '🛡️ Exam Integrity',           icon: FiShield,    perm: 'exams' },
+            { href: '/dashboard/exams/term-trend',           label: '📆 Multi-Term Trend',         icon: FiTrendingUp, perm: 'exams' },
+            { href: '/dashboard/exams/subject-difficulty',   label: '📊 Subject Difficulty',       icon: FiBarChart2, perm: 'exams' },
+            { href: '/dashboard/exams/peer-comparison',      label: '👥 Peer Comparison',          icon: FiUsers,     perm: 'exams' },
+            { href: '/dashboard/exams/school-ranking',       label: '🎖️ School Rankings',          icon: FiAward,     perm: 'exams' },
+            { href: '/dashboard/exams/cbc-reports/competency-wheel', label: '☯️ CBC Competency Wheel', icon: FiGrid, perm: 'exams' },
+            { href: '/dashboard/exams/cbc-reports/pathway-engine',   label: '🛤️ CBC Pathway Engine',  icon: FiTrendingUp, perm: 'exams' },
+            { href: '/dashboard/exams/cbc-reports/rubric-analytics', label: '📏 CBC Rubric Analytics', icon: FiBarChart2, perm: 'exams' },
         ]
     },
     {
