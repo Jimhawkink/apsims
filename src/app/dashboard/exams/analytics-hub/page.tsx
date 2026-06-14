@@ -14,6 +14,14 @@ import {
 } from 'chart.js';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, RadialLinearScale, Title, Tooltip, Legend, Filler);
+// ── Force system fonts everywhere — NO Google Fonts ──────────────────────────
+const SYS_FONT = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+ChartJS.defaults.font.family   = SYS_FONT;
+ChartJS.defaults.font.size     = 11;
+ChartJS.defaults.color         = '#6b7280';
+ChartJS.defaults.plugins.tooltip.bodyFont  = { family: SYS_FONT, size: 11 };
+ChartJS.defaults.plugins.tooltip.titleFont = { family: SYS_FONT, size: 11, weight: 'bold' };
+ChartJS.defaults.plugins.legend.labels.font = { family: SYS_FONT, size: 11 };
 
 const BASE = '/dashboard/exams';
 
@@ -645,111 +653,153 @@ export default function AnalyticsHubPage() {
       ))}
 
       {/* ═══════════════════════════════════════════════════════════
-          LIVE DATA ANALYTICS SECTION — Charts, Graphs & Summaries
+          LIVE DATA ANALYTICS SECTION — same design language as stores/ultra
       ═══════════════════════════════════════════════════════════ */}
       <div className="space-y-4">
-        {/* Section header */}
+        {/* ── Section Header ── matches stores/ultra group headers */}
         <div className="flex items-center gap-3">
           <div className="w-1 h-7 rounded-full flex-shrink-0" style={{ background:'linear-gradient(180deg,#6366f1,#0891b2)' }}/>
-          <h2 className="text-sm font-extrabold text-gray-700 uppercase tracking-wider">📊 Live Analytics Dashboard — Charts, Trends & Summaries</h2>
+          <h2 className="text-sm font-extrabold text-gray-700 uppercase tracking-wider">Live Data Analytics — Charts · Trends · Summaries</h2>
           <div className="flex-1 h-px bg-gray-100"/>
-          <button onClick={()=>window.print()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 no-print"><FiPrinter size={11}/>Print</button>
+          <button onClick={()=>window.print()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white/70 hover:text-white hover:bg-white/10 transition"
+            style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+            <FiPrinter size={12}/>Print Report
+          </button>
         </div>
 
-        {/* ── ROW 1: Performance Trend + Grade Doughnut ── */}
+        {/* ── ROW 1: Performance Trend Line + Grade Doughnut ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Trend Line Chart */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-1">
-              <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">📈 Multi-Exam Performance Trend</p>
-                <p className="text-xs text-gray-400 mt-0.5">School average vs 50% pass threshold across exam periods</p>
-              </div>
+
+          {/* Trend Chart — ultra card style */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5"><div className="w-3 h-1.5 rounded-full bg-indigo-500"/><span className="text-[10px] text-gray-400">School avg</span></div>
-                <div className="flex items-center gap-1.5"><div className="w-3 h-1.5 rounded-full bg-amber-500"/><span className="text-[10px] text-gray-400">50% target</span></div>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>📈</div>
+                <div>
+                  <p className="text-xs font-extrabold text-gray-800">Multi-Exam Performance Trend</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">School avg vs 50% pass threshold</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5"><div className="w-3 h-1.5 rounded-full bg-indigo-500"/><span className="text-[9px] font-bold text-gray-400 uppercase">School avg</span></div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-1.5 rounded-full bg-amber-500"/><span className="text-[9px] font-bold text-gray-400 uppercase">50% target</span></div>
               </div>
             </div>
-            <div style={{ height:220 }}>
+            <div className="p-5" style={{ height:240 }}>
               {trendChart
-                ? <Line data={trendChart} options={{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:false,min:0,max:100,grid:{color:'#f8fafc'},ticks:{callback:(v:any)=>`${v}%`,font:{size:10}}}, x:{grid:{display:false},ticks:{font:{size:10}}} } }}/>
-                : <div className="flex items-center justify-center h-full text-gray-300 text-sm">Loading trend data…</div>}
+                ? <Line data={trendChart} options={{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{backgroundColor:'#0f172a',titleFont:{size:11,weight:'bold'},bodyFont:{size:11},padding:10,cornerRadius:8}}, scales:{ y:{beginAtZero:false,min:0,max:100,grid:{color:'#f8fafc'},ticks:{callback:(v:any)=>`${v}%`,font:{size:10,weight:'bold'}}}, x:{grid:{display:false},ticks:{font:{size:10}}} } }}/>
+                : <div className="flex items-center justify-center h-full"><p className="text-sm font-bold text-gray-300">Loading trend data…</p></div>}
             </div>
           </div>
 
-          {/* Grade Distribution Doughnut */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">🎯 Grade Distribution</p>
-            <p className="text-xs text-gray-400 mb-3">All exam records by grade band</p>
-            <div style={{ height:185 }}>
-              {gradeDistChart
-                ? <Doughnut data={gradeDistChart} options={{ responsive:true, maintainAspectRatio:false, cutout:'58%', plugins:{ legend:{ position:'right', labels:{ font:{size:10}, boxWidth:10 } } } }}/>
-                : <div className="flex items-center justify-center h-full text-gray-300 text-sm">Loading…</div>}
+          {/* Grade Doughnut */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background:'linear-gradient(135deg,#059669,#047857)' }}>🎯</div>
+              <div>
+                <p className="text-xs font-extrabold text-gray-800">Grade Distribution</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">All exam records by grade band</p>
+              </div>
             </div>
-            <div className="mt-3 grid grid-cols-5 gap-1 text-center">
-              {['A','B','C','D','E'].map((g,i)=>(
-                <div key={g}>
-                  <p className="text-xs font-black" style={{ color:['#14532d','#1d4ed8','#ca8a04','#dc2626','#7f1d1d'][i] }}>{gradeDistChart?.datasets[0].data[i]||0}</p>
-                  <p className="text-[9px] text-gray-400 font-bold">{g}</p>
+            <div className="p-5" style={{ height:185 }}>
+              {gradeDistChart
+                ? <Doughnut data={gradeDistChart} options={{ responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{ legend:{ position:'right', labels:{ font:{size:10,weight:'bold'}, boxWidth:10, padding:8 } } } }}/>
+                : <div className="flex items-center justify-center h-full"><p className="text-sm font-bold text-gray-300">Loading…</p></div>}
+            </div>
+            {/* Grade count pills — same style as stores/ultra KPI mini pills */}
+            <div className="px-4 py-3 border-t border-gray-100 grid grid-cols-5 gap-1">
+              {[{g:'A',c:'#059669'},{g:'B',c:'#1d4ed8'},{g:'C',c:'#ca8a04'},{g:'D',c:'#dc2626'},{g:'E',c:'#7f1d1d'}].map((item,i)=>(
+                <div key={item.g} className="rounded-lg py-1.5 text-center" style={{ background:`${item.c}12` }}>
+                  <p className="text-sm font-black" style={{ color:item.c }}>{gradeDistChart?.datasets[0].data[i]||0}</p>
+                  <p className="text-[9px] font-bold uppercase" style={{ color:item.c }}>Grd {item.g}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* ── ROW 2: Subject Avg Bar + Score Histogram ── */}
+        {/* ── ROW 2: Subject Avg Bar + Histogram ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Subject Performance Bar */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">📚 Subject Average Scores</p>
-            <p className="text-xs text-gray-400 mb-3">Green ≥70% · Blue ≥50% · Amber ≥40% · Red &lt;40% — click subject for full analytics</p>
-            <div style={{ height:230 }}>
+
+          {/* Subject Performance — horizontal bar */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background:'linear-gradient(135deg,#0891b2,#0e7490)' }}>📚</div>
+              <div className="flex-1">
+                <p className="text-xs font-extrabold text-gray-800">Subject Average Scores</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  <span className="text-green-600">■</span> ≥70% &nbsp;
+                  <span className="text-blue-600">■</span> ≥50% &nbsp;
+                  <span className="text-amber-600">■</span> ≥40% &nbsp;
+                  <span className="text-red-600">■</span> &lt;40%
+                </p>
+              </div>
+            </div>
+            <div className="p-5" style={{ height:240 }}>
               {subjectChart
-                ? <Bar data={subjectChart} options={{ indexAxis:'y' as const, responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{beginAtZero:true,max:100,grid:{color:'#f8fafc'},ticks:{callback:(v:any)=>`${v}%`,font:{size:10}}}, y:{grid:{display:false},ticks:{font:{size:10}}} } }}/>
-                : <div className="flex items-center justify-center h-full text-gray-300 text-sm">Loading subjects…</div>}
+                ? <Bar data={subjectChart} options={{ indexAxis:'y' as const, responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{backgroundColor:'#0f172a',padding:10,cornerRadius:8,bodyFont:{size:11}}}, scales:{ x:{beginAtZero:true,max:100,grid:{color:'#f8fafc'},ticks:{callback:(v:any)=>`${v}%`,font:{size:10,weight:'bold'}}}, y:{grid:{display:false},ticks:{font:{size:10,weight:'bold'}}} } }}/>
+                : <div className="flex items-center justify-center h-full"><p className="text-sm font-bold text-gray-300">Loading subjects…</p></div>}
             </div>
           </div>
 
           {/* Score Histogram */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">📊 Score Distribution Histogram</p>
-            <p className="text-xs text-gray-400 mb-3">How many students fall in each 10-mark band · Purple = pass · Red = fail</p>
-            <div style={{ height:230 }}>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background:'linear-gradient(135deg,#7c3aed,#5b21b6)' }}>📊</div>
+              <div>
+                <p className="text-xs font-extrabold text-gray-800">Score Distribution Histogram</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Students per 10-mark band · Purple=pass · Red=fail</p>
+              </div>
+            </div>
+            <div className="p-5" style={{ height:240 }}>
               {histChart
-                ? <Bar data={histChart} options={{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,grid:{color:'#f8fafc'},ticks:{font:{size:10}}}, x:{grid:{display:false},ticks:{font:{size:10}}} } }}/>
-                : <div className="flex items-center justify-center h-full text-gray-300 text-sm">Loading histogram…</div>}
+                ? <Bar data={histChart} options={{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{backgroundColor:'#0f172a',padding:10,cornerRadius:8}}, scales:{ y:{beginAtZero:true,grid:{color:'#f8fafc'},ticks:{font:{size:10,weight:'bold'}}}, x:{grid:{display:false},ticks:{font:{size:10}}} } }}/>
+                : <div className="flex items-center justify-center h-full"><p className="text-sm font-bold text-gray-300">Loading histogram…</p></div>}
             </div>
           </div>
         </div>
 
         {/* ── ROW 3: Form Comparison + Gender Analysis ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
           {/* Form Average Comparison */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">🏫 Form Performance Comparison</p>
-            <p className="text-xs text-gray-400 mb-3">Average exam score per form class — which form leads?</p>
-            <div style={{ height:200 }}>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background:'linear-gradient(135deg,#d97706,#b45309)' }}>🏫</div>
+              <div>
+                <p className="text-xs font-extrabold text-gray-800">Form Performance Comparison</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Average score per form — which form leads?</p>
+              </div>
+            </div>
+            <div className="p-5" style={{ height:210 }}>
               {formChart
-                ? <Bar data={formChart} options={{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,max:100,grid:{color:'#f8fafc'},ticks:{callback:(v:any)=>`${v}%`,font:{size:10}}}, x:{grid:{display:false},ticks:{font:{size:11,weight:'bold' as const}}} } }}/>
-                : <div className="flex items-center justify-center h-full text-gray-300 text-sm">Loading form data…</div>}
+                ? <Bar data={formChart} options={{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{backgroundColor:'#0f172a',padding:10,cornerRadius:8}}, scales:{ y:{beginAtZero:true,max:100,grid:{color:'#f8fafc'},ticks:{callback:(v:any)=>`${v}%`,font:{size:10,weight:'bold'}}}, x:{grid:{display:false},ticks:{font:{size:11,weight:'bold' as const}}} } }}/>
+                : <div className="flex items-center justify-center h-full"><p className="text-sm font-bold text-gray-300">Loading form data…</p></div>}
             </div>
           </div>
 
           {/* Gender Comparison */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">⚥ Gender Performance Analysis</p>
-            <p className="text-xs text-gray-400 mb-3">Average score comparison: male students vs female students</p>
-            <div style={{ height:200 }}>
-              {genderChart
-                ? <Bar data={genderChart} options={{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,max:100,grid:{color:'#f8fafc'},ticks:{callback:(v:any)=>`${v}%`,font:{size:10}}}, x:{grid:{display:false},ticks:{font:{size:12,weight:'bold' as const}}} } }}/>
-                : <div className="flex items-center justify-center h-full text-gray-300 text-sm">Loading gender data…</div>}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>⚥</div>
+              <div>
+                <p className="text-xs font-extrabold text-gray-800">Gender Performance Analysis</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Average score: male vs female students</p>
+              </div>
             </div>
+            <div className="p-5" style={{ height:160 }}>
+              {genderChart
+                ? <Bar data={genderChart} options={{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{backgroundColor:'#0f172a',padding:10,cornerRadius:8}}, scales:{ y:{beginAtZero:true,max:100,grid:{color:'#f8fafc'},ticks:{callback:(v:any)=>`${v}%`,font:{size:10,weight:'bold'}}}, x:{grid:{display:false},ticks:{font:{size:12,weight:'bold' as const}}} } }}/>
+                : <div className="flex items-center justify-center h-full"><p className="text-sm font-bold text-gray-300">Loading gender data…</p></div>}
+            </div>
+            {/* Gender KPI pills — same as stores/ultra pill pattern */}
             {genderChart && (
-              <div className="mt-3 flex justify-around">
-                {[{label:'Male',c:'#6366f1',v:genderChart.datasets[0].data[0]},{label:'Female',c:'#ec4899',v:genderChart.datasets[0].data[1]}].map(g=>(
-                  <div key={g.label} className="text-center">
+              <div className="px-5 py-3 border-t border-gray-100 grid grid-cols-2 gap-3">
+                {[{label:'Male Average',c:'#6366f1',bg:'#eef2ff',v:genderChart.datasets[0].data[0]},{label:'Female Average',c:'#ec4899',bg:'#fdf2f8',v:genderChart.datasets[0].data[1]}].map(g=>(
+                  <div key={g.label} className="rounded-xl p-3 text-center" style={{ background:g.bg }}>
                     <p className="text-2xl font-black" style={{ color:g.c }}>{g.v}%</p>
-                    <p className="text-[10px] text-gray-400 font-bold">{g.label} Average</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color:g.c }}>{g.label}</p>
                   </div>
                 ))}
               </div>
@@ -757,111 +807,144 @@ export default function AnalyticsHubPage() {
           </div>
         </div>
 
-        {/* ── ROW 4: Summary KPI Strip ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {[
-            { label:'Mean Grade',    v:meanGrade,                  icon:'🎯', c:'#6366f1', bg:'#eef2ff' },
-            { label:'Pass Rate',     v:stats.passRate+'%',          icon:'✅', c:stats.passRate>=50?'#059669':'#dc2626', bg:stats.passRate>=50?'#ecfdf5':'#fef2f2' },
-            { label:'School Avg',    v:stats.avg+'%',               icon:'📈', c:'#0891b2', bg:'#ecfeff' },
-            { label:'Grade A Count', v:stats.gradeA,                icon:'🏆', c:'#d97706', bg:'#fffbeb' },
-            { label:'Grade E Count', v:stats.gradeE,                icon:'⚠️', c:'#dc2626', bg:'#fef2f2' },
-            { label:'Total Exams',   v:stats.exams,                 icon:'📝', c:'#7c3aed', bg:'#faf5ff' },
-            { label:'Subjects',      v:stats.subjects,              icon:'📚', c:'#059669', bg:'#ecfdf5' },
-            { label:'At-Risk Count', v:atRisk.length,               icon:'🚨', c:atRisk.length>0?'#dc2626':'#059669', bg:atRisk.length>0?'#fef2f2':'#ecfdf5' },
-          ].map(k=>(
-            <div key={k.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-2 hover:shadow-md transition-shadow">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg" style={{ background:k.bg }}>{k.icon}</div>
-              <div><p className="text-lg font-black" style={{ color:k.c }}>{loading?'…':k.v}</p><p className="text-[9px] text-gray-400 font-bold uppercase leading-tight">{k.label}</p></div>
+        {/* ── ROW 4: KPI Summary Strip — same glassmorphism style as stores/ultra but light ── */}
+        <div className="relative overflow-hidden rounded-2xl" style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)' }}>
+          <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage:'radial-gradient(circle at 1px 1px,#fff 1px,transparent 0)', backgroundSize:'24px 24px' }}/>
+          <div className="relative px-5 py-4">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-white/40 mb-3">📊 School Analytics Summary</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+              {[
+                { label:'Mean Grade',    v: loading?'…':meanGrade,          icon:'🎯', pulse:false },
+                { label:'Pass Rate',     v: loading?'…':stats.passRate+'%', icon:'✅', pulse:stats.passRate>0&&stats.passRate<50 },
+                { label:'School Avg',   v: loading?'…':stats.avg+'%',       icon:'📈', pulse:false },
+                { label:'Grade A Count',v: loading?'…':stats.gradeA,        icon:'🏆', pulse:false },
+                { label:'Grade E Count',v: loading?'…':stats.gradeE,        icon:'⚠️', pulse:stats.gradeE>0 },
+                { label:'Total Exams',  v: loading?'…':stats.exams,         icon:'📝', pulse:false },
+                { label:'Subjects',     v: loading?'…':stats.subjects,      icon:'📚', pulse:false },
+                { label:'At-Risk',      v: loading?'…':atRisk.length,       icon:'🚨', pulse:atRisk.length>0 },
+              ].map((k,i)=>(
+                <div key={i}
+                  className={`rounded-xl p-3 transition-all hover:scale-[1.04] ${k.pulse?'animate-pulse':''}`}
+                  style={{ background:'rgba(255,255,255,0.08)', backdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.12)' }}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-sm">{k.icon}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-white/50">{k.label}</span>
+                  </div>
+                  <p className="text-xl font-black text-white">{k.v}</p>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
 
-        {/* ── ROW 5: Top Students + At-Risk Students ── */}
+        {/* ── ROW 5: Top Students + At-Risk — styled exactly like stores/ultra inventory table ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
           {/* Top 10 Students */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">🏆 Top 10 Students — School Wide</p>
-                <p className="text-xs text-gray-400 mt-0.5">Ranked by overall average across all exams</p>
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background:'linear-gradient(135deg,#d97706,#b45309)' }}>🏆</div>
+                <div>
+                  <p className="text-xs font-extrabold text-gray-800">Top 10 Students — School Wide</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ranked by overall average across all exams</p>
+                </div>
               </div>
-              <button onClick={exportTopStudentsCSV} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100"><FiDownload size={10}/>CSV</button>
+              <button onClick={exportTopStudentsCSV} className="px-3 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 shadow-sm" style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+                <FiDownload size={12}/>CSV
+              </button>
             </div>
             {topStudents.length===0
-              ?<div className="p-8 text-center text-gray-300"><p className="text-3xl mb-2">📊</p><p className="text-sm">No marks data yet</p></div>
-              :(<div className="overflow-hidden">
+              ?<div className="p-10 text-center"><p className="text-4xl mb-2">📊</p><p className="text-sm font-bold text-gray-400">No marks data yet</p></div>
+              :(<>
+                {/* Table header — same as stores/ultra */}
+                <div className="grid px-4 py-2 bg-gray-50 border-b border-gray-200" style={{ gridTemplateColumns:'2rem 2rem 1fr 5rem 3rem' }}>
+                  {['#','','Student','Avg','Grade'].map(h=><span key={h} className="text-[10px] font-bold text-gray-500 uppercase">{h}</span>)}
+                </div>
                 {topStudents.map((s,i)=>{
                   const grade=avgToGrade(s.avg);
                   const medals:Record<number,string>={0:'🥇',1:'🥈',2:'🥉'};
+                  const gradeCol=grade==='A'?'#059669':grade.startsWith('B')?'#1d4ed8':grade.startsWith('C')?'#ca8a04':'#dc2626';
                   return(
-                    <div key={s.id} className={`flex items-center gap-3 px-5 py-3 border-b border-gray-50 hover:bg-indigo-50/30 transition-colors ${i<3?'bg-amber-50/20':''}`}>
-                      <div className="w-7 text-center flex-shrink-0">
-                        {medals[i]?<span className="text-base">{medals[i]}</span>:<span className="text-xs font-black text-gray-400">#{i+1}</span>}
-                      </div>
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-black flex-shrink-0"
+                    <div key={s.id} className={`grid items-center px-4 py-2.5 border-b border-gray-100 hover:bg-indigo-50/30 transition-colors ${i<3?'bg-amber-50/20':''}`}
+                      style={{ gridTemplateColumns:'2rem 2rem 1fr 5rem 3rem' }}>
+                      <span className="text-xs font-black text-gray-400">{medals[i]||`#${i+1}`}</span>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-black"
                         style={{ background:i===0?'linear-gradient(135deg,#d97706,#f59e0b)':i===1?'linear-gradient(135deg,#6b7280,#9ca3af)':i===2?'linear-gradient(135deg,#b45309,#d97706)':'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
                         {s.first_name?.[0]}
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 pl-1">
                         <p className="font-extrabold text-gray-800 text-sm truncate">{s.first_name} {s.last_name}</p>
-                        <p className="text-[10px] text-gray-400">{s.admission_no||'—'}</p>
+                        <p className="text-[9px] text-gray-400 font-bold">{s.admission_no||'—'}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 bg-gray-100 rounded-full h-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1 bg-gray-100 rounded-full h-1.5">
                           <div className="h-1.5 rounded-full" style={{ width:`${Math.min(100,s.avg)}%`, background:'linear-gradient(90deg,#6366f1,#8b5cf6)' }}/>
                         </div>
-                        <span className="font-black text-sm text-gray-800 w-10 text-right">{s.avg}%</span>
-                        <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black text-white" style={{ background:grade==='A'?'#14532d':grade.startsWith('B')?'#1d4ed8':grade.startsWith('C')?'#ca8a04':'#dc2626' }}>{grade}</span>
+                        <span className="text-xs font-black text-gray-800 w-8 text-right">{s.avg}%</span>
                       </div>
+                      <span className="text-[9px] font-black text-white px-1.5 py-0.5 rounded-md text-center" style={{ background:gradeCol }}>{grade}</span>
                     </div>
                   );
                 })}
-              </div>)}
+                <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500 flex justify-between">
+                  <span>Top {topStudents.length} students</span>
+                  <Link href={`${BASE}/school-ranking`} className="text-indigo-600 font-bold flex items-center gap-1">Full Rankings <FiArrowRight size={10}/></Link>
+                </div>
+              </>)}
           </div>
 
           {/* At-Risk Students */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b" style={{ background:'linear-gradient(135deg,#fef2f2,#fff)' }}>
-              <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">🚨 At-Risk Students — Urgent Intervention</p>
-              <p className="text-xs text-gray-400 mt-0.5">Students scoring below 40% — need immediate teacher attention</p>
+            <div className="px-5 py-3 border-b" style={{ background:'linear-gradient(135deg,#fef2f2,#fff9f9)' }}>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background:'linear-gradient(135deg,#dc2626,#991b1b)' }}>🚨</div>
+                <div>
+                  <p className="text-xs font-extrabold text-gray-800">At-Risk Students — Urgent Intervention</p>
+                  <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Scoring below 40% · needs immediate attention</p>
+                </div>
+              </div>
             </div>
             {atRisk.length===0
-              ?<div className="p-8 text-center">
-                <p className="text-3xl mb-2">✅</p>
-                <p className="text-sm font-bold text-green-600">No at-risk students detected!</p>
-                <p className="text-xs text-gray-400 mt-1">All students with marks are above the 40% threshold</p>
+              ?<div className="p-10 text-center">
+                <p className="text-4xl mb-2">✅</p>
+                <p className="text-sm font-extrabold text-green-600">No at-risk students!</p>
+                <p className="text-xs text-gray-400 mt-1">All students above 40% threshold</p>
               </div>
-              :(<div className="overflow-hidden">
-                {atRisk.map((s,i)=>{
-                  const severity=s.avg<25?'Critical':s.avg<33?'High':'Medium';
-                  const sc:Record<string,{c:string;bg:string}>={Critical:{c:'#dc2626',bg:'#fef2f2'},High:{c:'#d97706',bg:'#fffbeb'},Medium:{c:'#0891b2',bg:'#ecfeff'}};
+              :(<>
+                {/* Table header */}
+                <div className="grid px-4 py-2 bg-red-50/50 border-b border-red-100" style={{ gridTemplateColumns:'2rem 1fr 4rem 4rem 3rem' }}>
+                  {['','Student','Score','Level','Act'].map(h=><span key={h} className="text-[10px] font-bold text-red-500 uppercase">{h}</span>)}
+                </div>
+                {atRisk.map((s)=>{
+                  const sev=s.avg<25?{l:'Critical',c:'#dc2626',bg:'#fef2f2'}:s.avg<33?{l:'High',c:'#d97706',bg:'#fffbeb'}:{l:'Medium',c:'#0891b2',bg:'#ecfeff'};
                   return(
-                    <div key={s.id} className="flex items-center gap-3 px-5 py-3 border-b border-gray-50 hover:bg-red-50/20 transition-colors">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-black flex-shrink-0"
-                        style={{ background:s.avg<25?'#dc2626':s.avg<33?'#d97706':'#0891b2' }}>
-                        {s.first_name?.[0]}
+                    <div key={s.id} className="grid items-center px-4 py-2.5 border-b border-gray-100 hover:bg-red-50/20 transition-colors"
+                      style={{ gridTemplateColumns:'2rem 1fr 4rem 4rem 3rem' }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-black flex-shrink-0"
+                        style={{ background:sev.c }}>{s.first_name?.[0]}
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 pl-1">
                         <p className="font-extrabold text-gray-800 text-sm truncate">{s.first_name} {s.last_name}</p>
-                        <p className="text-[10px] text-gray-400">{s.admission_no||'—'}</p>
+                        <p className="text-[9px] text-gray-400 font-bold">{s.admission_no||'—'}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-14 bg-gray-100 rounded-full h-1.5">
-                          <div className="h-1.5 rounded-full" style={{ width:`${s.avg}%`, background:'#dc2626' }}/>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="w-full bg-gray-100 rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full" style={{ width:`${s.avg}%`, background:sev.c }}/>
                         </div>
-                        <span className="font-black text-sm text-red-600 w-10 text-right">{s.avg}%</span>
-                        <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black" style={{ color:sc[severity].c, background:sc[severity].bg }}>{severity}</span>
+                        <span className="text-[10px] font-black" style={{ color:sev.c }}>{s.avg}%</span>
                       </div>
-                      <Link href={`${BASE}/intervention-engine`} className="px-2 py-1 rounded-lg text-[9px] font-black text-white" style={{ background:'#dc2626' }}>Act</Link>
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md" style={{ color:sev.c, background:sev.bg }}>{sev.l}</span>
+                      <Link href={`${BASE}/intervention-engine`} className="text-[9px] font-black text-white px-1.5 py-1 rounded-lg text-center" style={{ background:'#dc2626' }}>Act</Link>
                     </div>
                   );
                 })}
-              </div>)}
-            <div className="px-5 py-3 border-t bg-red-50/30">
-              <Link href={`${BASE}/intervention-engine`} className="flex items-center justify-center gap-2 text-xs font-bold text-red-600 hover:text-red-700">
-                View Full Intervention Engine <FiArrowRight size={12}/>
-              </Link>
-            </div>
+                <div className="px-4 py-2 bg-red-50/30 border-t border-red-100">
+                  <Link href={`${BASE}/intervention-engine`} className="flex items-center justify-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700">
+                    Full Intervention Engine <FiArrowRight size={11}/>
+                  </Link>
+                </div>
+              </>)}
           </div>
         </div>
 
