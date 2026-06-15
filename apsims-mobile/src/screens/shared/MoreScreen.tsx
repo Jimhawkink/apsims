@@ -5,7 +5,7 @@
 import React from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    StatusBar, SafeAreaView, Linking, Alert,
+    StatusBar, SafeAreaView, Linking, Alert, Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -13,6 +13,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../context/SessionContext';
 import { clearSession } from '../../lib/security';
+import { useTheme } from '../../context/ThemeContext';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,6 +40,7 @@ interface MenuSection {
 
 export default function MoreScreen() {
     const { session, setSession } = useSession();
+    const { isDark, toggleTheme } = useTheme();
     const navigation = useNavigation<NavProp>();
 
     const userType = session?.user_type;
@@ -372,12 +374,26 @@ export default function MoreScreen() {
                     </View>
                 ))}
 
-                {/* Support & App Info */}
+                {/* Settings */}
                 <View style={s.appInfo}>
                     <View style={s.appInfoCard}>
+                        {/* Dark Mode Row */}
+                        <View style={s.darkModeRow}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={s.darkModeLabel}>{isDark ? '🌙 Dark Mode' : '☀️ Light Mode'}</Text>
+                                <Text style={s.darkModeSub}>Switch app appearance</Text>
+                            </View>
+                            <Switch
+                                value={isDark}
+                                onValueChange={toggleTheme}
+                                trackColor={{ false: '#e2e8f0', true: '#1d4ed8' }}
+                                thumbColor={isDark ? '#60a5fa' : '#f1f5f9'}
+                            />
+                        </View>
+                        <View style={s.divider} />
                         <Text style={s.appInfoTitle}>💎 Ultra APSIMS</Text>
                         <Text style={s.appInfoSub}>Kenya's #1 School Management System</Text>
-                        <Text style={s.appInfoVersion}>v1.8.0 · Powered by Hawkinsoft Solutions</Text>
+                        <Text style={s.appInfoVersion}>v1.9.0 · Powered by Hawkinsoft Solutions</Text>
                         <View style={s.supportRow}>
                             <TouchableOpacity
                                 style={s.supportBtn}
@@ -456,4 +472,8 @@ const s = StyleSheet.create({
         paddingVertical: 10, alignItems: 'center',
     },
     supportBtnText: { fontSize: 12, fontWeight: '800', color: C.primary },
+    darkModeRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 4 },
+    darkModeLabel: { fontSize: 14, fontWeight: '800', color: C.text },
+    darkModeSub: { fontSize: 11, color: C.textSub, marginTop: 2 },
+    divider: { width: '100%', height: 1, backgroundColor: C.border, marginVertical: 14 },
 });

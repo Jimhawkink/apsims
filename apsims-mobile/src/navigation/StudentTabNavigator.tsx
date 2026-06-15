@@ -8,6 +8,7 @@ import NotificationBell from '../components/NotificationBell';
 // Screens
 import StudentDashboard from '../screens/student/StudentDashboard';
 import StudentAttendanceScreen from '../screens/student/AttendanceScreen';
+import ResultsScreen from '../screens/student/ResultsScreen';
 import StudentTimetableScreen from '../screens/student/TimetableScreen';
 import FeeBalanceScreen from '../screens/student/FeeBalanceScreen';
 import MoreScreen from '../screens/shared/MoreScreen';
@@ -57,8 +58,9 @@ export default function StudentTabNavigator() {
                 tabBarIcon: ({ focused }) => {
                     const icons: Record<string, string> = {
                         Home: '🏠',
-                        Attendance: '📅',
-                        Timetable: '🗓️',
+                        Attendance: '📋',
+                        Timetable: '📅',
+                        Results: '📊',
                         Library: '💰',
                         More: '⋯',
                     };
@@ -70,6 +72,7 @@ export default function StudentTabNavigator() {
             <Tab.Screen name="Home" component={StudentDashboard} options={{ title: 'Home' }} />
             <Tab.Screen name="Attendance" component={StudentAttendanceScreen} options={{ title: 'Attendance' }} />
             <Tab.Screen name="Timetable" component={StudentTimetableScreen} options={{ title: 'Timetable' }} />
+            <Tab.Screen name="Results" component={ResultsScreen} options={{ title: 'Results', tabBarLabel: '📊 Results' }} />
             <Tab.Screen name="Library" component={FeeBalanceScreen} options={{ title: 'Fee Balance', tabBarLabel: '💰 Fees' }} />
             <Tab.Screen name="More" component={MoreScreen} options={{ title: 'More' }} />
         </Tab.Navigator>

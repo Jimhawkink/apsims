@@ -11,6 +11,7 @@ import { getSession, clearSession } from './src/lib/security';
 import { onConnectivityChange } from './src/lib/netinfo';
 import { syncOfflineQueue } from './src/lib/offline';
 import { SessionContext } from './src/context/SessionContext';
+import { ThemeProvider } from './src/context/ThemeContext';
 import { RootStackParamList } from './src/navigation/types';
 
 // ── Tab Navigators ───────────────────────────────────────────
@@ -135,6 +136,7 @@ export default function App() {
 
     return (
         <SafeAreaProvider>
+            <ThemeProvider>
             <SessionContext.Provider value={{ session, setSession: handleSetSession }}>
                 <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
                     <NavigationContainer>
@@ -196,6 +198,7 @@ export default function App() {
                     </NavigationContainer>
                 </Animated.View>
             </SessionContext.Provider>
+            </ThemeProvider>
         </SafeAreaProvider>
     );
 }

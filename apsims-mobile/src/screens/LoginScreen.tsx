@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet, TextInput,
     ActivityIndicator, Animated, StatusBar, SafeAreaView,
-    KeyboardAvoidingView, Platform, ScrollView,
+    KeyboardAvoidingView, Platform, ScrollView, Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { RootStackParamList } from '../navigation/types';
 import { loginUser } from '../lib/supabase';
 import { useSession } from '../context/SessionContext';
@@ -16,6 +18,9 @@ import {
 } from '../lib/security';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
+
+const BIOMETRIC_CREDS_KEY = 'apsims_biometric_creds';
+const BIOMETRIC_ENABLED_KEY = 'apsims_biometric_enabled';
 
 const C = {
     bg: '#f8fafc',
@@ -44,9 +49,14 @@ export default function LoginScreen() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [lockoutSeconds, setLockoutSeconds] = useState(0);
+    const [rememberBiometrics, setRememberBiometrics] = useState(false);
+    const [biometricAvailable, setBiometricAvailable] = useState(false);
+    const [biometricEnabled, setBiometricEnabled] = useState(false);
+    const [biometricLoading, setBiometricLoading] = useState(false);
 
     const shakeAnim = useRef(new Animated.Value(0)).current;
     const floatAnim = useRef(new Animated.Value(0)).current;
+    const bioScaleAnim = useRef(new Animated.Value(1)).current;
     const lockoutRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
@@ -57,8 +67,26 @@ export default function LoginScreen() {
             ])
         ).start();
         checkLockout();
+        checkBiometricAvailability();
         return () => { if (lockoutRef.current) clearInterval(lockoutRef.current); };
     }, []);
+
+    const checkBiometricAvailability = async () => {
+        try {
+            const hasHardware = await LocalAuthentication.hasHardwareAsync();
+            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+            const available = hasHardware && isEnrolled;
+            setBiometricAvailable(available);
+
+            if (available) {
+                const enabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
+                setBiometricEnabled(enabled === 'true');
+                setRememberBiometrics(enabled === 'true');
+            }
+        } catch {
+            setBiometricAvailable(false);
+        }
+    };
 
     const checkLockout = async () => {
         const { limited, secondsLeft } = await isRateLimited();
@@ -95,6 +123,13 @@ export default function LoginScreen() {
         ]).start();
     };
 
+    const pulseBiometricBtn = () => {
+        Animated.sequence([
+            Animated.timing(bioScaleAnim, { toValue: 0.93, duration: 100, useNativeDriver: true }),
+            Animated.spring(bioScaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 5 }),
+        ]).start();
+    };
+
     const handleLogin = useCallback(async () => {
         if (isLoading || lockoutSeconds > 0) return;
 
@@ -115,6 +150,19 @@ export default function LoginScreen() {
             if (user) {
                 await clearRateLimit();
                 await saveSession(user);
+
+                // Save credentials for biometric login if opted in
+                if (rememberBiometrics && biometricAvailable) {
+                    await AsyncStorage.setItem(BIOMETRIC_CREDS_KEY, JSON.stringify({ username, password }));
+                    await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
+                    setBiometricEnabled(true);
+                } else if (!rememberBiometrics) {
+                    // User explicitly unchecked — disable biometric
+                    await AsyncStorage.removeItem(BIOMETRIC_CREDS_KEY);
+                    await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'false');
+                    setBiometricEnabled(false);
+                }
+
                 setSession(user);
                 // Navigation is handled by App.tsx based on session state
             } else {
@@ -135,7 +183,60 @@ export default function LoginScreen() {
         } finally {
             setIsLoading(false);
         }
-    }, [username, password, isLoading, lockoutSeconds]);
+    }, [username, password, isLoading, lockoutSeconds, rememberBiometrics, biometricAvailable]);
+
+    const handleBiometricLogin = useCallback(async () => {
+        if (biometricLoading || lockoutSeconds > 0) return;
+        pulseBiometricBtn();
+
+        try {
+            setBiometricLoading(true);
+            setError('');
+
+            const result = await LocalAuthentication.authenticateAsync({
+                promptMessage: 'Login to APSIMS',
+                fallbackLabel: 'Use Password',
+                cancelLabel: 'Cancel',
+                disableDeviceFallback: false,
+            });
+
+            if (result.success) {
+                const credsRaw = await AsyncStorage.getItem(BIOMETRIC_CREDS_KEY);
+                if (!credsRaw) {
+                    setError('No saved credentials. Please login with password first.');
+                    return;
+                }
+
+                const { username: savedUser, password: savedPass } = JSON.parse(credsRaw);
+                const { limited, secondsLeft } = await isRateLimited();
+                if (limited) { startLockoutCountdown(secondsLeft); return; }
+
+                setIsLoading(true);
+                const user = await loginUser(savedUser, savedPass);
+                if (user) {
+                    await clearRateLimit();
+                    await saveSession(user);
+                    setSession(user);
+                } else {
+                    triggerShake();
+                    setError('Biometric login failed. Credentials may have changed. Please login with password.');
+                    // Clear saved creds since they're no longer valid
+                    await AsyncStorage.removeItem(BIOMETRIC_CREDS_KEY);
+                    await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'false');
+                    setBiometricEnabled(false);
+                }
+            } else if (result.error === 'user_cancel' || result.error === 'system_cancel') {
+                // Silently ignore cancellation
+            } else {
+                setError('Biometric authentication failed. Try again or use password.');
+            }
+        } catch {
+            setError('Biometric authentication unavailable.');
+        } finally {
+            setBiometricLoading(false);
+            setIsLoading(false);
+        }
+    }, [biometricLoading, lockoutSeconds]);
 
     const floatY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
 
@@ -228,6 +329,30 @@ export default function LoginScreen() {
                                 </View>
                             ) : null}
 
+                            {/* Biometrics toggle — only show if hardware available */}
+                            {biometricAvailable && (
+                                <TouchableOpacity
+                                    style={styles.biometricToggleRow}
+                                    onPress={() => setRememberBiometrics(v => !v)}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={styles.biometricToggleLeft}>
+                                        <Text style={styles.biometricToggleIcon}>🔐</Text>
+                                        <View>
+                                            <Text style={styles.biometricToggleLabel}>Remember with biometrics</Text>
+                                            <Text style={styles.biometricToggleSub}>Enable fingerprint / Face ID login</Text>
+                                        </View>
+                                    </View>
+                                    <Switch
+                                        value={rememberBiometrics}
+                                        onValueChange={setRememberBiometrics}
+                                        trackColor={{ false: C.inputBorder, true: 'rgba(37,99,235,0.35)' }}
+                                        thumbColor={rememberBiometrics ? C.primary : '#f4f3f4'}
+                                        ios_backgroundColor={C.inputBorder}
+                                    />
+                                </TouchableOpacity>
+                            )}
+
                             {/* Role indicator */}
                             <View style={styles.rolesRow}>
                                 <View style={styles.roleChip}>
@@ -273,6 +398,42 @@ export default function LoginScreen() {
                                 </LinearGradient>
                             </TouchableOpacity>
                         </Animated.View>
+
+                        {/* Biometric Login Button — only if enabled (creds saved) */}
+                        {biometricAvailable && biometricEnabled && (
+                            <Animated.View style={[styles.bioButtonWrap, { transform: [{ scale: bioScaleAnim }] }]}>
+                                <TouchableOpacity
+                                    onPress={handleBiometricLogin}
+                                    disabled={biometricLoading || isLoading || lockoutSeconds > 0}
+                                    activeOpacity={0.88}
+                                    style={styles.bioBtn}
+                                >
+                                    {/* Glass shine overlay */}
+                                    <View style={styles.bioGlassShine} />
+                                    <View style={styles.bioBtnInner}>
+                                        {biometricLoading ? (
+                                            <>
+                                                <ActivityIndicator color="#3b82f6" size="small" />
+                                                <Text style={styles.bioBtnText}>Authenticating…</Text>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <View style={styles.bioIconWrap}>
+                                                    <Text style={styles.bioIconEmoji}>👆</Text>
+                                                </View>
+                                                <View style={styles.bioBtnTextWrap}>
+                                                    <Text style={styles.bioBtnTitle}>Quick Biometric Login</Text>
+                                                    <Text style={styles.bioBtnSub}>Fingerprint · Face ID · PIN</Text>
+                                                </View>
+                                                <View style={styles.bioBtnArrowWrap}>
+                                                    <Text style={styles.bioBtnArrow}>→</Text>
+                                                </View>
+                                            </>
+                                        )}
+                                    </View>
+                                </TouchableOpacity>
+                            </Animated.View>
+                        )}
 
                         {/* Footer */}
                         <View style={styles.footer}>
@@ -346,7 +507,7 @@ const styles = StyleSheet.create({
         borderWidth: 1, borderColor: C.cardBorder,
         shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.06, shadowRadius: 12, elevation: 4,
-        marginBottom: 24,
+        marginBottom: 16,
     },
     inputGroup: { marginBottom: 16 },
     inputLabel: { fontSize: 13, fontWeight: '700', color: C.text, marginBottom: 8 },
@@ -373,6 +534,18 @@ const styles = StyleSheet.create({
     errorIcon: { fontSize: 14 },
     errorText: { fontSize: 12, color: C.danger, fontWeight: '600', flex: 1 },
 
+    // Biometric toggle
+    biometricToggleRow: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        backgroundColor: 'rgba(37,99,235,0.05)', borderRadius: 14,
+        paddingHorizontal: 14, paddingVertical: 11, marginBottom: 16,
+        borderWidth: 1, borderColor: 'rgba(37,99,235,0.12)',
+    },
+    biometricToggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+    biometricToggleIcon: { fontSize: 20 },
+    biometricToggleLabel: { fontSize: 12, fontWeight: '700', color: C.text },
+    biometricToggleSub: { fontSize: 10, color: C.textDim, marginTop: 1 },
+
     // Roles
     rolesRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 16 },
     roleChip: {
@@ -393,6 +566,50 @@ const styles = StyleSheet.create({
     loginBtnEmoji: { fontSize: 18 },
     loginBtnText: { fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
     loginBtnArrow: { fontSize: 18, color: '#fff', fontWeight: '700' },
+
+    // ── Biometric Button ─────────────────────────────────────
+    bioButtonWrap: { width: '100%', maxWidth: 380, marginBottom: 16 },
+    bioBtn: {
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.72)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(37,99,235,0.25)',
+        overflow: 'hidden',
+        shadowColor: '#2563eb',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.18,
+        shadowRadius: 18,
+        elevation: 8,
+    },
+    bioGlassShine: {
+        position: 'absolute',
+        top: 0, left: 0, right: 0,
+        height: '50%',
+        backgroundColor: 'rgba(255,255,255,0.45)',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+    },
+    bioBtnInner: {
+        flexDirection: 'row', alignItems: 'center',
+        paddingVertical: 16, paddingHorizontal: 20, gap: 14,
+    },
+    bioIconWrap: {
+        width: 48, height: 48, borderRadius: 14,
+        backgroundColor: 'rgba(37,99,235,0.1)',
+        alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: 'rgba(37,99,235,0.2)',
+    },
+    bioIconEmoji: { fontSize: 26 },
+    bioBtnTextWrap: { flex: 1 },
+    bioBtnTitle: { fontSize: 14, fontWeight: '800', color: C.primary, letterSpacing: 0.2 },
+    bioBtnSub: { fontSize: 10, color: C.textSub, marginTop: 2, fontWeight: '500' },
+    bioBtnArrowWrap: {
+        width: 32, height: 32, borderRadius: 10,
+        backgroundColor: 'rgba(37,99,235,0.1)',
+        alignItems: 'center', justifyContent: 'center',
+    },
+    bioBtnArrow: { fontSize: 16, color: C.primary, fontWeight: '800' },
+    bioBtnText: { fontSize: 14, fontWeight: '700', color: C.primary, marginLeft: 8 },
 
     // Footer
     footer: { alignItems: 'center', paddingBottom: 24, gap: 4 },

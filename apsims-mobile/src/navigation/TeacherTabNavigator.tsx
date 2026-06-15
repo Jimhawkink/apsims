@@ -9,6 +9,7 @@ import NotificationBell from '../components/NotificationBell';
 import TeacherDashboard from '../screens/teacher/TeacherDashboard';
 import AttendanceTakingScreen from '../screens/teacher/AttendanceTakingScreen';
 import MarksHubScreen from '../screens/teacher/MarksHubScreen';
+import ExamScheduleScreen from '../screens/teacher/ExamScheduleScreen';
 import CBCTeacherHubScreen from '../screens/teacher/CBCTeacherHubScreen';
 import MoreScreen from '../screens/shared/MoreScreen';
 
@@ -17,21 +18,23 @@ const Tab = createBottomTabNavigator<TeacherTabParamList>();
 const C = {
     primary844: '#2563eb',
     primaryCBC: '#7c3aed',
+    primarySchedule: '#2563eb',
     inactive: '#94a3b8',
     bg: '#ffffff',
     border: '#e2e8f0',
     activeBg844: '#dbeafe',
     activeBgCBC: '#ede9fe',
+    activeBgSchedule: '#dbeafe',
 };
 
 function TabIcon({
-    emoji, focused, color844, colorCBC, is844, isCBC
+    emoji, focused, color844, colorCBC, is844, isCBC, isSchedule
 }: {
     emoji: string; focused: boolean;
     color844: string; colorCBC: string;
-    is844?: boolean; isCBC?: boolean;
+    is844?: boolean; isCBC?: boolean; isSchedule?: boolean;
 }) {
-    const activeBg = isCBC ? colorCBC + '22' : is844 ? color844 + '22' : 'rgba(0,0,0,0.06)';
+    const activeBg = isCBC ? colorCBC + '22' : (is844 || isSchedule) ? color844 + '22' : 'rgba(0,0,0,0.06)';
     const dotColor = isCBC ? colorCBC : color844;
     return (
         <View style={[styles.iconWrap, focused && { backgroundColor: activeBg }]}>
@@ -76,6 +79,7 @@ export default function TeacherTabNavigator() {
                         Dashboard: '🏠',
                         Attendance: '📋',
                         Marks: '📝',
+                        Schedule: '📅',
                         CBC: '🎓',
                         More: '⋯',
                     };
@@ -87,6 +91,7 @@ export default function TeacherTabNavigator() {
                             colorCBC={C.primaryCBC}
                             is844={route.name === 'Marks'}
                             isCBC={route.name === 'CBC'}
+                            isSchedule={route.name === 'Schedule'}
                         />
                     );
                 },
@@ -109,6 +114,14 @@ export default function TeacherTabNavigator() {
                 options={{
                     title: '8-4-4',
                     tabBarLabel: '8-4-4 Marks',
+                }}
+            />
+            <Tab.Screen
+                name="Schedule"
+                component={ExamScheduleScreen}
+                options={{
+                    title: 'Schedule',
+                    tabBarLabel: '📅 Schedule',
                 }}
             />
             <Tab.Screen
