@@ -8,7 +8,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from './supabase';
+import { supabase } from '../lib/supabase';
 
 /* ═══ Config ═══ */
 const PUSH_TOKEN_KEY = 'apsims_push_token';
