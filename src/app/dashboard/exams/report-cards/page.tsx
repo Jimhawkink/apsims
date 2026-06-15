@@ -9,7 +9,7 @@ import {
     FiPrinter, FiUsers, FiUser, FiChevronLeft, FiChevronRight,
     FiFileText, FiAlertTriangle, FiExternalLink, FiTrendingUp,
     FiTrendingDown, FiMinus, FiAward, FiShield, FiDollarSign,
-    FiCalendar, FiBarChart2, FiStar
+    FiCalendar, FiBarChart2, FiStar, FiSend, FiMessageSquare, FiMail
 } from 'react-icons/fi';
 
 interface GradeEntry { grade: string; min_score: number; max_score: number; points: number; remarks: string; }
@@ -107,6 +107,13 @@ export default function ReportCardsPage() {
     const [selTerm, setSelTerm] = useState('');
     const [selStudent, setSelStudent] = useState('');
     const [currentStudentIdx, setCurrentStudentIdx] = useState(0);
+
+    // ── Delivery state ────────────────────────────────────────────────────────
+    const [sendingWA, setSendingWA] = useState(false);
+    const [sendingSMS, setSendingSMS] = useState(false);
+    const [bulkSending, setBulkSending] = useState(false);
+    const [bulkProgress, setBulkProgress] = useState(0);
+    const [showDeliveryPanel, setShowDeliveryPanel] = useState(false);
 
     const printRef = useRef<HTMLDivElement>(null);
 
@@ -450,14 +457,95 @@ export default function ReportCardsPage() {
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">Comprehensive student progress reports with analytics — Individual or bulk printing</p>
                 </div>
-                {selectedStudentData && (
-                    <button onClick={() => window.print()}
-                        className="px-6 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
-                        style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
-                        <FiPrinter size={14} /> Print Report Card
-                    </button>
-                )}
+                <div className="flex gap-2 flex-wrap">
+                    {/* WhatsApp single student */}
+                    {selectedStudentData && (
+                        <button
+                            disabled={sendingWA}
+                            onClick={async () => {
+                                setSendingWA(true);
+                                const s = selectedStudentData.student;
+                                const msg = `Dear ${s.guardian_name || 'Parent'}, ${s.first_name} ${s.last_name} (${s.admission_number || s.admission_no}) report card for ${getTermName(selTerm)} is ready. Average: ${selectedStudentData.avgCombined.toFixed(1)}% | Grade: ${selectedStudentData.meanGrade.grade} | Pos: ${(selectedStudentData as any).formRank}/${classStudents.length}. View full report at: ${window.location.origin}/portal/report/${s.id}/${selTerm}`;
+                                try {
+                                    await fetch('/api/whatsapp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: s.guardian_phone, message: msg, student_id: s.id }) });
+                                    await supabase.from('school_delivery_logs').insert({ student_id: s.id, channel: 'whatsapp', recipient: s.guardian_phone, status: 'sent', report_type: 'report_card', term_id: parseInt(selTerm) });
+                                    toast.success(`💬 WhatsApp sent to ${s.guardian_name || s.guardian_phone}`);
+                                } catch { toast.error('WhatsApp send failed'); }
+                                setSendingWA(false);
+                            }}
+                            className="px-4 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow transition-all"
+                            style={{ background: sendingWA ? '#94a3b8' : 'linear-gradient(135deg,#25d366,#128c7e)' }}>
+                            <FiMessageSquare size={14} /> {sendingWA ? 'Sending…' : 'WhatsApp'}
+                        </button>
+                    )}
+                    {/* SMS single student */}
+                    {selectedStudentData && (
+                        <button
+                            disabled={sendingSMS}
+                            onClick={async () => {
+                                setSendingSMS(true);
+                                const s = selectedStudentData.student;
+                                const msg = `${s.first_name} ${s.last_name} report: ${getTermName(selTerm)} Avg ${selectedStudentData.avgCombined.toFixed(1)}% Grade ${selectedStudentData.meanGrade.grade} Pos ${(selectedStudentData as any).formRank}/${classStudents.length}. -APSIMS`;
+                                try {
+                                    await fetch('/api/sms/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: s.guardian_phone, message: msg, student_id: s.id }) });
+                                    await supabase.from('school_delivery_logs').insert({ student_id: s.id, channel: 'sms', recipient: s.guardian_phone, status: 'sent', report_type: 'report_card', term_id: parseInt(selTerm) });
+                                    toast.success(`📱 SMS sent to ${s.guardian_phone}`);
+                                } catch { toast.error('SMS failed'); }
+                                setSendingSMS(false);
+                            }}
+                            className="px-4 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow transition-all"
+                            style={{ background: sendingSMS ? '#94a3b8' : 'linear-gradient(135deg,#3b82f6,#1d4ed8)' }}>
+                            <FiSend size={14} /> {sendingSMS ? 'Sending…' : 'SMS'}
+                        </button>
+                    )}
+                    {/* Bulk send to all students in class */}
+                    {isReady && classStudents.length > 0 && (
+                        <button
+                            disabled={bulkSending}
+                            onClick={async () => {
+                                if (!confirm(`Send WhatsApp report summaries to ALL ${classStudents.length} parents in ${forms.find(f=>String(f.id)===selForm)?.form_name}?`)) return;
+                                setBulkSending(true); setBulkProgress(0);
+                                let done = 0;
+                                for (const sd of allStudentData) {
+                                    const s = sd.student;
+                                    if (!s.guardian_phone) { done++; setBulkProgress(Math.round((done/allStudentData.length)*100)); continue; }
+                                    const msg = `Dear ${s.guardian_name||'Parent'}, ${s.first_name} ${s.last_name} (${s.admission_number||s.admission_no}) ${getTermName(selTerm)} results: Avg ${sd.avgCombined.toFixed(1)}% | Grade ${sd.meanGrade.grade} | Rank ${(sd as any).formRank}/${classStudents.length}. Full report: ${window.location.origin}/portal/report/${s.id}/${selTerm} -APSIMS`;
+                                    try {
+                                        await fetch('/api/whatsapp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({phone: s.guardian_phone, message: msg, student_id: s.id}) });
+                                        await supabase.from('school_delivery_logs').insert({ student_id: s.id, channel: 'whatsapp', recipient: s.guardian_phone, status: 'sent', report_type: 'report_card', term_id: parseInt(selTerm) });
+                                    } catch {}
+                                    done++;
+                                    setBulkProgress(Math.round((done/allStudentData.length)*100));
+                                }
+                                toast.success(`✅ WhatsApp sent to ${done} parents!`);
+                                setBulkSending(false); setBulkProgress(0);
+                            }}
+                            className="px-4 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow transition-all"
+                            style={{ background: bulkSending ? '#94a3b8' : 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>
+                            <FiUsers size={14} /> {bulkSending ? `Sending ${bulkProgress}%…` : `Bulk WA (${classStudents.length})`}
+                        </button>
+                    )}
+                    {selectedStudentData && (
+                        <button onClick={() => window.print()}
+                            className="px-6 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                            style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+                            <FiPrinter size={14} /> Print Report Card
+                        </button>
+                    )}
+                </div>
             </div>
+            {/* Bulk send progress bar */}
+            {bulkSending && (
+                <div className="no-print bg-purple-50 border border-purple-200 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-purple-700">📤 Sending WhatsApp reports to parents…</span>
+                        <span className="text-xs font-black text-purple-700">{bulkProgress}%</span>
+                    </div>
+                    <div className="h-2 bg-purple-100 rounded-full overflow-hidden">
+                        <div className="h-2 bg-purple-500 rounded-full transition-all" style={{width:`${bulkProgress}%`}}/>
+                    </div>
+                </div>
+            )}
 
             {/* ── Filters ── */}
             <div className="no-print bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">

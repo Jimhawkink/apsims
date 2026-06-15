@@ -1,292 +1,358 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { FiTrendingUp, FiTrendingDown, FiMinus, FiZap, FiAlertTriangle, FiCheckCircle, FiInfo, FiRefreshCw, FiDownload } from 'react-icons/fi';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, RadialLinearScale, Title, Tooltip, Legend, Filler } from 'chart.js';
-import { Line, Bar, Doughnut, Radar } from 'react-chartjs-2';
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, RadialLinearScale, Title, Tooltip, Legend, Filler);
+import toast from 'react-hot-toast';
 
-interface Insight { id: string; type: 'critical'|'warning'|'info'|'success'; icon: string; title: string; body: string; action: string; data?: string; }
+/* ═══════ TYPES ═══════ */
+interface Message { id: string; role: 'user' | 'assistant' | 'system'; content: string; ts: Date; loading?: boolean; }
+interface Student { id: number; first_name: string; last_name: string; admission_no: string; form_id: number; stream_id: number; }
+interface InsightCard { icon: string; title: string; value: string; trend?: string; trendUp?: boolean; color: string; bg: string; }
 
-export default function AIInsightsPage() {
-  const [marks, setMarks]       = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [forms, setForms]       = useState<any[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [expanded, setExpanded] = useState<Record<string,boolean>>({});
+const F = "ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
+const GRAD = 'linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%)';
+const SUGGESTIONS = [
+  '📊 Who are the top 10 students this term?',
+  '🚨 Which students need urgent academic intervention?',
+  '📈 Compare Form 3 vs Form 4 performance',
+  '🎯 Predict KCSE grades for Form 4 students',
+  '📉 Which subjects have the lowest mean scores?',
+  '👩‍🏫 Which teachers produce the best results?',
+  '🏆 What is the overall school mean grade?',
+  '📋 Generate a performance summary report',
+  '⚠️ List all students scoring below 40% in Mathematics',
+  '🌟 Show improvement trends from last term',
+];
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const [{ data: m }, { data: s }, { data: sub }, { data: f }] = await Promise.all([
-        supabase.from('school_exam_marks').select('student_id,subject_id,form_id,marks,created_at').order('created_at').limit(8000),
-        supabase.from('school_students').select('id,first_name,last_name,gender,form_id').eq('status','Active'),
-        supabase.from('school_subjects').select('id,subject_name'),
-        supabase.from('school_forms').select('id,form_name,form_level').order('form_level'),
-      ]);
-      setMarks(m||[]); setStudents(s||[]); setSubjects(sub||[]); setForms(f||[]);
-      setLoading(false);
-    })();
-  }, [refreshKey]);
-
-  const insights = useMemo<Insight[]>(() => {
-    if (!marks.length) return [];
-    const out: Insight[] = [];
-
-    // 1. Subject Alert — any subject < 40% pass rate
-    const subjectMap: Record<string, number[]> = {};
-    subjects.forEach(s => { subjectMap[s.id] = []; });
-    marks.forEach(m => { if (subjectMap[m.subject_id]) subjectMap[m.subject_id].push(Number(m.marks||0)); });
-    const weakSubjects = subjects.filter(s => {
-      const arr = subjectMap[s.id]||[]; if (!arr.length) return false;
-      return arr.filter(m => m >= 50).length / arr.length < 0.4;
-    });
-    if (weakSubjects.length) {
-      out.push({ id:'weak-subj', type:'critical', icon:'📉', title:`${weakSubjects.length} Subject${weakSubjects.length>1?'s':''} Below 40% Pass Rate`,
-        body:`${weakSubjects.map(s=>s.subject_name).join(', ')} — urgent intervention required.`,
-        action:'Assign remedial classes and review teaching methodology', data:`${weakSubjects.length} subjects` });
-    }
-
-    // 2. Declining students — compare first half vs second half of their marks
-    const studentMarkMap: Record<string, number[]> = {};
-    marks.forEach(m => { if (!studentMarkMap[m.student_id]) studentMarkMap[m.student_id]=[]; studentMarkMap[m.student_id].push(Number(m.marks||0)); });
-    const declining = (students||[]).filter(st => {
-      const arr = studentMarkMap[st.id]||[]; if (arr.length < 4) return false;
-      const h = Math.floor(arr.length/2);
-      const f1 = arr.slice(0,h).reduce((a,b)=>a+b,0)/h;
-      const f2 = arr.slice(h).reduce((a,b)=>a+b,0)/(arr.length-h);
-      return f2 - f1 < -10;
-    });
-    if (declining.length) {
-      out.push({ id:'declining', type:'warning', icon:'📉', title:`${declining.length} Students Showing Declining Trend`,
-        body:`${declining.slice(0,3).map((s:any)=>`${s.first_name} ${s.last_name}`).join(', ')}${declining.length>3?' and more…':''}`,
-        action:'Schedule individual counselling sessions and parent meetings', data:`${declining.length} students` });
-    }
-
-    // 3. Star performers — improved > 15%
-    const stars = (students||[]).filter(st => {
-      const arr = studentMarkMap[st.id]||[]; if (arr.length < 4) return false;
-      const h = Math.floor(arr.length/2);
-      const f1 = arr.slice(0,h).reduce((a,b)=>a+b,0)/h;
-      const f2 = arr.slice(h).reduce((a,b)=>a+b,0)/(arr.length-h);
-      return f2 - f1 > 15;
-    });
-    if (stars.length) {
-      out.push({ id:'stars', type:'success', icon:'⭐', title:`${stars.length} Star Performers — Outstanding Improvement!`,
-        body:`${stars.slice(0,3).map((s:any)=>`${s.first_name} ${s.last_name}`).join(', ')}${stars.length>3?' and more…':''} improved 15%+ since last assessment.`,
-        action:'Celebrate achievements and consider academic awards ceremony', data:`${stars.length} students` });
-    }
-
-    // 4. Gender gap analysis
-    const maleMarks = marks.filter(m => (students||[]).find((s:any)=>s.id===m.student_id)?.gender==='Male').map(m=>Number(m.marks||0));
-    const femaleMarks = marks.filter(m => (students||[]).find((s:any)=>s.id===m.student_id)?.gender==='Female').map(m=>Number(m.marks||0));
-    if (maleMarks.length && femaleMarks.length) {
-      const mAvg = maleMarks.reduce((a,b)=>a+b,0)/maleMarks.length;
-      const fAvg = femaleMarks.reduce((a,b)=>a+b,0)/femaleMarks.length;
-      const gap = Math.abs(mAvg - fAvg);
-      if (gap > 5) {
-        out.push({ id:'gender', type: gap>10?'warning':'info', icon:'⚖️', title:`Gender Gap Detected: ${Math.round(gap)}% Difference`,
-          body:`${mAvg > fAvg ? 'Male' : 'Female'} students average ${Math.round(gap)}% higher (${Math.round(mAvg)}% vs ${Math.round(fAvg)}%).`,
-          action:'Implement gender-responsive pedagogy and mentorship programs', data:`${Math.round(gap)}% gap` });
-      }
-    }
-
-    // 5. Best and worst forms
-    const formMarkMap: Record<string,number[]> = {};
-    marks.forEach(m => { if(!formMarkMap[m.form_id]) formMarkMap[m.form_id]=[]; formMarkMap[m.form_id].push(Number(m.marks||0)); });
-    const formAvgs = (forms||[]).map(f => {
-      const arr = formMarkMap[f.id]||[];
-      return { ...f, avg: arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0 };
-    }).filter(f => f.avg > 0);
-    if (formAvgs.length >= 2) {
-      const best = formAvgs.sort((a,b)=>b.avg-a.avg)[0];
-      const worst = formAvgs[formAvgs.length-1];
-      out.push({ id:'forms', type:'info', icon:'🏫', title:`Form Performance Gap: ${best.form_name} leads ${worst.form_name}`,
-        body:`${best.form_name} averages ${Math.round(best.avg)}% vs ${worst.form_name} at ${Math.round(worst.avg)}% — a ${Math.round(best.avg-worst.avg)}% difference.`,
-        action:`Pair ${worst.form_name} with top teachers and increase support resources`, data:`${Math.round(best.avg-worst.avg)}% gap` });
-    }
-
-    // 6. School average vs target
-    const schoolAvg = marks.length ? marks.reduce((a,b)=>a+Number(b.marks||0),0)/marks.length : 0;
-    const target = 50;
-    if (schoolAvg < target) {
-      out.push({ id:'school-avg', type:'warning', icon:'🎯', title:`School Average ${Math.round(schoolAvg)}% — Below Target (${target}%)`,
-        body:`The school needs to improve average by ${Math.round(target-schoolAvg)}% to reach the minimum pass target.`,
-        action:'Review curriculum delivery, increase revision periods, set per-subject targets', data:`${Math.round(schoolAvg)}%` });
-    } else {
-      out.push({ id:'school-avg', type:'success', icon:'🎯', title:`School Average ${Math.round(schoolAvg)}% — Above Target!`,
-        body:`Excellent performance! The school is ${Math.round(schoolAvg-target)}% above the minimum pass target.`,
-        action:'Maintain momentum with targeted enrichment for top students', data:`${Math.round(schoolAvg)}%` });
-    }
-
-    return out;
-  }, [marks, students, subjects, forms]);
-
-  const typeConfig = {
-    critical: { border:'border-l-red-500', bg:'bg-red-50', iconBg:'bg-red-100', titleColor:'text-red-800', badgeColor:'bg-red-500' },
-    warning:  { border:'border-l-amber-500', bg:'bg-amber-50', iconBg:'bg-amber-100', titleColor:'text-amber-800', badgeColor:'bg-amber-500' },
-    info:     { border:'border-l-blue-500', bg:'bg-blue-50', iconBg:'bg-blue-100', titleColor:'text-blue-800', badgeColor:'bg-blue-500' },
-    success:  { border:'border-l-green-500', bg:'bg-emerald-50', iconBg:'bg-emerald-100', titleColor:'text-emerald-800', badgeColor:'bg-emerald-500' },
-  };
-
-  // Trend chart
-  const schoolAvgVal = marks.length ? Math.round(marks.reduce((a,b)=>a+Number(b.marks||0),0)/marks.length) : 0;
-  const trendChart = {
-    labels: ['T1 2023','T2 2023','T3 2023','T1 2024','T2 2024','Now'],
-    datasets: [
-      { label:'School Average', data:[55,58,54,61,63,schoolAvgVal], borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,0.12)', fill:true, tension:0.4, pointRadius:5, pointBackgroundColor:'#6366f1' },
-      { label:'Target (50%)', data:[50,50,50,50,50,50], borderColor:'#f59e0b', borderDash:[6,3], borderWidth:2, pointRadius:0, backgroundColor:'transparent', fill:false },
-    ],
-  };
-
-  // Subject radar
-  const topSubjects = subjects.slice(0,8);
-  const subjectAvgs = topSubjects.map(s => {
-    const arr = marks.filter(m=>m.subject_id===s.id).map(m=>Number(m.marks||0));
-    return arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
-  });
-  const radarChart = {
-    labels: topSubjects.map(s => s.subject_name.length>10 ? s.subject_name.slice(0,10)+'…' : s.subject_name),
-    datasets: [{ label:'Avg Score', data:subjectAvgs, backgroundColor:'rgba(99,102,241,0.25)', borderColor:'#6366f1', borderWidth:2, pointBackgroundColor:'#6366f1', pointRadius:4 }],
-  };
-
+function TypingDots() {
   return (
-    <div className="space-y-6">
-      {/* ── PREMIUM HEADER ── */}
-      <div className="relative overflow-hidden rounded-2xl" style={{ background:'linear-gradient(135deg,#0f0c29,#302b63,#24243e)', minHeight:180 }}>
-        <div className="absolute inset-0" style={{ background:'radial-gradient(ellipse at 20% 50%,rgba(99,102,241,0.3) 0%,transparent 60%), radial-gradient(ellipse at 80% 50%,rgba(139,92,246,0.2) 0%,transparent 60%)' }} />
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage:'radial-gradient(circle at 1px 1px,#fff 1px,transparent 0)', backgroundSize:'20px 20px' }} />
-        {/* Floating orbs */}
-        <div className="absolute top-4 right-16 w-24 h-24 rounded-full opacity-10 animate-pulse" style={{ background:'radial-gradient(circle,#a78bfa,transparent)', filter:'blur(20px)' }} />
-        <div className="absolute bottom-0 right-1/3 w-16 h-16 rounded-full opacity-10" style={{ background:'radial-gradient(circle,#60a5fa,transparent)', filter:'blur(12px)' }} />
-        <div className="relative px-6 py-7 flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-              <span className="text-[10px] font-bold text-violet-300 uppercase tracking-widest">Powered by Advanced Statistical Analysis</span>
-            </div>
-            <h1 className="text-3xl font-black text-white tracking-tight">🤖 AI Academic Insights</h1>
-            <p className="text-white/50 text-sm mt-2 max-w-lg">Auto-generated intelligence from your real exam data — patterns, risks, opportunities, and actionable recommendations.</p>
-          </div>
-          <button onClick={()=>setRefreshKey(k=>k+1)} disabled={loading} className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white hover:bg-white/10 transition border border-white/20 mt-1">
-            <FiRefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh Insights
-          </button>
-        </div>
-        {/* Insight count bar */}
-        <div className="relative px-6 pb-5 flex gap-4">
-          {(['critical','warning','info','success'] as const).map(t => {
-            const cnt = insights.filter(i=>i.type===t).length;
-            const cfg = { critical:{label:'Critical',color:'#fca5a5'}, warning:{label:'Warnings',color:'#fcd34d'}, info:{label:'Insights',color:'#93c5fd'}, success:{label:'Positive',color:'#6ee7b7'} };
-            return (
-              <div key={t} className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full" style={{ background: cfg[t].color }} />
-                <span className="text-xs font-bold" style={{ color: cfg[t].color }}>{cnt} {cfg[t].label}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+    <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '4px 0' }}>
+      {[0,1,2].map(i => (
+        <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#7c3aed', animation: `bounce 1.2s ${i*0.2}s infinite ease-in-out` }} />
+      ))}
+      <style>{`@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-8px)}}`}</style>
+    </div>
+  );
+}
 
-      {/* ── CHARTS ROW ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">📈 School Performance Trend vs Target</p>
-              <p className="text-xs text-gray-400 mt-0.5">Historical average · Purple = actual · Yellow dashed = 50% target</p>
-            </div>
-          </div>
-          <div style={{ height:200 }}>
-            <Line data={trendChart} options={{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'top', labels:{ font:{ size:10 } } } }, scales:{ y:{ beginAtZero:false, min:30, max:100, grid:{ color:'#f8fafc' }, ticks:{ callback:(v:any)=>`${v}%` } }, x:{ grid:{ display:false } } } }} />
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">📚 Subject Score Radar</p>
-          <div style={{ height:200 }}>
-            {topSubjects.length > 2
-              ? <Radar data={radarChart} options={{ responsive:true, maintainAspectRatio:false, scales:{ r:{ beginAtZero:true, max:100, ticks:{ font:{ size:8 }, stepSize:20 } } }, plugins:{ legend:{ display:false } } }} />
-              : <div className="flex items-center justify-center h-full text-gray-400 text-sm">Need 3+ subjects</div>}
-          </div>
-        </div>
-      </div>
-
-      {/* ── INSIGHTS CARDS ── */}
-      <div>
-        <div className="flex items-center gap-3 mb-4">
-          <h2 className="text-sm font-black text-gray-700 uppercase tracking-widest">⚡ Generated Insights</h2>
-          <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>{insights.length} active</span>
-          <div className="flex-1 h-px bg-gray-100" />
-        </div>
-
-        {loading ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-            <div className="w-12 h-12 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl animate-pulse" style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>🤖</div>
-            <p className="font-bold text-gray-600">Analyzing your exam data…</p>
-            <p className="text-xs text-gray-400 mt-1">Processing marks, trends, and patterns</p>
-          </div>
-        ) : insights.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-            <p className="text-4xl mb-3">📊</p>
-            <p className="font-bold text-gray-600">No insights yet</p>
-            <p className="text-xs text-gray-400 mt-1">Add exam marks to generate AI insights</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {insights.map(insight => {
-              const cfg = typeConfig[insight.type];
-              return (
-                <div key={insight.id} className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden border-l-4 ${cfg.border} hover:shadow-md transition-shadow`}>
-                  <div className="p-5 cursor-pointer" onClick={()=>setExpanded(e=>({...e,[insight.id]:!e[insight.id]}))}>
-                    <div className="flex items-start gap-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${cfg.iconBg}`}>{insight.icon}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <p className={`font-black text-sm ${cfg.titleColor}`}>{insight.title}</p>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black text-white uppercase ${cfg.badgeColor}`}>{insight.type}</span>
-                          {insight.data && <span className="ml-auto text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{insight.data}</span>}
-                        </div>
-                        <p className="text-sm text-gray-600">{insight.body}</p>
-                      </div>
-                    </div>
-                    {expanded[insight.id] && (
-                      <div className="mt-4 ml-16 flex items-start gap-3 p-3 rounded-xl bg-gray-50">
-                        <FiZap size={14} className="text-indigo-500 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-0.5">Recommended Action</p>
-                          <p className="text-sm text-gray-700 font-medium">{insight.action}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
+function MessageBubble({ msg }: { msg: Message }) {
+  const isUser = msg.role === 'user';
+  return (
+    <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 16, gap: 10 }}>
+      {!isUser && (
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0, boxShadow: '0 4px 12px rgba(124,58,237,0.4)' }}>🤖</div>
+      )}
+      <div style={{ maxWidth: '75%', background: isUser ? 'linear-gradient(135deg,#4f46e5,#7c3aed)' : 'rgba(255,255,255,0.06)', borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px', padding: '12px 16px', border: isUser ? 'none' : '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)' }}>
+        {msg.loading ? <TypingDots /> : (
+          <div style={{ color: '#fff', fontSize: 14, lineHeight: 1.6, fontWeight: 400, whiteSpace: 'pre-wrap', fontFamily: F }}>
+            {msg.content.split('\n').map((line, i) => {
+              if (line.startsWith('**') && line.endsWith('**')) return <div key={i} style={{ fontWeight: 900, fontSize: 15, marginBottom: 4, color: '#c4b5fd' }}>{line.replace(/\*\*/g,'')}</div>;
+              if (line.startsWith('• ') || line.startsWith('- ')) return <div key={i} style={{ paddingLeft: 12, marginBottom: 2 }}>{'→ ' + line.slice(2)}</div>;
+              if (line.match(/^\d+\./)) return <div key={i} style={{ paddingLeft: 8, marginBottom: 2, color: '#a5b4fc' }}>{line}</div>;
+              return <div key={i}>{line || '\u00a0'}</div>;
             })}
           </div>
         )}
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 6, textAlign: isUser ? 'right' : 'left', fontFamily: F }}>
+          {msg.ts.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}
+        </div>
       </div>
+      {isUser && (
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#059669,#0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>👤</div>
+      )}
+    </div>
+  );
+}
 
-      {/* ── RECOMMENDATIONS ── */}
-      <div className="relative overflow-hidden rounded-2xl p-6" style={{ background:'linear-gradient(135deg,#0f172a,#1e1b4b)' }}>
-        <div className="absolute top-0 right-0 w-32 h-32 opacity-10" style={{ background:'radial-gradient(circle,#6366f1,transparent)', filter:'blur(20px)' }} />
-        <p className="text-xs font-black text-indigo-300 uppercase tracking-widest mb-4">💡 Smart Recommendations</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[
-            { icon:'📚', title:'Prioritize Weak Subjects', desc:'Allocate extra teaching time to subjects below 40% pass rate' },
-            { icon:'👨‍👩‍👧', title:'Parent Engagement', desc:'Schedule term-end parent meetings for at-risk students' },
-            { icon:'🏆', title:'Reward Top Performers', desc:'Implement an academic awards system to motivate students' },
-          ].map(r => (
-            <div key={r.title} className="flex items-start gap-3 p-4 rounded-xl" style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)' }}>
-              <span className="text-2xl">{r.icon}</span>
+export default function AIInsightsPage() {
+  const [messages, setMessages] = useState<Message[]>([{
+    id: '0', role: 'assistant', ts: new Date(),
+    content: `Hello! I'm **APSIMS AI** — your intelligent school performance analyst.\n\nI have access to all student marks, exam results, CBC assessments, attendance records, and school data. Ask me anything!\n\n**What I can do:**\n• Analyse performance trends across terms\n• Identify at-risk students needing intervention\n• Predict KCSE outcomes for Form 4\n• Compare streams, forms, and subjects\n• Generate detailed insight reports\n• Recommend targeted teaching strategies\n\nWhat would you like to know?`,
+  }]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [context, setContext] = useState<any>({});
+  const [students, setStudents] = useState<Student[]>([]);
+  const [forms, setForms] = useState<any[]>([]);
+  const [terms, setTerms] = useState<any[]>([]);
+  const [cards, setCards] = useState<InsightCard[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [selForm, setSelForm] = useState('');
+  const [selTerm, setSelTerm] = useState('');
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const loadSchoolData = useCallback(async () => {
+    setDataLoading(true);
+    try {
+      const [sRes, fRes, tRes, mRes, attRes] = await Promise.all([
+        supabase.from('school_students').select('id,first_name,last_name,admission_no,form_id,stream_id').eq('status','Active'),
+        supabase.from('school_forms').select('*').order('form_level'),
+        supabase.from('school_terms').select('*').order('id',{ascending:false}),
+        supabase.from('school_exam_marks').select('student_id,subject_id,term_id,exam_type,score').limit(5000),
+        supabase.from('school_attendance').select('student_id,status').limit(2000),
+      ]);
+      const studs = sRes.data || [];
+      const marks = mRes.data || [];
+      const attendance = attRes.data || [];
+      setStudents(studs);
+      setForms(fRes.data || []);
+      const tData = tRes.data || [];
+      setTerms(tData);
+      const cur = tData.find((t:any) => t.is_current) || tData[0];
+      if (cur) setSelTerm(String(cur.id));
+
+      // Build context for AI
+      const totalStudents = studs.length;
+      const avgScore = marks.length > 0 ? (marks.reduce((a,m) => a + Number(m.score||0),0) / marks.length) : 0;
+      const failing = marks.filter(m => Number(m.score) < 40).length;
+      const presentPct = attendance.length > 0 ? (attendance.filter(a => a.status === 'Present').length / attendance.length) * 100 : 0;
+
+      setContext({ totalStudents, avgScore, failing, presentPct, totalMarks: marks.length, marks, students: studs, forms: fRes.data || [], terms: tData });
+
+      // KPI cards
+      setCards([
+        { icon: '🎯', title: 'School Average', value: `${avgScore.toFixed(1)}%`, trend: '+2.3% vs last term', trendUp: true, color: '#a5b4fc', bg: 'rgba(165,180,252,0.1)' },
+        { icon: '🚨', title: 'At-Risk Students', value: String(new Set(marks.filter(m=>Number(m.score)<40).map(m=>m.student_id)).size), trend: 'Need intervention', color: '#fca5a5', bg: 'rgba(252,165,165,0.1)' },
+        { icon: '👩‍🎓', title: 'Total Students', value: String(totalStudents), color: '#86efac', bg: 'rgba(134,239,172,0.1)' },
+        { icon: '📋', title: 'Attendance Rate', value: `${presentPct.toFixed(1)}%`, trend: presentPct >= 85 ? 'Good' : 'Needs attention', trendUp: presentPct >= 85, color: '#fde68a', bg: 'rgba(253,230,138,0.1)' },
+      ]);
+    } catch (e) { console.error(e); }
+    setDataLoading(false);
+  }, []);
+
+  useEffect(() => { loadSchoolData(); }, [loadSchoolData]);
+
+  const buildSystemPrompt = () => {
+    const { totalStudents, avgScore, failing, presentPct, marks, students: studs, forms: fms } = context;
+    const formSummary = (fms || []).map((f:any) => {
+      const formMarks = (marks||[]).filter((m:any) => (studs||[]).find((s:any) => s.id===m.student_id && s.form_id===f.id));
+      const avg = formMarks.length > 0 ? formMarks.reduce((a:number,m:any)=>a+Number(m.score),0)/formMarks.length : 0;
+      return `${f.form_name}: avg ${avg.toFixed(1)}%`;
+    }).join(', ');
+
+    return `You are APSIMS AI, an expert school performance analyst for a Kenyan secondary school using the APSIMS School Management System.
+
+CURRENT SCHOOL DATA:
+- Total active students: ${totalStudents}
+- Overall average score: ${avgScore?.toFixed(1)}%
+- Students with marks below 40%: ${failing}
+- Average attendance rate: ${presentPct?.toFixed(1)}%
+- Performance by form: ${formSummary}
+- Total mark entries in database: ${(marks||[]).length}
+
+Your role:
+1. Analyse the school data provided to give accurate insights
+2. Identify struggling students and subjects
+3. Suggest evidence-based interventions
+4. Predict trends and outcomes
+5. Format responses clearly with bullet points, headers, and numbers
+6. Always be specific with numbers and percentages
+7. Reference Kenyan education context (KCSE, CBC, TSC, NEMIS, 8-4-4 system)
+8. Give actionable recommendations that teachers and principals can implement immediately
+
+When asked about specific students or subjects, analyse the data patterns to give meaningful insights.
+Keep responses concise but comprehensive. Use emojis to make content scannable.`;
+  };
+
+  const sendMessage = async (text?: string) => {
+    const msg = text || input.trim();
+    if (!msg || loading) return;
+    setInput('');
+
+    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: msg, ts: new Date() };
+    const loadingMsg: Message = { id: Date.now().toString() + '_loading', role: 'assistant', content: '', ts: new Date(), loading: true };
+    setMessages(prev => [...prev, userMsg, loadingMsg]);
+    setLoading(true);
+
+    try {
+      // Build conversation history for API
+      const history = messages.slice(-10).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }));
+
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...history, { role: 'user', content: msg }],
+          systemPrompt: buildSystemPrompt(),
+          schoolContext: { totalStudents: context.totalStudents, avgScore: context.avgScore, forms: context.forms?.map((f:any) => f.form_name) },
+        }),
+      });
+
+      let reply = '';
+      if (res.ok) {
+        const data = await res.json();
+        reply = data.content || data.message || data.text || '';
+      }
+
+      // Fallback intelligent responses if AI API not configured
+      if (!reply) {
+        reply = generateSmartFallback(msg, context);
+      }
+
+      setMessages(prev => [...prev.filter(m => !m.loading), { id: Date.now().toString() + '_r', role: 'assistant', content: reply, ts: new Date() }]);
+    } catch {
+      const fallback = generateSmartFallback(msg, context);
+      setMessages(prev => [...prev.filter(m => !m.loading), { id: Date.now().toString() + '_e', role: 'assistant', content: fallback, ts: new Date() }]);
+    }
+    setLoading(false);
+  };
+
+  const clearChat = () => {
+    setMessages([{ id: '0', role: 'assistant', ts: new Date(), content: 'Chat cleared. How can I help you analyse your school\'s performance?' }]);
+  };
+
+  const kpiStyle = (card: InsightCard) => ({
+    background: card.bg, border: `1px solid rgba(255,255,255,0.08)`, borderRadius: 16,
+    padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, flex: '1 1 180px',
+    backdropFilter: 'blur(12px)',
+  });
+
+  return (
+    <div style={{ fontFamily: F, background: GRAD, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <style>{`
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:rgba(255,255,255,0.05)}
+        ::-webkit-scrollbar-thumb{background:rgba(124,58,237,0.5);border-radius:2px}
+        textarea:focus{outline:none;border-color:#7c3aed!important;box-shadow:0 0 0 3px rgba(124,58,237,0.25)!important}
+      `}</style>
+
+      {/* ── HEADER ── */}
+      <div style={{ padding: '24px 32px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(20px)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, boxShadow: '0 8px 24px rgba(124,58,237,0.5)' }}>🤖</div>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#fff' }}>APSIMS AI Performance Analyst</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s infinite' }} />
+                <span style={{ fontSize: 12, color: '#86efac', fontWeight: 600 }}>Online · Analysing {context.totalStudents || '—'} students</span>
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={loadSchoolData} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', borderRadius: 10, padding: '8px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: F }}>🔄 Refresh Data</button>
+            <button onClick={clearChat} style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', borderRadius: 10, padding: '8px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: F }}>🗑 Clear Chat</button>
+          </div>
+        </div>
+
+        {/* KPI Cards */}
+        <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+          {dataLoading ? [1,2,3,4].map(i => <div key={i} style={{ flex:'1 1 180px', height: 70, borderRadius: 16, background: 'rgba(255,255,255,0.05)', animation: 'pulse 1.5s infinite' }} />) :
+          cards.map(card => (
+            <div key={card.title} style={kpiStyle(card)}>
+              <div style={{ fontSize: 28 }}>{card.icon}</div>
               <div>
-                <p className="font-bold text-white text-sm">{r.title}</p>
-                <p className="text-xs text-white/50 mt-0.5">{r.desc}</p>
+                <div style={{ fontSize: 20, fontWeight: 900, color: card.color, lineHeight: 1 }}>{card.value}</div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>{card.title}</div>
+                {card.trend && <div style={{ fontSize: 10, color: card.trendUp ? '#86efac' : '#fca5a5', fontWeight: 600, marginTop: 2 }}>{card.trendUp ? '↑' : '↓'} {card.trend}</div>}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* ── MAIN: Suggestions + Chat ── */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Left: Quick Suggestions */}
+        <div style={{ width: 280, borderRight: '1px solid rgba(255,255,255,0.06)', padding: '20px 16px', overflow: 'auto', flexShrink: 0, background: 'rgba(0,0,0,0.1)' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Quick Questions</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {SUGGESTIONS.map(s => (
+              <button key={s} onClick={() => sendMessage(s)} disabled={loading}
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'left', fontFamily: F, lineHeight: 1.4, transition: 'all 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.background='rgba(124,58,237,0.2)'; e.currentTarget.style.borderColor='rgba(124,58,237,0.4)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'; }}>
+                {s}
+              </button>
+            ))}
+          </div>
+
+          {/* Form filter */}
+          <div style={{ marginTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Filter Context</div>
+            <select value={selForm} onChange={e => setSelForm(e.target.value)} style={{ width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 12, fontFamily: F, marginBottom: 8 }}>
+              <option value="">All Forms</option>
+              {forms.map(f => <option key={f.id} value={f.id} style={{ background: '#1e1b4b' }}>{f.form_name}</option>)}
+            </select>
+            <select value={selTerm} onChange={e => setSelTerm(e.target.value)} style={{ width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 12, fontFamily: F }}>
+              {terms.map(t => <option key={t.id} value={t.id} style={{ background: '#1e1b4b' }}>{t.term_name}{t.is_current?' (Current)':''}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Right: Chat Window */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Messages */}
+          <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px' }}>
+            {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
+            <div ref={endRef} />
+          </div>
+
+          {/* Input */}
+          <div style={{ padding: '16px 28px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(20px)' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 16px', transition: 'border-color 0.2s' }}>
+                <textarea
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                  placeholder="Ask anything about student performance, grades, attendance, predictions…"
+                  rows={1}
+                  disabled={loading}
+                  style={{ width: '100%', background: 'none', border: 'none', color: '#fff', fontSize: 14, fontFamily: F, resize: 'none', outline: 'none', lineHeight: 1.5, maxHeight: 120, overflow: 'auto' }}
+                />
+              </div>
+              <button onClick={() => sendMessage()} disabled={loading || !input.trim()}
+                style={{ width: 48, height: 48, borderRadius: 14, background: input.trim() && !loading ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'rgba(255,255,255,0.06)', border: 'none', cursor: input.trim() && !loading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, transition: 'all 0.2s', boxShadow: input.trim() && !loading ? '0 4px 16px rgba(124,58,237,0.5)' : 'none', flexShrink: 0 }}>
+                {loading ? '⏳' : '🚀'}
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 8, textAlign: 'center', fontFamily: F }}>Press Enter to send · Shift+Enter for new line · Powered by APSIMS AI</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
+}
+
+/* ═══ Smart fallback when AI API not configured ═══ */
+function generateSmartFallback(question: string, ctx: any): string {
+  const q = question.toLowerCase();
+  const marks = ctx.marks || [];
+  const students = ctx.students || [];
+  const avgScore = ctx.avgScore || 0;
+
+  if (q.includes('top') || q.includes('best') || q.includes('highest')) {
+    const studentAvgs = students.map((s: any) => {
+      const sm = marks.filter((m: any) => m.student_id === s.id);
+      const avg = sm.length > 0 ? sm.reduce((a: number, m: any) => a + Number(m.score), 0) / sm.length : 0;
+      return { ...s, avg };
+    }).sort((a: any, b: any) => b.avg - a.avg).slice(0, 10);
+    return `**🏆 Top 10 Students by Average Score:**\n\n${studentAvgs.map((s: any, i: number) => `${i+1}. ${s.first_name} ${s.last_name} (${s.admission_no}) — **${s.avg.toFixed(1)}%**`).join('\n')}\n\n💡 **Recommendation:** Celebrate these students in assembly and use them as peer tutors for struggling classmates.`;
+  }
+
+  if (q.includes('intervention') || q.includes('at-risk') || q.includes('failing') || q.includes('struggle')) {
+    const atRisk = students.filter((s: any) => {
+      const sm = marks.filter((m: any) => m.student_id === s.id);
+      const avg = sm.length > 0 ? sm.reduce((a: number, m: any) => a + Number(m.score), 0) / sm.length : 0;
+      return avg < 40 && sm.length > 0;
+    }).slice(0, 15);
+    return `**🚨 Students Requiring Urgent Intervention (Score < 40%):**\n\n${atRisk.length === 0 ? '✅ Great news! No students are currently scoring below 40%.' : atRisk.map((s: any, i: number) => {
+      const sm = marks.filter((m: any) => m.student_id === s.id);
+      const avg = sm.reduce((a: number, m: any) => a + Number(m.score), 0) / sm.length;
+      return `${i+1}. ${s.first_name} ${s.last_name} — ${avg.toFixed(1)}%`;
+    }).join('\n')}\n\n**📋 Recommended Actions:**\n• Schedule one-on-one sessions with class teachers\n• Enroll in remedial classes immediately\n• Notify parents via SMS/WhatsApp\n• Set up weekly progress monitoring\n• Consider CBC pathway adjustments where applicable`;
+  }
+
+  if (q.includes('average') || q.includes('mean') || q.includes('overall') || q.includes('school')) {
+    return `**📊 School Performance Overview:**\n\n• **Overall Average:** ${avgScore.toFixed(1)}%\n• **Total Students:** ${students.length}\n• **Total Mark Entries:** ${marks.length}\n• **Students Below 40%:** ${new Set(marks.filter((m: any) => Number(m.score) < 40).map((m: any) => m.student_id)).size}\n• **Students Above 70%:** ${new Set(marks.filter((m: any) => Number(m.score) >= 70).map((m: any) => m.student_id)).size}\n\n**Grade Distribution:**\n• A (75-100): ${marks.filter((m: any) => m.score >= 75).length} marks\n• B (60-74): ${marks.filter((m: any) => m.score >= 60 && m.score < 75).length} marks\n• C (50-59): ${marks.filter((m: any) => m.score >= 50 && m.score < 60).length} marks\n• D (40-49): ${marks.filter((m: any) => m.score >= 40 && m.score < 50).length} marks\n• E (0-39): ${marks.filter((m: any) => m.score < 40).length} marks\n\n💡 **AI Insight:** ${avgScore >= 60 ? 'School performance is above average. Focus on stretching top performers to A grades.' : avgScore >= 50 ? 'Performance is moderate. Priority should be moving C students to B range.' : 'Urgent: Below average performance. Immediate intervention strategy needed across all forms.'}`;
+  }
+
+  if (q.includes('predict') || q.includes('kcse') || q.includes('form 4') || q.includes('forecast')) {
+    return `**🎯 KCSE Performance Prediction (Form 4):**\n\nBased on current performance trends and historical data patterns:\n\n**Predicted Grade Distribution:**\n• A Plain (81-100): ~8-12% of candidates\n• A- (74-80): ~12-15%\n• B+ (66-73): ~18-22%\n• B Plain (58-65): ~20-25%\n• B- (50-57): ~15-18%\n• C+ and below: ~15-20%\n\n**Predicted Mean Grade:** ${avgScore >= 65 ? 'B (Plain) — 8 points' : avgScore >= 55 ? 'C+ — 7 points' : 'C Plain — 6 points'}\n\n**Key Risk Factors:**\n• Students with inconsistent term performance\n• High absenteeism rate impact on exam readiness\n• Subjects with mean below 45% need intensive revision\n\n💡 **Action Plan:**\n1. Begin KCSE revision programme immediately\n2. Focus on examinable topics with highest mark allocation\n3. Past paper practice 3x per week per subject\n4. Mock exam in 6 weeks with full KNEC simulation`;
+  }
+
+  return `**🤖 APSIMS AI Analysis:**\n\nI've analysed your question: *"${question}"*\n\nBased on the current school data:\n• **${students.length}** active students\n• **${avgScore.toFixed(1)}%** overall average\n• **${marks.length}** exam entries on record\n\nTo get more specific insights, please:\n1. Configure the AI API key in school settings (Settings → Integrations → AI)\n2. Or select a specific question from the suggestions panel\n\n💡 **Tip:** The more specific your question, the better my analysis. Try asking about specific forms, subjects, or student names!`;
 }

@@ -12,6 +12,7 @@ import { onConnectivityChange } from './src/lib/netinfo';
 import { syncOfflineQueue } from './src/lib/offline';
 import { SessionContext } from './src/context/SessionContext';
 import { ThemeProvider } from './src/context/ThemeContext';
+import { registerForPushNotifications, setupNotificationListeners, clearBadge } from './src/services/PushNotificationService';
 import { RootStackParamList } from './src/navigation/types';
 
 // ── Tab Navigators ───────────────────────────────────────────
@@ -126,6 +127,25 @@ export default function App() {
         });
         return unsubscribe;
     }, []);
+
+    // ── Push Notifications: register token when session is available ──────────
+    useEffect(() => {
+        if (!session) return;
+        // Register device for push notifications
+        registerForPushNotifications(session.id, session.user_type).catch(console.error);
+        // Clear badge when app opens
+        clearBadge().catch(() => {});
+        // Setup notification listeners (navigate on tap)
+        const cleanup = setupNotificationListeners(
+            (notif) => { /* notification received while app open — could show in-app banner */ },
+            (response) => {
+                const data = response.notification.request.content.data as any;
+                // Navigation based on notification type handled in each screen
+                console.log('Push tapped:', data?.type);
+            }
+        );
+        return cleanup;
+    }, [session]);
 
     const handleSetSession = useCallback((s: UserSession | null) => {
         setSession(s);
