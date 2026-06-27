@@ -4,20 +4,23 @@ import {
     TextInput, ActivityIndicator, StatusBar, SafeAreaView,
     KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSession } from '../../context/SessionContext';
 import {
     getTeacherSubjectCards, createHomework, getTeacherHomework,
     getCurrentTerm, HomeworkInput, formatDate,
 } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#2563eb', accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8',
 };
 
 export default function HomeworkAssignmentScreen() {
+    const navigation = useNavigation();
     const { session } = useSession();
     const [subjects, setSubjects] = useState<{ subject_id: number; subject_name: string; form_id: number; form_name: string }[]>([]);
     const [recentHw, setRecentHw] = useState<any[]>([]);
@@ -121,12 +124,11 @@ export default function HomeworkAssignmentScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
-            <LinearGradient colors={['#2563eb', '#1d4ed8']} style={styles.header}>
-                <SafeAreaView>
-                    <Text style={styles.headerTitle}>📝 Assign Homework</Text>
-                    <Text style={styles.headerSub}>Create and assign to your classes</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="📝 Homework"
+                onBack={() => navigation.goBack()}
+                gradient={['#059669','#047857']}
+            />
 
             {toast ? <View style={styles.toast}><Text style={styles.toastText}>{toast}</Text></View> : null}
 
@@ -237,16 +239,16 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff' },
     headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
     content: { padding: 16, paddingBottom: 40 },
-    toast: { backgroundColor: '#1e293b', marginHorizontal: 16, marginTop: 8, borderRadius: 12, padding: 12 },
+    toast: { backgroundColor: '#1e293b', marginHorizontal: 16, marginTop: 8, borderRadius: 16, padding: 12 },
     toastText: { color: '#fff', fontSize: 12, fontWeight: '700', textAlign: 'center' },
     label: { fontSize: 13, fontWeight: '700', color: C.text, marginBottom: 8 },
     subjectScroll: { marginBottom: 16 },
-    subjectPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 8, borderWidth: 1, borderColor: C.border },
+    subjectPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F8FAFF', marginRight: 8, borderWidth: 1, borderColor: C.border },
     subjectPillActive: { backgroundColor: C.primary, borderColor: C.primary },
     subjectPillText: { fontSize: 12, fontWeight: '700', color: C.textSub },
     subjectPillTextActive: { color: '#fff' },
     fieldGroup: { marginBottom: 16 },
-    input: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, color: C.text },
+    input: { backgroundColor: '#F8FAFF', borderWidth: 1, borderColor: C.border, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, color: C.text },
     inputError: { borderColor: C.danger },
     textArea: { height: 80, textAlignVertical: 'top' },
     errorText: { fontSize: 11, color: C.danger, fontWeight: '600', marginTop: 4 },

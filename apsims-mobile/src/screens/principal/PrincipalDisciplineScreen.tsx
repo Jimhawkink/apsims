@@ -12,11 +12,12 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { supabase, formatDate } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const C = {
-    bg: '#f1f5f9', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#ef4444', primaryLight: '#fee2e2',
     accent: '#f59e0b', accentLight: '#fef3c7',
     blue: '#2563eb', blueLight: '#dbeafe',
@@ -122,6 +123,13 @@ export default function PrincipalDisciplineScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
+
+            {/* ── PREMIUM BACK NAVIGATION ── */}
+            <ScreenHeader
+                title="🚨 Discipline"
+                onBack={() => navigation.goBack()}
+                gradient={['#EF4444','#DC2626']}
+            />
             <StatusBar barStyle="light-content" />
             <LinearGradient colors={['#ef4444', '#dc2626']} style={s.header}>
                 <SafeAreaView>
@@ -268,10 +276,10 @@ const s = StyleSheet.create({
     sectionTitle: { fontSize: 14, fontWeight: '800', color: C.text, marginBottom: 10 },
     categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     categoryCard: {
-        backgroundColor: '#fff', borderRadius: 12, padding: 12,
+        backgroundColor: '#fff', borderRadius: 16, padding: 12,
         alignItems: 'center', minWidth: 90, flex: 1,
         borderWidth: 1, borderColor: C.border,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, elevation: 1,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, elevation: 1,
     },
     categoryCount: { fontSize: 22, fontWeight: '900', color: C.primary },
     categoryName: { fontSize: 10, color: C.textSub, fontWeight: '600', textAlign: 'center', marginTop: 4 },
@@ -282,7 +290,7 @@ const s = StyleSheet.create({
     filterChipText: { fontSize: 11, fontWeight: '700', color: C.textSub },
     listSection: { paddingHorizontal: 16 },
     incidentCard: {
-        borderRadius: 12, padding: 14, marginBottom: 8,
+        borderRadius: 16, padding: 14, marginBottom: 8,
         borderWidth: 1, borderColor: C.border,
         shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, elevation: 1,
     },

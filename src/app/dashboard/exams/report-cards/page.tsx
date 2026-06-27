@@ -100,7 +100,57 @@ export default function ReportCardsPage() {
     const [nextTermFeeStructure, setNextTermFeeStructure] = useState<any[]>([]);
 
     // Comments stored per student
-    const [comments, setComments] = useState<Record<number, { classTeacher: string; principal: string }>>({});
+    const [comments, setComments] = useState<Record<number, { classTeacher: string; principal: string }>>({})
+
+    // AI comment generation
+    const [aiLoadingId, setAiLoadingId] = useState<number | null>(null);
+    const [aiCommentText, setAiCommentText] = useState<Record<number, string>>({});
+
+    const generateAIComment = async (student: any, studentResults: any[]) => {
+        const sid = student.id;
+        setAiLoadingId(sid);
+        setAiCommentText(prev => ({ ...prev, [sid]: '' }));
+        try {
+            const avg = studentResults.length > 0
+                ? Math.round(studentResults.reduce((s, r) => s + Number(r.percentage || r.marks || 0), 0) / studentResults.length)
+                : 0;
+            const bestSubject = studentResults.reduce((best, r) => Number(r.percentage || 0) > Number(best.percentage || 0) ? r : best, studentResults[0] || {});
+            const weakSubject = studentResults.reduce((weak, r) => Number(r.percentage || 0) < Number(weak.percentage || 0) ? r : weak, studentResults[0] || {});
+            const res = await fetch('/api/ai/report-comments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    studentName: `${student.first_name} ${student.last_name}`,
+                    form: student.form_name || selForm,
+                    avgScore: avg,
+                    bestSubject: bestSubject?.subject_name || '',
+                    weakSubject: weakSubject?.subject_name || '',
+                    attendance: student.attendanceRate || 90,
+                    language: 'both',
+                }),
+            });
+            if (!res.ok || !res.body) throw new Error('AI generation failed');
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let full = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value, { stream: true });
+                full += chunk;
+                setAiCommentText(prev => ({ ...prev, [sid]: full }));
+            }
+            // Auto-fill classTeacher comment
+            setComments(prev => ({
+                ...prev,
+                [sid]: { classTeacher: full, principal: prev[sid]?.principal || '' },
+            }));
+        } catch (e) {
+            console.error('AI comment error:', e);
+        } finally {
+            setAiLoadingId(null);
+        }
+    };;
 
     const [selForm, setSelForm] = useState('');
     const [selStream, setSelStream] = useState('');
@@ -1177,15 +1227,56 @@ export default function ReportCardsPage() {
                             </div>
                         )}
 
-                        {/* ── Comments Section ── */}
+                        {/* ── Comments Section (AI-Powered) ── */}
                         <div className="px-4 pb-4 space-y-3">
-                            <div className="border border-gray-300 rounded-xl p-3">
-                                <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wide mb-1">Class Teacher's Comment</p>
-                                <div className="min-h-[32px] border-b border-dashed border-gray-300" />
+                            {/* 🤖 AI Generate Button */}
+                            <div className="flex items-center gap-3 p-3 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+                                <span className="text-2xl">🤖</span>
+                                <div className="flex-1">
+                                    <p className="text-xs font-bold text-indigo-700">AI Comment Generator</p>
+                                    <p className="text-[10px] text-indigo-500">Auto-generate English + Kiswahili comment using GPT-4o</p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        const sid = s.id;
+                                        const studentMarks = s.subjects || [];
+                                        generateAIComment(s, studentMarks);
+                                    }}
+                                    disabled={aiLoadingId === s.id}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white shadow-md transition-all"
+                                    style={{ background: aiLoadingId === s.id ? '#94a3b8' : 'linear-gradient(135deg, #4f46e5, #7c3aed)', cursor: aiLoadingId === s.id ? 'wait' : 'pointer' }}
+                                >
+                                    {aiLoadingId === s.id ? (
+                                        <><span className="animate-spin">⚙️</span> Generating…</>
+                                    ) : (
+                                        <><span>✨</span> Generate AI Comment</>
+                                    )}
+                                </button>
                             </div>
+
+                            {/* Class Teacher Comment Box */}
+                            <div className="border border-gray-300 rounded-xl p-3">
+                                <div className="flex items-center justify-between mb-1">
+                                    <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wide">Class Teacher's Comment</p>
+                                    {comments[s.id]?.classTeacher && (
+                                        <span className="text-[9px] bg-indigo-100 text-indigo-600 font-bold px-2 py-0.5 rounded-full">✨ AI Generated</span>
+                                    )}
+                                </div>
+                                {comments[s.id]?.classTeacher ? (
+                                    <p className="text-[10px] text-gray-700 leading-relaxed min-h-[32px]">{comments[s.id].classTeacher}</p>
+                                ) : (
+                                    <div className="min-h-[32px] border-b border-dashed border-gray-300" />
+                                )}
+                            </div>
+
+                            {/* Principal Comment Box */}
                             <div className="border border-gray-300 rounded-xl p-3">
                                 <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wide mb-1">Principal's Comment</p>
-                                <div className="min-h-[32px] border-b border-dashed border-gray-300" />
+                                {comments[s.id]?.principal ? (
+                                    <p className="text-[10px] text-gray-700 leading-relaxed min-h-[32px]">{comments[s.id].principal}</p>
+                                ) : (
+                                    <div className="min-h-[32px] border-b border-dashed border-gray-300" />
+                                )}
                             </div>
                         </div>
 

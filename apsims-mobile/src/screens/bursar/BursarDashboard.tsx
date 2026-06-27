@@ -4,9 +4,11 @@ import {
     RefreshControl, ActivityIndicator, Dimensions, Animated, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../context/SessionContext';
+import { clearSession } from '../../lib/security';
 
 const { width: W } = Dimensions.get('window');
 const fmt = (n: number) => `KES ${(n || 0).toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
@@ -91,7 +93,8 @@ function TxRow({ tx }: { tx: any }) {
 
 export default function BursarDashboard() {
     const navigation = useNavigation<any>();
-    const { session } = useSession();
+    const { session, setSession } = useSession();
+    const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -190,10 +193,10 @@ export default function BursarDashboard() {
     const onRefresh = () => { setRefreshing(true); fetchData(); };
 
     if (loading) return (
-        <LinearGradient colors={['#0c4a6e', '#0891b2', '#06b6d4']} style={styles.loadWrap}>
-            <ActivityIndicator size="large" color="#fff" />
-            <Text style={{ color: '#fff', marginTop: 12, fontWeight: '700' }}>Loading Bursar Dashboard…</Text>
-        </LinearGradient>
+        <View style={[styles.loadWrap, { paddingTop: insets.top }]}>
+            <ActivityIndicator size="large" color="#0891b2" />
+            <Text style={{ color: '#0891b2', marginTop: 12, fontWeight: '700' }}>Loading Bursar Dashboard…</Text>
+        </View>
     );
 
     const collPct = Math.min(100, kpi.collectionRate);
@@ -204,26 +207,35 @@ export default function BursarDashboard() {
             <ScrollView style={styles.container} showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0891b2" />}>
 
-                {/* ── HERO HEADER ── */}
-                <LinearGradient colors={['#0c4a6e', '#0891b2', '#0e7490']} style={styles.hero}>
-                    <View style={styles.heroOrb1} /><View style={styles.heroOrb2} />
-                    <View style={styles.heroContent}>
+                {/* ── PREMIUM LIGHT HEADER ── */}
+                <View style={[styles.hero, { paddingTop: insets.top + 8 }]}>
+                    {/* Top bar */}
+                    <View style={styles.heroTopBar}>
                         <View>
                             <Text style={styles.heroGreeting}>🏦 Bursar Portal</Text>
                             <Text style={styles.heroName}>{schoolName}</Text>
-                            <Text style={styles.heroSub}>Financial Year {currentYear} · {new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+                            <Text style={styles.heroSub}>{new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
                         </View>
-                        <View style={styles.heroBadge}>
-                            <Text style={styles.heroBadgeText}>{collPct}%</Text>
-                            <Text style={styles.heroBadgeSub}>Collected</Text>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <View style={styles.heroBadge}>
+                                <Text style={styles.heroBadgeText}>{collPct}%</Text>
+                                <Text style={styles.heroBadgeSub}>Collected</Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={() => { setSession(null); clearSession(); }}
+                                style={styles.logoutBtn}
+                                accessibilityLabel="Logout"
+                            >
+                                <Text style={{ fontSize: 20 }}>🚪</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
 
                     {/* Collection progress bar */}
-                    <View style={{ marginTop: 14, paddingHorizontal: 20 }}>
+                    <View style={{ marginTop: 14 }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: '700' }}>Fee Collection Progress</Text>
-                            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{fmt(kpi.feesCollected)} / {fmt(kpi.feesExpected)}</Text>
+                            <Text style={{ color: '#0891b2', fontSize: 10, fontWeight: '700' }}>Fee Collection Progress</Text>
+                            <Text style={{ color: '#0c4a6e', fontSize: 10, fontWeight: '800' }}>{fmt(kpi.feesCollected)} / {fmt(kpi.feesExpected)}</Text>
                         </View>
                         <View style={styles.progressBg}>
                             <View style={[styles.progressFill, { width: `${collPct}%` as any }]} />
@@ -237,13 +249,13 @@ export default function BursarDashboard() {
                             { l: 'This Week', v: fmt(kpi.thisWeekFees) },
                             { l: 'This Month', v: fmt(kpi.thisMonthFees) },
                         ].map((s, i) => (
-                            <View key={i} style={[styles.heroStripItem, i < 2 && { borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.15)' }]}>
+                            <View key={i} style={[styles.heroStripItem, i < 2 && { borderRightWidth: 1, borderRightColor: '#e2e8f0' }]}>
                                 <Text style={styles.heroStripVal}>{s.v}</Text>
                                 <Text style={styles.heroStripLbl}>{s.l}</Text>
                             </View>
                         ))}
                     </View>
-                </LinearGradient>
+                </View>
 
                 <View style={styles.body}>
                     {/* ── KPI GRID ── */}
@@ -363,24 +375,31 @@ export default function BursarDashboard() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
-    loadWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    hero: { paddingTop: 16, paddingBottom: 0 },
+    container: { flex: 1, backgroundColor: '#F8FAFF' },
+    loadWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFF' },
+    hero: {
+        backgroundColor: '#ffffff', paddingHorizontal: 20, paddingBottom: 0,
+        borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+        shadowColor: '#0891b2', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+    },
+    heroTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
     heroOrb1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.06)', top: -60, right: -60 },
     heroOrb2: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.04)', bottom: 40, left: -40 },
     heroContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20 },
-    heroGreeting: { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '700' },
-    heroName: { fontSize: 20, color: '#fff', fontWeight: '900', marginTop: 2 },
-    heroSub: { fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
-    heroBadge: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, padding: 12, minWidth: 64 },
-    heroBadgeText: { fontSize: 22, fontWeight: '900', color: '#fff' },
-    heroBadgeSub: { fontSize: 9, color: 'rgba(255,255,255,0.7)', fontWeight: '700', marginTop: 2 },
-    progressBg: { height: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 99, overflow: 'hidden' },
-    progressFill: { height: '100%', backgroundColor: '#34d399', borderRadius: 99 },
-    heroStrip: { flexDirection: 'row', marginTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.12)' },
+    heroGreeting: { fontSize: 14, color: '#0891b2', fontWeight: '700' },
+    heroName: { fontSize: 20, color: '#0c4a6e', fontWeight: '900', marginTop: 2 },
+    heroSub: { fontSize: 11, color: '#64748b', marginTop: 2 },
+    heroBadge: { alignItems: 'center', backgroundColor: '#e0f2fe', borderRadius: 16, padding: 12, minWidth: 64, borderWidth: 1, borderColor: '#7dd3fc' },
+    heroBadgeText: { fontSize: 22, fontWeight: '900', color: '#0c4a6e' },
+    heroBadgeSub: { fontSize: 9, color: '#0891b2', fontWeight: '700', marginTop: 2 },
+    logoutBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#fee2e2', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fca5a5' },
+    progressBg: { height: 10, backgroundColor: '#e0f2fe', borderRadius: 99, overflow: 'hidden' },
+    progressFill: { height: '100%', backgroundColor: '#0891b2', borderRadius: 99 },
+    heroStrip: { flexDirection: 'row', marginTop: 16, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
     heroStripItem: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-    heroStripVal: { fontSize: 13, fontWeight: '900', color: '#fff' },
-    heroStripLbl: { fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: '600', marginTop: 2 },
+    heroStripVal: { fontSize: 13, fontWeight: '900', color: '#0c4a6e' },
+    heroStripLbl: { fontSize: 9, color: '#64748b', fontWeight: '600', marginTop: 2 },
     body: { padding: 16, gap: 4 },
     sectionTitle: { fontSize: 13, fontWeight: '800', color: '#1e293b', marginTop: 16, marginBottom: 10 },
     kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

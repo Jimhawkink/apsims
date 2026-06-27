@@ -13,11 +13,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { supabase, getCurrentTerm, formatDate } from '../../lib/supabase';
 import { useSession } from '../../context/SessionContext';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const C = {
-    bg: '#f1f5f9', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#f59e0b', primaryLight: '#fef3c7',
     accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
@@ -143,6 +144,13 @@ export default function RemedialsScreen() {
                         </Text>
                     </View>
                     <View style={{ flex: 1 }}>
+
+            {/* ── PREMIUM BACK NAVIGATION ── */}
+            <ScreenHeader
+                title="⚡ Remedials"
+                onBack={() => navigation.goBack()}
+                gradient={['#F59E0B','#D97706']}
+            />
                         <Text style={s.studentName}>{item.student_name}</Text>
                         <Text style={s.studentMeta}>
                             {item.form_name} · {item.admission_number}
@@ -281,11 +289,11 @@ const s = StyleSheet.create({
     filterChipTextActive: { color: '#fff' },
     card: {
         padding: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
-        marginHorizontal: 12, marginBottom: 4, borderRadius: 12,
+        marginHorizontal: 12, marginBottom: 4, borderRadius: 16,
         borderWidth: 1, borderColor: C.border,
     },
     cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
-    avatar: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center' },
+    avatar: { width: 40, height: 40, borderRadius: 16, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center' },
     avatarText: { fontSize: 16, fontWeight: '900', color: C.primary },
     studentName: { fontSize: 14, fontWeight: '800', color: C.text },
     studentMeta: { fontSize: 10, color: C.textSub, marginTop: 1 },
@@ -298,7 +306,7 @@ const s = StyleSheet.create({
     typeLabel: { fontSize: 11, color: C.primary, fontWeight: '700' },
     dateLabel: { fontSize: 10, color: C.textDim },
     reason: { fontSize: 12, color: C.text, lineHeight: 18, marginBottom: 6 },
-    noteBox: { backgroundColor: '#f8fafc', borderRadius: 8, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: C.border },
+    noteBox: { backgroundColor: '#F8FAFF', borderRadius: 8, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: C.border },
     noteText: { fontSize: 11, color: C.textSub, lineHeight: 16 },
     viewBtn: { backgroundColor: C.primaryLight, borderRadius: 8, padding: 8, alignItems: 'center', marginTop: 4 },
     viewBtnText: { fontSize: 11, color: C.primary, fontWeight: '800' },

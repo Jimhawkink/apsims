@@ -10,6 +10,7 @@ export type TeacherTabParamList = {
     Attendance: undefined;
     Marks: undefined;
     CBC: undefined;
+    Schedule: undefined;
     More: undefined;
 };
 
@@ -25,6 +26,7 @@ export type StudentTabParamList = {
     Home: undefined;
     Attendance: undefined;
     Timetable: undefined;
+    Results: undefined;
     Library: undefined;
     More: undefined;
 };
@@ -101,6 +103,12 @@ export type RootStackParamList = {
         studentId: number;
         studentName: string;
         formId: number;
+        admissionNumber?: string;
+        formName?: string;
+        streamName?: string;
+        balance?: number;
+        totalDue?: number;
+        totalPaid?: number;
     };
     HealthRecord: undefined;
     LeaveOut: undefined;

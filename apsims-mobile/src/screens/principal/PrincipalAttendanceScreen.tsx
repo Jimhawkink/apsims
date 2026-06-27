@@ -12,12 +12,13 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { supabase, formatDate } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 const W = Dimensions.get('window').width;
 
 const C = {
-    bg: '#f1f5f9', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#2563eb', primaryLight: '#dbeafe',
     accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
@@ -143,6 +144,13 @@ export default function PrincipalAttendanceScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
+
+            {/* ── PREMIUM BACK NAVIGATION ── */}
+            <ScreenHeader
+                title="📋 Attendance"
+                onBack={() => navigation.goBack()}
+                gradient={['#2563EB','#1D4ED8']}
+            />
             <StatusBar barStyle="light-content" />
             <LinearGradient colors={['#2563eb', '#4f46e5']} style={s.header}>
                 <SafeAreaView>
@@ -279,21 +287,21 @@ const s = StyleSheet.create({
     overallStatLabel: { fontSize: 9, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
     sectionTitle: { fontSize: 14, fontWeight: '800', color: C.text, marginBottom: 10, marginTop: 4 },
     formCard: {
-        backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8,
+        backgroundColor: '#fff', borderRadius: 18, padding: 14, marginBottom: 8,
         borderWidth: 1, borderColor: C.border,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, elevation: 1,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, elevation: 1,
     },
     formCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
     formName: { flex: 1, fontSize: 14, fontWeight: '800', color: C.text },
     formTotal: { fontSize: 11, color: C.textSub },
     rateBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
     rateText: { fontSize: 13, fontWeight: '900' },
-    rateBarBg: { height: 8, backgroundColor: '#f1f5f9', borderRadius: 4, overflow: 'hidden', marginBottom: 8 },
+    rateBarBg: { height: 8, backgroundColor: '#F8FAFF', borderRadius: 4, overflow: 'hidden', marginBottom: 8 },
     rateBarFill: { height: '100%', borderRadius: 4 },
     formStats: { flexDirection: 'row', gap: 12 },
     formStat: { fontSize: 11, color: C.accent, fontWeight: '700' },
     alertBox: {
-        backgroundColor: C.dangerLight, borderRadius: 14, padding: 14, marginBottom: 8,
+        backgroundColor: C.dangerLight, borderRadius: 18, padding: 14, marginBottom: 8,
         borderWidth: 1, borderColor: '#fca5a5',
     },
     alertTitle: { fontSize: 13, fontWeight: '800', color: C.danger, marginBottom: 8 },

@@ -4,8 +4,10 @@ import {
     TextInput, RefreshControl, ActivityIndicator, Modal,
     Alert, FlatList, StatusBar,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 // ── Exact same table names as web app ──────────────────────────
 // school_store_items: id, item_name, item_code, category, unit, quantity, reorder_level, unit_price, location, supplier, notes
@@ -108,6 +110,7 @@ function IssuanceRow({ iss, idx }: { iss: any; idx: number }) {
 }
 
 export default function BursarStoresScreen() {
+    const navigation = useNavigation();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [items, setItems] = useState<any[]>([]);
@@ -238,48 +241,11 @@ export default function BursarStoresScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#92400e" translucent={false} />
             {/* HEADER */}
-            <LinearGradient colors={['#92400e', '#d97706', '#f59e0b']} style={styles.header}>
-                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 0 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <View>
-                            <Text style={styles.headerTitle}>📦 Stores Management</Text>
-                            <Text style={styles.headerSub}>Inventory · Issuances · Low Stock Alerts</Text>
-                        </View>
-                        <TouchableOpacity onPress={openCreate} style={styles.addBtn}>
-                            <Text style={styles.addBtnText}>+ Add</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* KPI strip */}
-                    <View style={styles.kpiStrip}>
-                        {[
-                            { l: 'Items', v: String(items.length), c: '#fff' },
-                            { l: 'Stock Value', v: fmt(totalValue), c: '#fef9c3' },
-                            { l: 'Low Stock', v: String(lowStock.length), c: lowStock.length > 0 ? '#fca5a5' : '#86efac' },
-                            { l: 'Issuances', v: String(issuances.length), c: '#c4b5fd' },
-                        ].map((s, i) => (
-                            <View key={i} style={[styles.kpiItem, i < 3 && { borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.15)' }]}>
-                                <Text style={[styles.kpiVal, { color: s.c }]}>{s.v}</Text>
-                                <Text style={styles.kpiLbl}>{s.l}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Tabs */}
-                <View style={styles.tabRow}>
-                    {[
-                        { k: 'items', l: `📋 All Items (${items.length})` },
-                        { k: 'issue', l: `📤 Issuances (${issuances.length})` },
-                        { k: 'low', l: `⚠️ Low Stock (${lowStock.length})` },
-                    ].map(t => (
-                        <TouchableOpacity key={t.k} onPress={() => setTab(t.k as TabKey)}
-                            style={[styles.tabBtn, tab === t.k && { backgroundColor: '#fff' }]}>
-                            <Text style={[styles.tabText, tab === t.k && { color: '#d97706' }]}>{t.l}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </LinearGradient>
+            <ScreenHeader
+                title="📦 Stores"
+                onBack={() => navigation.goBack()}
+                gradient={['#F59E0B','#D97706']}
+            />
 
             {/* ══ ITEMS TAB ══ */}
             {tab === 'items' && (
@@ -518,13 +484,13 @@ export default function BursarStoresScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { flex: 1, backgroundColor: '#F8FAFF' },
     header: {},
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', marginBottom: 2 },
     headerSub: { fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: '600', marginBottom: 10 },
     addBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
     addBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-    kpiStrip: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 12, overflow: 'hidden', marginBottom: 0 },
+    kpiStrip: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 16, overflow: 'hidden', marginBottom: 0 },
     kpiItem: { flex: 1, paddingVertical: 10, alignItems: 'center' },
     kpiVal: { fontSize: 13, fontWeight: '900' },
     kpiLbl: { fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: '600', marginTop: 1 },
@@ -532,12 +498,12 @@ const styles = StyleSheet.create({
     tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center' },
     tabText: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
     searchRow: { padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-    searchInput: { backgroundColor: '#f8fafc', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, borderWidth: 1, borderColor: '#e2e8f0', color: '#1e293b' },
+    searchInput: { backgroundColor: '#F8FAFF', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, borderWidth: 1, borderColor: '#e2e8f0', color: '#1e293b' },
     catFilter: { maxHeight: 50, paddingLeft: 12, paddingVertical: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-    catChip: { marginRight: 8, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 99, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#f8fafc' },
+    catChip: { marginRight: 8, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 99, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#F8FAFF' },
     catChipText: { fontSize: 11, fontWeight: '700', color: '#374151' },
     countText: { fontSize: 11, color: '#94a3b8', fontWeight: '600', paddingHorizontal: 16, marginVertical: 8 },
-    itemCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#f1f5f9', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+    itemCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#f1f5f9', elevation: 2, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
     itemCardTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
     catBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, borderWidth: 1 },
     catBadgeText: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
@@ -548,11 +514,11 @@ const styles = StyleSheet.create({
     itemStat: { flex: 1, alignItems: 'center', paddingVertical: 6 },
     itemStatVal: { fontSize: 14, fontWeight: '900', color: '#1e293b' },
     itemStatLbl: { fontSize: 9, color: '#94a3b8', fontWeight: '600', marginTop: 1 },
-    stockBarBg: { height: 4, backgroundColor: '#f1f5f9', borderRadius: 99, overflow: 'hidden', marginBottom: 8 },
+    stockBarBg: { height: 4, backgroundColor: '#F8FAFF', borderRadius: 99, overflow: 'hidden', marginBottom: 8 },
     stockBarFill: { height: '100%', borderRadius: 99 },
     itemLocation: { fontSize: 10, color: '#94a3b8', marginBottom: 10 },
     itemActions: { flexDirection: 'row', gap: 8 },
-    itemActionBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#f8fafc', alignItems: 'center' },
+    itemActionBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#F8FAFF', alignItems: 'center' },
     itemActionText: { fontSize: 11, fontWeight: '700', color: '#374151' },
     issuanceHeader: { flexDirection: 'row', backgroundColor: '#1e293b', padding: 12 },
     issuanceHeaderCell: { flex: 1, fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', textAlign: 'center' },
@@ -570,8 +536,8 @@ const styles = StyleSheet.create({
     modalTitle: { fontSize: 17, fontWeight: '900', color: '#fff' },
     modalSub: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 3 },
     modalLabel: { fontSize: 10, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 12 },
-    textInput: { borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, backgroundColor: '#fafbff', color: '#1e293b' },
-    unitChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#f8fafc' },
+    textInput: { borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, backgroundColor: '#fafbff', color: '#1e293b' },
+    unitChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#F8FAFF' },
     unitChipText: { fontSize: 11, fontWeight: '700', color: '#374151' },
     saveBtn: { marginTop: 16, borderRadius: 16, overflow: 'hidden' },
     saveBtnInner: { padding: 16, alignItems: 'center' },

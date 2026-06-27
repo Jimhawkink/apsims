@@ -4,16 +4,19 @@
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator, StatusBar } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { COLORS, fmt } from '../../components/ultra/UltraTheme';
 import { BarChart, DoughnutChart, ProgressBar } from '../../components/ultra/UltraCharts';
 import { KPICard, SectionHeader, ChartPanel, TabSwitcher, DataGrid, StatusBadge } from '../../components/ultra/UltraComponents';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const W = Dimensions.get('window').width;
 const CW = W - 60;
 
 export default function StoresReportScreen() {
+    const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState('overview');
@@ -98,10 +101,11 @@ export default function StoresReportScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#d97706" translucent={false} />
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[COLORS.amber]} />} contentContainerStyle={{ paddingBottom: 30 }}>
-        <LinearGradient colors={['#d97706', '#f59e0b', '#fbbf24']} style={styles.header}>
-          <Text style={styles.headerTitle}>📦 Stores & Inventory</Text>
-          <Text style={styles.headerSub}>Stock levels · Movements · Asset tracking</Text>
-        </LinearGradient>
+        <ScreenHeader
+                title="📦 Stores"
+                onBack={() => navigation.goBack()}
+                gradient={['#F59E0B','#D97706']}
+            />
 
         <View style={styles.content}>
           <TabSwitcher tabs={[
@@ -175,7 +179,7 @@ export default function StoresReportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: '#F8FAFF' },
   content: { paddingHorizontal: 16, paddingTop: 12 },
   header: { paddingTop: 16, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },

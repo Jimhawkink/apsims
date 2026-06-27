@@ -143,7 +143,7 @@ export async function sendLocalNotification({
       sound: 'default',
       ...(Platform.OS === 'android' ? { channelId: channel } : {}),
     },
-    trigger: delay > 0 ? { seconds: delay } : null,
+    trigger: delay > 0 ? { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: delay, repeats: false } : null,
   });
 }
 

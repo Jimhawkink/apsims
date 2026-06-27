@@ -9,9 +9,10 @@ import { useSession } from '../../context/SessionContext';
 import { getStudentAttendance, AttendanceRecord, formatDate } from '../../lib/supabase';
 import { cacheData, getCachedData, formatCacheTimestamp } from '../../lib/offline';
 import { useNetworkStatus } from '../../lib/netinfo';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#7c3aed', primaryLight: '#ede9fe',
     accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
@@ -115,15 +116,11 @@ export default function AttendanceScreen() {
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#7c3aed" />
 
-            <LinearGradient colors={['#7c3aed', '#6d28d9']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>📅 Attendance</Text>
-                    <Text style={styles.headerSub}>{studentName}</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="📋 Attendance"
+                onBack={() => navigation.goBack()}
+                gradient={['#7C3AED','#6D28D9']}
+            />
 
             <ScrollView
                 style={{ flex: 1 }}
@@ -287,12 +284,12 @@ const styles = StyleSheet.create({
     cacheLabel: { backgroundColor: '#fef3c7', borderRadius: 10, padding: 8, marginBottom: 12, borderWidth: 1, borderColor: '#f59e0b' },
     cacheLabelText: { fontSize: 11, color: '#92400e', fontWeight: '600', textAlign: 'center' },
     monthScroll: { marginBottom: 16 },
-    monthPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 8, borderWidth: 1, borderColor: C.border },
+    monthPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F8FAFF', marginRight: 8, borderWidth: 1, borderColor: C.border },
     monthPillActive: { backgroundColor: C.primary, borderColor: C.primary },
     monthPillText: { fontSize: 12, fontWeight: '700', color: C.textSub },
     monthPillTextActive: { color: '#fff' },
     summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-    summaryCard: { flex: 1, backgroundColor: C.card, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4, alignItems: 'center', gap: 2 },
+    summaryCard: { flex: 1, backgroundColor: C.card, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4, alignItems: 'center', gap: 2 },
     summaryEmoji: { fontSize: 18 },
     summaryCount: { fontSize: 22, fontWeight: '900' },
     summaryLabel: { fontSize: 9, color: C.textSub, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -305,7 +302,7 @@ const styles = StyleSheet.create({
     calendarCellSelected: { backgroundColor: C.primary },
     calendarDayNum: { fontSize: 12, fontWeight: '600', color: C.text },
     calendarDot: { width: 5, height: 5, borderRadius: 3, marginTop: 1 },
-    dayDetail: { marginTop: 12, padding: 12, backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: C.border, flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+    dayDetail: { marginTop: 12, padding: 12, backgroundColor: '#F8FAFF', borderRadius: 16, borderWidth: 1, borderColor: C.border, flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
     dayDetailText: { fontSize: 12, color: C.text, fontWeight: '600' },
     dayDetailNotes: { fontSize: 11, color: C.textSub, width: '100%', marginTop: 4 },
     section: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },

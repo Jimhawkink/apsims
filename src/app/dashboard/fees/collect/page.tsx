@@ -585,6 +585,26 @@ export default function UltraCollectFeePage() {
         }
       }
 
+      /* 📧 EMAIL RECEIPT — auto-send to parent */
+      try {
+        const parentEmail =
+          (selectedStudent.guardian_email as string | undefined) ||
+          (selectedStudent.parent_email as string | undefined);
+
+        if (parentEmail && result.id) {
+          const emailRes = await fetch('/api/email/send-receipt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentId: result.id, parentEmail }),
+          });
+          if (emailRes.ok) {
+            toast.success('📧 Email receipt sent to parent', { duration: 3000 });
+          }
+        }
+      } catch {
+        /* Email failure is non-fatal — silent */
+      }
+
       /* Thermal receipt */
       if (fees) {
         const adm =

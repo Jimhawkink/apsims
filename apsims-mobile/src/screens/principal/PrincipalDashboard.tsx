@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
+import { useSession } from '../../context/SessionContext';
+import { clearSession } from '../../lib/security';
 import { COLORS, GRADIENTS, SHADOWS, fmt, fmtPct } from '../../components/ultra/UltraTheme';
 import { Sparkline, LineChart, BarChart, DoughnutChart, ProgressBar } from '../../components/ultra/UltraCharts';
 import { KPICard, SectionHeader, ChartPanel, FilterBar, LiveBadge, DataGrid, StatusBadge } from '../../components/ultra/UltraComponents';
@@ -17,6 +19,7 @@ const W = Dimensions.get('window').width;
 const CW = W - 60; // chart width inside card padding
 
 export default function PrincipalDashboard({ navigation }: any) {
+  const { session, setSession } = useSession();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<any>(null);
@@ -169,9 +172,28 @@ export default function PrincipalDashboard({ navigation }: any) {
           <View style={styles.headerContent}>
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle}>Principal Dashboard</Text>
-              <Text style={styles.headerSubtitle}>Ultra APSIMS · Real-Time Analytics</Text>
+              <Text style={styles.headerSubtitle}>
+                {session?.full_name ? `🏫 ${session.full_name}` : 'Ultra APSIMS · Real-Time Analytics'}
+              </Text>
             </View>
             <LiveBadge />
+            {/* Logout Button */}
+            <TouchableOpacity
+              onPress={() => {
+                setSession(null);
+                clearSession();
+              }}
+              style={{
+                width: 38, height: 38, borderRadius: 12,
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                alignItems: 'center', justifyContent: 'center',
+                borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+                marginLeft: 8,
+              }}
+              accessibilityLabel="Logout"
+            >
+              <Text style={{ fontSize: 18 }}>🚪</Text>
+            </TouchableOpacity>
           </View>
           {/* Term & Year chips */}
           <View style={styles.headerFilters}>

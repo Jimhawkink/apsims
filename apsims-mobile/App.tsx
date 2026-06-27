@@ -132,7 +132,7 @@ export default function App() {
     useEffect(() => {
         if (!session) return;
         // Register device for push notifications
-        registerForPushNotifications(session.id, session.user_type).catch(console.error);
+        registerForPushNotifications(session.portal_user_id, session.user_type).catch(console.error);
         // Clear badge when app opens
         clearBadge().catch(() => {});
         // Setup notification listeners (navigate on tap)

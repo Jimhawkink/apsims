@@ -9,9 +9,10 @@ import { useSession } from '../../context/SessionContext';
 import { getStudentAttendance, AttendanceRecord, formatDate } from '../../lib/supabase';
 import { cacheData, getCachedData, formatCacheTimestamp } from '../../lib/offline';
 import { useNetworkStatus } from '../../lib/netinfo';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#0d9488', accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
     warning: '#f59e0b', warningLight: '#fef3c7',
@@ -95,15 +96,11 @@ export default function StudentAttendanceScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#0d9488" />
-            <LinearGradient colors={['#0d9488', '#059669']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>📅 My Attendance</Text>
-                    <Text style={styles.headerSub}>{session?.student_name || 'Student'}</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="📋 My Attendance"
+                onBack={() => navigation.goBack()}
+                gradient={['#0D9488','#059669']}
+            />
 
             <ScrollView
                 style={{ flex: 1 }}
@@ -227,15 +224,15 @@ const styles = StyleSheet.create({
     percentNum: { fontSize: 48, fontWeight: '900' },
     percentLabel: { fontSize: 13, fontWeight: '700', color: C.text, marginTop: 4 },
     percentSub: { fontSize: 11, color: C.textSub, marginTop: 2 },
-    warningBanner: { backgroundColor: '#fee2e2', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#fca5a5' },
+    warningBanner: { backgroundColor: '#fee2e2', borderRadius: 16, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#fca5a5' },
     warningText: { fontSize: 12, color: C.danger, fontWeight: '700', textAlign: 'center' },
     monthScroll: { marginBottom: 16 },
-    monthPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 8, borderWidth: 1, borderColor: C.border },
+    monthPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F8FAFF', marginRight: 8, borderWidth: 1, borderColor: C.border },
     monthPillActive: { backgroundColor: C.primary, borderColor: C.primary },
     monthPillText: { fontSize: 12, fontWeight: '700', color: C.textSub },
     monthPillTextActive: { color: '#fff' },
     summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-    summaryCard: { flex: 1, backgroundColor: C.card, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4, alignItems: 'center', gap: 2 },
+    summaryCard: { flex: 1, backgroundColor: C.card, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4, alignItems: 'center', gap: 2 },
     summaryEmoji: { fontSize: 18 },
     summaryCount: { fontSize: 22, fontWeight: '900' },
     summaryLabel: { fontSize: 9, color: C.textSub, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },

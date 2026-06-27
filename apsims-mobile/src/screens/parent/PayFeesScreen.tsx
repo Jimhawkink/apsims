@@ -1,527 +1,806 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+// ═══════════════════════════════════════════════════════════════
+// APSIMS Ultra Premium — Pay Fees Screen v3.0
+// M-Pesa STK Push · KCB Buni Push · Manual Code Entry
+// Auto-loads child details · Real-time payment polling
+// Kenya's #1 School Management System
+// ═══════════════════════════════════════════════════════════════
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    TextInput, ActivityIndicator, StatusBar, SafeAreaView,
-    KeyboardAvoidingView, Platform, Alert,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { RootStackParamList } from "../../navigation/types";
-import { useSession } from "../../context/SessionContext";
+    TextInput, ActivityIndicator, KeyboardAvoidingView,
+    Platform, Alert, Animated, Dimensions, Vibration,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { RootStackParamList } from '../../navigation/types';
+import { useSession } from '../../context/SessionContext';
 import {
     formatKES, getStudentFeePayments, getStudentFeeStructures,
-    initiateKCBSTKPush, initiateSTKPush, pollSTKStatus,
-} from "../../lib/supabase";
-import { validateKenyanPhone, validateAmount } from "../../lib/security";
+    initiateSTKPush, initiateKCBSTKPush, pollSTKStatus, supabase,
+} from '../../lib/supabase';
+import { validateKenyanPhone, validateAmount } from '../../lib/security';
+import ScreenHeader from '../../components/ScreenHeader';
+import { T, fmtKES, fmtKESShort } from '../../theme/PremiumTheme';
+import { ProgressBar } from '../../components/PremiumUI';
 
-type RouteProps = RouteProp<RootStackParamList, "PayFees">;
-type PayStep = "amount" | "confirm" | "processing" | "success" | "failed";
-type PayMethod = "MPesa" | "KCB";
+type RouteProps = RouteProp<RootStackParamList, 'PayFees'>;
+type PayStep = 'overview' | 'amount' | 'method' | 'confirm' | 'processing' | 'success' | 'failed';
+type PayMethod = 'MPesa' | 'KCB' | 'Manual';
 
-const C = {
-    bg: "#f8fafc", card: "#fff", border: "#e2e8f0",
-    primary: "#2563eb", accent: "#059669", accentLight: "#d1fae5",
-    danger: "#ef4444", warning: "#f59e0b",
-    purple: "#7c3aed", teal: "#0d9488",
-    text: "#0f172a", textSub: "#64748b", textDim: "#94a3b8",
-};
+const { width: W } = Dimensions.get('window');
 
-const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000, 20000];
+const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000, 20000, 50000];
 
 export default function PayFeesScreen() {
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const route = useRoute<RouteProps>();
     const { session } = useSession();
-    const { studentId, studentName, formId } = route.params;
+    const insets = useSafeAreaInsets();
 
-    const [step, setStep] = useState<PayStep>("amount");
-    const [method, setMethod] = useState<PayMethod>("MPesa");
-    const [amount, setAmount] = useState("");
-    const [phone, setPhone] = useState("");
-    const [balance, setBalance] = useState(0);
-    const [totalDue, setTotalDue] = useState(0);
-    const [totalPaid, setTotalPaid] = useState(0);
-    const [error, setError] = useState("");
-    const [receipt, setReceipt] = useState("");
+    const {
+        studentId, studentName, formId,
+        admissionNumber = '', formName = '', streamName = '',
+        balance: initialBalance = 0,
+        totalDue: initialTotalDue = 0,
+        totalPaid: initialTotalPaid = 0,
+    } = route.params as any;
+
+    // ─── State ─────────────────────────────────────────────────
+    const [step, setStep] = useState<PayStep>('overview');
+    const [method, setMethod] = useState<PayMethod>('MPesa');
+    const [amount, setAmount] = useState('');
+    const [phone, setPhone] = useState('');
+    const [manualCode, setManualCode] = useState('');
+    const [balance, setBalance] = useState(initialBalance);
+    const [totalDue, setTotalDue] = useState(initialTotalDue);
+    const [totalPaid, setTotalPaid] = useState(initialTotalPaid);
+    const [feeBreakdown, setFeeBreakdown] = useState<any[]>([]);
+    const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+    const [error, setError] = useState('');
+    const [receipt, setReceipt] = useState('');
     const [paidAmount, setPaidAmount] = useState(0);
     const [pollSeconds, setPollSeconds] = useState(0);
+    const [checkoutId, setCheckoutId] = useState('');
+
+    // Animations
+    const successAnim = useRef(new Animated.Value(0)).current;
+    const pulseAnim = useRef(new Animated.Value(1)).current;
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const pulseRef = useRef<Animated.CompositeAnimation | null>(null);
+
+    // ─── Load fee data ─────────────────────────────────────────
+    const loadFeeData = useCallback(async () => {
+        try {
+            const [pays, structs] = await Promise.all([
+                getStudentFeePayments(studentId),
+                formId ? getStudentFeeStructures(formId) : Promise.resolve([]),
+            ]);
+            const due = (structs as any[]).reduce((s, f) => s + Number(f.amount || 0), 0);
+            const paid = pays.reduce((s, p) => s + Number(p.amount || 0), 0);
+            setTotalDue(due || initialTotalDue);
+            setTotalPaid(paid || initialTotalPaid);
+            setBalance(Math.max(0, (due || initialTotalDue) - paid));
+            setFeeBreakdown(structs as any[]);
+            setPaymentHistory(pays.slice(0, 6));
+        } catch (e) { /* Use initial values */ }
+    }, [studentId, formId]);
 
     useEffect(() => {
-        loadBalance();
-        return () => { if (pollRef.current) clearInterval(pollRef.current); };
-    }, []);
+        loadFeeData();
+        return () => {
+            if (pollRef.current) clearInterval(pollRef.current);
+            if (pulseRef.current) pulseRef.current.stop();
+        };
+    }, [loadFeeData]);
 
-    const loadBalance = async () => {
-        const [pays, structs] = await Promise.all([
-            getStudentFeePayments(studentId),
-            formId ? getStudentFeeStructures(formId) : Promise.resolve([]),
-        ]);
-        const due = structs.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
-        const paid = pays.reduce((s, p) => s + Number(p.amount || 0), 0);
-        setTotalDue(due);
-        setTotalPaid(paid);
-        setBalance(Math.max(0, due - paid));
+    // ─── Success animation ─────────────────────────────────────
+    const playSuccess = () => {
+        Vibration.vibrate([0, 100, 50, 100]);
+        Animated.spring(successAnim, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }).start();
     };
 
-    const handleProceed = () => {
-        const { valid: av, error: ae } = validateAmount(amount);
-        if (!av) { setError(ae || "Invalid amount"); return; }
-        const { valid: pv, error: pe } = validateKenyanPhone(phone);
-        if (!pv) { setError(pe || "Invalid phone"); return; }
-        setError("");
-        setStep("confirm");
+    // ─── Pulse animation for processing ───────────────────────
+    const startPulse = () => {
+        pulseRef.current = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, { toValue: 1.08, duration: 700, useNativeDriver: true }),
+                Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+            ])
+        );
+        pulseRef.current.start();
     };
 
-    const startPolling = (checkoutRequestId: string) => {
+    // ─── Poll STK status ───────────────────────────────────────
+    const startPolling = (reqId: string) => {
         let elapsed = 0;
         pollRef.current = setInterval(async () => {
             elapsed += 5;
             setPollSeconds(elapsed);
-            const { status, receipt: r } = await pollSTKStatus(checkoutRequestId);
-            if (status === "completed" && r) {
+            if (elapsed >= 90) {
                 clearInterval(pollRef.current!);
-                setReceipt(r);
-                setPaidAmount(Math.round(parseFloat(amount)));
-                setStep("success");
-            } else if (elapsed >= 60) {
-                clearInterval(pollRef.current!);
-                setError("Payment not confirmed. Please check your M-Pesa and try again.");
-                setStep("failed");
+                pulseRef.current?.stop();
+                setStep('failed');
+                setError('Payment timed out. Please try again or check your M-Pesa messages.');
+                return;
             }
+            try {
+                const result = await pollSTKStatus(reqId);
+                if (result.status === 'success') {
+                    clearInterval(pollRef.current!);
+                    pulseRef.current?.stop();
+                    setPaidAmount(Number(amount));
+                    if (result.receipt) setReceipt(result.receipt);
+                    setBalance((prev: number) => Math.max(0, prev - Number(amount)));
+                    setStep('success');
+                    playSuccess();
+                    loadFeeData();
+                } else if (result.status === 'failed') {
+                    clearInterval(pollRef.current!);
+                    pulseRef.current?.stop();
+                    setStep('failed');
+                    setError('Payment was declined or cancelled. Please try again.');
+                }
+            } catch { /* Keep polling */ }
         }, 5000);
     };
 
-    const handlePayNow = async () => {
-        setStep("processing");
-        setError("");
+    // ─── Handle initiate payment ───────────────────────────────
+    const handleInitiate = async () => {
+        setError('');
+        const { valid: av, error: ae } = validateAmount(amount);
+        if (!av) { setError(ae || 'Invalid amount'); return; }
+
+        if (method !== 'Manual') {
+            const { valid: pv, error: pe } = validateKenyanPhone(phone);
+            if (!pv) { setError(pe || 'Enter a valid Kenyan phone e.g. 0712345678'); return; }
+        }
+        if (method === 'Manual' && !manualCode.trim()) {
+            setError('Enter the M-Pesa transaction code (e.g. QFX12345AB)');
+            return;
+        }
+
+        setStep('processing');
+        startPulse();
+
         try {
-            const amt = Math.round(parseFloat(amount));
-            if (method === "MPesa") {
-                const { checkoutRequestId, error: e } = await initiateSTKPush({
-                    phone, amount: amt, studentId, studentName, description: `School Fees - ${studentName}`,
+            if (method === 'MPesa') {
+                const result = await initiateSTKPush({
+                    phone, amount: Number(amount), studentId,
+                    studentName,
+                    description: `${formName || 'School'} fees – ${admissionNumber || studentId}`,
                 });
-                if (e || !checkoutRequestId) { setStep("failed"); setError(e || "M-Pesa STK Push failed"); return; }
-                startPolling(checkoutRequestId);
+                if (result?.checkoutRequestId) {
+                    setCheckoutId(result.checkoutRequestId);
+                    startPolling(result.checkoutRequestId);
+                } else {
+                    throw new Error(result?.error || 'STK Push failed. Check your phone.');
+                }
+            } else if (method === 'KCB') {
+                const result = await initiateKCBSTKPush({
+                    phone, amount: Number(amount), studentId,
+                    studentName,
+                    description: `School fees – ${admissionNumber || studentId}`,
+                });
+                if (result?.checkoutRequestId) {
+                    setCheckoutId(result.checkoutRequestId);
+                    startPolling(result.checkoutRequestId);
+                } else {
+                    throw new Error(result?.error || 'KCB Push failed. Try M-Pesa instead.');
+                }
             } else {
-                const { checkoutRequestId, error: e } = await initiateKCBSTKPush({
-                    phone, amount: amt, studentId, studentName, description: `School Fees - ${studentName}`,
-                });
-                if (e || !checkoutRequestId) { setStep("failed"); setError(e || "KCB STK Push failed"); return; }
-                setTimeout(() => {
-                    setReceipt(`KCB${Date.now().toString().slice(-8)}`);
-                    setPaidAmount(amt);
-                    setStep("success");
-                }, 8000);
+                // Manual code — record payment via static import
+                const { error: dbErr } = await supabase.from('school_fee_payments').insert([{
+                    student_id: studentId, amount: Number(amount),
+                    payment_method: 'MPesa', mpesa_code: manualCode.trim().toUpperCase(),
+                    payment_date: new Date().toISOString().split('T')[0],
+                    recorded_by: session?.full_name || 'Parent Portal',
+                    year: new Date().getFullYear(),
+                }]);
+                if (dbErr) throw new Error(dbErr.message);
+                pulseRef.current?.stop();
+                setPaidAmount(Number(amount));
+                setReceipt(manualCode.trim().toUpperCase());
+                setBalance((prev: number) => Math.max(0, prev - Number(amount)));
+                setStep('success');
+                playSuccess();
+                loadFeeData();
             }
         } catch (err: any) {
-            setError(err.message || "Network error");
-            setStep("failed");
+            pulseRef.current?.stop();
+            setStep('failed');
+            setError(err.message || 'Payment initiation failed. Please try again.');
         }
     };
 
-    const reset = () => {
-        setStep("amount"); setAmount(""); setPhone("");
-        setError(""); setReceipt(""); setPaidAmount(0); setPollSeconds(0);
-        if (pollRef.current) clearInterval(pollRef.current);
-    };
+    const collectionRate = totalDue > 0 ? Math.min(100, Math.round((totalPaid / totalDue) * 100)) : 0;
+    const initials = (studentName || 'S').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
 
-    const mask = (p: string) => p.length >= 6 ? p.slice(0, 4) + "****" + p.slice(-3) : p;
+    // ─── RENDER: Success ────────────────────────────────────────
+    if (step === 'success') {
+        return (
+            <View style={[styles.root, { paddingTop: insets.top }]}>
+                <ScreenHeader title="Payment Complete" onBack={() => navigation.goBack()} gradient={T.gradGreen} />
+                <ScrollView contentContainerStyle={styles.centeredScroll} showsVerticalScrollIndicator={false}>
+                    <Animated.View style={[styles.successBox, {
+                        transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
+                        opacity: successAnim,
+                    }]}>
+                        {/* Big success circle */}
+                        <LinearGradient colors={T.gradGreen} style={styles.successCircle}>
+                            <Text style={{ fontSize: 52 }}>✅</Text>
+                        </LinearGradient>
+                        <Text style={styles.successTitle}>Payment Successful!</Text>
+                        <Text style={styles.successAmount}>{fmtKES(paidAmount)}</Text>
+                        <Text style={styles.successSub}>Paid for {studentName}</Text>
 
-    //  Processing Screen 
-    if (step === "processing") return (
-        <View style={[st.container, { justifyContent: "center", alignItems: "center" }]}>
-            <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
-            <View style={st.resultCard}>
-                <ActivityIndicator size="large" color={C.accent} />
-                <Text style={st.resultTitle}>Processing Payment</Text>
-                <Text style={st.resultSub}>Check your phone for the {method === "MPesa" ? "M-Pesa" : "KCB"} prompt</Text>
-                {pollSeconds > 0 && (
-                    <Text style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>
-                        Waiting {60 - pollSeconds}s remaining
-                    </Text>
-                )}
-                <View style={st.warningBox}>
-                    <Text style={st.warningText}> Do NOT close this screen</Text>
-                </View>
-            </View>
-        </View>
-    );
-
-    //  Success Screen 
-    if (step === "success") return (
-        <View style={[st.container, { justifyContent: "center", alignItems: "center" }]}>
-            <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
-            <View style={st.resultCard}>
-                <Text style={{ fontSize: 60 }}></Text>
-                <Text style={[st.resultTitle, { color: C.accent }]}>Payment Successful!</Text>
-                <View style={st.receiptBox}>
-                    {[
-                        { l: "Student", v: studentName, e: "" },
-                        { l: "Amount Paid", v: formatKES(paidAmount), e: "" },
-                        { l: "Receipt No", v: receipt, e: "" },
-                        { l: "Method", v: method === "MPesa" ? "M-Pesa" : "KCB Bank", e: method === "MPesa" ? "" : "" },
-                    ].map((r, i) => (
-                        <View key={i} style={st.rRow}>
-                            <Text style={st.rEmoji}>{r.e}</Text>
-                            <Text style={st.rLabel}>{r.l}</Text>
-                            <Text style={[st.rValue, r.l === "Amount Paid" && { color: C.accent, fontWeight: "900" }]}>{r.v}</Text>
-                        </View>
-                    ))}
-                </View>
-                <TouchableOpacity onPress={() => { reset(); loadBalance(); navigation.goBack(); }} activeOpacity={0.85} style={{ width: "100%" }}>
-                    <LinearGradient colors={[C.primary, "#1d4ed8"]} style={st.doneBtn}>
-                        <Text style={st.doneBtnText}> Back to Dashboard</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={reset} style={{ paddingVertical: 10 }}>
-                    <Text style={{ color: C.textSub, fontSize: 12, fontWeight: "600" }}>Make Another Payment</Text>
-                </TouchableOpacity>
-            </View>
-        </View>
-    );
-
-    //  Failed Screen 
-    if (step === "failed") return (
-        <View style={[st.container, { justifyContent: "center", alignItems: "center" }]}>
-            <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
-            <View style={st.resultCard}>
-                <Text style={{ fontSize: 60 }}></Text>
-                <Text style={[st.resultTitle, { color: C.danger }]}>Payment Failed</Text>
-                <Text style={st.resultSub}>{error}</Text>
-                <TouchableOpacity onPress={reset} activeOpacity={0.85} style={{ width: "100%" }}>
-                    <LinearGradient colors={[C.primary, "#1d4ed8"]} style={st.doneBtn}>
-                        <Text style={st.doneBtnText}> Try Again</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={{ paddingVertical: 10 }}>
-                    <Text style={{ color: C.textDim, fontWeight: "600" }}> Back</Text>
-                </TouchableOpacity>
-            </View>
-        </View>
-    );
-
-    //  Confirm Screen 
-    if (step === "confirm") return (
-        <View style={st.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
-            <LinearGradient colors={["#2563eb", "#1d4ed8"]} style={st.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => setStep("amount")} accessibilityLabel="Go back">
-                        <Text style={st.backText}> Back</Text>
-                    </TouchableOpacity>
-                    <Text style={st.headerTitle}> Confirm Payment</Text>
-                </SafeAreaView>
-            </LinearGradient>
-            <ScrollView contentContainerStyle={st.content}>
-                <View style={st.confirmCard}>
-                    {[
-                        { l: "Student", v: studentName, e: "" },
-                        { l: "Form", v: session?.student_form || "N/A", e: "" },
-                        { l: "Admission", v: session?.student_admission || "N/A", e: "" },
-                        { l: "Amount", v: formatKES(parseFloat(amount)), e: "" },
-                        { l: "Phone", v: mask(phone), e: "" },
-                        { l: "Method", v: method === "MPesa" ? "M-Pesa STK Push" : "KCB STK Push", e: method === "MPesa" ? "" : "" },
-                    ].map((r, i) => (
-                        <View key={i} style={st.cRow}>
-                            <Text style={{ fontSize: 16, width: 30 }}>{r.e}</Text>
-                            <Text style={{ flex: 1, fontSize: 12, color: C.textSub, fontWeight: "600" }}>{r.l}</Text>
-                            <Text style={{ fontSize: 13, color: r.l === "Amount" ? C.accent : C.text, fontWeight: r.l === "Amount" ? "900" : "700" }}>{r.v}</Text>
-                        </View>
-                    ))}
-                </View>
-                <TouchableOpacity onPress={handlePayNow} activeOpacity={0.85} accessibilityLabel="Confirm and pay">
-                    <LinearGradient colors={["#059669", "#047857"]} style={st.payBtn}>
-                        <Text style={{ fontSize: 18 }}></Text>
-                        <Text style={{ fontSize: 18, fontWeight: "900", color: "#fff" }}>
-                            Pay {formatKES(parseFloat(amount))}
-                        </Text>
-                    </LinearGradient>
-                </TouchableOpacity>
-            </ScrollView>
-        </View>
-    );
-
-    //  Main Amount Entry Screen 
-    return (
-        <View style={st.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#059669" />
-            <LinearGradient colors={["#059669", "#047857"]} style={st.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                        <Text style={st.backText}> Back</Text>
-                    </TouchableOpacity>
-                    <Text style={st.headerTitle}> Pay School Fees</Text>
-                    <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", marginTop: 2 }}>
-                        {studentName}  {session?.student_form || ""} {session?.student_stream_name ? ` ${session.student_stream_name}` : ""}
-                    </Text>
-                </SafeAreaView>
-            </LinearGradient>
-
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-                <ScrollView contentContainerStyle={st.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-
-                    {/* Student & Balance Info */}
-                    <View style={st.infoCard}>
-                        <View style={st.infoRow}>
-                            <Text style={st.infoLabel}> Student</Text>
-                            <Text style={st.infoValue}>{studentName}</Text>
-                        </View>
-                        <View style={st.infoRow}>
-                            <Text style={st.infoLabel}> Admission</Text>
-                            <Text style={st.infoValue}>{session?.student_admission || "N/A"}</Text>
-                        </View>
-                        <View style={st.infoRow}>
-                            <Text style={st.infoLabel}> Form</Text>
-                            <Text style={st.infoValue}>{session?.student_form || "N/A"}</Text>
-                        </View>
-                        {session?.student_stream_name && (
-                            <View style={st.infoRow}>
-                                <Text style={st.infoLabel}> Stream</Text>
-                                <Text style={st.infoValue}>{session.student_stream_name}</Text>
+                        {receipt ? (
+                            <View style={styles.receiptBox}>
+                                <Text style={styles.receiptLabel}>Transaction Code</Text>
+                                <Text style={styles.receiptCode}>{receipt}</Text>
                             </View>
-                        )}
-                        <View style={[st.infoRow, { borderBottomWidth: 0, paddingTop: 10, marginTop: 4, borderTopWidth: 1, borderTopColor: C.border }]}>
-                            <Text style={st.infoLabel}> Balance</Text>
-                            <Text style={[st.infoValue, { color: balance > 0 ? C.danger : C.accent, fontWeight: "900", fontSize: 16 }]}>
-                                {balance > 0 ? formatKES(balance) : " Fully Paid"}
+                        ) : null}
+
+                        {/* Remaining balance */}
+                        <View style={styles.successBalanceBox}>
+                            <Text style={styles.successBalLabel}>{balance > 0 ? 'Remaining Balance' : '🎉 Fully Cleared!'}</Text>
+                            <Text style={[styles.successBal, { color: balance > 0 ? T.amber : T.green }]}>
+                                {balance > 0 ? fmtKES(balance) : 'KES 0'}
                             </Text>
                         </View>
-                        {totalDue > 0 && (
-                            <View style={st.progressBar}>
-                                <View style={[st.progressFill, { width: `${Math.min(100, (totalPaid / totalDue) * 100)}%` as any }]} />
-                            </View>
-                        )}
-                        {balance === 0 && totalDue > 0 && (
-                            <Text style={{ fontSize: 11, color: C.accent, textAlign: "center", marginTop: 4, fontWeight: "700" }}>
-                                 All fees paid! You can still make a prepayment for next term.
-                            </Text>
-                        )}
-                    </View>
 
-                    {/* Payment Method */}
-                    <Text style={st.label}> Payment Method</Text>
-                    <View style={st.methodRow}>
-                        {(["MPesa", "KCB"] as PayMethod[]).map(m => (
-                            <TouchableOpacity
-                                key={m}
-                                onPress={() => setMethod(m)}
-                                style={[st.methodBtn, method === m && st.methodBtnActive]}
-                                accessibilityLabel={`Select ${m} payment`}
-                            >
-                                <Text style={st.methodEmoji}>{m === "MPesa" ? "" : ""}</Text>
-                                <Text style={[st.methodBtnText, method === m && st.methodBtnTextActive]}>
-                                    {m === "MPesa" ? "M-Pesa" : "KCB Bank"}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-
-                    {/* Phone */}
-                    <View style={{ marginBottom: 16 }}>
-                        <Text style={st.label}> Phone Number</Text>
-                        <TextInput
-                            style={st.input}
-                            value={phone}
-                            onChangeText={t => { setPhone(t); setError(""); }}
-                            placeholder="0712345678"
-                            placeholderTextColor={C.textDim}
-                            keyboardType="phone-pad"
-                            maxLength={13}
-                            accessibilityLabel="Phone number"
-                        />
-                        <Text style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>
-                            This phone receives the {method === "MPesa" ? "M-Pesa" : "KCB"} payment prompt
-                        </Text>
-                    </View>
-
-                    {/* Amount */}
-                    <View style={{ marginBottom: 16 }}>
-                        <Text style={st.label}> Amount (KES)</Text>
-                        <TextInput
-                            style={[st.input, { fontSize: 24, fontWeight: "900", textAlign: "center" }]}
-                            value={amount}
-                            onChangeText={t => { setAmount(t.replace(/[^0-9]/g, "")); setError(""); }}
-                            placeholder="Enter amount"
-                            placeholderTextColor={C.textDim}
-                            keyboardType="numeric"
-                            maxLength={7}
-                            accessibilityLabel="Payment amount"
-                        />
-
-                        {/* Quick Amount Buttons */}
-                        <View style={st.quickAmounts}>
-                            {QUICK_AMOUNTS.map(qa => (
-                                <TouchableOpacity
-                                    key={qa}
-                                    onPress={() => setAmount(String(qa))}
-                                    style={[st.quickBtn, amount === String(qa) && st.quickBtnActive]}
-                                    accessibilityLabel={`Quick amount ${formatKES(qa)}`}
-                                >
-                                    <Text style={[st.quickBtnText, amount === String(qa) && st.quickBtnTextActive]}>
-                                        {qa >= 1000 ? `${qa / 1000}K` : qa}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* Pay Balance Button */}
-                        {balance > 0 && (
-                            <TouchableOpacity
-                                onPress={() => setAmount(String(Math.round(balance)))}
-                                style={st.payBalanceBtn}
-                                accessibilityLabel="Pay full balance"
-                            >
-                                <Text style={st.payBalanceBtnText}>
-                                     Pay full balance: {formatKES(balance)}
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    {/* Error */}
-                    {error ? (
-                        <View style={st.errorBox}>
-                            <Text style={st.errorText}> {error}</Text>
-                        </View>
-                    ) : null}
-
-                    {/* Continue Button */}
-                    <TouchableOpacity
-                        onPress={handleProceed}
-                        disabled={!amount.trim() || !phone.trim()}
-                        activeOpacity={0.85}
-                        accessibilityLabel="Continue to confirm"
-                    >
-                        <LinearGradient
-                            colors={amount.trim() && phone.trim() ? ["#059669", "#047857"] : ["#94a3b8", "#64748b"]}
-                            style={st.continueBtn}
+                        <TouchableOpacity
+                            onPress={() => { setStep('overview'); setAmount(''); setManualCode(''); }}
+                            style={styles.successBtn}
+                            activeOpacity={0.88}
                         >
-                            <Text style={st.continueBtnText}>Continue </Text>
+                            <LinearGradient colors={T.gradGreen} style={styles.successBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                                <Text style={styles.successBtnText}>Make Another Payment</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.successBackBtn}>
+                            <Text style={styles.successBackText}>← Back to Dashboard</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
+                </ScrollView>
+            </View>
+        );
+    }
+
+    // ─── RENDER: Processing ─────────────────────────────────────
+    if (step === 'processing') {
+        const progress = Math.min(100, Math.round((pollSeconds / 90) * 100));
+        return (
+            <View style={[styles.root, { paddingTop: insets.top }]}>
+                <ScreenHeader title="Processing Payment" gradient={T.gradTeal} />
+                <View style={styles.centeredScroll}>
+                    <Animated.View style={[styles.processingBox, { transform: [{ scale: pulseAnim }] }]}>
+                        <LinearGradient colors={T.gradTeal} style={styles.processingCircle}>
+                            <ActivityIndicator size="large" color="#fff" />
+                        </LinearGradient>
+                    </Animated.View>
+
+                    <Text style={styles.processingTitle}>
+                        {method === 'MPesa' ? '📱 Check your phone' : '🏦 KCB processing'}
+                    </Text>
+                    <Text style={styles.processingPhone}>{phone}</Text>
+                    <Text style={styles.processingDesc}>
+                        {method === 'MPesa'
+                            ? 'An M-Pesa STK Push has been sent.\nEnter your M-Pesa PIN to complete payment.'
+                            : 'KCB Buni push sent.\nApprove on your KCB mobile app or USSD.'}
+                    </Text>
+
+                    {/* Timer progress */}
+                    <View style={styles.processingTimer}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <Text style={styles.processingTimerLabel}>Waiting for confirmation…</Text>
+                            <Text style={styles.processingTimerSecs}>{Math.max(0, 90 - pollSeconds)}s</Text>
+                        </View>
+                        <ProgressBar pct={progress} color={T.teal} height={8} />
+                    </View>
+
+                    <Text style={styles.processingAmount}>Amount: {fmtKES(Number(amount))}</Text>
+
+                    <TouchableOpacity onPress={() => { clearInterval(pollRef.current!); pulseRef.current?.stop(); setStep('amount'); }} style={styles.cancelBtn}>
+                        <Text style={styles.cancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
+
+    // ─── RENDER: Failed ─────────────────────────────────────────
+    if (step === 'failed') {
+        return (
+            <View style={[styles.root, { paddingTop: insets.top }]}>
+                <ScreenHeader title="Payment Failed" onBack={() => setStep('overview')} gradient={T.gradRed} />
+                <View style={styles.centeredScroll}>
+                    <View style={styles.failedCircle}><Text style={{ fontSize: 52 }}>❌</Text></View>
+                    <Text style={styles.failedTitle}>Payment Failed</Text>
+                    <Text style={styles.failedDesc}>{error}</Text>
+                    <TouchableOpacity onPress={() => { setError(''); setStep('overview'); }} style={styles.successBtn} activeOpacity={0.88}>
+                        <LinearGradient colors={T.gradPrimary} style={styles.successBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                            <Text style={styles.successBtnText}>Try Again</Text>
                         </LinearGradient>
                     </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
 
-                    {/* Security Note */}
-                    <View style={st.securityNote}>
-                        <Text style={st.securityNoteText}>
-                             Payments processed securely via {method === "MPesa" ? "Safaricom M-Pesa" : "KCB Bank"}.
-                            Credited to {studentName}'s account immediately.
+    // ─── RENDER: Main UI ────────────────────────────────────────
+    return (
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: T.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScreenHeader
+                title="💳 Pay School Fees"
+                subtitle={studentName}
+                onBack={() => step === 'confirm' ? setStep('amount') : navigation.goBack()}
+                gradient={T.gradGreen}
+            />
+
+            <ScrollView
+                contentContainerStyle={styles.scroll}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+            >
+                {/* ─── Student Card ────────────────────────────── */}
+                <View style={styles.studentCard}>
+                    <LinearGradient colors={T.gradPurple} style={styles.studentAvatar}>
+                        <Text style={styles.studentInitials}>{initials}</Text>
+                    </LinearGradient>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.studentName}>{studentName}</Text>
+                        <Text style={styles.studentMeta}>
+                            {admissionNumber ? `ADM: ${admissionNumber}` : ''}
+                            {formName ? ` · ${formName}` : ''}
+                            {streamName ? ` · ${streamName}` : ''}
                         </Text>
                     </View>
+                    <View style={[styles.studentStatus, { backgroundColor: balance > 0 ? T.redLight : T.greenLight }]}>
+                        <Text style={[styles.studentStatusText, { color: balance > 0 ? T.red : T.green }]}>
+                            {balance > 0 ? '⚠ Pending' : '✅ Cleared'}
+                        </Text>
+                    </View>
+                </View>
+
+                {/* ─── Fee Summary Card ──────────────────────────── */}
+                <View style={styles.summaryCard}>
+                    <Text style={styles.summaryLabel}>📊 Fee Summary</Text>
+                    <View style={styles.summaryRow}>
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryItemLabel}>Total Fees</Text>
+                            <Text style={styles.summaryItemValue}>{fmtKESShort(totalDue)}</Text>
+                        </View>
+                        <View style={[styles.summaryDivider]} />
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryItemLabel}>Paid</Text>
+                            <Text style={[styles.summaryItemValue, { color: T.green }]}>{fmtKESShort(totalPaid)}</Text>
+                        </View>
+                        <View style={[styles.summaryDivider]} />
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryItemLabel}>{balance > 0 ? 'Balance Due' : 'Status'}</Text>
+                            <Text style={[styles.summaryItemValue, { color: balance > 0 ? T.red : T.green }]}>
+                                {balance > 0 ? fmtKESShort(balance) : '✅ Paid'}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Progress bar */}
+                    <View style={{ marginTop: 12 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                            <Text style={styles.progressLabel}>Collection Progress</Text>
+                            <Text style={styles.progressPct}>{collectionRate}%</Text>
+                        </View>
+                        <ProgressBar
+                            pct={collectionRate}
+                            color={collectionRate >= 80 ? T.green : collectionRate >= 50 ? T.amber : T.red}
+                            height={10}
+                        />
+                    </View>
+                </View>
+
+                {/* ─── Fee Breakdown ──────────────────────────────── */}
+                {feeBreakdown.length > 0 && (
+                    <View style={styles.breakdownCard}>
+                        <Text style={styles.summaryLabel}>🧾 Fee Breakdown</Text>
+                        {feeBreakdown.map((f: any, i: number) => (
+                            <View key={i} style={[styles.breakdownRow, i < feeBreakdown.length - 1 && styles.breakdownBorder]}>
+                                <View style={styles.breakdownDot} />
+                                <Text style={styles.breakdownCat}>{f.category || f.term || 'School Fees'}</Text>
+                                <Text style={styles.breakdownAmt}>{fmtKES(Number(f.amount || 0))}</Text>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
+                {/* ─── Payment Method Selector ────────────────────── */}
+                <Text style={styles.sectionTitle}>💳 Payment Method</Text>
+                <View style={styles.methodGrid}>
+                    {[
+                        { id: 'MPesa', icon: '📱', label: 'M-Pesa STK Push', sub: 'Instant push to phone', grad: T.gradGreen, badge: 'RECOMMENDED' },
+                        { id: 'KCB', icon: '🏦', label: 'KCB Buni Push', sub: 'KCB mobile banking', grad: ['#0c4a6e', '#0891b2'] as [string, string], badge: 'LIVE' },
+                        { id: 'Manual', icon: '🔢', label: 'Enter M-Pesa Code', sub: 'Paste transaction code', grad: ['#475569', '#334155'] as [string, string], badge: null },
+                    ].map(m => {
+                        const active = method === m.id;
+                        return (
+                            <TouchableOpacity
+                                key={m.id}
+                                onPress={() => { setMethod(m.id as PayMethod); setError(''); }}
+                                activeOpacity={0.82}
+                                style={[styles.methodCard, active && styles.methodCardActive]}
+                            >
+                                {active && (
+                                    <LinearGradient colors={m.grad} style={styles.methodCardActiveBg} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                                        <View style={styles.methodDecor} />
+                                    </LinearGradient>
+                                )}
+                                <View style={styles.methodCardContent}>
+                                    {m.badge && (
+                                        <View style={[styles.methodBadge, { backgroundColor: active ? 'rgba(255,255,255,0.25)' : T.greenLight }]}>
+                                            <Text style={[styles.methodBadgeText, { color: active ? '#fff' : T.green }]}>{m.badge}</Text>
+                                        </View>
+                                    )}
+                                    <View style={[styles.methodIconBox, { backgroundColor: active ? 'rgba(255,255,255,0.2)' : T.bgSoft }]}>
+                                        <Text style={{ fontSize: 24 }}>{m.icon}</Text>
+                                    </View>
+                                    <Text style={[styles.methodLabel, active && { color: '#fff' }]}>{m.label}</Text>
+                                    <Text style={[styles.methodSub, active && { color: 'rgba(255,255,255,0.75)' }]}>{m.sub}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+
+                {/* ─── Phone Number (MPesa / KCB) ─────────────────── */}
+                {method !== 'Manual' && (
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>📞 {method === 'MPesa' ? 'M-Pesa' : 'KCB'} Phone Number</Text>
+                        <View style={styles.inputBox}>
+                            <Text style={styles.inputPrefix}>+254</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={phone}
+                                onChangeText={t => { setPhone(t); setError(''); }}
+                                placeholder="712 345 678"
+                                keyboardType="phone-pad"
+                                maxLength={13}
+                                placeholderTextColor={T.textDim}
+                                accessibilityLabel="Phone number"
+                            />
+                        </View>
+                        <Text style={styles.inputHint}>
+                            {method === 'MPesa' ? 'A Safaricom STK Push will be sent to this number'
+                                : 'KCB Buni push will be sent — ensure mobile banking is enabled'}
+                        </Text>
+                    </View>
+                )}
+
+                {/* ─── Manual Code Input ──────────────────────────── */}
+                {method === 'Manual' && (
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>🔢 M-Pesa Transaction Code</Text>
+                        <TextInput
+                            style={[styles.input, styles.codeInput]}
+                            value={manualCode}
+                            onChangeText={t => { setManualCode(t.toUpperCase()); setError(''); }}
+                            placeholder="e.g. QFX12345AB"
+                            autoCapitalize="characters"
+                            maxLength={12}
+                            placeholderTextColor={T.textDim}
+                            accessibilityLabel="Transaction code"
+                        />
+                        <Text style={styles.inputHint}>
+                            Check your M-Pesa SMS for the confirmation code
+                        </Text>
+                    </View>
+                )}
+
+                {/* ─── Amount Entry ───────────────────────────────── */}
+                <Text style={styles.sectionTitle}>💰 Amount to Pay</Text>
+
+                {/* Quick amounts */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickAmtScroll}>
+                    {(balance > 0 ? [balance, ...QUICK_AMOUNTS.filter(a => a !== balance)] : QUICK_AMOUNTS).map(qa => (
+                        <TouchableOpacity
+                            key={qa}
+                            onPress={() => { setAmount(String(qa)); setError(''); }}
+                            style={[styles.quickAmtBtn, amount === String(qa) && styles.quickAmtBtnActive]}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.quickAmtText, amount === String(qa) && styles.quickAmtTextActive]}>
+                                {qa === balance ? `Full: ${fmtKESShort(qa)}` : fmtKESShort(qa)}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
                 </ScrollView>
-            </KeyboardAvoidingView>
-        </View>
+
+                {/* Custom amount */}
+                <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Or enter custom amount</Text>
+                    <View style={styles.inputBox}>
+                        <Text style={styles.inputPrefix}>KES</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={amount}
+                            onChangeText={t => { setAmount(t); setError(''); }}
+                            placeholder="0"
+                            keyboardType="numeric"
+                            placeholderTextColor={T.textDim}
+                            accessibilityLabel="Payment amount"
+                        />
+                    </View>
+                </View>
+
+                {/* Error */}
+                {error ? (
+                    <View style={styles.errorBox}>
+                        <Text style={styles.errorText}>⚠️ {error}</Text>
+                    </View>
+                ) : null}
+
+                {/* ─── Summary before confirm ─────────────────────── */}
+                {amount && Number(amount) > 0 && (
+                    <View style={styles.confirmSummary}>
+                        <View style={styles.confirmRow}>
+                            <Text style={styles.confirmLabel}>Student</Text>
+                            <Text style={styles.confirmValue}>{studentName}</Text>
+                        </View>
+                        <View style={styles.confirmRow}>
+                            <Text style={styles.confirmLabel}>Method</Text>
+                            <Text style={styles.confirmValue}>
+                                {method === 'MPesa' ? '📱 M-Pesa STK' : method === 'KCB' ? '🏦 KCB Buni' : '🔢 Manual Code'}
+                            </Text>
+                        </View>
+                        {method !== 'Manual' && (
+                            <View style={styles.confirmRow}>
+                                <Text style={styles.confirmLabel}>Phone</Text>
+                                <Text style={styles.confirmValue}>{phone}</Text>
+                            </View>
+                        )}
+                        <View style={[styles.confirmRow, styles.confirmTotal]}>
+                            <Text style={styles.confirmTotalLabel}>Total Payment</Text>
+                            <Text style={styles.confirmTotalValue}>{fmtKES(Number(amount))}</Text>
+                        </View>
+                    </View>
+                )}
+
+                {/* ─── Pay Button ─────────────────────────────────── */}
+                <TouchableOpacity
+                    onPress={() => {
+                        Alert.alert(
+                            'Confirm Payment',
+                            `Pay ${fmtKES(Number(amount || '0'))} for ${studentName} via ${method === 'MPesa' ? 'M-Pesa STK Push' : method === 'KCB' ? 'KCB Buni' : 'Manual Code'}?`,
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: 'Pay Now', style: 'default', onPress: handleInitiate },
+                            ]
+                        );
+                    }}
+                    disabled={!amount || Number(amount) <= 0}
+                    activeOpacity={0.88}
+                    style={{ marginBottom: 12 }}
+                >
+                    <LinearGradient
+                        colors={(!amount || Number(amount) <= 0) ? ['#94a3b8', '#94a3b8'] : T.gradGreen}
+                        style={styles.payBtn}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    >
+                        <Text style={styles.payBtnIcon}>
+                            {method === 'MPesa' ? '📱' : method === 'KCB' ? '🏦' : '🔢'}
+                        </Text>
+                        <Text style={styles.payBtnText}>
+                            {amount && Number(amount) > 0 ? `Pay ${fmtKES(Number(amount))} via ${method === 'MPesa' ? 'M-Pesa' : method === 'KCB' ? 'KCB' : 'Code'}` : 'Enter Amount to Pay'}
+                        </Text>
+                    </LinearGradient>
+                </TouchableOpacity>
+
+                {/* ─── Recent payments ────────────────────────────── */}
+                {paymentHistory.length > 0 && (
+                    <>
+                        <Text style={styles.sectionTitle}>🕐 Recent Payments</Text>
+                        <View style={styles.historyCard}>
+                            {paymentHistory.map((p: any, i: number) => (
+                                <View key={i} style={[styles.historyRow, i < paymentHistory.length - 1 && styles.historyBorder]}>
+                                    <View style={[styles.historyIcon, { backgroundColor: p.payment_method?.toLowerCase() === 'mpesa' ? T.greenLight : T.blueLight }]}>
+                                        <Text style={{ fontSize: 14 }}>{p.payment_method?.toLowerCase() === 'mpesa' ? '📱' : '🏦'}</Text>
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.historyMethod}>{p.payment_method || 'Payment'}{p.receipt_no ? ` · ${p.receipt_no}` : ''}</Text>
+                                        <Text style={styles.historyDate}>{p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Text>
+                                    </View>
+                                    <Text style={styles.historyAmt}>+{fmtKES(Number(p.amount || 0))}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    </>
+                )}
+
+                <View style={{ height: 40 }} />
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 }
 
-const st = StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.bg },
-    content: { padding: 16, paddingBottom: 40 },
-    header: { paddingTop: 48, paddingBottom: 16, paddingHorizontal: 20 },
-    backText: { color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: "600", marginBottom: 8 },
-    headerTitle: { fontSize: 22, fontWeight: "900", color: "#fff" },
+const styles = StyleSheet.create({
+    root: { flex: 1, backgroundColor: T.bg },
+    scroll: { padding: 20, paddingTop: 16 },
+    centeredScroll: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+    sectionTitle: { fontSize: 14, fontWeight: '900', color: T.text, marginBottom: 12, marginTop: 4 },
 
-    infoCard: {
-        backgroundColor: C.card, borderRadius: 16, padding: 16,
-        marginBottom: 16, borderWidth: 1, borderColor: C.border,
+    // Student card
+    studentCard: {
+        flexDirection: 'row', alignItems: 'center', gap: 14,
+        backgroundColor: T.bgCard, borderRadius: 20, padding: 16, marginBottom: 16,
+        borderWidth: 1, borderColor: T.border,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
     },
-    infoRow: {
-        flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-        paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#f1f5f9",
-    },
-    infoLabel: { fontSize: 12, color: C.textSub, fontWeight: "600" },
-    infoValue: { fontSize: 13, color: C.text, fontWeight: "700" },
-    progressBar: { height: 6, backgroundColor: "#f1f5f9", borderRadius: 3, overflow: "hidden", marginTop: 8 },
-    progressFill: { height: "100%", backgroundColor: C.accent, borderRadius: 3 },
+    studentAvatar: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    studentInitials: { fontSize: 20, fontWeight: '900', color: '#fff' },
+    studentName: { fontSize: 16, fontWeight: '900', color: T.text, marginBottom: 4 },
+    studentMeta: { fontSize: 11, color: T.textSub, fontWeight: '600' },
+    studentStatus: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+    studentStatusText: { fontSize: 11, fontWeight: '800' },
 
-    label: { fontSize: 13, fontWeight: "700", color: C.text, marginBottom: 8 },
-    methodRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
-    methodBtn: {
-        flex: 1, paddingVertical: 14, borderRadius: 14,
-        backgroundColor: "#f1f5f9", alignItems: "center",
-        borderWidth: 1.5, borderColor: C.border, gap: 4,
+    // Summary card
+    summaryCard: {
+        backgroundColor: T.bgCard, borderRadius: 20, padding: 18, marginBottom: 16,
+        borderWidth: 1, borderColor: T.border,
+        shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 14, elevation: 4,
     },
-    methodBtnActive: { backgroundColor: C.accent, borderColor: C.accent },
-    methodEmoji: { fontSize: 22 },
-    methodBtnText: { fontSize: 13, fontWeight: "800", color: C.textSub },
-    methodBtnTextActive: { color: "#fff" },
+    summaryLabel: { fontSize: 13, fontWeight: '900', color: T.text, marginBottom: 14 },
+    summaryRow: { flexDirection: 'row', alignItems: 'center' },
+    summaryItem: { flex: 1, alignItems: 'center' },
+    summaryItemLabel: { fontSize: 10, color: T.textSub, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 },
+    summaryItemValue: { fontSize: 16, fontWeight: '900', color: T.text },
+    summaryDivider: { width: 1, height: 40, backgroundColor: T.border },
+    progressLabel: { fontSize: 11, color: T.textSub, fontWeight: '600' },
+    progressPct: { fontSize: 11, fontWeight: '800', color: T.indigo },
 
+    // Breakdown
+    breakdownCard: {
+        backgroundColor: T.bgCard, borderRadius: 20, padding: 16, marginBottom: 16,
+        borderWidth: 1, borderColor: T.border,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+    },
+    breakdownRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 10 },
+    breakdownBorder: { borderBottomWidth: 1, borderBottomColor: T.borderSoft },
+    breakdownDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: T.indigo },
+    breakdownCat: { flex: 1, fontSize: 13, color: T.text, fontWeight: '600' },
+    breakdownAmt: { fontSize: 13, fontWeight: '800', color: T.indigo },
+
+    // Method cards
+    methodGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+    methodCard: {
+        flex: 1, borderRadius: 18, overflow: 'hidden',
+        borderWidth: 2, borderColor: T.border,
+        backgroundColor: T.bgCard, minHeight: 130,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    },
+    methodCardActive: {
+        borderColor: 'transparent',
+        shadowColor: '#4F46E5', shadowOpacity: 0.2, shadowRadius: 16, elevation: 8,
+    },
+    methodCardActiveBg: { ...StyleSheet.absoluteFillObject },
+    methodDecor: { position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.1)' },
+    methodCardContent: { padding: 12, flex: 1 },
+    methodBadge: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 8 },
+    methodBadgeText: { fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+    methodIconBox: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+    methodLabel: { fontSize: 12, fontWeight: '800', color: T.text, marginBottom: 2 },
+    methodSub: { fontSize: 10, color: T.textSub, fontWeight: '500' },
+
+    // Inputs
+    inputGroup: { marginBottom: 16 },
+    inputLabel: { fontSize: 13, fontWeight: '800', color: T.text, marginBottom: 8 },
+    inputBox: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: T.bgCard, borderRadius: 14,
+        borderWidth: 1.5, borderColor: T.border, overflow: 'hidden',
+    },
+    inputPrefix: {
+        paddingHorizontal: 14, paddingVertical: 14,
+        fontSize: 15, fontWeight: '800', color: T.indigo,
+        backgroundColor: T.indigoLight, borderRightWidth: 1, borderRightColor: T.border,
+    },
     input: {
-        backgroundColor: "#f1f5f9", borderWidth: 1.5, borderColor: "#cbd5e1",
-        borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-        fontSize: 15, color: C.text, fontWeight: "600",
+        flex: 1, paddingHorizontal: 14, paddingVertical: 14,
+        fontSize: 16, fontWeight: '700', color: T.text,
     },
-
-    quickAmounts: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
-    quickBtn: {
-        paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-        backgroundColor: "#f1f5f9", borderWidth: 1, borderColor: C.border,
+    codeInput: {
+        borderWidth: 1.5, borderColor: T.border, borderRadius: 14,
+        backgroundColor: T.bgCard, textTransform: 'uppercase',
+        letterSpacing: 2, fontSize: 18, fontWeight: '900', color: T.indigo,
+        paddingHorizontal: 20, paddingVertical: 16,
     },
-    quickBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
-    quickBtnText: { fontSize: 12, fontWeight: "800", color: C.textSub },
-    quickBtnTextActive: { color: "#fff" },
+    inputHint: { fontSize: 11, color: T.textSub, marginTop: 6, fontWeight: '500' },
 
-    payBalanceBtn: {
-        backgroundColor: "rgba(5,150,105,0.08)", borderRadius: 12,
-        padding: 12, marginTop: 10, borderWidth: 1, borderColor: "rgba(5,150,105,0.2)",
+    // Quick amounts
+    quickAmtScroll: { marginBottom: 16, marginHorizontal: -20 },
+    quickAmtBtn: {
+        paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12,
+        backgroundColor: T.bgCard, borderWidth: 1.5, borderColor: T.border, marginLeft: 8,
     },
-    payBalanceBtnText: { fontSize: 13, color: C.accent, fontWeight: "800", textAlign: "center" },
+    quickAmtBtnActive: { backgroundColor: T.indigoLight, borderColor: T.indigo },
+    quickAmtText: { fontSize: 13, fontWeight: '700', color: T.textSub },
+    quickAmtTextActive: { color: T.indigo, fontWeight: '900' },
 
+    // Error
     errorBox: {
-        backgroundColor: "rgba(239,68,68,0.08)", borderRadius: 12,
-        padding: 12, marginBottom: 12, borderWidth: 1, borderColor: "rgba(239,68,68,0.2)",
+        backgroundColor: T.redLight, borderRadius: 12, padding: 12,
+        borderWidth: 1, borderColor: '#fca5a5', marginBottom: 12,
     },
-    errorText: { fontSize: 12, color: C.danger, fontWeight: "600" },
+    errorText: { fontSize: 13, color: T.red, fontWeight: '700' },
 
-    continueBtn: { borderRadius: 16, paddingVertical: 16, alignItems: "center" },
-    continueBtnText: { fontSize: 16, fontWeight: "900", color: "#fff" },
+    // Confirm summary
+    confirmSummary: {
+        backgroundColor: T.bgSoft, borderRadius: 16, padding: 16,
+        borderWidth: 1, borderColor: T.indigoLight, marginBottom: 16,
+    },
+    confirmRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
+    confirmLabel: { fontSize: 12, color: T.textSub, fontWeight: '600' },
+    confirmValue: { fontSize: 12, color: T.text, fontWeight: '700' },
+    confirmTotal: { borderTopWidth: 1, borderTopColor: T.border, marginTop: 6, paddingTop: 12 },
+    confirmTotalLabel: { fontSize: 14, fontWeight: '900', color: T.text },
+    confirmTotalValue: { fontSize: 18, fontWeight: '900', color: T.green },
 
-    securityNote: {
-        flexDirection: "row", backgroundColor: "rgba(37,99,235,0.06)",
-        borderRadius: 14, padding: 14, marginTop: 16,
-        borderWidth: 1, borderColor: "rgba(37,99,235,0.1)",
-    },
-    securityNoteText: { fontSize: 11, color: C.textSub, lineHeight: 18 },
-
-    // Confirm screen
-    confirmCard: {
-        backgroundColor: C.card, borderRadius: 18, borderWidth: 1,
-        borderColor: C.border, marginBottom: 20, overflow: "hidden",
-    },
-    cRow: {
-        flexDirection: "row", alignItems: "center",
-        paddingVertical: 14, paddingHorizontal: 16,
-        borderBottomWidth: 1, borderBottomColor: "#f1f5f9",
-    },
+    // Pay button
     payBtn: {
-        flexDirection: "row", alignItems: "center", justifyContent: "center",
-        gap: 10, borderRadius: 18, paddingVertical: 18,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+        paddingVertical: 18, borderRadius: 18,
+        shadowColor: T.green, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
     },
+    payBtnIcon: { fontSize: 22 },
+    payBtnText: { fontSize: 16, fontWeight: '900', color: '#fff' },
 
-    // Result screens
-    resultCard: {
-        backgroundColor: C.card, borderRadius: 24, padding: 32,
-        alignItems: "center", gap: 12, marginHorizontal: 24,
-        borderWidth: 1, borderColor: C.border,
-        shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08, shadowRadius: 16, elevation: 6,
+    // History
+    historyCard: {
+        backgroundColor: T.bgCard, borderRadius: 18, overflow: 'hidden',
+        borderWidth: 1, borderColor: T.border, marginBottom: 16,
     },
-    resultTitle: { fontSize: 20, fontWeight: "900", color: C.text },
-    resultSub: { fontSize: 13, color: C.textSub, textAlign: "center", lineHeight: 20 },
-    warningBox: {
-        backgroundColor: "#fef3c7", borderRadius: 10, padding: 10,
-        borderWidth: 1, borderColor: "#f59e0b",
+    historyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+    historyBorder: { borderBottomWidth: 1, borderBottomColor: T.borderSoft },
+    historyIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    historyMethod: { fontSize: 12, fontWeight: '700', color: T.text },
+    historyDate: { fontSize: 10, color: T.textSub, marginTop: 2 },
+    historyAmt: { fontSize: 14, fontWeight: '900', color: T.green },
+
+    // Processing screen
+    processingBox: { width: 100, height: 100, borderRadius: 50, overflow: 'hidden', marginBottom: 24 },
+    processingCircle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    processingTitle: { fontSize: 22, fontWeight: '900', color: T.text, textAlign: 'center', marginBottom: 8 },
+    processingPhone: { fontSize: 18, fontWeight: '800', color: T.teal, textAlign: 'center', marginBottom: 12 },
+    processingDesc: { fontSize: 14, color: T.textSub, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+    processingTimer: { width: '100%', marginBottom: 20 },
+    processingTimerLabel: { fontSize: 12, color: T.textSub, fontWeight: '600' },
+    processingTimerSecs: { fontSize: 12, fontWeight: '900', color: T.teal },
+    processingAmount: { fontSize: 16, fontWeight: '900', color: T.text, marginBottom: 24 },
+    cancelBtn: { paddingVertical: 14, paddingHorizontal: 32, borderRadius: 14, borderWidth: 1.5, borderColor: T.border },
+    cancelBtnText: { fontSize: 14, fontWeight: '700', color: T.textSub },
+
+    // Success screen
+    successBox: { alignItems: 'center', width: '100%' },
+    successCircle: {
+        width: 120, height: 120, borderRadius: 60,
+        alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+        shadowColor: T.green, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10,
     },
-    warningText: { fontSize: 12, color: "#92400e", fontWeight: "700" },
-    receiptBox: { width: "100%", borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: C.border },
-    rRow: {
-        flexDirection: "row", alignItems: "center", gap: 8,
-        paddingVertical: 10, paddingHorizontal: 14,
-        borderBottomWidth: 1, borderBottomColor: "#f1f5f9",
-    },
-    rEmoji: { fontSize: 16, width: 24 },
-    rLabel: { flex: 1, fontSize: 12, color: C.textSub, fontWeight: "600" },
-    rValue: { fontSize: 13, color: C.text, fontWeight: "700" },
-    doneBtn: { borderRadius: 14, paddingVertical: 14, alignItems: "center" },
-    doneBtnText: { fontSize: 14, fontWeight: "800", color: "#fff" },
+    successTitle: { fontSize: 26, fontWeight: '900', color: T.text, marginBottom: 8, textAlign: 'center' },
+    successAmount: { fontSize: 40, fontWeight: '900', color: T.green, marginBottom: 4 },
+    successSub: { fontSize: 14, color: T.textSub, marginBottom: 20, textAlign: 'center' },
+    receiptBox: { backgroundColor: T.greenLight, borderRadius: 14, padding: 14, marginBottom: 16, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: '#6ee7b7' },
+    receiptLabel: { fontSize: 11, color: T.green, fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 },
+    receiptCode: { fontSize: 22, fontWeight: '900', color: T.text, letterSpacing: 2 },
+    successBalanceBox: { backgroundColor: T.bgSoft, borderRadius: 14, padding: 16, width: '100%', alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: T.border },
+    successBalLabel: { fontSize: 12, color: T.textSub, fontWeight: '600', marginBottom: 6 },
+    successBal: { fontSize: 22, fontWeight: '900' },
+    successBtn: { width: '100%', borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
+    successBtnGrad: { paddingVertical: 16, alignItems: 'center' },
+    successBtnText: { fontSize: 16, fontWeight: '900', color: '#fff' },
+    successBackBtn: { paddingVertical: 12 },
+    successBackText: { fontSize: 14, color: T.textSub, fontWeight: '600' },
+
+    // Failed screen
+    failedCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: T.redLight, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+    failedTitle: { fontSize: 24, fontWeight: '900', color: T.text, marginBottom: 12, textAlign: 'center' },
+    failedDesc: { fontSize: 14, color: T.textSub, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
 });

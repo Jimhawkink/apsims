@@ -9,11 +9,12 @@ import { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../context/SessionContext';
 import { getCBCCompetencySummaries, getCurrentTerm, CBCCompetencySummary } from '../../lib/supabase';
 import CBCLevelBadge from '../../components/CBCLevelBadge';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type RouteProps = RouteProp<RootStackParamList, 'CBCAssessment'>;
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#0d9488', accent: '#059669',
     text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8',
 };
@@ -65,15 +66,11 @@ export default function CBCAssessmentScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#0d9488" />
-            <LinearGradient colors={['#0d9488', '#059669']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>🎓 CBC Levels</Text>
-                    <Text style={styles.headerSub}>Grade 10 Competency Assessment</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="🎓 CBC Levels"
+                onBack={() => navigation.goBack()}
+                gradient={['#7C3AED','#6D28D9']}
+            />
 
             <ScrollView
                 style={{ flex: 1 }}
@@ -156,13 +153,13 @@ const styles = StyleSheet.create({
     headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
     content: { padding: 16, paddingBottom: 40 },
     termScroll: { marginBottom: 16 },
-    termPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 8, borderWidth: 1, borderColor: C.border },
+    termPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F8FAFF', marginRight: 8, borderWidth: 1, borderColor: C.border },
     termPillActive: { backgroundColor: C.primary, borderColor: C.primary },
     termPillText: { fontSize: 12, fontWeight: '700', color: C.textSub },
     termPillTextActive: { color: '#fff' },
     section: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
     sectionTitle: { fontSize: 14, fontWeight: '800', color: C.text, padding: 14, borderBottomWidth: 1, borderBottomColor: C.border },
-    gridHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f1f5f9', borderBottomWidth: 1, borderBottomColor: C.border },
+    gridHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F8FAFF', borderBottomWidth: 1, borderBottomColor: C.border },
     gridHText: { fontSize: 9, fontWeight: '800', color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.5 },
     gridRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12 },
     gridCell: { fontSize: 11, color: C.text, fontWeight: '500' },

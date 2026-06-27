@@ -4,8 +4,10 @@ import {
     TextInput, RefreshControl, ActivityIndicator,
     Modal, Alert, FlatList, StatusBar,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const fmt = (n: number) => `KES ${(n || 0).toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
 const INCOME_SOURCES = ['School Fees','Donations','Government Grants','NEMIS Capitation','Boarding Fees','Transport Fees','Exam Fees','School Farm','Hire of Facilities','Bank Interest','NG-CDF','Bursary','Other'];
@@ -39,6 +41,7 @@ function IncomeCard({ item, onEdit, onDelete }: { item: any; onEdit: () => void;
 }
 
 export default function BursarIncomeScreen() {
+    const navigation = useNavigation();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [income, setIncome] = useState<any[]>([]);
@@ -130,27 +133,11 @@ export default function BursarIncomeScreen() {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#14532d" translucent={false} />
-            <LinearGradient colors={['#14532d', '#16a34a', '#22c55e']} style={styles.header}>
-                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 14 }}>
-                    <Text style={styles.headerTitle}>📈 Income Manager</Text>
-                    <Text style={styles.headerSub}>Track all school income streams and sources</Text>
-                    <View style={styles.kpiStrip}>
-                        {[
-                            { l: 'Total Income', v: fmt(totalIncome), c: '#fff' },
-                            { l: 'This Month', v: fmt(thisMonth), c: '#bbf7d0' },
-                            { l: 'Sources', v: `${bySource.length}`, c: '#86efac' },
-                        ].map((s, i) => (
-                            <View key={i} style={[styles.kpiItem, i < 2 && { borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.15)' }]}>
-                                <Text style={[styles.kpiVal, { color: s.c }]}>{s.v}</Text>
-                                <Text style={styles.kpiLbl}>{s.l}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-                <TouchableOpacity onPress={openAdd} style={styles.addBtn}>
-                    <Text style={styles.addBtnText}>➕ Record Income</Text>
-                </TouchableOpacity>
-            </LinearGradient>
+            <ScreenHeader
+                title="💵 Income"
+                onBack={() => navigation.goBack()}
+                gradient={['#059669','#047857']}
+            />
 
             <ScrollView showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#16a34a" />}>
@@ -163,7 +150,7 @@ export default function BursarIncomeScreen() {
                             style={[styles.sourceRow, filterSource === src && { backgroundColor: '#f0fdf4' }]}>
                             <View style={[styles.sourceDot, { backgroundColor: ['#10b981', '#6366f1', '#f59e0b', '#ef4444', '#0891b2', '#8b5cf6'][i % 6] }]} />
                             <Text style={styles.sourceName} numberOfLines={1}>{src}</Text>
-                            <View style={{ flex: 1, height: 6, backgroundColor: '#f1f5f9', borderRadius: 99, marginHorizontal: 10 }}>
+                            <View style={{ flex: 1, height: 6, backgroundColor: '#F8FAFF', borderRadius: 99, marginHorizontal: 10 }}>
                                 <View style={[styles.sourceBar, {
                                     width: `${Math.round((amt / maxSource) * 100)}%` as any,
                                     backgroundColor: ['#10b981', '#6366f1', '#f59e0b', '#ef4444', '#0891b2', '#8b5cf6'][i % 6],
@@ -254,45 +241,45 @@ export default function BursarIncomeScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { flex: 1, backgroundColor: '#F8FAFF' },
     header: { paddingBottom: 0 },
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', marginBottom: 2 },
     headerSub: { fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: '600', marginBottom: 10 },
-    kpiStrip: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 12, overflow: 'hidden' },
+    kpiStrip: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 16, overflow: 'hidden' },
     kpiItem: { flex: 1, paddingVertical: 10, alignItems: 'center' },
     kpiVal: { fontSize: 13, fontWeight: '900' },
     kpiLbl: { fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: '600', marginTop: 1 },
-    addBtn: { backgroundColor: 'rgba(255,255,255,0.15)', margin: 16, marginTop: 8, borderRadius: 12, padding: 13, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+    addBtn: { backgroundColor: 'rgba(255,255,255,0.15)', margin: 16, marginTop: 8, borderRadius: 16, padding: 13, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
     addBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
     sectionTitle: { fontSize: 13, fontWeight: '800', color: '#1e293b', marginTop: 14, marginBottom: 8, paddingHorizontal: 16 },
-    chartCard: { marginHorizontal: 12, backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#f1f5f9', gap: 10, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+    chartCard: { marginHorizontal: 12, backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#f1f5f9', gap: 10, elevation: 2, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
     sourceRow: { flexDirection: 'row', alignItems: 'center', padding: 6, borderRadius: 8 },
     sourceDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     sourceName: { fontSize: 11, fontWeight: '700', color: '#374151', width: 90 },
     sourceBar: { height: '100%', borderRadius: 99 },
     sourceAmt: { fontSize: 11, fontWeight: '800', color: '#374151', width: 80, textAlign: 'right' },
-    searchInput: { backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, borderWidth: 1, borderColor: '#e2e8f0', color: '#1e293b' },
-    card: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#f1f5f9', overflow: 'hidden', elevation: 2, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+    searchInput: { backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, borderWidth: 1, borderColor: '#e2e8f0', color: '#1e293b' },
+    card: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: '#f1f5f9', overflow: 'hidden', elevation: 2, shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
     cardTop: { flexDirection: 'row', padding: 14, gap: 10, alignItems: 'flex-start' },
-    iconBadge: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    iconBadge: { width: 40, height: 40, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
     cardSource: { fontSize: 13, fontWeight: '800', color: '#1e293b' },
     cardDesc: { fontSize: 11, color: '#64748b', marginTop: 1 },
     cardMeta: { fontSize: 9, color: '#94a3b8', marginTop: 2 },
     cardAmount: { fontSize: 15, fontWeight: '900', color: '#16a34a' },
     cardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#f8fafc', paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
-    actionBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+    actionBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F8FAFF', borderWidth: 1, borderColor: '#e2e8f0' },
     actionText: { fontSize: 11, fontWeight: '700', color: '#374151' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
     modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%', overflow: 'hidden' },
     modalHeader: { padding: 20 },
     modalTitle: { fontSize: 17, fontWeight: '900', color: '#fff' },
     modalLabel: { fontSize: 10, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 14 },
-    srcChip: { marginRight: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#f8fafc' },
+    srcChip: { marginRight: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#F8FAFF' },
     srcChipText: { fontSize: 11, fontWeight: '700', color: '#374151' },
-    amtInput: { fontSize: 28, fontWeight: '900', color: '#16a34a', textAlign: 'center', borderWidth: 2, borderColor: '#e2e8f0', borderRadius: 14, padding: 12, backgroundColor: '#f0fdf4' },
-    textInput: { borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, backgroundColor: '#fafbff', color: '#1e293b' },
+    amtInput: { fontSize: 28, fontWeight: '900', color: '#16a34a', textAlign: 'center', borderWidth: 2, borderColor: '#e2e8f0', borderRadius: 18, padding: 12, backgroundColor: '#f0fdf4' },
+    textInput: { borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, backgroundColor: '#fafbff', color: '#1e293b' },
     methodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-    methodBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#f8fafc' },
+    methodBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#F8FAFF' },
     methodText: { fontSize: 11, fontWeight: '700', color: '#374151' },
     saveBtn: { marginTop: 20, borderRadius: 16, overflow: 'hidden' },
     saveBtnInner: { padding: 16, alignItems: 'center' },

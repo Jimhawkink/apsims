@@ -7,9 +7,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useSession } from '../../context/SessionContext';
 import { getStudentTimetable, TimetableEntry } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#0d9488', primaryLight: '#ccfbf1',
     accent: '#059669', purple: '#7c3aed', purpleLight: '#ede9fe',
     text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8',
@@ -72,15 +73,11 @@ export default function StudentTimetableScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#0d9488" />
-            <LinearGradient colors={['#0d9488', '#059669']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>🗓️ My Timetable</Text>
-                    <Text style={styles.headerSub}>{session?.student_form || 'Class Schedule'}</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="🗓️ My Timetable"
+                onBack={() => navigation.goBack()}
+                gradient={['#0D9488','#059669']}
+            />
 
             {/* Day Tabs */}
             <ScrollView
@@ -177,7 +174,7 @@ const styles = StyleSheet.create({
     headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
     dayTabScroll: { backgroundColor: C.card, borderBottomWidth: 1, borderBottomColor: C.border },
     dayTabContent: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-    dayTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', alignItems: 'center', minWidth: 52 },
+    dayTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F8FAFF', alignItems: 'center', minWidth: 52 },
     dayTabActive: { backgroundColor: C.primary },
     dayTabToday: { borderWidth: 2, borderColor: C.primary },
     dayTabText: { fontSize: 12, fontWeight: '800', color: C.textSub },
@@ -185,7 +182,7 @@ const styles = StyleSheet.create({
     todayDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.primary, marginTop: 2 },
     content: { padding: 16, paddingBottom: 40 },
     periodCard: {
-        flexDirection: 'row', backgroundColor: C.card, borderRadius: 14,
+        flexDirection: 'row', backgroundColor: C.card, borderRadius: 18,
         marginBottom: 10, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4,
         overflow: 'hidden',
     },

@@ -3,8 +3,10 @@ import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet,
     RefreshControl, ActivityIndicator, Alert, TextInput, Modal, StatusBar,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const fmt = (n: number) => `KES ${(n || 0).toLocaleString('en-KE', { maximumFractionDigits: 2 })}`;
 
@@ -106,6 +108,7 @@ function PayrollRow({ staff, idx, onPay }: { staff: any; idx: number; onPay: () 
 }
 
 export default function BursarAccountsScreen() {
+    const navigation = useNavigation();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [balances, setBalances] = useState<(AccountBalance | null)[]>([]);
@@ -320,39 +323,11 @@ export default function BursarAccountsScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#0c4a6e" translucent={false} />
             {/* ── HEADER ── */}
-            <LinearGradient colors={['#0c4a6e', '#0891b2', '#0e7490']} style={styles.header}>
-                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 0 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <View>
-                            <Text style={styles.headerTitle}>🏦 School Accounts</Text>
-                            <Text style={styles.headerSub}>KCB API Buni · Live Bank Balances · Payroll</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => setShowConfigModal(true)} style={styles.configBtn}>
-                            <Text style={{ fontSize: 16 }}>⚙️</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Total balances */}
-                    <View style={styles.totalCard}>
-                        <Text style={styles.totalLabel}>Total School Funds</Text>
-                        <Text style={styles.totalValue}>{fmt(totalBalances)}</Text>
-                        <Text style={styles.totalSub}>{balances.filter(Boolean).length} accounts · KCB Bank</Text>
-                    </View>
-                </View>
-
-                {/* Tabs */}
-                <View style={styles.tabRow}>
-                    {[
-                        { k: 'accounts', l: '🏦 Bank Accounts' },
-                        { k: 'payroll', l: '💼 Payroll' },
-                    ].map(t => (
-                        <TouchableOpacity key={t.k} onPress={() => setActiveTab(t.k as any)}
-                            style={[styles.tabBtn, activeTab === t.k && { backgroundColor: '#fff' }]}>
-                            <Text style={[styles.tabText, activeTab === t.k && { color: '#0891b2' }]}>{t.l}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </LinearGradient>
+            <ScreenHeader
+                title="🏦 Accounts & Payroll"
+                onBack={() => navigation.goBack()}
+                gradient={['#0891B2','#0C4A6E']}
+            />
 
             {/* ══ ACCOUNTS TAB ══ */}
             {activeTab === 'accounts' && (
@@ -589,12 +564,12 @@ const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); retu
 const lastWeek = () => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toLocaleDateString('en-KE'); };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { flex: 1, backgroundColor: '#F8FAFF' },
     header: {},
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', marginBottom: 2 },
     headerSub: { fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: '600' },
-    configBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-    totalCard: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 14, marginTop: 12, alignItems: 'center' },
+    configBtn: { width: 40, height: 40, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+    totalCard: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 18, padding: 14, marginTop: 12, alignItems: 'center' },
     totalLabel: { fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: '700', textTransform: 'uppercase' },
     totalValue: { fontSize: 30, fontWeight: '900', color: '#fff', marginTop: 4 },
     totalSub: { fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
@@ -602,7 +577,7 @@ const styles = StyleSheet.create({
     tabBtn: { flex: 1, paddingVertical: 11, alignItems: 'center' },
     tabText: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
     scroll: { flex: 1 },
-    apiBanner: { margin: 12, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+    apiBanner: { margin: 12, borderRadius: 18, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#e2e8f0' },
     apiBannerTitle: { fontSize: 12, fontWeight: '800' },
     apiBannerSub: { fontSize: 10, color: '#94a3b8', marginTop: 1 },
     refreshBalBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.05)', alignItems: 'center', justifyContent: 'center' },
@@ -630,12 +605,12 @@ const styles = StyleSheet.create({
     txAmt: { fontSize: 13, fontWeight: '800' },
     payrollHeader: { backgroundColor: '#fff', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     payrollKpi: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-    payKpiCard: { flex: 1, borderRadius: 12, borderWidth: 1.5, padding: 10, alignItems: 'center', backgroundColor: '#fff' },
+    payKpiCard: { flex: 1, borderRadius: 16, borderWidth: 1.5, padding: 10, alignItems: 'center', backgroundColor: '#fff' },
     payKpiVal: { fontSize: 12, fontWeight: '900', textAlign: 'center' },
     payKpiLbl: { fontSize: 8, color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', marginTop: 2, textAlign: 'center' },
     payrollActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
     monthInput: { borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, color: '#1e293b', backgroundColor: '#fafbff', width: 100 },
-    bulkPayBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+    bulkPayBtn: { flex: 1, borderRadius: 16, overflow: 'hidden' },
     bulkPayBtnInner: { paddingVertical: 10, alignItems: 'center' },
     bulkPayText: { fontSize: 12, fontWeight: '800', color: '#fff' },
     payrollTableHeader: { flexDirection: 'row', backgroundColor: '#1e293b', paddingVertical: 10, paddingHorizontal: 14 },
@@ -660,13 +635,13 @@ const styles = StyleSheet.create({
     modalTitle: { fontSize: 17, fontWeight: '900', color: '#fff' },
     modalSub: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 3 },
     modalLabel: { fontSize: 10, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 14 },
-    textInput: { borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, backgroundColor: '#fafbff', color: '#1e293b' },
+    textInput: { borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, backgroundColor: '#fafbff', color: '#1e293b' },
     infoBox: { backgroundColor: '#f0fdfe', borderWidth: 1, borderColor: '#a5f3fc', borderRadius: 10, padding: 12, marginBottom: 4 },
     infoText: { fontSize: 11, color: '#0c4a6e', fontWeight: '600', lineHeight: 16 },
-    envBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#f8fafc', alignItems: 'center' },
+    envBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#F8FAFF', alignItems: 'center' },
     envText: { fontSize: 11, fontWeight: '700', color: '#374151' },
     methodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-    methodBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#f8fafc' },
+    methodBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#F8FAFF' },
     methodText: { fontSize: 12, fontWeight: '700', color: '#374151' },
     saveBtn: { marginTop: 16, borderRadius: 16, overflow: 'hidden' },
     saveBtnInner: { padding: 16, alignItems: 'center' },

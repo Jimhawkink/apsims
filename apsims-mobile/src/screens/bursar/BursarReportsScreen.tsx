@@ -3,8 +3,10 @@ import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet,
     RefreshControl, ActivityIndicator, Share, StatusBar,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const fmt = (n: number) => `KES ${(n || 0).toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
 const fmtShort = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(0)}K` : String(Math.round(n));
@@ -34,6 +36,7 @@ function SectionHeader({ title, color }: { title: string; color: string }) {
 }
 
 export default function BursarReportsScreen() {
+    const navigation = useNavigation();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [period, setPeriod] = useState<Period>('term');
@@ -180,46 +183,11 @@ Powered by APSIMS - Kenya's #1 School System
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#1e1b4b" translucent={false} />
-            <LinearGradient colors={['#1e1b4b', '#4338ca', '#6366f1']} style={styles.header}>
-                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 0 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <View>
-                            <Text style={styles.headerTitle}>📊 Financial Reports</Text>
-                            <Text style={styles.headerSub}>P&L · Cash Flow · Fee Analysis</Text>
-                        </View>
-                        <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
-                            <Text style={{ fontSize: 18 }}>📤</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Net position highlight */}
-                    <View style={styles.netCard}>
-                        <Text style={styles.netLabel}>Net {netSurplus >= 0 ? 'Surplus' : 'Deficit'}</Text>
-                        <Text style={[styles.netValue, { color: netSurplus >= 0 ? '#34d399' : '#fca5a5' }]}>{fmt(Math.abs(netSurplus))}</Text>
-                        <Text style={styles.netSub}>{fmt(totalIncome)} income · {fmt(totalExpenses)} expenses</Text>
-                    </View>
-
-                    {/* Period selector */}
-                    <View style={styles.periodRow}>
-                        {[{ k: 'month', l: '📅 Month' }, { k: 'term', l: '📚 Term' }, { k: 'year', l: '📆 Year' }].map(p => (
-                            <TouchableOpacity key={p.k} onPress={() => setPeriod(p.k as Period)}
-                                style={[styles.periodBtn, period === p.k && { backgroundColor: '#fff' }]}>
-                                <Text style={[styles.periodText, period === p.k && { color: '#4338ca' }]}>{p.l}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Report type tabs */}
-                <View style={styles.tabRow}>
-                    {[{ k: 'pnl', l: '💰 P&L' }, { k: 'fees', l: '💳 Fees' }, { k: 'cash', l: '📈 Trend' }].map(t => (
-                        <TouchableOpacity key={t.k} onPress={() => setActiveReport(t.k as any)}
-                            style={[styles.tabBtn, activeReport === t.k && { backgroundColor: '#fff' }]}>
-                            <Text style={[styles.tabText, activeReport === t.k && { color: '#4338ca' }]}>{t.l}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </LinearGradient>
+            <ScreenHeader
+                title="📊 Reports"
+                onBack={() => navigation.goBack()}
+                gradient={['#6366F1','#4F46E5']}
+            />
 
             <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#6366f1" />}>
@@ -266,7 +234,7 @@ Powered by APSIMS - Kenya's #1 School System
                             <View key={i} style={styles.expBreakRow}>
                                 <View style={[styles.expBreakDot, { backgroundColor: e.c }]} />
                                 <Text style={styles.expBreakLabel}>{e.l}</Text>
-                                <View style={{ flex: 1, height: 7, backgroundColor: '#f1f5f9', borderRadius: 99, marginHorizontal: 10 }}>
+                                <View style={{ flex: 1, height: 7, backgroundColor: '#F8FAFF', borderRadius: 99, marginHorizontal: 10 }}>
                                     <View style={[styles.expBreakBar, { width: `${totalExpenses > 0 ? Math.round((e.v / totalExpenses) * 100) : 0}%` as any, backgroundColor: e.c }]} />
                                 </View>
                                 <Text style={styles.expBreakAmt}>{fmtShort(e.v)}</Text>
@@ -411,12 +379,12 @@ Powered by APSIMS - Kenya's #1 School System
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { flex: 1, backgroundColor: '#F8FAFF' },
     header: {},
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', marginBottom: 2 },
     headerSub: { fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: '600' },
-    shareBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-    netCard: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 14, marginTop: 12, alignItems: 'center' },
+    shareBtn: { width: 40, height: 40, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+    netCard: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 18, padding: 14, marginTop: 12, alignItems: 'center' },
     netLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 0.5 },
     netValue: { fontSize: 28, fontWeight: '900', marginTop: 4 },
     netSub: { fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
@@ -435,7 +403,7 @@ const styles = StyleSheet.create({
     plRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#f8fafc' },
     plLabel: { fontSize: 12, color: '#374151', fontWeight: '600', flex: 1 },
     plValue: { fontSize: 13, fontWeight: '700' },
-    netRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, padding: 14, borderRadius: 12, borderWidth: 1.5 },
+    netRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, padding: 14, borderRadius: 16, borderWidth: 1.5 },
     netRowLabel: { fontSize: 13, fontWeight: '900' },
     netRowValue: { fontSize: 18, fontWeight: '900' },
     expBreakRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
@@ -445,10 +413,10 @@ const styles = StyleSheet.create({
     expBreakAmt: { fontSize: 10, fontWeight: '700', color: '#374151', width: 48, textAlign: 'right' },
     expBreakPct: { fontSize: 10, color: '#94a3b8', width: 30, textAlign: 'right' },
     feeKpiRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-    feeKpiCard: { flex: 1, borderRadius: 12, padding: 12, alignItems: 'center' },
+    feeKpiCard: { flex: 1, borderRadius: 16, padding: 12, alignItems: 'center' },
     feeKpiVal: { fontSize: 14, fontWeight: '900', textAlign: 'center' },
     feeKpiLbl: { fontSize: 9, color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginTop: 2 },
-    feeTable: { borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0' },
+    feeTable: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0' },
     feeTableHeader: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 12 },
     feeTableHead: { flex: 1, fontSize: 8, fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', textAlign: 'center' },
     feeTableRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },

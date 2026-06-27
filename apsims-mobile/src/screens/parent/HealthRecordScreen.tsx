@@ -7,9 +7,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useSession } from '../../context/SessionContext';
 import { getStudentHealthRecord, HealthRecord, HealthAllergy } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#7c3aed', accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
     warning: '#f59e0b', warningLight: '#fef3c7',
@@ -56,15 +57,11 @@ export default function HealthRecordScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#7c3aed" />
-            <LinearGradient colors={['#7c3aed', '#6d28d9']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>🏥 Health Records</Text>
-                    <Text style={styles.headerSub}>{session?.student_name || 'Student'}</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="🏥 Health Records"
+                onBack={() => navigation.goBack()}
+                gradient={['#059669','#047857']}
+            />
 
             <ScrollView
                 style={{ flex: 1 }}
@@ -173,11 +170,11 @@ const styles = StyleSheet.create({
     emptyEmoji: { fontSize: 48 },
     emptyText: { fontSize: 14, color: C.textSub, textAlign: 'center', paddingHorizontal: 20 },
     infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-    infoCard: { flex: 1, minWidth: '45%', backgroundColor: C.card, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4, alignItems: 'center', gap: 4 },
+    infoCard: { flex: 1, minWidth: '45%', backgroundColor: C.card, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4, alignItems: 'center', gap: 4 },
     infoEmoji: { fontSize: 20 },
     infoValue: { fontSize: 16, fontWeight: '900' },
     infoLabel: { fontSize: 10, color: C.textSub, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-    section: { backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, marginBottom: 12, overflow: 'hidden' },
+    section: { backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.border, marginBottom: 12, overflow: 'hidden' },
     sectionTitle: { fontSize: 13, fontWeight: '800', color: C.text, padding: 12, borderBottomWidth: 1, borderBottomColor: C.border },
     sectionText: { fontSize: 13, color: C.textSub, padding: 12, lineHeight: 20 },
     allergyRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
@@ -186,6 +183,6 @@ const styles = StyleSheet.create({
     allergenPlan: { fontSize: 11, color: C.teal, marginTop: 2, fontWeight: '600' },
     severityChip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
     severityText: { fontSize: 10, fontWeight: '800', textTransform: 'capitalize' },
-    readOnlyNote: { backgroundColor: '#f1f5f9', borderRadius: 12, padding: 12, marginTop: 4 },
+    readOnlyNote: { backgroundColor: '#F8FAFF', borderRadius: 16, padding: 12, marginTop: 4 },
     readOnlyText: { fontSize: 11, color: C.textSub, textAlign: 'center' },
 });

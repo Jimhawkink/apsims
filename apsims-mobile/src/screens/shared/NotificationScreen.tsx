@@ -13,12 +13,13 @@ import {
 } from '../../lib/supabase';
 import { cacheData, getCachedData } from '../../lib/offline';
 import { useNetworkStatus } from '../../lib/netinfo';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type RouteProps = RouteProp<RootStackParamList, 'Notifications'>;
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#2563eb', primaryLight: '#dbeafe',
     accent: '#059669', danger: '#ef4444', warning: '#f59e0b',
     purple: '#7c3aed', teal: '#0d9488',
@@ -122,31 +123,11 @@ export default function NotificationScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
-            <LinearGradient colors={['#2563eb', '#1d4ed8']} style={styles.header}>
-                <SafeAreaView>
-                    <View style={styles.headerRow}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                            <Text style={styles.backText}>← Back</Text>
-                        </TouchableOpacity>
-                        {unreadCount > 0 && (
-                            <TouchableOpacity
-                                onPress={handleMarkAll}
-                                disabled={markingAll}
-                                style={styles.markAllBtn}
-                                accessibilityLabel="Mark all notifications as read"
-                            >
-                                <Text style={styles.markAllText}>
-                                    {markingAll ? 'Marking…' : '✓ Mark all read'}
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                    <Text style={styles.headerTitle}>🔔 Notifications</Text>
-                    {unreadCount > 0 && (
-                        <Text style={styles.headerSub}>{unreadCount} unread</Text>
-                    )}
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="🔔 Notifications"
+                onBack={() => navigation.goBack()}
+                gradient={['#EC4899','#DB2777']}
+            />
 
             <FlatList
                 data={notifications}
@@ -194,7 +175,7 @@ const styles = StyleSheet.create({
     header: { paddingTop: 48, paddingBottom: 16, paddingHorizontal: 20 },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
     backText: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '600' },
-    markAllBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+    markAllBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
     markAllText: { color: '#fff', fontSize: 11, fontWeight: '700' },
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff' },
     headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
@@ -208,11 +189,11 @@ const styles = StyleSheet.create({
         backgroundColor: C.card, borderRadius: 16, padding: 14,
         marginBottom: 10, borderWidth: 1, borderColor: C.border,
         shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+        shadowOpacity: 0.07, shadowRadius: 4, elevation: 1,
     },
     notifCardUnread: { borderColor: C.primary + '40', backgroundColor: '#f0f7ff' },
     unreadBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: C.primary, borderTopLeftRadius: 16, borderBottomLeftRadius: 16 },
-    notifIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
+    notifIcon: { width: 40, height: 40, borderRadius: 16, backgroundColor: '#F8FAFF', alignItems: 'center', justifyContent: 'center' },
     notifIconText: { fontSize: 20 },
     notifTitle: { fontSize: 13, fontWeight: '600', color: C.text, marginBottom: 3 },
     notifTitleUnread: { fontWeight: '900' },

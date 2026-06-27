@@ -12,12 +12,13 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../context/SessionContext';
 import { supabase } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 const W = Dimensions.get('window').width;
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#2563eb', primaryLight: '#dbeafe',
     accent: '#059669', accentLight: '#d1fae5',
     amber: '#d97706', amberLight: '#fef3c7',
@@ -35,7 +36,7 @@ type FilterType = 'all' | 'upcoming' | 'today' | 'completed';
 function statusInfo(status: string, examDate: string) {
     const today = new Date(); today.setHours(0,0,0,0);
     const d = new Date(examDate); d.setHours(0,0,0,0);
-    if (status === 'completed' || d < today) return { label: 'Completed', bg: '#f1f5f9', text: C.gray };
+    if (status === 'completed' || d < today) return { label: 'Completed', bg: '#F8FAFF', text: C.gray };
     if (d.getTime() === today.getTime()) return { label: 'Today', bg: '#d1fae5', text: '#065f46' };
     return { label: 'Upcoming', bg: '#dbeafe', text: '#1d4ed8' };
 }
@@ -54,7 +55,7 @@ function DateCard({ d }: { d: Date }) {
 }
 
 const dateS = StyleSheet.create({
-    wrap: { alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, minWidth: 52 },
+    wrap: { alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 16, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, minWidth: 52 },
     todayWrap: { backgroundColor: C.primary, borderColor: C.primary },
     dayLabel: { fontSize: 9, fontWeight: '700', color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.5 },
     dateNum: { fontSize: 20, fontWeight: '900', color: C.text, lineHeight: 24 },
@@ -129,6 +130,13 @@ export default function ExamScheduleScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
+
+            {/* ── PREMIUM BACK NAVIGATION ── */}
+            <ScreenHeader
+                title="📅 Exam Schedule"
+                onBack={() => navigation.goBack()}
+                gradient={['#2563EB','#1D4ED8']}
+            />
             <StatusBar barStyle="light-content" backgroundColor="#1d4ed8" />
             <LinearGradient colors={['#1e1b4b', '#1d4ed8', '#3b82f6']} style={s.header}>
                 <SafeAreaView>
@@ -136,7 +144,7 @@ export default function ExamScheduleScreen() {
                         <Text style={s.backBtn}>← Back</Text>
                     </TouchableOpacity>
                     <Text style={s.headerTitle}>📅 Exam Schedule</Text>
-                    <Text style={s.headerSub}>{session?.user_name || 'Teacher'} · {terms.find(t => t.id === selTermId)?.term_name || ''}</Text>
+                    <Text style={s.headerSub}>{session?.username || 'Teacher'} · {terms.find(t => t.id === selTermId)?.term_name || ''}</Text>
                 </SafeAreaView>
             </LinearGradient>
 
@@ -260,7 +268,7 @@ const s = StyleSheet.create({
     emptyEmoji: { fontSize: 48 },
     emptyTitle: { fontSize: 18, fontWeight: '900', color: C.text },
     emptyText: { fontSize: 12, color: C.textSub },
-    examCard: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+    examCard: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 },
     examRow: { flexDirection: 'row', gap: 12, padding: 14 },
     examInfo: { flex: 1 },
     examName: { fontSize: 14, fontWeight: '900', color: C.text },

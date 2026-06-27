@@ -7,11 +7,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/types';
 import { getClassPerformance, getGrade } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type RouteProps = RouteProp<RootStackParamList, 'ClassPerformance'>;
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#2563eb', accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
     warning: '#f59e0b', purple: '#7c3aed',
@@ -71,15 +72,11 @@ export default function ClassPerformanceScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
-            <LinearGradient colors={['#2563eb', '#1d4ed8']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>📊 Class Performance</Text>
-                    <Text style={styles.headerSub}>{subjectName} • {streamName}</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="📊 Class Performance"
+                onBack={() => navigation.goBack()}
+                gradient={['#2563EB','#1D4ED8']}
+            />
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {performance.length === 0 ? (
@@ -182,7 +179,7 @@ const styles = StyleSheet.create({
     gradeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, gap: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     gradeLabelBox: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     gradeLabel: { fontSize: 14, fontWeight: '900' },
-    gradeBarBg: { flex: 1, height: 8, backgroundColor: '#f1f5f9', borderRadius: 4, overflow: 'hidden' },
+    gradeBarBg: { flex: 1, height: 8, backgroundColor: '#F8FAFF', borderRadius: 4, overflow: 'hidden' },
     gradeBarFill: { height: '100%', borderRadius: 4 },
     gradeCount: { fontSize: 11, color: C.textSub, fontWeight: '700', width: 60, textAlign: 'right' },
     rankRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, gap: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },

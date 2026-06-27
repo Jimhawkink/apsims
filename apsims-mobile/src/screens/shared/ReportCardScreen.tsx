@@ -12,12 +12,13 @@ import {
     supabase, CBCCompetencySummary,
 } from '../../lib/supabase';
 import CBCLevelBadge from '../../components/CBCLevelBadge';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type RouteProps = RouteProp<RootStackParamList, 'ReportCard'>;
 
 // ─────────────────────────── Colors ───────────────────────────
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#2563eb', primaryLight: '#dbeafe',
     teal: '#0d9488', tealLight: '#ccfbf1',
     accent: '#059669', accentLight: '#d1fae5',
@@ -262,25 +263,18 @@ export default function ReportCardScreen() {
     const meanGrade = results844.length > 0 ? getMeanGrade(avgScore) : '-';
     const best7Points = results844.filter((r: any) => r.is_best7).reduce((s: number, r: any) => s + r.points, 0);
     const overallRemarks = meanGrade !== '-' ? getOverallRemarks(meanGrade) : '';
-    const meanGradeColors = meanGrade !== '-' ? gradeColors(meanGrade) : { bg: '#f1f5f9', color: C.textSub };
+    const meanGradeColors = meanGrade !== '-' ? gradeColors(meanGrade) : { bg: '#F8FAFF', color: C.textSub };
 
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor={gradientColors[1]} />
 
             {/* ── HEADER */}
-            <LinearGradient colors={gradientColors} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>📄 Report Card</Text>
-                    <Text style={styles.headerSub}>
-                        {isCBC ? '🎓 CBC Senior School' : '📚 8-4-4 System'}
-                        {isParent ? ' · Parent View' : ' · Student View'}
-                    </Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="📄 Report Card"
+                onBack={() => navigation.goBack()}
+                gradient={['#2563EB','#1D4ED8']}
+            />
 
             <ScrollView
                 style={{ flex: 1 }}
@@ -441,7 +435,7 @@ export default function ReportCardScreen() {
                             </View>
 
                             {/* Table Header */}
-                            <View style={[styles.gridHeader, { backgroundColor: '#f1f5f9' }]}>
+                            <View style={[styles.gridHeader, { backgroundColor: '#F8FAFF' }]}>
                                 <Text style={[styles.gridHText, { flex: 2.2 }]}>Subject</Text>
                                 <Text style={[styles.gridHText, { flex: 0.9, textAlign: 'center' }]}>Score</Text>
                                 <Text style={[styles.gridHText, { flex: 0.8, textAlign: 'center' }]}>Grade</Text>
@@ -596,7 +590,7 @@ const styles = StyleSheet.create({
     termScroll: { marginBottom: 10 },
     termPill: {
         paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
-        backgroundColor: '#f1f5f9', marginRight: 8,
+        backgroundColor: '#F8FAFF', marginRight: 8,
         borderWidth: 1, borderColor: C.border,
     },
     termPillActive: { backgroundColor: C.primary, borderColor: C.primary },
@@ -605,25 +599,25 @@ const styles = StyleSheet.create({
 
     examTypeScroll: { marginBottom: 14 },
     examTypePill: {
-        paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14,
-        backgroundColor: '#f1f5f9', marginRight: 8,
+        paddingHorizontal: 12, paddingVertical: 6, borderRadius: 18,
+        backgroundColor: '#F8FAFF', marginRight: 8,
         borderWidth: 1, borderColor: C.border,
     },
     examTypePillText: { fontSize: 11, fontWeight: '700', color: C.textSub },
 
     actionRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-    actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 2, alignItems: 'center' },
+    actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 16, borderWidth: 2, alignItems: 'center' },
     actionBtnText: { fontSize: 13, fontWeight: '800' },
-    actionBtnFilled: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+    actionBtnFilled: { flex: 1, paddingVertical: 12, borderRadius: 16, alignItems: 'center' },
     actionBtnFilledText: { fontSize: 13, fontWeight: '800', color: '#fff' },
 
     section: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden', marginBottom: 14 },
     sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: C.border },
     sectionTitle: { fontSize: 14, fontWeight: '800', color: C.text, padding: 14, borderBottomWidth: 1, borderBottomColor: C.border },
-    best7Badge: { backgroundColor: C.goldLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    best7Badge: { backgroundColor: C.goldLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 },
     best7BadgeText: { fontSize: 11, fontWeight: '800', color: C.gold },
 
-    gridHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f1f5f9', borderBottomWidth: 1, borderBottomColor: C.border },
+    gridHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F8FAFF', borderBottomWidth: 1, borderBottomColor: C.border },
     gridHText: { fontSize: 9, fontWeight: '800', color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.5 },
     gridRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     best7Row: { borderLeftWidth: 3, borderLeftColor: '#d97706' },
@@ -631,7 +625,7 @@ const styles = StyleSheet.create({
     gradeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7 },
     gradeBadgeText: { fontSize: 11, fontWeight: '900' },
 
-    totalRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#f1f5f9', borderTopWidth: 2, borderTopColor: C.border },
+    totalRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#F8FAFF', borderTopWidth: 2, borderTopColor: C.border },
     totalLabel: { fontSize: 10, fontWeight: '900', color: C.text, textTransform: 'uppercase' },
     totalValue: { fontSize: 12, fontWeight: '900', color: C.accent },
 
@@ -654,8 +648,8 @@ const styles = StyleSheet.create({
     remarksText: { fontSize: 13, fontWeight: '700', lineHeight: 20 },
 
     commentSection: { gap: 10, marginBottom: 14 },
-    commentBox: { backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
-    commentBoxTitle: { fontSize: 13, fontWeight: '800', color: C.text, padding: 12, backgroundColor: '#f8fafc', borderBottomWidth: 1, borderBottomColor: C.border },
+    commentBox: { backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+    commentBoxTitle: { fontSize: 13, fontWeight: '800', color: C.text, padding: 12, backgroundColor: '#F8FAFF', borderBottomWidth: 1, borderBottomColor: C.border },
     commentBoxBody: { padding: 12, minHeight: 60 },
     commentBoxPlaceholder: { fontSize: 12, color: C.textSub, lineHeight: 18, fontStyle: 'italic' },
 

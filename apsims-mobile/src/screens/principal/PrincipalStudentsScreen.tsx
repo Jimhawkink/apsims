@@ -14,11 +14,12 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { supabase } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const C = {
-    bg: '#f1f5f9', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#7c3aed', primaryLight: '#ede9fe',
     accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
@@ -138,6 +139,13 @@ export default function PrincipalStudentsScreen() {
                 </Text>
             </View>
             <View style={{ flex: 1 }}>
+
+            {/* ── PREMIUM BACK NAVIGATION ── */}
+            <ScreenHeader
+                title="👨‍🎓 Students"
+                onBack={() => navigation.goBack()}
+                gradient={['#7C3AED','#6D28D9']}
+            />
                 <Text style={s.studentName}>{item.first_name} {item.last_name}</Text>
                 <Text style={s.studentMeta}>
                     📋 {item.admission_number} · {item.form_name} {item.stream_name !== '—' ? `· ${item.stream_name}` : ''}
@@ -295,10 +303,10 @@ const s = StyleSheet.create({
     statLabel: { fontSize: 9, color: 'rgba(255,255,255,0.7)', fontWeight: '600', marginTop: 2 },
     searchWrap: {
         flexDirection: 'row', alignItems: 'center', gap: 8,
-        margin: 12, backgroundColor: '#fff', borderRadius: 14,
+        margin: 12, backgroundColor: '#fff', borderRadius: 18,
         paddingHorizontal: 14, paddingVertical: 10,
         borderWidth: 1, borderColor: C.border,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,
     },
     searchIcon: { fontSize: 16 },
     searchInput: { flex: 1, fontSize: 14, color: C.text, fontWeight: '500' },

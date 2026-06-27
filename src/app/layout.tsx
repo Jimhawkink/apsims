@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import ServiceWorkerRegistration from '@/components/pwa/ServiceWorkerRegistration';
 import InstallPrompt from '@/components/pwa/InstallPrompt';
 import UpdateBanner from '@/components/pwa/UpdateBanner';
+import QueryProvider from '@/providers/QueryProvider';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -32,6 +33,7 @@ export default function RootLayout({
                 <link rel="apple-touch-icon" href="/icon-192.png" />
             </head>
             <body className={inter.className}>
+                <QueryProvider>
                 <ServiceWorkerRegistration />
                 <Toaster
                     position="bottom-right"
@@ -74,6 +76,7 @@ export default function RootLayout({
                 {children}
                 <InstallPrompt />
                 <UpdateBanner />
+                </QueryProvider>
             </body>
         </html>
     );

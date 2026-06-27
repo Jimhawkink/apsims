@@ -4,11 +4,13 @@
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator, StatusBar } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { COLORS, SHADOWS, fmt, fmtPct } from '../../components/ultra/UltraTheme';
 import { LineChart, BarChart, DoughnutChart, ProgressRing, ProgressBar } from '../../components/ultra/UltraCharts';
 import { KPICard, SectionHeader, ChartPanel, FilterBar, TabSwitcher, DataGrid, StatusBadge } from '../../components/ultra/UltraComponents';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const W = Dimensions.get('window').width;
 const CW = W - 60;
@@ -30,6 +32,7 @@ const getRubric = (pct: number) => {
 const RUBRIC_COLORS = { EE: '#059669', ME: '#3b82f6', AE: '#f59e0b', BE: '#ef4444' };
 
 export default function AcademicReportScreen() {
+    const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState('performance');
@@ -188,10 +191,11 @@ export default function AcademicReportScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#6c5ce7" translucent={false} />
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[COLORS.purple]} />} contentContainerStyle={{ paddingBottom: 30 }}>
-        <LinearGradient colors={['#6c5ce7', '#a78bfa', '#c4b5fd']} style={styles.header}>
-          <Text style={styles.headerTitle}>📚 Academic Report</Text>
-          <Text style={styles.headerSub}>{is844 ? '8-4-4 Curriculum' : 'CBC Competency-Based'} · Performance Analytics</Text>
-        </LinearGradient>
+        <ScreenHeader
+                title="📊 Academic Report"
+                onBack={() => navigation.goBack()}
+                gradient={['#4F46E5','#7C3AED']}
+            />
 
         <View style={styles.content}>
           <FilterBar
@@ -357,7 +361,7 @@ export default function AcademicReportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: '#F8FAFF' },
   content: { paddingHorizontal: 16, paddingTop: 12 },
   header: { paddingTop: 16, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },

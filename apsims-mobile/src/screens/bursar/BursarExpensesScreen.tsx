@@ -4,8 +4,10 @@ import {
     TextInput, RefreshControl, ActivityIndicator, Dimensions,
     Modal, Alert, FlatList, StatusBar,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const { width: W } = Dimensions.get('window');
 const fmt = (n: number) => `KES ${(n || 0).toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
@@ -57,6 +59,7 @@ function ExpenseCard({ exp, onEdit, onDelete, onApprove }: { exp:any; onEdit:()=
 }
 
 export default function BursarExpensesScreen() {
+    const navigation = useNavigation();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [expenses, setExpenses] = useState<any[]>([]);
@@ -173,27 +176,11 @@ export default function BursarExpensesScreen() {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#7c2d12" translucent={false} />
-            <LinearGradient colors={['#7c2d12','#dc2626','#ef4444']} style={styles.header}>
-                <View style={{paddingTop:16, paddingHorizontal:18, paddingBottom:14}}>
-                    <Text style={styles.headerTitle}>📉 Expense Manager</Text>
-                    <Text style={styles.headerSub}>Track, approve and manage all school expenditures</Text>
-                    <View style={styles.kpiStrip}>
-                        {[
-                            {l:'Total Expenses', v:fmt(kpi.total), c:'#fff'},
-                            {l:'Approved', v:fmt(kpi.approved), c:'#86efac'},
-                            {l:'Pending', v:`${kpi.pendingCount} items`, c:'#fcd34d'},
-                        ].map((s,i) => (
-                            <View key={i} style={[styles.kpiItem, i<2 && {borderRightWidth:1, borderRightColor:'rgba(255,255,255,0.15)'}]}>
-                                <Text style={[styles.kpiVal, {color:s.c}]}>{s.v}</Text>
-                                <Text style={styles.kpiLbl}>{s.l}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-                <TouchableOpacity onPress={openAdd} style={styles.addBtn}>
-                    <Text style={styles.addBtnText}>➕ Add Expense</Text>
-                </TouchableOpacity>
-            </LinearGradient>
+            <ScreenHeader
+                title="📝 Expenses"
+                onBack={() => navigation.goBack()}
+                gradient={['#EF4444','#DC2626']}
+            />
 
             {/* Search */}
             <View style={styles.searchRow}>
@@ -297,22 +284,22 @@ export default function BursarExpensesScreen() {
 }
 
 const styles = StyleSheet.create({
-    container:{flex:1,backgroundColor:'#f8fafc'},
+    container:{flex:1,backgroundColor: '#F8FAFF'},
     header:{paddingBottom:0},
     headerTitle:{fontSize:22,fontWeight:'900',color:'#fff',marginBottom:2},
     headerSub:{fontSize:11,color:'rgba(255,255,255,0.65)',fontWeight:'600',marginBottom:10},
-    kpiStrip:{flexDirection:'row',backgroundColor:'rgba(255,255,255,0.12)',borderRadius:12,overflow:'hidden'},
+    kpiStrip:{flexDirection:'row',backgroundColor:'rgba(255,255,255,0.12)',borderRadius: 16,overflow:'hidden'},
     kpiItem:{flex:1,paddingVertical:10,alignItems:'center'},
     kpiVal:{fontSize:13,fontWeight:'900'},
     kpiLbl:{fontSize:9,color:'rgba(255,255,255,0.6)',fontWeight:'600',marginTop:1},
-    addBtn:{backgroundColor:'rgba(255,255,255,0.15)',margin:16,marginTop:8,borderRadius:12,padding:13,alignItems:'center',borderWidth:1,borderColor:'rgba(255,255,255,0.2)'},
+    addBtn:{backgroundColor:'rgba(255,255,255,0.15)',margin:16,marginTop:8,borderRadius: 16,padding:13,alignItems:'center',borderWidth:1,borderColor:'rgba(255,255,255,0.2)'},
     addBtnText:{color:'#fff',fontWeight:'800',fontSize:14},
     searchRow:{padding:12,backgroundColor:'#fff',borderBottomWidth:1,borderBottomColor:'#f1f5f9'},
-    searchInput:{backgroundColor:'#f8fafc',borderRadius:12,paddingHorizontal:14,paddingVertical:10,fontSize:13,borderWidth:1,borderColor:'#e2e8f0',color:'#1e293b'},
+    searchInput:{backgroundColor: '#F8FAFF',borderRadius: 16,paddingHorizontal:14,paddingVertical:10,fontSize:13,borderWidth:1,borderColor:'#e2e8f0',color:'#1e293b'},
     filterRow:{maxHeight:50,paddingLeft:12,paddingVertical:8,backgroundColor:'#fff',borderBottomWidth:1,borderBottomColor:'#f1f5f9'},
-    filterChip:{marginRight:8,paddingHorizontal:14,paddingVertical:6,borderRadius:99,backgroundColor:'#f8fafc',borderWidth:1,borderColor:'#e2e8f0'},
+    filterChip:{marginRight:8,paddingHorizontal:14,paddingVertical:6,borderRadius:99,backgroundColor: '#F8FAFF',borderWidth:1,borderColor:'#e2e8f0'},
     filterChipText:{fontSize:11,fontWeight:'700',color:'#374151'},
-    expCard:{backgroundColor:'#fff',borderRadius:14,borderWidth:1,borderColor:'#f1f5f9',overflow:'hidden',elevation:2,shadowColor:'#000',shadowOpacity:0.05,shadowRadius:6,shadowOffset:{width:0,height:2}},
+    expCard:{backgroundColor:'#fff',borderRadius: 18,borderWidth:1,borderColor:'#f1f5f9',overflow:'hidden',elevation:2,shadowColor:'#000',shadowOpacity: 0.08,shadowRadius:6,shadowOffset:{width:0,height:2}},
     expCardTop:{flexDirection:'row',padding:14,gap:10,alignItems:'flex-start'},
     expDot:{width:8,height:8,borderRadius:4,marginTop:4},
     expCategory:{fontSize:13,fontWeight:'800',color:'#1e293b'},
@@ -321,19 +308,19 @@ const styles = StyleSheet.create({
     expAmount:{fontSize:15,fontWeight:'900',color:'#dc2626'},
     statusBadge:{paddingHorizontal:7,paddingVertical:2,borderRadius:6},
     expCardActions:{flexDirection:'row',borderTopWidth:1,borderTopColor:'#f8fafc',paddingHorizontal:10,paddingVertical:8,gap:8},
-    expActionBtn:{paddingHorizontal:10,paddingVertical:6,borderRadius:8,backgroundColor:'#f8fafc',borderWidth:1,borderColor:'#e2e8f0'},
+    expActionBtn:{paddingHorizontal:10,paddingVertical:6,borderRadius:8,backgroundColor: '#F8FAFF',borderWidth:1,borderColor:'#e2e8f0'},
     expActionText:{fontSize:11,fontWeight:'700',color:'#374151'},
     modalOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.55)',justifyContent:'flex-end'},
     modalSheet:{backgroundColor:'#fff',borderTopLeftRadius:24,borderTopRightRadius:24,maxHeight:'90%',overflow:'hidden'},
     modalHeader:{padding:20},
     modalTitle:{fontSize:17,fontWeight:'900',color:'#fff'},
     modalLabel:{fontSize:10,fontWeight:'700',color:'#64748b',textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,marginTop:14},
-    catChip:{marginRight:8,paddingHorizontal:12,paddingVertical:6,borderRadius:99,borderWidth:1.5,borderColor:'#e2e8f0',backgroundColor:'#f8fafc'},
+    catChip:{marginRight:8,paddingHorizontal:12,paddingVertical:6,borderRadius:99,borderWidth:1.5,borderColor:'#e2e8f0',backgroundColor: '#F8FAFF'},
     catChipText:{fontSize:11,fontWeight:'700',color:'#374151'},
-    amtInput:{fontSize:28,fontWeight:'900',color:'#dc2626',textAlign:'center',borderWidth:2,borderColor:'#e2e8f0',borderRadius:14,padding:12,backgroundColor:'#fff5f5'},
-    textInput:{borderWidth:1.5,borderColor:'#e2e8f0',borderRadius:12,paddingHorizontal:14,paddingVertical:10,fontSize:13,backgroundColor:'#fafbff',color:'#1e293b'},
+    amtInput:{fontSize:28,fontWeight:'900',color:'#dc2626',textAlign:'center',borderWidth:2,borderColor:'#e2e8f0',borderRadius: 18,padding:12,backgroundColor:'#fff5f5'},
+    textInput:{borderWidth:1.5,borderColor:'#e2e8f0',borderRadius: 16,paddingHorizontal:14,paddingVertical:10,fontSize:13,backgroundColor:'#fafbff',color:'#1e293b'},
     methodGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:4},
-    methodBtn:{paddingHorizontal:12,paddingVertical:7,borderRadius:10,borderWidth:1.5,borderColor:'#e2e8f0',backgroundColor:'#f8fafc'},
+    methodBtn:{paddingHorizontal:12,paddingVertical:7,borderRadius:10,borderWidth:1.5,borderColor:'#e2e8f0',backgroundColor: '#F8FAFF'},
     methodText:{fontSize:11,fontWeight:'700',color:'#374151'},
     saveBtn:{marginTop:20,borderRadius:16,overflow:'hidden'},
     saveBtnInner:{padding:16,alignItems:'center'},

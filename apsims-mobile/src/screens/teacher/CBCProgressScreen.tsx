@@ -14,12 +14,13 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { supabase, getCurrentTerm } from '../../lib/supabase';
 import CBCLevelBadge from '../../components/CBCLevelBadge';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'CBCProgress'>;
 
 const C = {
-    bg: '#f1f5f9', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#7c3aed', primaryLight: '#ede9fe',
     accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
@@ -136,6 +137,13 @@ export default function CBCProgressScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
+
+            {/* ── PREMIUM BACK NAVIGATION ── */}
+            <ScreenHeader
+                title="🎓 CBC Progress"
+                onBack={() => navigation.goBack()}
+                gradient={['#7C3AED','#6D28D9']}
+            />
             <StatusBar barStyle="light-content" />
             <LinearGradient colors={['#7c3aed', '#4f46e5']} style={st.header}>
                 <SafeAreaView>
@@ -271,7 +279,7 @@ const st = StyleSheet.create({
     subjectCard: {
         backgroundColor: '#fff', borderRadius: 16, padding: 14, marginBottom: 10,
         borderWidth: 1, borderColor: C.border,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, elevation: 2,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, elevation: 2,
     },
     subjectHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
     subjectName: { fontSize: 14, fontWeight: '800', color: C.text },
@@ -288,7 +296,7 @@ const st = StyleSheet.create({
     levelPillText: { fontSize: 13, fontWeight: '900' },
     levelPillNone: { fontSize: 13, color: C.textDim, fontWeight: '600' },
     levelMeaning: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
-    noteBox: { backgroundColor: '#f8fafc', borderRadius: 8, padding: 8, marginTop: 8, borderWidth: 1, borderColor: C.border },
+    noteBox: { backgroundColor: '#F8FAFF', borderRadius: 8, padding: 8, marginTop: 8, borderWidth: 1, borderColor: C.border },
     noteText: { fontSize: 11, color: C.textSub, lineHeight: 16 },
     emptyBox: { alignItems: 'center', paddingVertical: 60, gap: 8 },
     emptyTitle: { fontSize: 16, fontWeight: '800', color: C.text },

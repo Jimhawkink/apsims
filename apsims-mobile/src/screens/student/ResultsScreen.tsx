@@ -10,11 +10,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useSession } from '../../context/SessionContext';
 import { supabase } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const W = Dimensions.get('window').width;
 
 const C = {
-    bg: '#f1f5f9', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#0d9488', primaryLight: '#ccfbf1',
     accent: '#059669', accentLight: '#d1fae5',
     blue: '#1d4ed8', blueLight: '#dbeafe',
@@ -157,6 +158,13 @@ export default function ResultsScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
+
+            {/* ── PREMIUM BACK NAVIGATION ── */}
+            <ScreenHeader
+                title="📊 My Results"
+                onBack={() => navigation.goBack()}
+                gradient={['#2563EB','#1D4ED8']}
+            />
             <StatusBar barStyle="light-content" backgroundColor="#0d9488" />
             <LinearGradient colors={['#0f766e', '#0d9488', '#059669']} style={s.header}>
                 <SafeAreaView>
@@ -314,12 +322,12 @@ const s = StyleSheet.create({
     emptyTitle: { fontSize: 18, fontWeight: '900', color: C.text },
     emptyText: { fontSize: 12, color: C.textSub, textAlign: 'center' },
     kpiRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-    kpiCard: { flex: 1, backgroundColor: C.card, borderRadius: 14, padding: 10, alignItems: 'center', gap: 3, borderWidth: 1, borderColor: C.border, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 },
+    kpiCard: { flex: 1, backgroundColor: C.card, borderRadius: 18, padding: 10, alignItems: 'center', gap: 3, borderWidth: 1, borderColor: C.border, shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 4, elevation: 2 },
     kpiEmoji: { fontSize: 16 },
     kpiValue: { fontSize: 16, fontWeight: '900' },
     kpiLabel: { fontSize: 8, color: C.textDim, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
-    section: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden', marginBottom: 14, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: '#f8fafc' },
+    section: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden', marginBottom: 14, shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: '#F8FAFF' },
     sectionTitle: { fontSize: 13, fontWeight: '900', color: C.text },
     best7Legend: { backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
     best7LegendText: { fontSize: 10, fontWeight: '700', color: '#92400e' },
@@ -335,7 +343,7 @@ const s = StyleSheet.create({
     totalRow: { flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: '#1e1b4b', gap: 10 },
     totalLabel: { flex: 1, fontSize: 10, fontWeight: '900', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' },
     totalValue: { fontSize: 16, fontWeight: '900', color: '#fff' },
-    analysisCard: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 14, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 },
+    analysisCard: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 14, shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 4, elevation: 2 },
     analysisTitle: { fontSize: 13, fontWeight: '900', color: C.text, marginBottom: 12 },
     analysisRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     analysisLabel: { fontSize: 12, color: C.textSub, fontWeight: '600' },

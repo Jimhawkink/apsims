@@ -8,9 +8,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useSession } from '../../context/SessionContext';
 import { publishAnnouncement, getPortalNotifications, AnnouncementInput, formatDate } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#2563eb', accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8',
 };
@@ -88,15 +89,11 @@ export default function AnnouncementScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
-            <LinearGradient colors={['#2563eb', '#1d4ed8']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>📢 Announcements</Text>
-                    <Text style={styles.headerSub}>Broadcast to parents and students</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="📢 Announcement"
+                onBack={() => navigation.goBack()}
+                gradient={['#7C3AED','#6D28D9']}
+            />
 
             {toast ? <View style={styles.toast}><Text style={styles.toastText}>{toast}</Text></View> : null}
 
@@ -200,19 +197,19 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff' },
     headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
     content: { padding: 16, paddingBottom: 40 },
-    toast: { backgroundColor: '#1e293b', marginHorizontal: 16, marginTop: 8, borderRadius: 12, padding: 12 },
+    toast: { backgroundColor: '#1e293b', marginHorizontal: 16, marginTop: 8, borderRadius: 16, padding: 12 },
     toastText: { color: '#fff', fontSize: 12, fontWeight: '700', textAlign: 'center' },
     label: { fontSize: 13, fontWeight: '700', color: C.text, marginBottom: 8 },
     labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
     charCount: { fontSize: 11, color: C.textDim, fontWeight: '600' },
     audienceRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-    audienceBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#f1f5f9', alignItems: 'center', borderWidth: 1, borderColor: C.border, gap: 2 },
+    audienceBtn: { flex: 1, paddingVertical: 10, borderRadius: 16, backgroundColor: '#F8FAFF', alignItems: 'center', borderWidth: 1, borderColor: C.border, gap: 2 },
     audienceBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
     audienceEmoji: { fontSize: 18 },
     audienceBtnText: { fontSize: 11, fontWeight: '800', color: C.textSub },
     audienceBtnTextActive: { color: '#fff' },
     fieldGroup: { marginBottom: 16 },
-    input: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, color: C.text },
+    input: { backgroundColor: '#F8FAFF', borderWidth: 1, borderColor: C.border, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, color: C.text },
     inputError: { borderColor: C.danger },
     textArea: { height: 120, textAlignVertical: 'top' },
     errorText: { fontSize: 11, color: C.danger, fontWeight: '600', marginTop: 4 },

@@ -13,11 +13,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { supabase, formatDate } from '../../lib/supabase';
 import { useSession } from '../../context/SessionContext';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const C = {
-    bg: '#f1f5f9', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#7c3aed', primaryLight: '#ede9fe',
     accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
@@ -112,6 +113,13 @@ export default function CircularScreen() {
                         <Text style={{ fontSize: 18 }}>{config.emoji}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
+
+            {/* ── PREMIUM BACK NAVIGATION ── */}
+            <ScreenHeader
+                title="📰 Circulars"
+                onBack={() => navigation.goBack()}
+                gradient={['#F59E0B','#D97706']}
+            />
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             <Text style={s.cardTitle} numberOfLines={isExpanded ? undefined : 2}>
                                 {item.title}
@@ -244,7 +252,7 @@ const s = StyleSheet.create({
     card: {
         backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden',
         borderWidth: 1, borderColor: C.border,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, elevation: 2,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, elevation: 2,
     },
     pinnedCard: { borderColor: '#c4b5fd', borderWidth: 1.5 },
     pinnedBanner: {
@@ -253,7 +261,7 @@ const s = StyleSheet.create({
     },
     pinnedText: { fontSize: 10, color: C.primary, fontWeight: '800' },
     cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14 },
-    categoryIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    categoryIcon: { width: 44, height: 44, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
     cardTitle: { fontSize: 14, fontWeight: '800', color: C.text, lineHeight: 20 },
     cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
     catBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },

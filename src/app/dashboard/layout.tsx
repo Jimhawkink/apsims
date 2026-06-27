@@ -21,6 +21,7 @@ import PremierDashboard from '@/components/PremierDashboard';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import QuickActionsButton from '@/components/QuickActionsButton';
 import { useOffline } from '@/hooks/useOffline';
+import RealtimeProvider from '@/components/RealtimeProvider';
 
 interface UserSession {
     id: number;
@@ -628,6 +629,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                 </header>
 
+                {/* 🔴 LIVE: Supabase Realtime — fee payments, attendance, discipline */}
+                    <RealtimeProvider />
                 {/* Page Content */}
                 <div className="p-4 lg:p-6 flex-1 overflow-x-hidden">
                     {children}

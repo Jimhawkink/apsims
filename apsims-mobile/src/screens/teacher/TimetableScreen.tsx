@@ -7,9 +7,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useSession } from '../../context/SessionContext';
 import { TimetableEntry, getTeacherTimetable } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#2563eb', accent: '#059669', teal: '#0d9488',
     text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8',
 };
@@ -70,15 +71,11 @@ export default function TimetableScreen() {
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#0d9488" />
 
-            <LinearGradient colors={['#0d9488', '#059669']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Text style={styles.backText}>← Back to Dashboard</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>🗓️ My Timetable</Text>
-                    <Text style={styles.headerSub}>{session?.full_name} • {totalLessons} lessons/week</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="🗓️ My Timetable"
+                onBack={() => navigation.goBack()}
+                gradient={['#0D9488','#059669']}
+            />
 
             {/* Day Selector */}
             <View style={styles.daySelector}>
@@ -192,8 +189,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.border,
     },
     dayBtn: {
-        flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
-        backgroundColor: '#f8fafc', borderWidth: 1, borderColor: C.border,
+        flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 16,
+        backgroundColor: '#F8FAFF', borderWidth: 1, borderColor: C.border,
     },
     dayBtnActive: { backgroundColor: C.teal, borderColor: C.teal },
     dayBtnText: { fontSize: 11, fontWeight: '800', color: C.textSub },
@@ -216,7 +213,7 @@ const styles = StyleSheet.create({
 
     breakCard: {
         flexDirection: 'row', alignItems: 'center', gap: 10,
-        backgroundColor: '#fef3c7', borderRadius: 12, padding: 10, marginBottom: 8,
+        backgroundColor: '#fef3c7', borderRadius: 16, padding: 10, marginBottom: 8,
         borderWidth: 1, borderColor: '#fde68a', borderStyle: 'dashed',
     },
     breakEmoji: { fontSize: 20 },
@@ -228,7 +225,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff', borderRadius: 16, marginBottom: 10,
         borderWidth: 1, borderColor: C.border, overflow: 'hidden',
         shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+        shadowOpacity: 0.07, shadowRadius: 4, elevation: 1,
     },
     lessonAccent: { width: 5, alignSelf: 'stretch' },
     lessonTime: { paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center', minWidth: 70 },

@@ -9,9 +9,10 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { exportNEMISData, exportKCSEMarks, getExamTypes, ExamType, NEMISStudent, KCSEMarkRow } from '../../lib/supabase';
 import { useNetworkStatus } from '../../lib/netinfo';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#2563eb', accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', warning: '#f59e0b',
     text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8',
@@ -112,15 +113,11 @@ export default function ExportScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
-            <LinearGradient colors={['#2563eb', '#1d4ed8']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>📤 Data Exports</Text>
-                    <Text style={styles.headerSub}>NEMIS & KCSE compatible formats</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="📤 Data Export"
+                onBack={() => navigation.goBack()}
+                gradient={['#475569','#334155']}
+            />
 
             {toast ? <View style={styles.toast}><Text style={styles.toastText}>{toast}</Text></View> : null}
 
@@ -253,7 +250,7 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff' },
     headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
     content: { padding: 16, paddingBottom: 40 },
-    toast: { backgroundColor: '#1e293b', marginHorizontal: 16, marginTop: 8, borderRadius: 12, padding: 12 },
+    toast: { backgroundColor: '#1e293b', marginHorizontal: 16, marginTop: 8, borderRadius: 16, padding: 12 },
     toastText: { color: '#fff', fontSize: 12, fontWeight: '700', textAlign: 'center' },
     offlineBanner: { backgroundColor: '#fef3c7', padding: 10, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#f59e0b' },
     offlineBannerText: { fontSize: 12, color: '#92400e', fontWeight: '700' },
@@ -261,27 +258,27 @@ const styles = StyleSheet.create({
         backgroundColor: C.card, borderRadius: 20, padding: 16,
         marginBottom: 16, borderWidth: 1, borderColor: C.border,
         shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+        shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
     },
     exportCardHeader: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-    exportIcon: { width: 48, height: 48, borderRadius: 14, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
+    exportIcon: { width: 48, height: 48, borderRadius: 18, backgroundColor: '#F8FAFF', alignItems: 'center', justifyContent: 'center' },
     exportIconText: { fontSize: 24 },
     exportTitle: { fontSize: 15, fontWeight: '800', color: C.text, marginBottom: 4 },
     exportDesc: { fontSize: 12, color: C.textSub, lineHeight: 18 },
-    exportColumns: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 10, marginBottom: 12 },
+    exportColumns: { backgroundColor: '#F8FAFF', borderRadius: 10, padding: 10, marginBottom: 12 },
     exportColumnsLabel: { fontSize: 10, fontWeight: '800', color: C.textDim, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 },
     exportColumnsText: { fontSize: 11, color: C.textSub },
-    exportBtn: { borderRadius: 14, overflow: 'hidden' },
+    exportBtn: { borderRadius: 18, overflow: 'hidden' },
     exportBtnGrad: { paddingVertical: 14, alignItems: 'center' },
     exportBtnText: { fontSize: 14, fontWeight: '900', color: '#fff' },
     selectorLabel: { fontSize: 12, fontWeight: '700', color: C.text, marginBottom: 8 },
     selectorRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-    selectorBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#f1f5f9', alignItems: 'center', borderWidth: 1, borderColor: C.border },
+    selectorBtn: { flex: 1, paddingVertical: 10, borderRadius: 16, backgroundColor: '#F8FAFF', alignItems: 'center', borderWidth: 1, borderColor: C.border },
     selectorBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
     selectorBtnText: { fontSize: 13, fontWeight: '800', color: C.textSub },
     selectorBtnTextActive: { color: '#fff' },
     examTypeScroll: { marginBottom: 12 },
-    examTypePill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 8, borderWidth: 1, borderColor: C.border },
+    examTypePill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F8FAFF', marginRight: 8, borderWidth: 1, borderColor: C.border },
     examTypePillActive: { backgroundColor: C.primary, borderColor: C.primary },
     examTypePillText: { fontSize: 11, fontWeight: '700', color: C.textSub },
     examTypePillTextActive: { color: '#fff' },

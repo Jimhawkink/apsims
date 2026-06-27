@@ -4,16 +4,19 @@
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator, StatusBar } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { COLORS, SHADOWS, fmt, fmtFull } from '../../components/ultra/UltraTheme';
 import { LineChart, BarChart, DoughnutChart, ProgressBar } from '../../components/ultra/UltraCharts';
 import { KPICard, SectionHeader, ChartPanel, FilterBar, TabSwitcher, DataGrid, StatusBadge, LiveBadge } from '../../components/ultra/UltraComponents';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const W = Dimensions.get('window').width;
 const CW = W - 60;
 
 export default function FinanceReportScreen() {
+    const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState('overview');
@@ -179,15 +182,11 @@ export default function FinanceReportScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#059669" translucent={false} />
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[COLORS.green]} />} contentContainerStyle={{ paddingBottom: 30 }}>
         {/* Header */}
-        <LinearGradient colors={['#059669', '#10b981', '#34d399']} style={styles.header}>
-          <View style={styles.headerRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle}>💰 Finance Report</Text>
-              <Text style={styles.headerSub}>Real-time fee collection & expense analytics</Text>
-            </View>
-            <LiveBadge />
-          </View>
-        </LinearGradient>
+        <ScreenHeader
+                title="💰 Finance Report"
+                onBack={() => navigation.goBack()}
+                gradient={['#0D9488','#059669']}
+            />
 
         <View style={styles.content}>
           {/* Filters */}
@@ -303,7 +302,7 @@ export default function FinanceReportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: '#F8FAFF' },
   content: { paddingHorizontal: 16, paddingTop: 12 },
   loadingWrap: { flex: 1 },
   loadingBg: { flex: 1, justifyContent: 'center', alignItems: 'center' },

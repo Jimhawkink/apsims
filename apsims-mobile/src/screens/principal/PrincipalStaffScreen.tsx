@@ -12,11 +12,12 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { supabase } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const C = {
-    bg: '#f1f5f9', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#0d9488', primaryLight: '#ccfbf1',
     accent: '#7c3aed', accentLight: '#ede9fe',
     blue: '#2563eb', blueLight: '#dbeafe',
@@ -124,6 +125,13 @@ export default function PrincipalStaffScreen() {
                 </Text>
             </View>
             <View style={{ flex: 1 }}>
+
+            {/* ── PREMIUM BACK NAVIGATION ── */}
+            <ScreenHeader
+                title="👩‍🏫 Staff"
+                onBack={() => navigation.goBack()}
+                gradient={['#0D9488','#059669']}
+            />
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={s.cardName}>{item.first_name} {item.last_name}</Text>
                     {item.is_class_teacher && (
@@ -238,10 +246,10 @@ const s = StyleSheet.create({
     statLabel: { fontSize: 9, color: 'rgba(255,255,255,0.75)', fontWeight: '600', marginTop: 2 },
     searchWrap: {
         flexDirection: 'row', alignItems: 'center', gap: 8,
-        margin: 12, backgroundColor: '#fff', borderRadius: 14,
+        margin: 12, backgroundColor: '#fff', borderRadius: 18,
         paddingHorizontal: 14, paddingVertical: 10,
         borderWidth: 1, borderColor: C.border,
-        elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8,
+        elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8,
     },
     searchInput: { flex: 1, fontSize: 14, color: C.text },
     toggleBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: C.border },
@@ -253,7 +261,7 @@ const s = StyleSheet.create({
         borderBottomWidth: 1, borderBottomColor: '#f1f5f9', gap: 12,
     },
     cardAvatar: {
-        width: 44, height: 44, borderRadius: 14,
+        width: 44, height: 44, borderRadius: 18,
         backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center',
     },
     cardAvatarText: { fontSize: 18, fontWeight: '900', color: C.primary },
@@ -263,7 +271,7 @@ const s = StyleSheet.create({
     classBadge: { backgroundColor: C.accentLight, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
     classBadgeText: { fontSize: 9, fontWeight: '800', color: C.accent },
     subjectRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
-    subjectChip: { backgroundColor: '#f1f5f9', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+    subjectChip: { backgroundColor: '#F8FAFF', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
     subjectChipText: { fontSize: 9, fontWeight: '700', color: C.textSub, maxWidth: 120 },
     statusDot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
     emptyBox: { alignItems: 'center', paddingVertical: 60, gap: 8 },

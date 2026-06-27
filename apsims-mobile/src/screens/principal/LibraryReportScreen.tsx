@@ -4,16 +4,19 @@
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, ActivityIndicator, StatusBar } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { COLORS, fmt } from '../../components/ultra/UltraTheme';
 import { BarChart, DoughnutChart, LineChart } from '../../components/ultra/UltraCharts';
 import { KPICard, SectionHeader, ChartPanel, TabSwitcher, DataGrid, StatusBadge, FilterBar } from '../../components/ultra/UltraComponents';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const W = Dimensions.get('window').width;
 const CW = W - 60;
 
 export default function LibraryReportScreen() {
+    const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState('overview');
@@ -129,10 +132,11 @@ export default function LibraryReportScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#2563eb" translucent={false} />
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[COLORS.blue]} />} contentContainerStyle={{ paddingBottom: 30 }}>
-        <LinearGradient colors={['#2563eb', '#3b82f6', '#60a5fa']} style={styles.header}>
-          <Text style={styles.headerTitle}>📖 Library Report</Text>
-          <Text style={styles.headerSub}>Book availability · Lending analytics · Overdue tracking</Text>
-        </LinearGradient>
+        <ScreenHeader
+                title="📖 Library"
+                onBack={() => navigation.goBack()}
+                gradient={['#EC4899','#DB2777']}
+            />
 
         <View style={styles.content}>
           <TabSwitcher tabs={[
@@ -226,7 +230,7 @@ export default function LibraryReportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: '#F8FAFF' },
   content: { paddingHorizontal: 16, paddingTop: 12 },
   header: { paddingTop: 16, paddingBottom: 16, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },

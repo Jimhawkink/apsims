@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../context/SessionContext';
+import ScreenHeader from '../../components/ScreenHeader';
 import {
     getStudentsForMarksEntry, saveAttendance, getClassAttendance,
     getCurrentTerm, AttendanceInput, formatDate,
@@ -87,6 +88,17 @@ export default function AttendanceTakingScreen() {
         setStudents(prev => prev.map(s => s.student_id === studentId ? { ...s, status } : s));
     };
 
+    const markAll = (status: AttendanceStatus) => {
+        Alert.alert(
+            `Mark All ${status}`,
+            `Mark all ${students.length} students as ${status}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Yes', onPress: () => setStudents(prev => prev.map(s => ({ ...s, status }))) },
+            ]
+        );
+    };
+
     const handleSave = async () => {
         if (students.length === 0) return;
         setSaving(true);
@@ -128,15 +140,24 @@ export default function AttendanceTakingScreen() {
         );
     }
 
+    const presentCount = students.filter(s => s.status === 'Present').length;
+    const absentCount = students.filter(s => s.status === 'Absent').length;
+    const lateCount = students.filter(s => s.status === 'Late').length;
+
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
-            <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
-            <LinearGradient colors={['#2563eb', '#1d4ed8']} style={styles.header}>
-                <SafeAreaView>
-                    <Text style={styles.headerTitle}>📋 Take Attendance</Text>
-                    <Text style={styles.headerSub}>📅 {formatDate(selectedDate)}</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            {/* Premium ScreenHeader with back button */}
+            <ScreenHeader
+                title="📋 Attendance"
+                subtitle={formatDate(selectedDate)}
+                onBack={() => navigation.goBack()}
+                rightActions={[{
+                    icon: '✅',
+                    label: 'Mark All Present',
+                    onPress: () => markAll('Present'),
+                }]}
+                gradient={['#2563eb', '#1d4ed8']}
+            />
 
             <OfflineBanner pendingCount={pendingCount} />
 
@@ -146,6 +167,30 @@ export default function AttendanceTakingScreen() {
                 </View>
             ) : null}
 
+            {/* Quick Mark Buttons */}
+            <View style={styles.quickMarkRow}>
+                {(['Present', 'Absent', 'Late'] as AttendanceStatus[]).map(s => (
+                    <TouchableOpacity
+                        key={s}
+                        onPress={() => markAll(s)}
+                        style={[styles.quickMarkBtn, {
+                            backgroundColor:
+                                s === 'Present' ? '#d1fae5' :
+                                s === 'Absent' ? '#fee2e2' : '#fef3c7',
+                            borderColor:
+                                s === 'Present' ? '#059669' :
+                                s === 'Absent' ? '#ef4444' : '#f59e0b',
+                        }]}
+                        accessibilityLabel={`Mark all ${s}`}
+                    >
+                        <Text style={{ fontSize: 9, fontWeight: '800', color:
+                            s === 'Present' ? '#065f46' :
+                            s === 'Absent' ? '#991b1b' : '#92400e'
+                        }}>All {s.toUpperCase()}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+
             {students.length === 0 ? (
                 <View style={styles.emptyBox}>
                     <Text style={styles.emptyEmoji}>📋</Text>
@@ -154,11 +199,15 @@ export default function AttendanceTakingScreen() {
             ) : (
                 <>
                     <View style={styles.statsRow}>
-                        <Text style={styles.statsText}>
-                            ✅ {students.filter(s => s.status === 'Present').length} Present •{' '}
-                            ❌ {students.filter(s => s.status === 'Absent').length} Absent •{' '}
-                            ⏰ {students.filter(s => s.status === 'Late').length} Late
-                        </Text>
+                        <View style={[styles.statChip, { backgroundColor: '#d1fae5', borderColor: '#059669' }]}>
+                            <Text style={[styles.statChipText, { color: '#065f46' }]}>✅ {presentCount} Present</Text>
+                        </View>
+                        <View style={[styles.statChip, { backgroundColor: '#fee2e2', borderColor: '#ef4444' }]}>
+                            <Text style={[styles.statChipText, { color: '#991b1b' }]}>❌ {absentCount} Absent</Text>
+                        </View>
+                        <View style={[styles.statChip, { backgroundColor: '#fef3c7', borderColor: '#f59e0b' }]}>
+                            <Text style={[styles.statChipText, { color: '#92400e' }]}>⏰ {lateCount} Late</Text>
+                        </View>
                     </View>
 
                     <FlatList
@@ -229,11 +278,11 @@ export default function AttendanceTakingScreen() {
 const styles = StyleSheet.create({
     loadingContainer: { flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', gap: 12 },
     loadingText: { color: C.textSub, fontSize: 14, fontWeight: '500' },
-    header: { paddingTop: 48, paddingBottom: 16, paddingHorizontal: 20 },
-    headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff' },
-    headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-    statsRow: { backgroundColor: C.card, paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.border },
-    statsText: { fontSize: 12, color: C.textSub, fontWeight: '600' },
+    quickMarkRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.border },
+    quickMarkBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center', borderWidth: 1 },
+    statsRow: { flexDirection: 'row', gap: 8, backgroundColor: C.card, paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.border },
+    statChip: { flex: 1, paddingVertical: 6, borderRadius: 10, alignItems: 'center', borderWidth: 1 },
+    statChipText: { fontSize: 11, fontWeight: '800' },
     listContent: { paddingBottom: 100 },
     studentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     studentInfo: { flex: 1 },

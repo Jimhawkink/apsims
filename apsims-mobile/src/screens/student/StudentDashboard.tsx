@@ -1,15 +1,15 @@
 // ═══════════════════════════════════════════════════════════════
-// APSIMS Ultra — Student Dashboard v2.0
-// Today's class widget, motivational streak, quick actions,
-// assignments / past papers / results tabs
+// APSIMS Ultra Premium — Student Dashboard v3.0
+// Ultra-light bright theme · Live timetable · Results · Homework
+// Kenya's #1 School Management System
 // ═══════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    RefreshControl, ActivityIndicator, StatusBar, SafeAreaView,
-    Dimensions,
+    RefreshControl, StatusBar, Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
@@ -17,438 +17,556 @@ import { useSession } from '../../context/SessionContext';
 import { clearSession } from '../../lib/security';
 import {
     HomeworkItem, getStudentHomework, getPastPapers,
-    getStudentResults, formatDate, getGrade,
-    getUnreadNotificationCount, supabase, getCurrentTerm,
+    getStudentResults, getUnreadNotificationCount, supabase, getCurrentTerm,
 } from '../../lib/supabase';
 import { cacheData } from '../../lib/offline';
 import OfflineBanner from '../../components/OfflineBanner';
+import { T, fmtKESShort } from '../../theme/PremiumTheme';
+import {
+    SectionLabel, ProgressBar, EmptyState, SkeletonCard,
+    SkeletonRow, QuickActionItem,
+} from '../../components/PremiumUI';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
-type Tab = 'assignments' | 'papers' | 'results';
-
-const W = Dimensions.get('window').width;
-
-const C = {
-    bg: '#f1f5f9', card: '#fff', border: '#e2e8f0',
-    primary: '#0d9488', primaryLight: '#ccfbf1',
-    accent: '#059669', accentLight: '#d1fae5',
-    danger: '#ef4444', dangerLight: '#fee2e2',
-    warning: '#f59e0b', warningLight: '#fef3c7',
-    purple: '#7c3aed', purpleLight: '#ede9fe',
-    blue: '#2563eb', blueLight: '#dbeafe',
-    text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8',
-};
-
+const { width: W } = Dimensions.get('window');
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export default function StudentDashboard() {
     const { session, setSession } = useSession();
     const navigation = useNavigation<NavProp>();
-    const [tab, setTab] = useState<Tab>('assignments');
+    const insets = useSafeAreaInsets();
+
     const [homework, setHomework] = useState<HomeworkItem[]>([]);
     const [papers, setPapers] = useState<any[]>([]);
     const [results, setResults] = useState<any[]>([]);
     const [todayClasses, setTodayClasses] = useState<any[]>([]);
+    const [feeData, setFeeData] = useState({ balance: 0, totalDue: 0, totalPaid: 0, collectionRate: 0 });
+    const [attendanceData, setAttendanceData] = useState({ present: 0, total: 0, rate: 0 });
+    const [termName, setTermName] = useState('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [currentTime, setCurrentTime] = useState(new Date());
-    const portalUserId = session?.portal_user_id || 0;
+    const [activeTab, setActiveTab] = useState<'hw' | 'results' | 'papers'>('hw');
 
-    // Clock tick
+    const portalUserId = session?.portal_user_id || 0;
+    const studentId = session?.linked_student_id || 0;
+    const formId = session?.student_form_id || 0;
+    const streamId = session?.student_stream_id || 0;
+
+    // Live clock
     useEffect(() => {
         const t = setInterval(() => setCurrentTime(new Date()), 30000);
         return () => clearInterval(t);
     }, []);
 
+    const hour = currentTime.getHours();
+    const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+    const greetEmoji = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙';
+    const todayName = DAYS[currentTime.getDay()];
+
     const loadData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const [hw, pp, res] = await Promise.all([
-                session?.student_form_id ? getStudentHomework(session.student_form_id) : Promise.resolve([]),
+            const [hw, pps, res, term] = await Promise.all([
+                getStudentHomework(studentId),
                 getPastPapers(),
-                session?.linked_student_id ? getStudentResults(session.linked_student_id) : Promise.resolve([]),
+                getStudentResults(studentId),
+                getCurrentTerm(),
             ]);
-            setHomework(hw); setPapers(pp); setResults(res);
-            await cacheData(`student_${session?.portal_user_id}_dashboard`, { hw, pp, res });
+            setHomework(hw);
+            setPapers(pps);
+            setResults(res);
+            setTermName(term?.term_name || '');
 
-            // Load today's timetable
-            if (session?.student_form_id && session?.student_stream_id) {
-                const todayName = DAYS[new Date().getDay()];
-                const { data: ttData } = await supabase
-                    .from('school_timetable_entries')
-                    .select(`
-                        id, day_of_week, room, is_double,
-                        school_timetable_periods(period_name, start_time, end_time, period_type),
-                        school_subjects(subject_name),
-                        school_teachers(first_name, last_name)
-                    `)
-                    .eq('form_id', session.student_form_id)
-                    .eq('stream_id', session.student_stream_id)
-                    .ilike('day_of_week', todayName)
-                    .order('period_id');
+            // Today's timetable
+            const { data: tt } = await supabase
+                .from('school_timetable')
+                .select(`
+                    id, period_number, start_time, end_time,
+                    school_subjects(subject_name),
+                    school_teachers(full_name),
+                    school_classrooms(room_name)
+                `)
+                .eq('form_id', formId)
+                .eq('stream_id', streamId)
+                .eq('day_of_week', currentTime.getDay())
+                .order('period_number');
+            setTodayClasses(tt || []);
 
-                setTodayClasses((ttData || []).filter((e: any) =>
-                    e.school_timetable_periods?.period_type !== 'break' &&
-                    e.school_timetable_periods?.period_type !== 'lunch'
-                ));
-            }
+            // Fee data
+            const [{ data: pays }, { data: structs }] = await Promise.all([
+                supabase.from('school_fee_payments').select('amount').eq('student_id', studentId),
+                supabase.from('school_fee_structures').select('amount').eq('form_id', formId),
+            ]);
+            const due = (structs || []).reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+            const paid = (pays || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+            const bal = Math.max(0, due - paid);
+            const rate = due > 0 ? Math.min(100, Math.round((paid / due) * 100)) : 100;
+            setFeeData({ balance: bal, totalDue: due, totalPaid: paid, collectionRate: rate });
+
+            // Attendance (last 30 days)
+            const since = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+            const { data: att } = await supabase
+                .from('school_attendance')
+                .select('status')
+                .eq('student_id', studentId)
+                .gte('attendance_date', since);
+            const total = (att || []).length;
+            const present = (att || []).filter((a: any) => a.status === 'Present').length;
+            setAttendanceData({ present, total, rate: total > 0 ? Math.round((present / total) * 100) : 100 });
 
             if (portalUserId) {
                 const count = await getUnreadNotificationCount(portalUserId);
                 setUnreadCount(count);
             }
-        } catch (err: any) { console.error('Student load error:', err.message); }
-        finally { setLoading(false); setRefreshing(false); }
-    }, [session]);
+
+            await cacheData(`student_${portalUserId}_dashboard`, { hw, pps, res });
+        } catch (err: any) {
+            console.error('Student load error:', err.message);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [studentId, formId, streamId, portalUserId]);
 
     useEffect(() => { loadData(); }, [loadData]);
     const onRefresh = () => { setRefreshing(true); loadData(true); };
 
-    const avgMarks = results.length > 0
-        ? Math.round(results.reduce((s: number, r: any) => s + Number(r.score || 0), 0) / results.length)
-        : 0;
-    const pendingHw = homework.filter(h => h.status === 'Active' || h.status === 'active').length;
+    const initials = (session?.full_name || 'S')
+        .split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
 
-    // Find next/current class
-    const nowStr = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
-    const currentClass = todayClasses.find(c =>
-        c.school_timetable_periods?.start_time <= nowStr &&
-        c.school_timetable_periods?.end_time >= nowStr
-    );
-    const nextClass = !currentClass
-        ? todayClasses.find(c => c.school_timetable_periods?.start_time > nowStr)
-        : null;
+    // Current class highlight
+    const nowMins = currentTime.getHours() * 60 + currentTime.getMinutes();
+    const currentClass = todayClasses.find((c: any) => {
+        if (!c.start_time || !c.end_time) return false;
+        const [sh, sm] = c.start_time.split(':').map(Number);
+        const [eh, em] = c.end_time.split(':').map(Number);
+        return nowMins >= sh * 60 + sm && nowMins <= eh * 60 + em;
+    });
 
-    const fmt12h = (t: string) => {
-        if (!t) return '';
-        const [h, m] = t.split(':');
-        const hr = parseInt(h, 10);
-        return `${hr % 12 || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`;
-    };
+    // Results avg
+    const avgScore = results.length > 0
+        ? Math.round(results.reduce((s: number, r: any) => s + Number(r.percentage || r.score || 0), 0) / results.length) : 0;
+    const gradeColor = avgScore >= 75 ? T.green : avgScore >= 50 ? T.amber : T.red;
+    const gradeBg = avgScore >= 75 ? T.greenLight : avgScore >= 50 ? T.amberLight : T.redLight;
 
-    if (loading) return (
-        <View style={st.loadingContainer}>
-            <ActivityIndicator size="large" color={C.primary} />
-            <Text style={st.loadingText}>Loading dashboard…</Text>
-        </View>
-    );
+    const pendingHW = homework.filter((h: any) => !h.submitted).length;
+    const submittedHW = homework.filter((h: any) => h.submitted).length;
 
     return (
-        <View style={{ flex: 1, backgroundColor: C.bg }}>
-            <StatusBar barStyle="light-content" />
-            <LinearGradient colors={['#0d9488', '#059669']} style={st.header}>
-                <SafeAreaView>
-                    <View style={st.headerRow}>
-                        <View style={st.avatar}>
-                            <Text style={st.avatarText}>
-                                {(session?.student_name || 'S').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
-                            </Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={st.headerName}>{session?.student_name || 'Student'}</Text>
-                            <Text style={st.headerSub}>🎓 {session?.student_admission} · {session?.student_form}</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => { setSession(null); clearSession(); }} style={st.iconBtn}>
-                            <Text style={{ fontSize: 18 }}>🚪</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('Notifications', { portalUserId })}
-                            style={[st.iconBtn, { position: 'relative' }]}
-                        >
-                            <Text style={{ fontSize: 20 }}>🔔</Text>
-                            {unreadCount > 0 && (
-                                <View style={st.notifBadge}>
-                                    <Text style={st.notifBadgeText}>{unreadCount > 99 ? '99+' : String(unreadCount)}</Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
+        <View style={[styles.root, { backgroundColor: T.bg }]}>
+            <StatusBar barStyle="dark-content" backgroundColor={T.bg} />
+
+            {/* ─── Top Bar ──────────────────────────────────────── */}
+            <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+                <View style={styles.topLeft}>
+                    <LinearGradient colors={T.gradTeal} style={styles.avatar}>
+                        <Text style={styles.avatarText}>{initials}</Text>
+                    </LinearGradient>
+                    <View>
+                        <Text style={styles.greeting}>{greetEmoji} {greeting}</Text>
+                        <Text style={styles.name} numberOfLines={1}>{session?.full_name || 'Student'}</Text>
                     </View>
-                </SafeAreaView>
-            </LinearGradient>
+                </View>
+                <View style={styles.topRight}>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('Notifications', { portalUserId })}
+                        style={styles.iconBtn}
+                        accessibilityLabel="Notifications"
+                    >
+                        <Text style={{ fontSize: 20 }}>🔔</Text>
+                        {unreadCount > 0 && (
+                            <View style={styles.notifBadge}>
+                                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => { setSession(null); clearSession(); }}
+                        style={[styles.iconBtn, { backgroundColor: T.redLight, borderColor: '#fca5a5' }]}
+                        accessibilityLabel="Logout"
+                    >
+                        <Text style={{ fontSize: 20 }}>🚪</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <OfflineBanner pendingCount={0} />
 
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={st.content}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
+                contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.teal} colors={[T.teal]} />}
             >
-                <OfflineBanner />
+                {loading ? (
+                    <>
+                        <SkeletonCard rows={3} style={{ marginBottom: 12 }} />
+                        <SkeletonCard rows={2} style={{ marginBottom: 12 }} />
+                        <SkeletonRow /><SkeletonRow /><SkeletonRow />
+                    </>
+                ) : (
+                    <>
+                        {/* ─── Hero stats banner ─────────────────── */}
+                        <LinearGradient colors={T.gradTeal} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                            <View style={styles.heroDecor1} />
+                            <View style={styles.heroDecor2} />
 
-                {/* ── TODAY'S CLASS WIDGET ─────────────────────── */}
-                {(currentClass || nextClass || todayClasses.length > 0) && (
-                    <View style={st.todayCard}>
-                        <LinearGradient
-                            colors={currentClass ? ['#059669', '#0d9488'] : ['#4f46e5', '#7c3aed']}
-                            style={st.todayGradient}
-                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        >
-                            <View style={st.todayDecor} />
-                            <View style={{ flex: 1 }}>
-                                <View style={st.todayLiveRow}>
-                                    {currentClass && (
-                                        <View style={st.liveDot}>
-                                            <View style={st.liveDotInner} />
-                                            <Text style={st.liveText}>NOW</Text>
-                                        </View>
-                                    )}
-                                    <Text style={st.todayLabel}>
-                                        {currentClass ? 'Current Class' : nextClass ? 'Next Class' : `Today — ${todayClasses.length} lessons`}
+                            {/* Term + date row */}
+                            <View style={styles.heroTopRow}>
+                                <View style={styles.termPill}>
+                                    <View style={styles.liveDot} />
+                                    <Text style={styles.termText}>{termName || 'School Term'}</Text>
+                                </View>
+                                <Text style={styles.heroDate}>
+                                    {currentTime.toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                </Text>
+                            </View>
+
+                            {/* KPI row */}
+                            <View style={styles.heroKpiRow}>
+                                {[
+                                    { icon: '📊', label: 'Avg Score', value: `${avgScore}%` },
+                                    { icon: '✅', label: 'Attendance', value: `${attendanceData.rate}%` },
+                                    { icon: '📝', label: 'Pending HW', value: String(pendingHW) },
+                                    { icon: '💰', label: 'Fee Status', value: feeData.balance > 0 ? `⚠ Bal` : '✅ Paid' },
+                                ].map((k, i) => (
+                                    <View key={i} style={[styles.heroKpiItem, i < 3 && { borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.15)' }]}>
+                                        <Text style={{ fontSize: 18, marginBottom: 4 }}>{k.icon}</Text>
+                                        <Text style={styles.heroKpiVal}>{k.value}</Text>
+                                        <Text style={styles.heroKpiLbl}>{k.label}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </LinearGradient>
+
+                        {/* ─── TODAY'S CLASS WIDGET ──────────────── */}
+                        <SectionLabel
+                            title={`🗓️ Today — ${todayName}`}
+                            subtitle={`${todayClasses.length} period${todayClasses.length !== 1 ? 's' : ''}`}
+                            action="Full Timetable"
+                            onAction={() => navigation.navigate('StudentTimetable' as any)}
+                        />
+
+                        {currentClass && (
+                            <LinearGradient colors={['#FFF9C4', '#FFF176']} style={styles.nowPlayingCard}>
+                                <View style={styles.nowPlayingDot} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.nowPlayingLabel}>NOW IN CLASS</Text>
+                                    <Text style={styles.nowPlayingSubject}>
+                                        {(currentClass.school_subjects as any)?.subject_name || 'Class'}
+                                    </Text>
+                                    <Text style={styles.nowPlayingMeta}>
+                                        {currentClass.start_time} – {currentClass.end_time}
+                                        {(currentClass.school_classrooms as any)?.room_name ? ` · ${(currentClass.school_classrooms as any).room_name}` : ''}
                                     </Text>
                                 </View>
-                                <Text style={st.todaySubject}>
-                                    {currentClass
-                                        ? currentClass.school_subjects?.subject_name
-                                        : nextClass
-                                            ? nextClass.school_subjects?.subject_name
-                                            : `${DAYS[new Date().getDay()]}'s Schedule`}
-                                </Text>
-                                {(currentClass || nextClass) && (
-                                    <Text style={st.todayMeta}>
-                                        ⏰ {fmt12h((currentClass || nextClass)?.school_timetable_periods?.start_time)} –{' '}
-                                        {fmt12h((currentClass || nextClass)?.school_timetable_periods?.end_time)}
-                                        {(currentClass || nextClass)?.room ? ` · 🏫 Room ${(currentClass || nextClass)?.room}` : ''}
-                                    </Text>
-                                )}
-                                {(currentClass || nextClass)?.school_teachers && (
-                                    <Text style={st.todayTeacher}>
-                                        👩‍🏫 {(currentClass || nextClass)?.school_teachers?.first_name} {(currentClass || nextClass)?.school_teachers?.last_name}
-                                    </Text>
-                                )}
-                            </View>
-                            <TouchableOpacity
-                                onPress={() => (navigation as any).navigate('Timetable')}
-                                style={st.todayArrow}
-                            >
-                                <Text style={{ color: '#fff', fontSize: 22 }}>→</Text>
-                            </TouchableOpacity>
-                        </LinearGradient>
-                    </View>
-                )}
+                                <Text style={{ fontSize: 32 }}>📚</Text>
+                            </LinearGradient>
+                        )}
 
-                {/* ── KPI GRID ─────────────────────────────────── */}
-                <View style={st.kpiGrid}>
-                    <View style={[st.kpiCard, { borderLeftColor: C.primary }]}>
-                        <Text style={{ fontSize: 18 }}>📝</Text>
-                        <Text style={[st.kpiVal, { color: C.primary }]}>{pendingHw}</Text>
-                        <Text style={st.kpiLabel}>Assignments</Text>
-                    </View>
-                    <View style={[st.kpiCard, { borderLeftColor: C.purple }]}>
-                        <Text style={{ fontSize: 18 }}>📄</Text>
-                        <Text style={[st.kpiVal, { color: C.purple }]}>{papers.length}</Text>
-                        <Text style={st.kpiLabel}>Past Papers</Text>
-                    </View>
-                    <View style={[st.kpiCard, { borderLeftColor: C.blue }]}>
-                        <Text style={{ fontSize: 18 }}>📊</Text>
-                        <Text style={[st.kpiVal, { color: C.blue }]}>{avgMarks}%</Text>
-                        <Text style={st.kpiLabel}>Avg Marks</Text>
-                    </View>
-                    <View style={[st.kpiCard, { borderLeftColor: C.accent }]}>
-                        <Text style={{ fontSize: 18 }}>🏆</Text>
-                        <Text style={[st.kpiVal, { color: C.accent }]}>{getGrade(avgMarks)}</Text>
-                        <Text style={st.kpiLabel}>Grade</Text>
-                    </View>
-                </View>
-
-                {/* ── QUICK ACTIONS ─────────────────────────────── */}
-                <View style={st.quickRow}>
-                    {[
-                        { emoji: '💰', label: 'Fee Balance', color: C.accent, onPress: () => navigation.navigate('FeeBalance') },
-                        { emoji: '📄', label: 'Report Card', color: C.blue, onPress: () => navigation.navigate('ReportCard', { studentId: session?.linked_student_id || 0, formId: session?.student_form_id || 0, formLevel: session?.student_form_level || 0, isParent: false }) },
-                        { emoji: '🎓', label: 'CBC Levels', color: C.purple, onPress: () => navigation.navigate('CBCAssessment', { studentId: session?.linked_student_id || 0 }) },
-                        { emoji: '🔔', label: 'Alerts', color: '#ec4899', onPress: () => navigation.navigate('Notifications', { portalUserId }) },
-                    ].map(item => (
-                        <TouchableOpacity key={item.label} onPress={item.onPress} style={st.quickCard}>
-                            <View style={[st.quickIconWrap, { backgroundColor: item.color + '15' }]}>
-                                <Text style={st.quickEmoji}>{item.emoji}</Text>
-                            </View>
-                            <Text style={[st.quickLabel, { color: item.color }]}>{item.label}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* ── TABS ─────────────────────────────────────── */}
-                <View style={st.tabRow}>
-                    {([
-                        ['assignments', '📝 Tasks', homework.length],
-                        ['papers', '📄 Papers', papers.length],
-                        ['results', '📊 Results', results.length],
-                    ] as [Tab, string, number][]).map(([k, l, c]) => (
-                        <TouchableOpacity key={k} onPress={() => setTab(k)} style={[st.tabBtn, tab === k && st.tabBtnActive]}>
-                            <Text style={[st.tabText, tab === k && st.tabTextActive]}>{l}</Text>
-                            <View style={[st.tabCount, tab === k && st.tabCountActive]}>
-                                <Text style={[st.tabCountText, tab === k && st.tabCountTextActive]}>{c}</Text>
-                            </View>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* ── ASSIGNMENTS TAB ──────────────────────────── */}
-                {tab === 'assignments' && (
-                    <View style={st.section}>
-                        <Text style={st.sectionTitle}>📝 Assignments & Homework</Text>
-                        {homework.length === 0 ? (
-                            <View style={st.emptyBox}>
-                                <Text style={{ fontSize: 36 }}>🎉</Text>
-                                <Text style={st.emptyText}>No assignments right now!</Text>
-                            </View>
-                        ) : homework.map((h, i) => {
-                            const overdue = h.due_date && new Date(h.due_date) < new Date();
-                            return (
-                                <View key={h.id} style={[st.itemCard, i % 2 === 0 ? { backgroundColor: '#fff' } : { backgroundColor: '#fafbfc' }]}>
-                                    <View style={st.itemHeader}>
-                                        <View style={[st.itemIcon, { backgroundColor: overdue ? C.dangerLight : C.accentLight }]}>
-                                            <Text style={{ fontSize: 16 }}>{overdue ? '⏰' : '📝'}</Text>
+                        {todayClasses.length === 0 ? (
+                            <EmptyState icon="🎉" title="No Classes Today" sub="Enjoy your day off!" />
+                        ) : (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodsScroll}>
+                                {todayClasses.map((c: any, i: number) => {
+                                    const [sh, sm] = (c.start_time || '0:0').split(':').map(Number);
+                                    const classMins = sh * 60 + sm;
+                                    const isCurrent = !!currentClass && currentClass.id === c.id;
+                                    const isPast = nowMins > classMins + 40;
+                                    return (
+                                        <View key={i} style={[
+                                            styles.periodCard,
+                                            isCurrent && styles.periodCardCurrent,
+                                            isPast && !isCurrent && styles.periodCardPast,
+                                        ]}>
+                                            <Text style={[styles.periodTime, isCurrent && { color: '#fff' }]}>
+                                                {c.start_time?.slice(0, 5) || '--:--'}
+                                            </Text>
+                                            <Text style={[styles.periodSubject, isCurrent && { color: '#fff' }]} numberOfLines={2}>
+                                                {(c.school_subjects as any)?.subject_name || 'Free'}
+                                            </Text>
+                                            <Text style={[styles.periodTeacher, isCurrent && { color: 'rgba(255,255,255,0.75)' }]} numberOfLines={1}>
+                                                {(c.school_teachers as any)?.full_name?.split(' ')[0] || ''}
+                                            </Text>
+                                            {isCurrent && <View style={styles.periodLiveDot} />}
                                         </View>
+                                    );
+                                })}
+                            </ScrollView>
+                        )}
+
+                        {/* ─── Quick Actions ─────────────────────── */}
+                        <SectionLabel title="Quick Actions" subtitle="Tap to navigate" />
+                        <View style={styles.qaGrid}>
+                            <QuickActionItem icon="📊" label="My Results" gradient={T.gradBlue} onPress={() => navigation.navigate('StudentResults' as any)} />
+                            <QuickActionItem icon="📋" label="Attendance" gradient={T.gradTeal} onPress={() => navigation.navigate('StudentAttendance' as any)} />
+                            <QuickActionItem icon="💰" label="Fee Balance" gradient={feeData.balance > 0 ? T.gradRed : T.gradGreen} onPress={() => navigation.navigate('FeeBalance' as any)} />
+                            <QuickActionItem icon="📄" label="Report Card" gradient={T.gradPurple} onPress={() => navigation.navigate('ReportCard' as any)} />
+                        </View>
+
+                        {/* ─── Fee Balance Gauge ─────────────────── */}
+                        {feeData.totalDue > 0 && (
+                            <TouchableOpacity onPress={() => navigation.navigate('FeeBalance' as any)} activeOpacity={0.85}>
+                                <View style={styles.feeCard}>
+                                    <View style={styles.feeCardTop}>
                                         <View style={{ flex: 1 }}>
-                                            <Text style={st.itemTitle}>{h.title}</Text>
-                                            <Text style={st.itemMeta}>📚 {h.subject_name} · 👩‍🏫 {h.teacher_name}</Text>
+                                            <Text style={styles.feeCardTitle}>💰 Fee Balance</Text>
+                                            <Text style={[styles.feeCardBal, { color: feeData.balance > 0 ? T.red : T.green }]}>
+                                                {feeData.balance > 0 ? fmtKESShort(feeData.balance) + ' outstanding' : '✅ Fully Paid'}
+                                            </Text>
                                         </View>
-                                        <View style={[st.dueBadge, { backgroundColor: overdue ? C.dangerLight : C.blueLight }]}>
-                                            <Text style={[st.dueText, { color: overdue ? C.danger : C.blue }]}>
-                                                {h.due_date ? formatDate(h.due_date) : 'No date'}
+                                        <View style={[styles.feePctBadge, { backgroundColor: gradeBg, borderColor: gradeColor + '40' }]}>
+                                            <Text style={[styles.feePctText, { color: feeData.collectionRate >= 80 ? T.green : feeData.collectionRate >= 50 ? T.amber : T.red }]}>
+                                                {feeData.collectionRate}%
                                             </Text>
                                         </View>
                                     </View>
-                                    {h.description ? (
-                                        <Text style={st.itemDesc} numberOfLines={2}>{h.description}</Text>
-                                    ) : null}
-                                </View>
-                            );
-                        })}
-                    </View>
-                )}
-
-                {/* ── PAST PAPERS TAB ──────────────────────────── */}
-                {tab === 'papers' && (
-                    <View style={st.section}>
-                        <Text style={st.sectionTitle}>📄 Past Papers</Text>
-                        {papers.length === 0 ? (
-                            <View style={st.emptyBox}>
-                                <Text style={{ fontSize: 36 }}>📭</Text>
-                                <Text style={st.emptyText}>No past papers uploaded yet</Text>
-                            </View>
-                        ) : papers.map((p: any, i: number) => (
-                            <View key={p.id} style={[st.itemCard, i % 2 === 0 ? { backgroundColor: '#fff' } : { backgroundColor: '#fafbfc' }]}>
-                                <View style={st.itemHeader}>
-                                    <View style={[st.itemIcon, { backgroundColor: C.purpleLight }]}>
-                                        <Text style={{ fontSize: 16 }}>📄</Text>
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={st.itemTitle}>{p.title || p.paper_name || 'Past Paper'}</Text>
-                                        <Text style={st.itemMeta}>📚 {p.school_subjects?.subject_name || 'General'} · {p.year || ''} {p.term || ''}</Text>
-                                    </View>
-                                    <View style={[st.dueBadge, { backgroundColor: C.purpleLight }]}>
-                                        <Text style={[st.dueText, { color: C.purple }]}>{p.exam_type || 'Exam'}</Text>
+                                    <ProgressBar
+                                        pct={feeData.collectionRate}
+                                        color={feeData.collectionRate >= 80 ? T.green : feeData.collectionRate >= 50 ? T.amber : T.red}
+                                        height={10}
+                                    />
+                                    <View style={styles.feeCardFooter}>
+                                        <Text style={styles.feeCardFooterText}>Paid: {fmtKESShort(feeData.totalPaid)}</Text>
+                                        <Text style={styles.feeCardFooterText}>Total: {fmtKESShort(feeData.totalDue)}</Text>
                                     </View>
                                 </View>
-                            </View>
-                        ))}
-                    </View>
-                )}
+                            </TouchableOpacity>
+                        )}
 
-                {/* ── RESULTS TAB ──────────────────────────────── */}
-                {tab === 'results' && (
-                    <View style={st.section}>
-                        <Text style={st.sectionTitle}>📊 My Exam Results</Text>
-                        <View style={st.gridHeader}>
-                            <Text style={[st.gridHText, { flex: 2 }]}>Subject</Text>
-                            <Text style={[st.gridHText, { flex: 1 }]}>Exam</Text>
-                            <Text style={[st.gridHText, { flex: 0.6 }]}>Score</Text>
-                            <Text style={[st.gridHText, { flex: 0.5 }]}>Grade</Text>
+                        {/* ─── Tab: Homework / Results / Papers ──── */}
+                        <View style={styles.tabBar}>
+                            {[
+                                { id: 'hw', label: `📝 Homework (${pendingHW})` },
+                                { id: 'results', label: `📊 Results (${results.length})` },
+                                { id: 'papers', label: `📄 Papers (${papers.length})` },
+                            ].map(tab => (
+                                <TouchableOpacity
+                                    key={tab.id}
+                                    onPress={() => setActiveTab(tab.id as any)}
+                                    style={[styles.tabBtn, activeTab === tab.id && styles.tabBtnActive]}
+                                >
+                                    <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]} numberOfLines={1}>
+                                        {tab.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
                         </View>
-                        {results.length === 0 ? (
-                            <View style={st.emptyBox}>
-                                <Text style={{ fontSize: 36 }}>📊</Text>
-                                <Text style={st.emptyText}>No results yet</Text>
-                            </View>
-                        ) : results.map((r: any, i: number) => {
-                            const score = Number(r.score || 0);
-                            const grade = getGrade(score);
-                            const gc = score >= 50 ? C.accent : C.danger;
-                            return (
-                                <View key={r.id} style={[st.gridRow, i % 2 === 0 ? { backgroundColor: '#fff' } : { backgroundColor: '#fafbfc' }]}>
-                                    <Text style={[st.gridCell, { flex: 2, fontWeight: '700' }]}>{r.school_subjects?.subject_name || '—'}</Text>
-                                    <Text style={[st.gridCell, { flex: 1, color: C.textSub }]}>{r.exam_type || '—'}</Text>
-                                    <Text style={[st.gridCell, { flex: 0.6, fontWeight: '900', color: gc }]}>{score}%</Text>
-                                    <View style={{ flex: 0.5, alignItems: 'center' }}>
-                                        <View style={{ backgroundColor: gc + '18', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 }}>
-                                            <Text style={{ fontSize: 11, fontWeight: '900', color: gc }}>{grade}</Text>
+
+                        {/* Homework tab */}
+                        {activeTab === 'hw' && (
+                            homework.length === 0 ? (
+                                <EmptyState icon="✅" title="No Homework" sub="You're all caught up!" />
+                            ) : homework.slice(0, 8).map((h: any, i: number) => {
+                                const due = h.due_date ? new Date(h.due_date) : null;
+                                const overdue = due && due < new Date() && !h.submitted;
+                                return (
+                                    <View key={i} style={[styles.hwCard, { borderLeftColor: h.submitted ? T.green : overdue ? T.red : T.amber }]}>
+                                        <View style={{ flex: 1 }}>
+                                            <View style={styles.hwTopRow}>
+                                                <Text style={styles.hwSubject}>{h.subject_name || 'Assignment'}</Text>
+                                                <View style={[styles.hwStatusBadge, {
+                                                    backgroundColor: h.submitted ? T.greenLight : overdue ? T.redLight : T.amberLight
+                                                }]}>
+                                                    <Text style={[styles.hwStatusText, { color: h.submitted ? T.green : overdue ? T.red : T.amber }]}>
+                                                        {h.submitted ? '✅ Done' : overdue ? '⚠ Overdue' : '⏳ Pending'}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            <Text style={styles.hwTitle} numberOfLines={2}>{h.title || h.description || 'Homework'}</Text>
+                                            {due && <Text style={styles.hwDue}>Due: {due.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</Text>}
                                         </View>
                                     </View>
+                                );
+                            })
+                        )}
+
+                        {/* Results tab */}
+                        {activeTab === 'results' && (
+                            results.length === 0 ? (
+                                <EmptyState icon="📭" title="No Results Yet" sub="Marks will appear here when entered by your teachers" />
+                            ) : results.slice(0, 10).map((r: any, i: number) => {
+                                const pct = Number(r.percentage || r.score || 0);
+                                const color = pct >= 75 ? T.green : pct >= 50 ? T.amber : T.red;
+                                const bg = pct >= 75 ? T.greenLight : pct >= 50 ? T.amberLight : T.redLight;
+                                return (
+                                    <View key={i} style={styles.resultCard}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.resultSubject}>{r.subject_name || 'Subject'}</Text>
+                                            <Text style={styles.resultExam}>{r.exam_name || r.term_name || 'Exam'}</Text>
+                                            <ProgressBar pct={pct} color={color} height={6} />
+                                        </View>
+                                        <View style={[styles.resultScore, { backgroundColor: bg }]}>
+                                            <Text style={[styles.resultScoreText, { color }]}>{pct}%</Text>
+                                            <Text style={[styles.resultGrade, { color }]}>
+                                                {pct >= 80 ? 'A' : pct >= 70 ? 'B' : pct >= 60 ? 'C' : pct >= 50 ? 'D' : 'E'}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                );
+                            })
+                        )}
+
+                        {/* Past papers tab */}
+                        {activeTab === 'papers' && (
+                            papers.length === 0 ? (
+                                <EmptyState icon="📄" title="No Past Papers" sub="Past papers will appear here when uploaded by teachers" />
+                            ) : papers.slice(0, 8).map((p: any, i: number) => (
+                                <View key={i} style={styles.paperCard}>
+                                    <LinearGradient colors={T.gradBlue} style={styles.paperIcon}>
+                                        <Text style={{ fontSize: 18 }}>📄</Text>
+                                    </LinearGradient>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.paperTitle} numberOfLines={1}>{p.title || 'Past Paper'}</Text>
+                                        <Text style={styles.paperMeta}>{p.subject_name || ''} · {p.year || ''}</Text>
+                                    </View>
+                                    <Text style={styles.paperArrow}>→</Text>
                                 </View>
-                            );
-                        })}
-                    </View>
+                            ))
+                        )}
+
+                        <View style={{ height: 36 }} />
+                    </>
                 )}
             </ScrollView>
         </View>
     );
 }
 
-const st = StyleSheet.create({
-    loadingContainer: { flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', gap: 12 },
-    loadingText: { color: C.textSub, fontSize: 14, fontWeight: '500' },
-    content: { padding: 16, paddingBottom: 40 },
-    header: { paddingTop: 44, paddingBottom: 20, paddingHorizontal: 20 },
-    headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    avatar: { width: 50, height: 50, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
+const styles = StyleSheet.create({
+    root: { flex: 1 },
+
+    // Top bar
+    topBar: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 20, paddingBottom: 12, backgroundColor: T.bg,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
+    },
+    topLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    avatar: {
+        width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+        shadowColor: T.teal, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4,
+    },
     avatarText: { fontSize: 18, fontWeight: '900', color: '#fff' },
-    headerName: { fontSize: 17, fontWeight: '900', color: '#fff', marginBottom: 2 },
-    headerSub: { fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
-    iconBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-    notifBadge: { position: 'absolute', top: 4, right: 4, backgroundColor: '#ef4444', borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.8)' },
-    notifBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
+    greeting: { fontSize: 11, color: T.textSub, fontWeight: '600' },
+    name: { fontSize: 16, fontWeight: '900', color: T.text, maxWidth: W * 0.45 },
+    topRight: { flexDirection: 'row', gap: 8 },
+    iconBtn: {
+        width: 40, height: 40, borderRadius: 12, backgroundColor: T.bgSoft,
+        alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: T.border, position: 'relative',
+    },
+    notifBadge: {
+        position: 'absolute', top: 5, right: 5, minWidth: 16, height: 16, borderRadius: 8,
+        backgroundColor: T.red, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: T.bg,
+    },
+    notifBadgeText: { fontSize: 8, color: '#fff', fontWeight: '900' },
 
-    // Today's class card
-    todayCard: { marginBottom: 14, borderRadius: 20, overflow: 'hidden', shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 6 },
-    todayGradient: { flexDirection: 'row', alignItems: 'center', padding: 16, position: 'relative' },
-    todayDecor: { position: 'absolute', right: -20, top: -20, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.07)' },
-    todayLiveRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-    liveDot: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
-    liveDotInner: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
-    liveText: { fontSize: 9, color: '#fff', fontWeight: '900', letterSpacing: 0.5 },
-    todayLabel: { fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: '700', textTransform: 'uppercase' },
-    todaySubject: { fontSize: 18, fontWeight: '900', color: '#fff', marginBottom: 4 },
-    todayMeta: { fontSize: 11, color: 'rgba(255,255,255,0.8)', marginBottom: 2 },
-    todayTeacher: { fontSize: 10, color: 'rgba(255,255,255,0.7)' },
-    todayArrow: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+    scroll: { padding: 20, paddingTop: 12 },
 
-    kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
-    kpiCard: { flex: 1, minWidth: '45%', backgroundColor: C.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4, alignItems: 'center', gap: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, elevation: 2 },
-    kpiVal: { fontSize: 20, fontWeight: '900' },
-    kpiLabel: { fontSize: 9, color: C.textSub, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+    // Hero
+    hero: {
+        borderRadius: 24, marginBottom: 20, overflow: 'hidden',
+        shadowColor: T.teal, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 8,
+    },
+    heroDecor1: { position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.1)' },
+    heroDecor2: { position: 'absolute', bottom: 0, left: -20, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.06)' },
+    heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingBottom: 8 },
+    termPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
+    liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#86efac' },
+    termText: { fontSize: 11, color: '#fff', fontWeight: '700' },
+    heroDate: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+    heroKpiRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.12)' },
+    heroKpiItem: { flex: 1, alignItems: 'center', paddingVertical: 14 },
+    heroKpiVal: { fontSize: 16, fontWeight: '900', color: '#fff', marginBottom: 3 },
+    heroKpiLbl: { fontSize: 9, color: 'rgba(255,255,255,0.7)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
 
-    quickRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-    quickCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: C.border, gap: 6 },
-    quickIconWrap: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    quickEmoji: { fontSize: 20 },
-    quickLabel: { fontSize: 9, fontWeight: '800', textAlign: 'center' },
+    // Now playing card
+    nowPlayingCard: {
+        flexDirection: 'row', alignItems: 'center', borderRadius: 18, padding: 16, marginBottom: 12,
+        borderWidth: 1.5, borderColor: '#FDD835',
+        shadowColor: '#FDD835', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 4,
+    },
+    nowPlayingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: T.red, marginRight: 12, shadowColor: T.red, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 4 },
+    nowPlayingLabel: { fontSize: 9, fontWeight: '900', color: '#B45309', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 },
+    nowPlayingSubject: { fontSize: 17, fontWeight: '900', color: '#1E293B', marginBottom: 2 },
+    nowPlayingMeta: { fontSize: 11, color: '#78716C', fontWeight: '600' },
 
-    tabRow: { flexDirection: 'row', gap: 6, marginBottom: 14 },
-    tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, borderRadius: 12, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: C.border },
-    tabBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
-    tabText: { fontSize: 10, fontWeight: '700', color: C.textSub },
-    tabTextActive: { color: '#fff' },
-    tabCount: { backgroundColor: 'rgba(0,0,0,0.06)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 5 },
-    tabCountActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
-    tabCountText: { fontSize: 9, fontWeight: '900', color: C.textSub },
-    tabCountTextActive: { color: '#fff' },
+    // Periods scroll
+    periodsScroll: { marginBottom: 20, marginHorizontal: -20 },
+    periodCard: {
+        width: 90, marginLeft: 10, borderRadius: 16, padding: 12,
+        backgroundColor: T.bgCard, borderWidth: 1.5, borderColor: T.border,
+        alignItems: 'center',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+    },
+    periodCardCurrent: { backgroundColor: T.teal, borderColor: T.teal, shadowColor: T.teal, shadowOpacity: 0.3, elevation: 6 },
+    periodCardPast: { opacity: 0.5 },
+    periodTime: { fontSize: 11, fontWeight: '800', color: T.textSub, marginBottom: 8 },
+    periodSubject: { fontSize: 12, fontWeight: '800', color: T.text, textAlign: 'center', marginBottom: 4 },
+    periodTeacher: { fontSize: 10, color: T.textSub, textAlign: 'center' },
+    periodLiveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#86efac', marginTop: 6 },
 
-    section: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.border, overflow: 'hidden', marginBottom: 14 },
-    sectionTitle: { fontSize: 14, fontWeight: '800', color: C.text, padding: 16, borderBottomWidth: 1, borderBottomColor: C.border },
-    emptyBox: { alignItems: 'center', paddingVertical: 32, gap: 6 },
-    emptyText: { fontSize: 12, color: C.textSub },
-    itemCard: { padding: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-    itemHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    itemIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    itemTitle: { fontSize: 13, fontWeight: '800', color: C.text },
-    itemMeta: { fontSize: 10, color: C.textSub, marginTop: 2 },
-    itemDesc: { fontSize: 11, color: C.textSub, marginTop: 8, lineHeight: 16 },
-    dueBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-    dueText: { fontSize: 9, fontWeight: '800' },
-    gridHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f1f5f9', borderBottomWidth: 1, borderBottomColor: C.border },
-    gridHText: { fontSize: 9, fontWeight: '800', color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.5 },
-    gridRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12 },
-    gridCell: { fontSize: 11, color: C.text, fontWeight: '500' },
+    // Quick actions
+    qaGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+
+    // Fee card
+    feeCard: {
+        backgroundColor: T.bgCard, borderRadius: 20, padding: 18, marginBottom: 20,
+        borderWidth: 1, borderColor: T.border,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
+    },
+    feeCardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    feeCardTitle: { fontSize: 13, fontWeight: '900', color: T.text, marginBottom: 4 },
+    feeCardBal: { fontSize: 16, fontWeight: '900' },
+    feePctBadge: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1 },
+    feePctText: { fontSize: 18, fontWeight: '900' },
+    feeCardFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+    feeCardFooterText: { fontSize: 11, color: T.textSub, fontWeight: '600' },
+
+    // Tab bar
+    tabBar: { flexDirection: 'row', backgroundColor: T.bgSoft, borderRadius: 16, padding: 4, marginBottom: 16, borderWidth: 1, borderColor: T.border },
+    tabBtn: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 13 },
+    tabBtnActive: { backgroundColor: T.bgCard, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
+    tabText: { fontSize: 11, fontWeight: '700', color: T.textSub },
+    tabTextActive: { color: T.teal, fontWeight: '900' },
+
+    // Homework card
+    hwCard: {
+        backgroundColor: T.bgCard, borderRadius: 16, padding: 14, marginBottom: 10,
+        borderLeftWidth: 4, borderWidth: 1, borderColor: T.border,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
+    },
+    hwTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    hwSubject: { fontSize: 12, fontWeight: '800', color: T.textSub, textTransform: 'uppercase', letterSpacing: 0.3 },
+    hwStatusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+    hwStatusText: { fontSize: 10, fontWeight: '800' },
+    hwTitle: { fontSize: 14, fontWeight: '700', color: T.text, marginBottom: 6, lineHeight: 20 },
+    hwDue: { fontSize: 11, color: T.textSub, fontWeight: '600' },
+
+    // Result card
+    resultCard: {
+        flexDirection: 'row', alignItems: 'center', gap: 14,
+        backgroundColor: T.bgCard, borderRadius: 16, padding: 14, marginBottom: 10,
+        borderWidth: 1, borderColor: T.border,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
+    },
+    resultSubject: { fontSize: 14, fontWeight: '800', color: T.text, marginBottom: 2 },
+    resultExam: { fontSize: 11, color: T.textSub, marginBottom: 8, fontWeight: '500' },
+    resultScore: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    resultScoreText: { fontSize: 15, fontWeight: '900' },
+    resultGrade: { fontSize: 11, fontWeight: '800' },
+
+    // Paper card
+    paperCard: {
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        backgroundColor: T.bgCard, borderRadius: 16, padding: 14, marginBottom: 10,
+        borderWidth: 1, borderColor: T.border,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
+    },
+    paperIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    paperTitle: { fontSize: 14, fontWeight: '700', color: T.text, marginBottom: 3 },
+    paperMeta: { fontSize: 11, color: T.textSub, fontWeight: '500' },
+    paperArrow: { fontSize: 18, color: T.teal, fontWeight: '800' },
 });

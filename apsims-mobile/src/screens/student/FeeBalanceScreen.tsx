@@ -10,9 +10,10 @@ import {
     getStudentFeePayments, getStudentFeeStructures,
     FeePayment, formatKES, formatDate,
 } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#0d9488', accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
     text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8',
@@ -66,15 +67,11 @@ export default function FeeBalanceScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#0d9488" />
-            <LinearGradient colors={['#0d9488', '#059669']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>💰 Fee Balance</Text>
-                    <Text style={styles.headerSub}>{session?.student_name || 'Student'}</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="💰 Fee Balance"
+                onBack={() => navigation.goBack()}
+                gradient={['#0D9488','#059669']}
+            />
 
             <ScrollView
                 style={{ flex: 1 }}
@@ -179,7 +176,7 @@ const styles = StyleSheet.create({
     paidBadge: { marginTop: 10, backgroundColor: C.accentLight, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20 },
     paidBadgeText: { fontSize: 13, fontWeight: '800', color: C.accent },
     kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-    kpiCard: { flex: 1, backgroundColor: C.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4, alignItems: 'center', gap: 4 },
+    kpiCard: { flex: 1, backgroundColor: C.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: C.border, borderLeftWidth: 4, alignItems: 'center', gap: 4 },
     kpiEmoji: { fontSize: 18 },
     kpiValue: { fontSize: 16, fontWeight: '900' },
     kpiLabel: { fontSize: 9, color: C.textSub, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -188,13 +185,13 @@ const styles = StyleSheet.create({
     feeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14 },
     feeCategory: { fontSize: 12, color: C.text, fontWeight: '600' },
     feeAmount: { fontSize: 13, fontWeight: '800' },
-    gridHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f1f5f9', borderBottomWidth: 1, borderBottomColor: C.border },
+    gridHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F8FAFF', borderBottomWidth: 1, borderBottomColor: C.border },
     gridHText: { fontSize: 9, fontWeight: '800', color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.5 },
     gridRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12 },
     gridCell: { fontSize: 11, color: C.text, fontWeight: '500' },
     methodBadge: { backgroundColor: '#dbeafe', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start' },
     methodBadgeText: { fontSize: 9, fontWeight: '800', color: '#1d4ed8' },
-    totalRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#f1f5f9', borderTopWidth: 2, borderTopColor: C.primary },
+    totalRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#F8FAFF', borderTopWidth: 2, borderTopColor: C.primary },
     totalLabel: { fontSize: 10, fontWeight: '900', color: C.text, textTransform: 'uppercase' },
     totalValue: { fontSize: 11, fontWeight: '900', color: C.accent },
     emptyBox: { alignItems: 'center', paddingVertical: 32, gap: 8 },

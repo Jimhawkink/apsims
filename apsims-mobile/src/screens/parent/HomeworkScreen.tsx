@@ -10,9 +10,10 @@ import {
     getHomeworkWithSubmissions, acknowledgeHomework,
     HomeworkWithSubmission, formatDate,
 } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
-    bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#7c3aed', accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
     warning: '#f59e0b', warningLight: '#fef3c7',
@@ -65,15 +66,11 @@ export default function HomeworkScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <StatusBar barStyle="light-content" backgroundColor="#7c3aed" />
-            <LinearGradient colors={['#7c3aed', '#6d28d9']} style={styles.header}>
-                <SafeAreaView>
-                    <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>📋 Homework</Text>
-                    <Text style={styles.headerSub}>{session?.student_name || 'Student'}</Text>
-                </SafeAreaView>
-            </LinearGradient>
+            <ScreenHeader
+                title="📝 Homework"
+                onBack={() => navigation.goBack()}
+                gradient={['#2563EB','#1D4ED8']}
+            />
 
             <FlatList
                 data={homework}
@@ -156,7 +153,7 @@ const styles = StyleSheet.create({
         backgroundColor: C.card, borderRadius: 16, padding: 14,
         marginBottom: 12, borderWidth: 1, borderColor: C.border,
         shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+        shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
     },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
     subjectBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },

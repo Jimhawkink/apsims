@@ -4,8 +4,10 @@ import {
     TextInput, RefreshControl, ActivityIndicator, Dimensions,
     Modal, Alert, FlatList, Animated, StatusBar,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const { width: W } = Dimensions.get('window');
 const fmt = (n: number) => `KES ${(n || 0).toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
@@ -147,6 +149,7 @@ function StudentRow({ student, onCollect }: { student: any; onCollect: () => voi
 }
 
 export default function BursarFeesScreen() {
+    const navigation = useNavigation();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<'overview' | 'datagrid' | 'students'>('overview');
@@ -324,53 +327,11 @@ export default function BursarFeesScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#0c4a6e" translucent={false} />
             {/* ── HEADER ── */}
-            <LinearGradient colors={['#0c4a6e', '#0891b2', '#0e7490']} style={styles.header}>
-                <View style={{ paddingTop: 16, paddingHorizontal: 18, paddingBottom: 12 }}>
-                    <Text style={styles.headerTitle}>💳 Fee Management</Text>
-                    <Text style={styles.headerSub}>CBC & 8-4-4 — Full Balance Overview</Text>
-                    {/* Grand totals strip */}
-                    <View style={styles.totalStrip}>
-                        {[
-                            { l: 'Expected', v: fmt(totals.expected), c: '#fff' },
-                            { l: 'Collected', v: fmt(totals.paid), c: '#34d399' },
-                            { l: 'Balance', v: fmt(totals.balance), c: '#fca5a5' },
-                        ].map((s, i) => (
-                            <View key={i} style={[styles.totalItem, i < 2 && { borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.15)' }]}>
-                                <Text style={[styles.totalVal, { color: s.c }]}>{s.v}</Text>
-                                <Text style={styles.totalLbl}>{s.l}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Curriculum filter */}
-                <View style={styles.curricFilter}>
-                    {[
-                        { key: 'all', label: '🌐 All' },
-                        { key: '844', label: '📚 8-4-4' },
-                        { key: 'cbc', label: '🎓 CBC' },
-                    ].map(f => (
-                        <TouchableOpacity key={f.key} onPress={() => setFilterCurriculum(f.key as any)}
-                            style={[styles.curricBtn, filterCurriculum === f.key && styles.curricBtnActive]}>
-                            <Text style={[styles.curricBtnText, filterCurriculum === f.key && { color: '#0891b2' }]}>{f.label}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* Tab bar */}
-                <View style={styles.tabBar}>
-                    {[
-                        { key: 'overview', label: '📋 Overview' },
-                        { key: 'datagrid', label: '📊 Datagrid' },
-                        { key: 'students', label: '👥 Students' },
-                    ].map(t => (
-                        <TouchableOpacity key={t.key} onPress={() => setActiveTab(t.key as any)}
-                            style={[styles.tabBtn, activeTab === t.key && styles.tabBtnActive]}>
-                            <Text style={[styles.tabBtnText, activeTab === t.key && { color: '#0891b2' }]}>{t.label}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </LinearGradient>
+            <ScreenHeader
+                title="💳 Fee Collection"
+                onBack={() => navigation.goBack()}
+                gradient={['#0D9488','#0F766E']}
+            />
 
             {/* ══════════════ OVERVIEW TAB ══════════════ */}
             {activeTab === 'overview' && (
@@ -546,7 +507,7 @@ export default function BursarFeesScreen() {
 
                             {/* Defaulters Section */}
                             <Text style={[styles.dgSectionTitle, { paddingHorizontal: 16, marginTop: 14 }]}>⚠️ Top Defaulters — {selectedForm.form_name}</Text>
-                            <View style={{ marginHorizontal: 12, backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#fee2e2', marginBottom: 20 }}>
+                            <View style={{ marginHorizontal: 12, backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: '#fee2e2', marginBottom: 20 }}>
                                 {students.filter(s => s.form_id === selectedForm.id && s.balance > 0).sort((a, b) => b.balance - a.balance).slice(0, 8).map((s, i) => (
                                     <StudentRow key={s.id} student={s} onCollect={() => { setCollectStudent(s); setShowCollectModal(true); }} />
                                 ))}
@@ -597,7 +558,7 @@ export default function BursarFeesScreen() {
                         )}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#0891b2" />}
                         ListEmptyComponent={<Text style={{ textAlign: 'center', color: '#94a3b8', padding: 40 }}>No students found</Text>}
-                        style={{ backgroundColor: '#fff', marginHorizontal: 12, borderRadius: 14, marginTop: 4 }}
+                        style={{ backgroundColor: '#fff', marginHorizontal: 12, borderRadius: 18, marginTop: 4 }}
                     />
                 </View>
             )}
@@ -657,11 +618,11 @@ export default function BursarFeesScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { flex: 1, backgroundColor: '#F8FAFF' },
     header: { paddingBottom: 0 },
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', marginBottom: 2 },
     headerSub: { fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: '600', marginBottom: 10 },
-    totalStrip: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, overflow: 'hidden', marginBottom: 10 },
+    totalStrip: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', marginBottom: 10 },
     totalItem: { flex: 1, paddingVertical: 10, alignItems: 'center' },
     totalVal: { fontSize: 13, fontWeight: '900' },
     totalLbl: { fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: '600', marginTop: 1 },
@@ -680,14 +641,14 @@ const styles = StyleSheet.create({
     formCardCount: { fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
     curricBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
     curricBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff' },
-    formRingWrap: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: 10, minWidth: 64 },
+    formRingWrap: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, padding: 10, minWidth: 64 },
     formRingPct: { fontSize: 18, fontWeight: '900', color: '#fff' },
     formRingLbl: { fontSize: 8, color: 'rgba(255,255,255,0.7)', fontWeight: '700' },
     formCardBody: { flexDirection: 'row', padding: 12, justifyContent: 'space-between' },
     formStat: { alignItems: 'center', flex: 1 },
     formStatLbl: { fontSize: 9, color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' },
     formStatVal: { fontSize: 12, fontWeight: '800', marginTop: 2 },
-    formBarBg: { height: 4, backgroundColor: '#f1f5f9', marginHorizontal: 12, marginBottom: 12, borderRadius: 99, overflow: 'hidden' },
+    formBarBg: { height: 4, backgroundColor: '#F8FAFF', marginHorizontal: 12, marginBottom: 12, borderRadius: 99, overflow: 'hidden' },
     formBarFill: { height: '100%', borderRadius: 99 },
     curriculumDivider: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginVertical: 12, gap: 8 },
     curricDivLine: { flex: 1, height: 1.5, borderRadius: 1 },
@@ -697,21 +658,21 @@ const styles = StyleSheet.create({
     summaryTable: { margin: 12, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
     summaryHeader: { padding: 12 },
     summaryHeaderText: { fontSize: 13, fontWeight: '800', color: '#fff' },
-    summaryRow: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+    summaryRow: { flexDirection: 'row', backgroundColor: '#F8FAFF', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
     summaryCol: { flex: 1, fontSize: 9, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', textAlign: 'center' },
     summaryDataRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
     summaryDataCol: { flex: 1, fontSize: 11, fontWeight: '600', color: '#374151', textAlign: 'center' },
     curricDot: { width: 7, height: 7, borderRadius: 4 },
     ratePill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
     formPillBar: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingVertical: 10, paddingLeft: 12, maxHeight: 52 },
-    formPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 99, backgroundColor: '#f1f5f9', marginRight: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+    formPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 99, backgroundColor: '#F8FAFF', marginRight: 8, borderWidth: 1, borderColor: '#e2e8f0' },
     formPillText: { fontSize: 12, fontWeight: '700', color: '#374151' },
     dgFormHeader: { padding: 18 },
     dgFormName: { fontSize: 20, fontWeight: '900', color: '#fff', marginBottom: 2 },
     dgFormCurric: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 12 },
-    dgFormStats: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 12 },
+    dgFormStats: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 12 },
     dgSectionTitle: { fontSize: 12, fontWeight: '800', color: '#1e293b', marginBottom: 8 },
-    dgGrid: { marginHorizontal: 12, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff' },
+    dgGrid: { marginHorizontal: 12, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff' },
     dgGridHeader: { flexDirection: 'row', backgroundColor: '#1e293b', paddingVertical: 10, paddingHorizontal: 12 },
     dgHeaderCell: { flex: 1, fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', textAlign: 'center' },
     streamRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
@@ -728,8 +689,8 @@ const styles = StyleSheet.create({
     collectBtn: { backgroundColor: '#0891b2', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
     collectBtnText: { fontSize: 11, fontWeight: '800', color: '#fff' },
     searchBar: { padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-    searchInput: { backgroundColor: '#f8fafc', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, borderWidth: 1, borderColor: '#e2e8f0', color: '#1e293b' },
-    statusFilterBtn: { marginRight: 8, marginVertical: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 99, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+    searchInput: { backgroundColor: '#F8FAFF', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, borderWidth: 1, borderColor: '#e2e8f0', color: '#1e293b' },
+    statusFilterBtn: { marginRight: 8, marginVertical: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 99, backgroundColor: '#F8FAFF', borderWidth: 1, borderColor: '#e2e8f0' },
     statusFilterText: { fontSize: 11, fontWeight: '700', color: '#374151' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
     modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '85%', overflow: 'hidden' },
@@ -737,12 +698,12 @@ const styles = StyleSheet.create({
     modalTitle: { fontSize: 17, fontWeight: '900', color: '#fff' },
     modalSub: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
     modalLabel: { fontSize: 10, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 14 },
-    modalBigInput: { fontSize: 32, fontWeight: '900', color: '#0891b2', textAlign: 'center', borderWidth: 2, borderColor: '#e2e8f0', borderRadius: 14, padding: 14, backgroundColor: '#f0fdfe' },
-    modalInput: { borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, backgroundColor: '#fafbff', color: '#1e293b' },
+    modalBigInput: { fontSize: 32, fontWeight: '900', color: '#0891b2', textAlign: 'center', borderWidth: 2, borderColor: '#e2e8f0', borderRadius: 18, padding: 14, backgroundColor: '#f0fdfe' },
+    modalInput: { borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, backgroundColor: '#fafbff', color: '#1e293b' },
     quickAmt: { flex: 1, backgroundColor: '#f0fdfe', borderRadius: 8, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: '#a5f3fc' },
     quickAmtText: { fontSize: 11, fontWeight: '800', color: '#0891b2' },
     methodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-    methodBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#f8fafc' },
+    methodBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: '#F8FAFF' },
     methodBtnText: { fontSize: 11, fontWeight: '700', color: '#374151' },
     collectSubmitBtn: { marginTop: 20, borderRadius: 16, overflow: 'hidden' },
     collectSubmitBtnInner: { padding: 16, alignItems: 'center' },

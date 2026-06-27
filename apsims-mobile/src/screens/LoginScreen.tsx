@@ -23,21 +23,21 @@ const BIOMETRIC_CREDS_KEY = 'apsims_biometric_creds';
 const BIOMETRIC_ENABLED_KEY = 'apsims_biometric_enabled';
 
 const C = {
-    bg: '#f8fafc',
+    bg: '#F8FAFF',           // Ultra-light blue-white
     card: '#ffffff',
-    cardBorder: '#e2e8f0',
-    primary: '#2563eb',
-    primaryDark: '#1d4ed8',
-    primaryLight: '#60a5fa',
+    cardBorder: '#E0E7FF',
+    primary: '#4F46E5',      // Indigo (premium)
+    primaryDark: '#3730A3',
+    primaryLight: '#818CF8',
     accent: '#059669',
     accentLight: '#10b981',
-    danger: '#ef4444',
-    gold: '#f59e0b',
-    text: '#0f172a',
-    textSub: '#64748b',
-    textDim: '#94a3b8',
-    inputBg: '#f1f5f9',
-    inputBorder: '#cbd5e1',
+    danger: '#EF4444',
+    gold: '#F59E0B',
+    text: '#0F172A',
+    textSub: '#475569',
+    textDim: '#94A3B8',
+    inputBg: '#F0F4FF',      // Soft indigo tint
+    inputBorder: '#C7D2FE',  // Indigo border
 };
 
 export default function LoginScreen() {

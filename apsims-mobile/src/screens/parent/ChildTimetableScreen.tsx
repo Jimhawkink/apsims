@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { supabase, TimetableEntry } from '../../lib/supabase';
 import { useSession } from '../../context/SessionContext';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'ChildTimetable'>;
@@ -24,7 +25,7 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
 const C = {
-    bg: '#f1f5f9', card: '#ffffff', border: '#e2e8f0',
+    bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
     primary: '#7c3aed', primaryLight: '#ede9fe',
     accent: '#059669', accentLight: '#d1fae5',
     teal: '#0d9488', tealLight: '#ccfbf1',
@@ -144,6 +145,13 @@ export default function ChildTimetableScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
+
+            {/* ── PREMIUM BACK NAVIGATION ── */}
+            <ScreenHeader
+                title="🗓️ Child Timetable"
+                onBack={() => navigation.goBack()}
+                gradient={['#7C3AED','#6D28D9']}
+            />
             <StatusBar barStyle="light-content" />
             <LinearGradient colors={['#7c3aed', '#0d9488']} style={s.header}>
                 <SafeAreaView>
@@ -306,7 +314,7 @@ const s = StyleSheet.create({
     todayDot: { width: 5, height: 5, borderRadius: 3, marginTop: 3 },
     dayHeading: { fontSize: 15, fontWeight: '800', color: C.text, marginBottom: 12 },
     periodCard: {
-        backgroundColor: '#fff', borderRadius: 14, marginBottom: 8, overflow: 'hidden',
+        backgroundColor: '#fff', borderRadius: 18, marginBottom: 8, overflow: 'hidden',
         shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, elevation: 3,
         borderWidth: 1, borderColor: C.border,
     },
@@ -330,9 +338,9 @@ const s = StyleSheet.create({
     periodBadgeText: { fontSize: 10, fontWeight: '800' },
     weekGrid: { flexDirection: 'row', gap: 6 },
     weekDayCard: {
-        flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 10, alignItems: 'center',
+        flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 10, alignItems: 'center',
         borderWidth: 1, borderColor: C.border,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, elevation: 1,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, elevation: 1,
     },
     weekDayName: { fontSize: 11, fontWeight: '900', color: C.textSub },
     weekDayCount: { fontSize: 20, fontWeight: '900', color: C.primary, marginTop: 4 },
