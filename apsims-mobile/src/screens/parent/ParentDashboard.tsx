@@ -66,15 +66,46 @@ export default function ParentDashboard() {
     const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
     const greetEmoji = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙';
 
-    // Auto-detect ALL children linked to this parent
+    // ─── Load children with 5-tier fallback ──────────────────
     const loadChildren = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
             let students: any[] = [];
 
-            // PRIMARY: Use linked_student_id stored directly on this portal user account
-            const linkedId = session?.linked_student_id;
-            if (linkedId) {
+            // ── TIER 0: Build from session data INSTANTLY (no DB needed) ──
+            // loginUser already fetched student info via the join at login time.
+            // Use it to immediately show the child without waiting for DB.
+            const sesStudentId = session?.linked_student_id;
+            const sesStudentName = session?.student_name;
+            const sesFormId = session?.student_form_id;
+            const sesFormName = session?.student_form;
+            const sesStreamName = session?.student_stream_name;
+            const sesAdmNo = session?.student_admission;
+
+            if (sesStudentId && sesStudentName) {
+                const nameParts = sesStudentName.trim().split(' ');
+                const sessionChild: ChildData = {
+                    id: sesStudentId,
+                    full_name: sesStudentName,
+                    first_name: nameParts[0] || '',
+                    last_name: nameParts.slice(1).join(' ') || '',
+                    admission_number: sesAdmNo || '',
+                    form_id: sesFormId || 0,
+                    form_name: sesFormName || '',
+                    stream_name: sesStreamName || '',
+                    gender: '',
+                    totalDue: 0, totalPaid: 0, balance: 0,
+                    collectionRate: 0, attendanceRate: 0,
+                    recentPayments: [], feeStructure: [],
+                };
+                // Show the child instantly from session
+                setChildren([sessionChild]);
+                setSelectedChild(sessionChild);
+                setLoading(false);
+            }
+
+            // ── TIER 1: Fetch full student record by linked_student_id ──
+            if (sesStudentId) {
                 const { data: single } = await supabase
                     .from('school_students')
                     .select(`
@@ -83,14 +114,14 @@ export default function ParentDashboard() {
                         school_forms!inner(id, form_name, form_level),
                         school_streams(stream_name)
                     `)
-                    .eq('id', linkedId)
+                    .eq('id', sesStudentId)
                     .single();
                 if (single) students = [single];
             }
 
-            // SECONDARY: Fetch ALL children linked via parent_portal_user_id (multi-child parents)
-            if (portalUserId && portalUserId > 0) {
-                const { data: studentsRaw } = await supabase
+            // ── TIER 2: All students linked via parent_portal_user_id ──
+            if (portalUserId > 0) {
+                const { data: byParentId } = await supabase
                     .from('school_students')
                     .select(`
                         id, full_name, first_name, last_name, admission_number,
@@ -100,104 +131,113 @@ export default function ParentDashboard() {
                     `)
                     .eq('parent_portal_user_id', portalUserId)
                     .eq('status', 'Active');
-
-                if (studentsRaw && studentsRaw.length > 0) {
-                    // Merge: add any students not already in list
+                if (byParentId?.length) {
                     const existingIds = new Set(students.map((s: any) => s.id));
-                    studentsRaw.forEach((s: any) => {
-                        if (!existingIds.has(s.id)) students.push(s);
-                    });
+                    byParentId.forEach((s: any) => { if (!existingIds.has(s.id)) students.push(s); });
                 }
             }
 
-            // TERTIARY: Look up all portal users that point to same guardian phone/national_id
-            if (students.length === 0 && portalUserId) {
-                const { data: siblings } = await supabase
-                    .from('school_portal_users')
-                    .select('linked_student_id')
-                    .eq('parent_portal_user_id', portalUserId)
-                    .not('linked_student_id', 'is', null);
-                if (siblings && siblings.length > 0) {
-                    const siblingIds = siblings.map((s: any) => s.linked_student_id);
-                    const { data: sibStudents } = await supabase
-                        .from('school_students')
-                        .select(`
-                            id, full_name, first_name, last_name, admission_number,
-                            form_id, gender, photo_url,
-                            school_forms!inner(id, form_name, form_level),
-                            school_streams(stream_name)
-                        `)
-                        .in('id', siblingIds);
-                    if (sibStudents) students = [...students, ...sibStudents];
+            // ── TIER 3: Guardian name match ──
+            if (students.length === 0 && session?.full_name) {
+                const { data: byGuardian } = await supabase
+                    .from('school_students')
+                    .select(`
+                        id, full_name, first_name, last_name, admission_number,
+                        form_id, gender, photo_url,
+                        school_forms!inner(id, form_name, form_level),
+                        school_streams(stream_name)
+                    `)
+                    .ilike('guardian_name', `%${session.full_name.split(' ')[0]}%`)
+                    .eq('status', 'Active')
+                    .limit(5);
+                if (byGuardian?.length) students = byGuardian;
+            }
+
+            // ── TIER 4: Username = admission number ──
+            if (students.length === 0 && session?.username) {
+                const { data: byAdm } = await supabase
+                    .from('school_students')
+                    .select(`
+                        id, full_name, first_name, last_name, admission_number,
+                        form_id, gender, photo_url,
+                        school_forms!inner(id, form_name, form_level),
+                        school_streams(stream_name)
+                    `)
+                    .ilike('admission_number', `%${session.username}%`)
+                    .limit(3);
+                if (byAdm?.length) students = byAdm;
+            }
+
+            // ── Enrich with fees + attendance ──
+            if (students.length > 0) {
+                const enriched: ChildData[] = await Promise.all(
+                    students.map(async (s: any) => {
+                        const [{ data: payments }, { data: feeStructure }, { data: attendance }] = await Promise.all([
+                            supabase.from('school_fee_payments').select('amount, payment_date, payment_method, receipt_no').eq('student_id', s.id).order('payment_date', { ascending: false }),
+                            supabase.from('school_fee_structures').select('category, amount, term').eq('form_id', s.form_id),
+                            supabase.from('school_attendance').select('status').eq('student_id', s.id).gte('attendance_date', new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]),
+                        ]);
+
+                        const totalDue = (feeStructure || []).reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0);
+                        const totalPaid = (payments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+                        const balance = Math.max(0, totalDue - totalPaid);
+                        const collectionRate = totalDue > 0 ? Math.min(100, Math.round((totalPaid / totalDue) * 100)) : 0;
+
+                        const attRecords = attendance || [];
+                        const present = attRecords.filter((a: any) => a.status === 'Present').length;
+                        const attendanceRate = attRecords.length > 0 ? Math.round((present / attRecords.length) * 100) : 0;
+
+                        return {
+                            id: s.id,
+                            full_name: s.full_name,
+                            first_name: s.first_name,
+                            last_name: s.last_name,
+                            admission_number: s.admission_number,
+                            form_id: s.form_id,
+                            form_name: (s.school_forms as any)?.form_name || sesFormName || '',
+                            stream_name: (s.school_streams as any)?.stream_name || sesStreamName || '',
+                            gender: s.gender,
+                            photo_url: s.photo_url,
+                            totalDue, totalPaid, balance, collectionRate, attendanceRate,
+                            recentPayments: (payments || []).slice(0, 5),
+                            feeStructure: feeStructure || [],
+                        };
+                    })
+                );
+                setChildren(enriched);
+                setSelectedChild(prev => enriched.find(e => e.id === prev?.id) || enriched[0]);
+                await cacheData(`parent_${portalUserId}_children`, enriched);
+            } else if (!sesStudentId) {
+                // Nothing found at all — try cache
+                const cached = await getCachedData(`parent_${portalUserId}_children`);
+                if (cached?.data) {
+                    setChildren(cached.data as ChildData[]);
+                    setSelectedChild((cached.data as ChildData[])[0]);
                 }
             }
 
-            // For each child, fetch fee data + attendance
-            const enriched: ChildData[] = await Promise.all(
-                students.map(async (s: any) => {
-                    const [{ data: payments }, { data: feeStructure }, { data: attendance }] = await Promise.all([
-                        supabase.from('school_fee_payments').select('amount, payment_date, payment_method, receipt_no').eq('student_id', s.id).order('payment_date', { ascending: false }),
-                        supabase.from('school_fee_structures').select('category, amount, term').eq('form_id', s.form_id),
-                        supabase.from('school_attendance').select('status').eq('student_id', s.id).gte('attendance_date', new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]),
-                    ]);
-
-                    const totalDue = (feeStructure || []).reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0);
-                    const totalPaid = (payments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
-                    const balance = Math.max(0, totalDue - totalPaid);
-                    const collectionRate = totalDue > 0 ? Math.min(100, Math.round((totalPaid / totalDue) * 100)) : 0;
-
-                    const attRecords = attendance || [];
-                    const present = attRecords.filter((a: any) => a.status === 'Present').length;
-                    const attendanceRate = attRecords.length > 0 ? Math.round((present / attRecords.length) * 100) : 0;
-
-                    return {
-                        id: s.id,
-                        full_name: s.full_name,
-                        first_name: s.first_name,
-                        last_name: s.last_name,
-                        admission_number: s.admission_number,
-                        form_id: s.form_id,
-                        form_name: (s.school_forms as any)?.form_name || '',
-                        stream_name: (s.school_streams as any)?.stream_name || '',
-                        gender: s.gender,
-                        photo_url: s.photo_url,
-                        totalDue, totalPaid, balance, collectionRate, attendanceRate,
-                        recentPayments: (payments || []).slice(0, 5),
-                        feeStructure: feeStructure || [],
-                    };
-                })
-            );
-
-            setChildren(enriched);
-            if (enriched.length > 0 && !selectedChild) {
-                setSelectedChild(enriched[0]);
-            }
-
-            await cacheData(`parent_${portalUserId}_children`, enriched);
-
-            // Fetch announcements
-            const { data: anns } = await supabase
-                .from('school_announcements')
-                .select('id, title, content, category, created_at')
-                .order('created_at', { ascending: false })
-                .limit(3);
+            // Fetch announcements + notification count
+            const [{ data: anns }] = await Promise.all([
+                supabase.from('school_announcements').select('id, title, content, category, created_at').order('created_at', { ascending: false }).limit(3),
+            ]);
             setAnnouncements(anns || []);
-
-            // Notification count
             if (portalUserId) {
                 const count = await getUnreadNotificationCount(portalUserId);
                 setUnreadCount(count);
             }
         } catch (err: any) {
             console.error('Parent dashboard error:', err.message);
-            // Try cache
             const cached = await getCachedData(`parent_${portalUserId}_children`);
-            if (cached?.data) setChildren(cached.data as ChildData[]);
+            if (cached?.data) {
+                setChildren(cached.data as ChildData[]);
+                setSelectedChild((cached.data as ChildData[])[0]);
+            }
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [portalUserId]);
+    }, [portalUserId, session]);
+
 
     useEffect(() => { loadChildren(); }, [loadChildren]);
     const onRefresh = () => { setRefreshing(true); loadChildren(true); };
