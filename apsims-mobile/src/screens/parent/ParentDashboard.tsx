@@ -70,22 +70,11 @@ export default function ParentDashboard() {
     const loadChildren = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            // Fetch children linked to this parent portal account
-            const { data: studentsRaw, error: studErr } = await supabase
-                .from('school_students')
-                .select(`
-                    id, full_name, first_name, last_name, admission_number,
-                    form_id, gender, photo_url,
-                    school_forms!inner(id, form_name, form_level),
-                    school_streams(stream_name)
-                `)
-                .eq('parent_portal_user_id', portalUserId)
-                .eq('status', 'Active');
+            let students: any[] = [];
 
-            // Fallback: try linked_student_id from session
-            const fallbackId = session?.linked_student_id;
-            let students = studentsRaw || [];
-            if (students.length === 0 && fallbackId) {
+            // PRIMARY: Use linked_student_id stored directly on this portal user account
+            const linkedId = session?.linked_student_id;
+            if (linkedId) {
                 const { data: single } = await supabase
                     .from('school_students')
                     .select(`
@@ -94,9 +83,53 @@ export default function ParentDashboard() {
                         school_forms!inner(id, form_name, form_level),
                         school_streams(stream_name)
                     `)
-                    .eq('id', fallbackId)
+                    .eq('id', linkedId)
                     .single();
                 if (single) students = [single];
+            }
+
+            // SECONDARY: Fetch ALL children linked via parent_portal_user_id (multi-child parents)
+            if (portalUserId && portalUserId > 0) {
+                const { data: studentsRaw } = await supabase
+                    .from('school_students')
+                    .select(`
+                        id, full_name, first_name, last_name, admission_number,
+                        form_id, gender, photo_url,
+                        school_forms!inner(id, form_name, form_level),
+                        school_streams(stream_name)
+                    `)
+                    .eq('parent_portal_user_id', portalUserId)
+                    .eq('status', 'Active');
+
+                if (studentsRaw && studentsRaw.length > 0) {
+                    // Merge: add any students not already in list
+                    const existingIds = new Set(students.map((s: any) => s.id));
+                    studentsRaw.forEach((s: any) => {
+                        if (!existingIds.has(s.id)) students.push(s);
+                    });
+                }
+            }
+
+            // TERTIARY: Look up all portal users that point to same guardian phone/national_id
+            if (students.length === 0 && portalUserId) {
+                const { data: siblings } = await supabase
+                    .from('school_portal_users')
+                    .select('linked_student_id')
+                    .eq('parent_portal_user_id', portalUserId)
+                    .not('linked_student_id', 'is', null);
+                if (siblings && siblings.length > 0) {
+                    const siblingIds = siblings.map((s: any) => s.linked_student_id);
+                    const { data: sibStudents } = await supabase
+                        .from('school_students')
+                        .select(`
+                            id, full_name, first_name, last_name, admission_number,
+                            form_id, gender, photo_url,
+                            school_forms!inner(id, form_name, form_level),
+                            school_streams(stream_name)
+                        `)
+                        .in('id', siblingIds);
+                    if (sibStudents) students = [...students, ...sibStudents];
+                }
             }
 
             // For each child, fetch fee data + attendance
