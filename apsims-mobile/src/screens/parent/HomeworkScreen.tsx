@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, FlatList, TouchableOpacity,
-    RefreshControl, ActivityIndicator, StatusBar, SafeAreaView,
+    RefreshControl, ActivityIndicator, StatusBar,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useSession } from '../../context/SessionContext';
 import {
@@ -14,16 +13,16 @@ import ScreenHeader from '../../components/ScreenHeader';
 
 const C = {
     bg: '#F8FAFF', card: '#ffffff', border: '#e2e8f0',
-    primary: '#7c3aed', accent: '#059669', accentLight: '#d1fae5',
+    primary: '#2563eb', accent: '#059669', accentLight: '#d1fae5',
     danger: '#ef4444', dangerLight: '#fee2e2',
     warning: '#f59e0b', warningLight: '#fef3c7',
     teal: '#0d9488', tealLight: '#ccfbf1',
-    text: '#0f172a', textSub: '#64748b', textDim: '#94a3b8',
+    text: '#0f172a', textSub: '#64748b',
 };
 
 export default function HomeworkScreen() {
     const { session } = useSession();
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const [homework, setHomework] = useState<HomeworkWithSubmission[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -54,96 +53,88 @@ export default function HomeworkScreen() {
         ));
     };
 
-    if (loading) {
-        return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={C.primary} />
-                <Text style={styles.loadingText}>Loading homework…</Text>
-            </View>
-        );
-    }
-
+    // ── Single return — ScreenHeader ALWAYS renders so back always works ──
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
-            <StatusBar barStyle="light-content" backgroundColor="#7c3aed" />
+            <StatusBar barStyle="light-content" backgroundColor={C.primary} />
             <ScreenHeader
                 title="📝 Homework"
-                onBack={() => navigation.goBack()}
-                gradient={['#2563EB','#1D4ED8']}
+                onBack={() => { if (navigation.canGoBack()) navigation.goBack(); }}
+                gradient={['#2563EB', '#1D4ED8']}
             />
 
-            <FlatList
-                data={homework}
-                keyExtractor={item => String(item.id)}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
-                contentContainerStyle={homework.length === 0 ? styles.emptyContainer : styles.listContent}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={styles.emptyBox}>
-                        <Text style={styles.emptyEmoji}>📋</Text>
-                        <Text style={styles.emptyText}>No homework assigned at this time.</Text>
-                    </View>
-                }
-                renderItem={({ item }) => {
-                    const isOverdue = item.status === 'Overdue';
-                    const isSubmitted = item.submission_status === 'Submitted';
-                    return (
-                        <View style={styles.card}>
-                            <View style={styles.cardHeader}>
-                                <View style={[styles.subjectBadge, { backgroundColor: C.tealLight }]}>
-                                    <Text style={[styles.subjectBadgeText, { color: C.teal }]}>
-                                        📚 {item.subject_name}
-                                    </Text>
-                                </View>
-                                <View style={[styles.statusChip, {
-                                    backgroundColor: isOverdue ? C.dangerLight : isSubmitted ? C.accentLight : C.warningLight
-                                }]}>
-                                    <Text style={[styles.statusChipText, {
-                                        color: isOverdue ? C.danger : isSubmitted ? C.accent : C.warning
-                                    }]}>
-                                        {isOverdue ? '⏰ Overdue' : isSubmitted ? '✅ Submitted' : '📝 Pending'}
-                                    </Text>
-                                </View>
-                            </View>
-                            <Text style={styles.cardTitle}>{item.title}</Text>
-                            {item.description ? (
-                                <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
-                            ) : null}
-                            <View style={styles.cardFooter}>
-                                <Text style={styles.cardMeta}>
-                                    👩‍🏫 {item.teacher_name}
-                                </Text>
-                                <Text style={[styles.cardDue, { color: isOverdue ? C.danger : C.textSub }]}>
-                                    📅 Due: {item.due_date ? formatDate(item.due_date) : 'No date'}
-                                </Text>
-                            </View>
-                            {isSubmitted && !item.acknowledged_by_parent && item.submission_id && (
-                                <TouchableOpacity
-                                    onPress={() => handleAcknowledge(item.submission_id!)}
-                                    style={styles.ackBtn}
-                                    accessibilityLabel="Acknowledge homework submission"
-                                >
-                                    <Text style={styles.ackBtnText}>👍 Acknowledge Submission</Text>
-                                </TouchableOpacity>
-                            )}
-                            {item.acknowledged_by_parent && (
-                                <Text style={styles.ackLabel}>✅ Acknowledged by parent</Text>
-                            )}
+            {loading ? (
+                <View style={styles.center}>
+                    <ActivityIndicator size="large" color={C.primary} />
+                    <Text style={styles.loadingText}>Loading homework…</Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={homework}
+                    keyExtractor={item => String(item.id)}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
+                    contentContainerStyle={homework.length === 0 ? styles.emptyContainer : styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    ListEmptyComponent={
+                        <View style={styles.emptyBox}>
+                            <Text style={styles.emptyEmoji}>📋</Text>
+                            <Text style={styles.emptyText}>No homework assigned at this time.</Text>
                         </View>
-                    );
-                }}
-            />
+                    }
+                    renderItem={({ item }) => {
+                        const isOverdue = item.status === 'Overdue';
+                        const isSubmitted = item.submission_status === 'Submitted';
+                        return (
+                            <View style={styles.card}>
+                                <View style={styles.cardHeader}>
+                                    <View style={[styles.subjectBadge, { backgroundColor: C.tealLight }]}>
+                                        <Text style={[styles.subjectBadgeText, { color: C.teal }]}>
+                                            📚 {item.subject_name}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.statusChip, {
+                                        backgroundColor: isOverdue ? C.dangerLight : isSubmitted ? C.accentLight : C.warningLight
+                                    }]}>
+                                        <Text style={[styles.statusChipText, {
+                                            color: isOverdue ? C.danger : isSubmitted ? C.accent : C.warning
+                                        }]}>
+                                            {isOverdue ? '⏰ Overdue' : isSubmitted ? '✅ Submitted' : '📝 Pending'}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <Text style={styles.cardTitle}>{item.title}</Text>
+                                {item.description ? (
+                                    <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
+                                ) : null}
+                                <View style={styles.cardFooter}>
+                                    <Text style={styles.cardMeta}>👩‍🏫 {item.teacher_name}</Text>
+                                    <Text style={[styles.cardDue, { color: isOverdue ? C.danger : C.textSub }]}>
+                                        📅 Due: {item.due_date ? formatDate(item.due_date) : 'No date'}
+                                    </Text>
+                                </View>
+                                {isSubmitted && !item.acknowledged_by_parent && item.submission_id && (
+                                    <TouchableOpacity
+                                        onPress={() => handleAcknowledge(item.submission_id!)}
+                                        style={styles.ackBtn}
+                                    >
+                                        <Text style={styles.ackBtnText}>👍 Acknowledge Submission</Text>
+                                    </TouchableOpacity>
+                                )}
+                                {item.acknowledged_by_parent && (
+                                    <Text style={styles.ackLabel}>✅ Acknowledged by parent</Text>
+                                )}
+                            </View>
+                        );
+                    }}
+                />
+            )}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    loadingContainer: { flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', gap: 12 },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
     loadingText: { color: C.textSub, fontSize: 14, fontWeight: '500' },
-    header: { paddingTop: 48, paddingBottom: 16, paddingHorizontal: 20 },
-    backText: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '600', marginBottom: 8 },
-    headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff' },
-    headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
     listContent: { padding: 16, paddingBottom: 40 },
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     emptyBox: { alignItems: 'center', paddingVertical: 60, gap: 8 },
