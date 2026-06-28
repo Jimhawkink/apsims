@@ -78,23 +78,28 @@ export default function ParentDashboard() {
     const sesFormId    = session?.student_form_id    || 0;
 
     const loadFeeStatement = useCallback(async () => {
-        if (!sesStudentId || !sesFormId) return;
+        if (!sesStudentId) return;   // only need student ID — form_id optional (Grade 10 etc.)
         try {
             const currentYear = new Date().getFullYear();
             const [structRes, payRes, termRes] = await Promise.all([
                 supabase.from('school_fee_structures').select('id, category, amount, term_id, year, form_id'),
+                // Fetch ALL payments then filter in JS — same as web app (no RLS / ID mismatch issues)
                 supabase.from('school_fee_payments')
-                    .select('id, amount, payment_date, payment_method, receipt_no')
-                    .eq('student_id', sesStudentId)
+                    .select('id, student_id, amount, payment_date, payment_method, receipt_no')
                     .order('payment_date', { ascending: false }),
                 supabase.from('school_terms').select('id, term_name, is_current').order('id'),
             ]);
             const allStr: any[] = structRes.data || [];
-            const allPay: any[] = payRes.data   || [];
-            const allTrm: any[] = termRes.data   || [];
+            // Filter payments in JS — Number() ensures string vs int comparison works
+            const allPay: any[] = (payRes.data || []).filter(
+                (p: any) => Number(p.student_id) === Number(sesStudentId)
+            );
+            const allTrm: any[] = termRes.data || [];
 
-            // Filter: general + this form, then by year
-            let applicable = allStr.filter((f: any) => !f.form_id || Number(f.form_id) === Number(sesFormId));
+            // Filter structures: general (no form_id) + this student's form (if known)
+            const applicable = allStr.filter(
+                (f: any) => !f.form_id || (sesFormId && Number(f.form_id) === Number(sesFormId))
+            );
             let yearFees = applicable.filter((f: any) => !f.year || Number(f.year) === currentYear);
             if (yearFees.length === 0 && applicable.length > 0) {
                 const maxYear = Math.max(...applicable.map((f: any) => Number(f.year) || 0));
@@ -104,16 +109,16 @@ export default function ParentDashboard() {
             const totalPaid   = allPay.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
             const annualTotal = yearFees.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
 
-            // Build per-term rows in term order
+            // Build per-term rows
             const rows: { label: string; amount: number }[] = [];
             const currentTerm = allTrm.find((t: any) => t.is_current);
 
-            // School-wide (no term)
+            // School-wide fees (no term assigned)
             const noTermAmt = yearFees.filter((f: any) => !f.term_id)
                 .reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
             if (noTermAmt > 0) rows.push({ label: 'General School Fees', amount: noTermAmt });
 
-            // Per-term
+            // Per-term rows in order
             allTrm.forEach((term: any) => {
                 const amt = yearFees.filter((f: any) => Number(f.term_id) === term.id)
                     .reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
@@ -133,7 +138,6 @@ export default function ParentDashboard() {
             setFeeStmt(prev => ({ ...prev, loaded: true }));
         }
     }, [sesStudentId, sesFormId]);
-
 
     // Greeting
     const hour = new Date().getHours();
