@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { render } from '@react-email/render';
 import React from 'react';
 import { FeeReminderEmail } from '@/emails/FeeReminder';
 import { supabase } from '@/lib/supabase';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * POST /api/email/send-reminder
@@ -16,6 +16,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  */
 export async function POST(req: NextRequest) {
     try {
+        const resend = new Resend(process.env.RESEND_API_KEY || '');
         const body = await req.json();
         const studentIds: number[] = body.studentIds || (body.studentId ? [body.studentId] : []);
 
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
                 dueDate.setDate(dueDate.getDate() + 14);
                 const dueDateStr = dueDate.toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' });
 
-                const html = renderToStaticMarkup(
+                const html = await render(
                     React.createElement(FeeReminderEmail, {
                         schoolName: settings.school_name || 'School',
                         parentName: student.guardian_name || 'Parent/Guardian',

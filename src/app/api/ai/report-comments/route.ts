@@ -54,9 +54,9 @@ Score: ${marks}/${outOf} (${pct}%) — Grade: ${grade}
 Term: ${term || 'Term 1'}
 Class: ${className || 'Unknown'}
 Performance Level: ${tier}`,
-        maxTokens: 300,
+        maxOutputTokens: 300,
         temperature: 0.7,
     });
 
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
 }

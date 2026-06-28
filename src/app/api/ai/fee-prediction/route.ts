@@ -1,4 +1,4 @@
-import { streamText } from 'ai';
+﻿import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { NextRequest } from 'next/server';
 import { supabase } from '@/lib/supabase';
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
         system: `You are an AI financial risk analyst for a Kenyan secondary school. 
 Analyze student fee payment patterns and provide a risk assessment. 
 Use clear sections with emojis. Be practical and Kenya-focused (M-Pesa, bank, cash payments).
-Format: Risk Level → Risk Factors → Recommendations → Action Items`,
+Format: Risk Level â†’ Risk Factors â†’ Recommendations â†’ Action Items`,
         prompt: `Analyze fee default risk for:
 Student: ${studentName} (${formName})
 Total Paid: KES ${totalPaid.toLocaleString()}
@@ -63,9 +63,9 @@ Last Payment: ${lastPaymentDate} (${daysSinceLastPayment} days ago)
 Payment Methods Used: ${JSON.stringify(methods)}
 
 Provide: Risk level (LOW/MEDIUM/HIGH/CRITICAL), key risk factors, 3 specific action recommendations for the school bursar.`,
-        maxTokens: 400,
+        maxOutputTokens: 400,
         temperature: 0.4,
     });
 
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
 }

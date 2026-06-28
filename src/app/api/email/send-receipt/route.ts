@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { render } from '@react-email/render';
 import React from 'react';
 import { FeeReceiptEmail } from '@/emails/FeeReceipt';
 import { supabase } from '@/lib/supabase';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * POST /api/email/send-receipt
@@ -16,6 +16,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  */
 export async function POST(req: NextRequest) {
     try {
+        const resend = new Resend(process.env.RESEND_API_KEY || '');
         const body = await req.json();
 
         let emailData = body;
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Render email HTML
-        const html = renderToStaticMarkup(
+        const html = await render(
             React.createElement(FeeReceiptEmail, emailData)
         );
 

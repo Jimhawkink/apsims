@@ -1,4 +1,4 @@
-import { streamText } from 'ai';
+﻿import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { NextRequest } from 'next/server';
 
@@ -57,9 +57,9 @@ KISWAHILI: [same message in Kiswahili under 160 chars]
 
 Never exceed 160 characters per message. Count carefully.`,
         prompt,
-        maxTokens: 200,
+        maxOutputTokens: 200,
         temperature: 0.6,
     });
 
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
 }

@@ -1238,15 +1238,14 @@ export default function ReportCardsPage() {
                                 </div>
                                 <button
                                     onClick={() => {
-                                        const sid = s.id;
-                                        const studentMarks = s.subjects || [];
-                                        generateAIComment(s, studentMarks);
+                                        const studentMarks = selectedStudentData.subjectResults || [];
+                                        generateAIComment(selectedStudentData.student, studentMarks);
                                     }}
-                                    disabled={aiLoadingId === s.id}
+                                    disabled={aiLoadingId === selectedStudentData.student.id}
                                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white shadow-md transition-all"
-                                    style={{ background: aiLoadingId === s.id ? '#94a3b8' : 'linear-gradient(135deg, #4f46e5, #7c3aed)', cursor: aiLoadingId === s.id ? 'wait' : 'pointer' }}
+                                    style={{ background: aiLoadingId === selectedStudentData.student.id ? '#94a3b8' : 'linear-gradient(135deg, #4f46e5, #7c3aed)', cursor: aiLoadingId === selectedStudentData.student.id ? 'wait' : 'pointer' }}
                                 >
-                                    {aiLoadingId === s.id ? (
+                                    {aiLoadingId === selectedStudentData.student.id ? (
                                         <><span className="animate-spin">⚙️</span> Generating…</>
                                     ) : (
                                         <><span>✨</span> Generate AI Comment</>
@@ -1258,12 +1257,12 @@ export default function ReportCardsPage() {
                             <div className="border border-gray-300 rounded-xl p-3">
                                 <div className="flex items-center justify-between mb-1">
                                     <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wide">Class Teacher's Comment</p>
-                                    {comments[s.id]?.classTeacher && (
+                                    {comments[selectedStudentData.student.id]?.classTeacher && (
                                         <span className="text-[9px] bg-indigo-100 text-indigo-600 font-bold px-2 py-0.5 rounded-full">✨ AI Generated</span>
                                     )}
                                 </div>
-                                {comments[s.id]?.classTeacher ? (
-                                    <p className="text-[10px] text-gray-700 leading-relaxed min-h-[32px]">{comments[s.id].classTeacher}</p>
+                                {comments[selectedStudentData.student.id]?.classTeacher ? (
+                                    <p className="text-[10px] text-gray-700 leading-relaxed min-h-[32px]">{comments[selectedStudentData.student.id].classTeacher}</p>
                                 ) : (
                                     <div className="min-h-[32px] border-b border-dashed border-gray-300" />
                                 )}
@@ -1272,8 +1271,8 @@ export default function ReportCardsPage() {
                             {/* Principal Comment Box */}
                             <div className="border border-gray-300 rounded-xl p-3">
                                 <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wide mb-1">Principal's Comment</p>
-                                {comments[s.id]?.principal ? (
-                                    <p className="text-[10px] text-gray-700 leading-relaxed min-h-[32px]">{comments[s.id].principal}</p>
+                                {comments[selectedStudentData.student.id]?.principal ? (
+                                    <p className="text-[10px] text-gray-700 leading-relaxed min-h-[32px]">{comments[selectedStudentData.student.id].principal}</p>
                                 ) : (
                                     <div className="min-h-[32px] border-b border-dashed border-gray-300" />
                                 )}

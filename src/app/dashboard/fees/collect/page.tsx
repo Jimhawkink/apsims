@@ -591,11 +591,11 @@ export default function UltraCollectFeePage() {
           (selectedStudent.guardian_email as string | undefined) ||
           (selectedStudent.parent_email as string | undefined);
 
-        if (parentEmail && result.id) {
+        if (parentEmail && (result as any)?.id) {
           const emailRes = await fetch('/api/email/send-receipt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paymentId: result.id, parentEmail }),
+            body: JSON.stringify({ paymentId: (result as any).id, parentEmail }),
           });
           if (emailRes.ok) {
             toast.success('📧 Email receipt sent to parent', { duration: 3000 });

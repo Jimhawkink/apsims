@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useCompletion } from 'ai/react';
+import { useCompletion } from '@ai-sdk/react';
 
 interface AICommentGeneratorProps {
     studentName: string;
@@ -24,10 +24,10 @@ export default function AICommentGenerator({
 
     const { complete, completion, isLoading, error } = useCompletion({
         api: '/api/ai/report-comments',
-        onFinish: (_, fullText) => {
+        onFinish: (_: string, fullText: string) => {
             // Parse English and Kiswahili from streamed text
-            const enMatch = fullText.match(/ENGLISH:\s*(.+?)(?=KISWAHILI:|$)/s);
-            const swMatch = fullText.match(/KISWAHILI:\s*(.+?)$/s);
+            const enMatch = fullText.match(/ENGLISH:\s*([\s\S]+?)(?=KISWAHILI:|$)/);
+            const swMatch = fullText.match(/KISWAHILI:\s*([\s\S]+?)$/);
             setEnglish(enMatch?.[1]?.trim() || '');
             setSwahili(swMatch?.[1]?.trim() || '');
         },

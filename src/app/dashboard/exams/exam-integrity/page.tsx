@@ -99,7 +99,7 @@ export default function ExamIntegrityPage() {
         }
       });
 
-      setAnomalies(detected.sort((a,b) => { const ord = { High:0, Medium:1, Low:2 }; return ord[a.severity]-ord[b.severity]; }));
+      setAnomalies(detected.sort((a,b) => { const ord: Record<string,number> = { High:0, Medium:1, Low:2 }; return ord[a.severity]-ord[b.severity]; }));
       setLoading(false);
     })();
   }, [refresh]);

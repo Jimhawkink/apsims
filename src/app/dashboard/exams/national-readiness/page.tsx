@@ -89,7 +89,7 @@ export default function NationalReadinessPage() {
     datasets: [
       { label: 'Class Average', data: subjectAvgs.map(s => s.avg), backgroundColor: subjectAvgs.map(s => s.avg >= 45 ? '#16a34a' : '#dc2626'), borderRadius: 6 },
       { label: 'C Plain Target (45)', data: subjectAvgs.map(() => 45), backgroundColor: 'rgba(0,0,0,0)', borderColor: '#f59e0b', type: 'line' as const, borderDash: [4, 4], borderWidth: 2, pointRadius: 0 },
-    ],
+    ] as any,
   };
 
   return (
