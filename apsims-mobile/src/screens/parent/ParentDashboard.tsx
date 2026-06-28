@@ -78,7 +78,20 @@ export default function ParentDashboard() {
     const sesFormId    = session?.student_form_id    || 0;
 
     const loadFeeStatement = useCallback(async () => {
-        if (!sesStudentId) return;   // only need student ID — form_id optional (Grade 10 etc.)
+        // ── Resolve student ID ── handles stale cached sessions (linked_student_id was null before fix)
+        let studentId = sesStudentId;
+        if (!studentId) {
+            // Stale session: look up student by admission number from session
+            const admNo = session?.student_admission;
+            if (!admNo) return;
+            const { data: stuRow } = await supabase
+                .from('school_students')
+                .select('id, form_id')
+                .eq('admission_number', admNo)
+                .single();
+            if (!stuRow?.id) return;
+            studentId = stuRow.id;
+        }
         try {
             const currentYear = new Date().getFullYear();
             const [structRes, payRes, termRes] = await Promise.all([
@@ -90,9 +103,9 @@ export default function ParentDashboard() {
                 supabase.from('school_terms').select('id, term_name, is_current').order('id'),
             ]);
             const allStr: any[] = structRes.data || [];
-            // Filter payments in JS — Number() ensures string vs int comparison works
+            // Filter payments in JS — use resolved studentId (handles stale sessions)
             const allPay: any[] = (payRes.data || []).filter(
-                (p: any) => Number(p.student_id) === Number(sesStudentId)
+                (p: any) => Number(p.student_id) === Number(studentId)
             );
             const allTrm: any[] = termRes.data || [];
 
