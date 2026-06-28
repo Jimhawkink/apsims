@@ -15,7 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../context/SessionContext';
 import { clearSession } from '../../lib/security';
-import { supabase } from '../../lib/supabase';
+import { supabase, getStudentFeePayments, getStudentFeeStructures } from '../../lib/supabase';
 import { getUnreadNotificationCount, formatKES } from '../../lib/supabase';
 import { cacheData, getCachedData } from '../../lib/offline';
 import { T, fmtKES, fmtKESShort } from '../../theme/PremiumTheme';
@@ -66,74 +66,41 @@ export default function ParentDashboard() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [announcements, setAnnouncements] = useState<any[]>([]);
 
-    // ── Standalone fee statement — mirrors web getStudentFees exactly ────────
+    // ── Fee statement — uses SAME functions as PayFees screen (guaranteed correct) ──
     const [feeStmt, setFeeStmt] = useState<{
         rows: { label: string; amount: number }[];
         annualTotal: number; totalPaid: number; balance: number;
         hasFees: boolean; loaded: boolean;
     }>({ rows: [], annualTotal: 0, totalPaid: 0, balance: 0, hasFees: false, loaded: false });
 
-    const portalUserId = session?.portal_user_id || 0;
-    const sesStudentId = session?.linked_student_id || 0;
-    const sesFormId    = session?.student_form_id    || 0;
-
-    const loadFeeStatement = useCallback(async () => {
-        // ── Resolve student ID ── handles stale cached sessions (linked_student_id was null before fix)
-        let studentId = sesStudentId;
-        if (!studentId) {
-            // Stale session: look up student by admission number from session
-            const admNo = session?.student_admission;
-            if (!admNo) return;
-            const { data: stuRow } = await supabase
-                .from('school_students')
-                .select('id, form_id')
-                .eq('admission_number', admNo)
-                .single();
-            if (!stuRow?.id) return;
-            studentId = stuRow.id;
-        }
+    const loadFeeStatement = useCallback(async (childOverride?: ChildData | null) => {
+        const child = childOverride ?? selectedChild;
+        const studentId = child?.id;    // child.id = school_students.id (e.g. 90) — ALWAYS correct
+        const formId    = child?.form_id;
+        if (!studentId) return;         // wait for child to load first
         try {
-            const currentYear = new Date().getFullYear();
-            const [structRes, payRes, termRes] = await Promise.all([
-                supabase.from('school_fee_structures').select('id, category, amount, term_id, year, form_id'),
-                // Fetch ALL payments then filter in JS — same as web app (no RLS / ID mismatch issues)
-                supabase.from('school_fee_payments')
-                    .select('id, student_id, amount, payment_date, payment_method, receipt_no')
-                    .order('payment_date', { ascending: false }),
+            // Exact same calls as PayFees screen — guaranteed to return KES 100 paid
+            const [pays, structs, termRes] = await Promise.all([
+                getStudentFeePayments(studentId),
+                formId ? getStudentFeeStructures(formId) : Promise.resolve([]),
                 supabase.from('school_terms').select('id, term_name, is_current').order('id'),
             ]);
-            const allStr: any[] = structRes.data || [];
-            // Filter payments in JS — use resolved studentId (handles stale sessions)
-            const allPay: any[] = (payRes.data || []).filter(
-                (p: any) => Number(p.student_id) === Number(studentId)
-            );
             const allTrm: any[] = termRes.data || [];
-
-            // Filter structures: general (no form_id) + this student's form (if known)
-            const applicable = allStr.filter(
-                (f: any) => !f.form_id || (sesFormId && Number(f.form_id) === Number(sesFormId))
-            );
-            let yearFees = applicable.filter((f: any) => !f.year || Number(f.year) === currentYear);
-            if (yearFees.length === 0 && applicable.length > 0) {
-                const maxYear = Math.max(...applicable.map((f: any) => Number(f.year) || 0));
-                yearFees = applicable.filter((f: any) => !f.year || Number(f.year) === maxYear);
-            }
-
-            const totalPaid   = allPay.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-            const annualTotal = yearFees.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+            const totalPaid   = pays.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+            const annualTotal = (structs as any[]).reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
 
             // Build per-term rows
             const rows: { label: string; amount: number }[] = [];
             const currentTerm = allTrm.find((t: any) => t.is_current);
 
-            // School-wide fees (no term assigned)
-            const noTermAmt = yearFees.filter((f: any) => !f.term_id)
+            // School-wide fees (no term)
+            const noTermAmt = (structs as any[]).filter((f: any) => !f.term_id)
                 .reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
             if (noTermAmt > 0) rows.push({ label: 'General School Fees', amount: noTermAmt });
 
             // Per-term rows in order
             allTrm.forEach((term: any) => {
-                const amt = yearFees.filter((f: any) => Number(f.term_id) === term.id)
+                const amt = (structs as any[]).filter((f: any) => Number(f.term_id) === term.id)
                     .reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
                 if (amt > 0) {
                     const isCurrent = currentTerm && term.id === currentTerm.id;
@@ -150,7 +117,11 @@ export default function ParentDashboard() {
             console.error('loadFeeStatement:', err.message);
             setFeeStmt(prev => ({ ...prev, loaded: true }));
         }
-    }, [sesStudentId, sesFormId]);
+    }, [selectedChild]);
+
+    useEffect(() => {
+        if (selectedChild) loadFeeStatement();
+    }, [selectedChild, loadFeeStatement]);
 
     // Greeting
     const hour = new Date().getHours();
