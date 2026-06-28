@@ -15,7 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../context/SessionContext';
 import { clearSession } from '../../lib/security';
-import { supabase, getStudentFeePayments, getStudentFeeStructures } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { getUnreadNotificationCount, formatKES } from '../../lib/supabase';
 import { cacheData, getCachedData } from '../../lib/offline';
 import { T, fmtKES, fmtKESShort } from '../../theme/PremiumTheme';
@@ -66,41 +66,56 @@ export default function ParentDashboard() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [announcements, setAnnouncements] = useState<any[]>([]);
 
-    // ── Fee statement — uses SAME functions as PayFees screen (guaranteed correct) ──
+    // ── Standalone fee statement — mirrors web getStudentFees exactly ────────
     const [feeStmt, setFeeStmt] = useState<{
         rows: { label: string; amount: number }[];
         annualTotal: number; totalPaid: number; balance: number;
         hasFees: boolean; loaded: boolean;
     }>({ rows: [], annualTotal: 0, totalPaid: 0, balance: 0, hasFees: false, loaded: false });
 
-    const loadFeeStatement = useCallback(async (childOverride?: ChildData | null) => {
-        const child = childOverride ?? selectedChild;
-        const studentId = child?.id;    // child.id = school_students.id (e.g. 90) — ALWAYS correct
-        const formId    = child?.form_id;
-        if (!studentId) return;         // wait for child to load first
+    const portalUserId = session?.portal_user_id || 0;
+    const sesStudentId = session?.linked_student_id || 0;
+    const sesFormId    = session?.student_form_id    || 0;
+
+    const loadFeeStatement = useCallback(async () => {
+        if (!sesStudentId || !sesFormId) return;
         try {
-            // Exact same calls as PayFees screen — guaranteed to return KES 100 paid
-            const [pays, structs, termRes] = await Promise.all([
-                getStudentFeePayments(studentId),
-                formId ? getStudentFeeStructures(formId) : Promise.resolve([]),
+            const currentYear = new Date().getFullYear();
+            const [structRes, payRes, termRes] = await Promise.all([
+                supabase.from('school_fee_structures').select('id, category, amount, term_id, year, form_id'),
+                supabase.from('school_fee_payments')
+                    .select('id, amount, payment_date, payment_method, receipt_no')
+                    .eq('student_id', sesStudentId)
+                    .order('payment_date', { ascending: false }),
                 supabase.from('school_terms').select('id, term_name, is_current').order('id'),
             ]);
-            const allTrm: any[] = termRes.data || [];
-            const totalPaid   = pays.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-            const annualTotal = (structs as any[]).reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+            const allStr: any[] = structRes.data || [];
+            const allPay: any[] = payRes.data   || [];
+            const allTrm: any[] = termRes.data   || [];
 
-            // Build per-term rows
+            // Filter: general + this form, then by year
+            let applicable = allStr.filter((f: any) => !f.form_id || Number(f.form_id) === Number(sesFormId));
+            let yearFees = applicable.filter((f: any) => !f.year || Number(f.year) === currentYear);
+            if (yearFees.length === 0 && applicable.length > 0) {
+                const maxYear = Math.max(...applicable.map((f: any) => Number(f.year) || 0));
+                yearFees = applicable.filter((f: any) => !f.year || Number(f.year) === maxYear);
+            }
+
+            const totalPaid   = allPay.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+            const annualTotal = yearFees.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+
+            // Build per-term rows in term order
             const rows: { label: string; amount: number }[] = [];
             const currentTerm = allTrm.find((t: any) => t.is_current);
 
-            // School-wide fees (no term)
-            const noTermAmt = (structs as any[]).filter((f: any) => !f.term_id)
+            // School-wide (no term)
+            const noTermAmt = yearFees.filter((f: any) => !f.term_id)
                 .reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
             if (noTermAmt > 0) rows.push({ label: 'General School Fees', amount: noTermAmt });
 
-            // Per-term rows in order
+            // Per-term
             allTrm.forEach((term: any) => {
-                const amt = (structs as any[]).filter((f: any) => Number(f.term_id) === term.id)
+                const amt = yearFees.filter((f: any) => Number(f.term_id) === term.id)
                     .reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
                 if (amt > 0) {
                     const isCurrent = currentTerm && term.id === currentTerm.id;
@@ -117,7 +132,8 @@ export default function ParentDashboard() {
             console.error('loadFeeStatement:', err.message);
             setFeeStmt(prev => ({ ...prev, loaded: true }));
         }
-    }, []); // no deps — child is passed as parameter, never reads selectedChild from closure
+    }, [sesStudentId, sesFormId]);
+
 
     // Greeting
     const hour = new Date().getHours();
@@ -163,7 +179,6 @@ export default function ParentDashboard() {
                 // Show the child instantly from session
                 setChildren([sessionChild]);
                 setSelectedChild(sessionChild);
-                loadFeeStatement(sessionChild);  // load fees immediately with known child
                 setLoading(false);
             }
 
@@ -310,9 +325,7 @@ export default function ParentDashboard() {
                     })
                 );
                 setChildren(enriched);
-                const selectedEnriched = enriched[0];
-                setSelectedChild(prev => enriched.find(e => e.id === prev?.id) || selectedEnriched);
-                loadFeeStatement(selectedEnriched);  // use enriched child — has correct .id
+                setSelectedChild(prev => enriched.find(e => e.id === prev?.id) || enriched[0]);
                 await cacheData(`parent_${portalUserId}_children`, enriched);
             } else if (!sesStudentId) {
                 // Nothing found at all — try cache
@@ -320,7 +333,6 @@ export default function ParentDashboard() {
                 if (cached?.data) {
                     setChildren(cached.data as ChildData[]);
                     setSelectedChild((cached.data as ChildData[])[0]);
-                    loadFeeStatement((cached.data as ChildData[])[0]);
                 }
             }
 
@@ -339,7 +351,6 @@ export default function ParentDashboard() {
             if (cached?.data) {
                 setChildren(cached.data as ChildData[]);
                 setSelectedChild((cached.data as ChildData[])[0]);
-                loadFeeStatement((cached.data as ChildData[])[0]);
             }
         } finally {
             setLoading(false);
@@ -348,8 +359,8 @@ export default function ParentDashboard() {
     }, [portalUserId, session]);
 
 
-    useEffect(() => { loadChildren(); }, [loadChildren]);
-    const onRefresh = () => { setRefreshing(true); loadChildren(true); };
+    useEffect(() => { loadChildren(); loadFeeStatement(); }, [loadChildren, loadFeeStatement]);
+    const onRefresh = () => { setRefreshing(true); loadChildren(true); loadFeeStatement(); };
 
     const child = selectedChild;
     const initials = child
@@ -488,34 +499,35 @@ export default function ParentDashboard() {
                                     </View>
                                 </View>
 
-                                {/* Fee status bar — uses feeStmt (same source as PayFees screen) */}
+                                {/* Fee status bar */}
                                 <View style={styles.heroFeeRow}>
                                     <View style={{ flex: 1 }}>
                                         <Text style={styles.heroFeeLabel}>
-                                            {!feeStmt.hasFees
+                                            {!child.hasFeeStructure
                                                 ? 'No Fee Structure Set'
-                                                : `Fee Status — ${feeStmt.annualTotal > 0 ? Math.round((feeStmt.totalPaid / feeStmt.annualTotal) * 100) : 0}% Paid`}
+                                                : `Fee Status — ${child.collectionRate}% Paid`}
                                         </Text>
                                         <View style={styles.heroProgressBg}>
                                             <View style={[styles.heroProgressFill, {
-                                                width: feeStmt.hasFees && feeStmt.annualTotal > 0
-                                                    ? `${Math.round((feeStmt.totalPaid / feeStmt.annualTotal) * 100)}%` as any
-                                                    : '0%'
+                                                width: child.hasFeeStructure ? `${child.collectionRate}%` as any : '0%'
                                             }]} />
                                         </View>
+                                        {child.hasFeeStructure && child.prevArrears > 0 && (
+                                            <Text style={{ fontSize: 9, color: 'rgba(255,200,100,1)', fontWeight: '700', marginTop: 2 }}>
+                                                ⚠ Arrears: {fmtKESShort(child.prevArrears)}
+                                            </Text>
+                                        )}
                                     </View>
                                     <View style={styles.heroBalanceBox}>
                                         <Text style={styles.heroBalanceLabel}>
-                                            {!feeStmt.loaded ? 'Loading…' : !feeStmt.hasFees ? 'No Fees' : feeStmt.balance === 0 ? 'Cleared' : 'Balance Due'}
+                                            {!child.hasFeeStructure ? 'No Fees' : child.isCleared ? 'Cleared' : 'Balance Due'}
                                         </Text>
                                         <Text style={styles.heroBalance}>
-                                            {!feeStmt.loaded
-                                                ? '…'
-                                                : !feeStmt.hasFees
+                                            {!child.hasFeeStructure
                                                 ? '⚠ N/A'
-                                                : feeStmt.balance === 0
+                                                : child.isCleared
                                                 ? '✅ KES 0'
-                                                : fmtKESShort(feeStmt.balance)}
+                                                : fmtKESShort(child.totalDue)}
                                         </Text>
                                     </View>
                                 </View>
@@ -523,8 +535,8 @@ export default function ParentDashboard() {
                                 {/* Quick stats strip */}
                                 <View style={styles.heroStrip}>
                                     {[
-                                        { l: 'Annual Fees', v: feeStmt.hasFees ? fmtKESShort(feeStmt.annualTotal) : 'N/A' },
-                                        { l: 'Paid', v: fmtKESShort(feeStmt.totalPaid) },
+                                        { l: 'Term Fees', v: child.hasFeeStructure ? fmtKESShort(child.termTotal) : 'N/A' },
+                                        { l: 'Paid', v: fmtKESShort(child.totalPaid) },
                                         { l: 'Attendance', v: `${child.attendanceRate}%` },
                                     ].map((s, i) => (
                                         <View key={i} style={[styles.heroStripItem, i < 2 && { borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.2)' }]}>
@@ -537,7 +549,7 @@ export default function ParentDashboard() {
                         )}
 
                         {/* ─── PAY FEES CTA ──────────────────────── */}
-                        {child && feeStmt.balance > 0 && (
+                        {child && child.balance > 0 && (
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('PayFees', {
                                     studentId: child.id,
@@ -546,9 +558,9 @@ export default function ParentDashboard() {
                                     admissionNumber: child.admission_number,
                                     formName: child.form_name,
                                     streamName: child.stream_name,
-                                    balance: feeStmt.balance,
-                                    totalDue: feeStmt.annualTotal,
-                                    totalPaid: feeStmt.totalPaid,
+                                    balance: child.balance,
+                                    totalDue: child.totalDue,
+                                    totalPaid: child.totalPaid,
                                 })}
                                 activeOpacity={0.88}
                                 style={styles.payFeesCTA}
@@ -558,7 +570,7 @@ export default function ParentDashboard() {
                                         <Text style={styles.payFeesCTAIcon}>💳</Text>
                                         <View>
                                             <Text style={styles.payFeesCTATitle}>Pay School Fees</Text>
-                                            <Text style={styles.payFeesCTASub}>Balance: {fmtKES(feeStmt.balance)} · M-Pesa STK or KCB</Text>
+                                            <Text style={styles.payFeesCTASub}>Balance: {fmtKES(child.balance)} · M-Pesa STK or KCB</Text>
                                         </View>
                                     </View>
                                     <Text style={styles.payFeesCTAArrow}>→</Text>
