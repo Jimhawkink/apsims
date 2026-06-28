@@ -78,7 +78,7 @@ export default function ParentDashboard() {
     const sesFormId    = session?.student_form_id    || 0;
 
     const loadFeeStatement = useCallback(async () => {
-        if (!sesStudentId || !sesFormId) return;
+        if (!sesStudentId) return;  // only need student ID — form_id optional (Grade 10 etc.)
         try {
             const currentYear = new Date().getFullYear();
             const [structRes, payRes, termRes] = await Promise.all([
@@ -326,6 +326,16 @@ export default function ParentDashboard() {
                 );
                 setChildren(enriched);
                 setSelectedChild(prev => enriched.find(e => e.id === prev?.id) || enriched[0]);
+                // Patch feeStmt paid from enriched child — enriched[0].totalPaid is correct
+                // (.eq('student_id', s.id) works regardless of session state)
+                if (enriched.length > 0) {
+                    const c = enriched[0];
+                    setFeeStmt(prev => ({
+                        ...prev,
+                        totalPaid: c.totalPaid,
+                        balance: Math.max(0, (prev.annualTotal || c.annualTotal || 0) - c.totalPaid),
+                    }));
+                }
                 await cacheData(`parent_${portalUserId}_children`, enriched);
             } else if (!sesStudentId) {
                 // Nothing found at all — try cache
