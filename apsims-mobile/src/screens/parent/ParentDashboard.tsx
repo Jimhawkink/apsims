@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    RefreshControl, StatusBar, Dimensions, Image,
+    RefreshControl, StatusBar, Dimensions, Image, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -66,7 +66,74 @@ export default function ParentDashboard() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [announcements, setAnnouncements] = useState<any[]>([]);
 
+    // ── Standalone fee statement — mirrors web getStudentFees exactly ────────
+    const [feeStmt, setFeeStmt] = useState<{
+        rows: { label: string; amount: number }[];
+        annualTotal: number; totalPaid: number; balance: number;
+        hasFees: boolean; loaded: boolean;
+    }>({ rows: [], annualTotal: 0, totalPaid: 0, balance: 0, hasFees: false, loaded: false });
+
     const portalUserId = session?.portal_user_id || 0;
+    const sesStudentId = session?.linked_student_id || 0;
+    const sesFormId    = session?.student_form_id    || 0;
+
+    const loadFeeStatement = useCallback(async () => {
+        if (!sesStudentId || !sesFormId) return;
+        try {
+            const currentYear = new Date().getFullYear();
+            const [structRes, payRes, termRes] = await Promise.all([
+                supabase.from('school_fee_structures').select('id, category, amount, term_id, year, form_id'),
+                supabase.from('school_fee_payments')
+                    .select('id, amount, payment_date, payment_method, receipt_no')
+                    .eq('student_id', sesStudentId)
+                    .order('payment_date', { ascending: false }),
+                supabase.from('school_terms').select('id, term_name, is_current').order('id'),
+            ]);
+            const allStr: any[] = structRes.data || [];
+            const allPay: any[] = payRes.data   || [];
+            const allTrm: any[] = termRes.data   || [];
+
+            // Filter: general + this form, then by year
+            let applicable = allStr.filter((f: any) => !f.form_id || Number(f.form_id) === Number(sesFormId));
+            let yearFees = applicable.filter((f: any) => !f.year || Number(f.year) === currentYear);
+            if (yearFees.length === 0 && applicable.length > 0) {
+                const maxYear = Math.max(...applicable.map((f: any) => Number(f.year) || 0));
+                yearFees = applicable.filter((f: any) => !f.year || Number(f.year) === maxYear);
+            }
+
+            const totalPaid   = allPay.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+            const annualTotal = yearFees.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+
+            // Build per-term rows in term order
+            const rows: { label: string; amount: number }[] = [];
+            const currentTerm = allTrm.find((t: any) => t.is_current);
+
+            // School-wide (no term)
+            const noTermAmt = yearFees.filter((f: any) => !f.term_id)
+                .reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+            if (noTermAmt > 0) rows.push({ label: 'General School Fees', amount: noTermAmt });
+
+            // Per-term
+            allTrm.forEach((term: any) => {
+                const amt = yearFees.filter((f: any) => Number(f.term_id) === term.id)
+                    .reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+                if (amt > 0) {
+                    const isCurrent = currentTerm && term.id === currentTerm.id;
+                    rows.push({ label: `${term.term_name} Fees${isCurrent ? ' ← Current' : ''}`, amount: amt });
+                }
+            });
+
+            setFeeStmt({
+                rows, annualTotal, totalPaid,
+                balance: Math.max(0, annualTotal - totalPaid),
+                hasFees: annualTotal > 0, loaded: true,
+            });
+        } catch (err: any) {
+            console.error('loadFeeStatement:', err.message);
+            setFeeStmt(prev => ({ ...prev, loaded: true }));
+        }
+    }, [sesStudentId, sesFormId]);
+
 
     // Greeting
     const hour = new Date().getHours();
@@ -292,8 +359,8 @@ export default function ParentDashboard() {
     }, [portalUserId, session]);
 
 
-    useEffect(() => { loadChildren(); }, [loadChildren]);
-    const onRefresh = () => { setRefreshing(true); loadChildren(true); };
+    useEffect(() => { loadChildren(); loadFeeStatement(); }, [loadChildren, loadFeeStatement]);
+    const onRefresh = () => { setRefreshing(true); loadChildren(true); loadFeeStatement(); };
 
     const child = selectedChild;
     const initials = child
@@ -553,80 +620,152 @@ export default function ParentDashboard() {
                             ))}
                         </View>
 
-                        {/* ─── FEE SUMMARY + PAYMENTS GRID ───────────────────────── */}
-                        {child && (
-                            <>
-                                <SectionLabel
-                                    title="💳 Fees & Payments"
-                                    subtitle="Current Term"
-                                    action={child.totalDue > 0 ? 'Pay Now' : undefined}
-                                    onAction={() => navigation.navigate('PayFees' as any, {
-                                        studentId: child.id, studentName: child.full_name,
-                                        formId: child.form_id, balance: child.balance,
-                                        totalDue: child.totalDue, totalPaid: child.totalPaid,
-                                    })}
-                                />
+                        {/* ─── FEE STATEMENT (standalone fetch, always correct) ─── */}
+                        <>
+                            <SectionLabel
+                                title="💳 Fee Statement"
+                                subtitle={feeStmt.loaded
+                                    ? `Annual Total: ${fmtKES(feeStmt.annualTotal)}`
+                                    : 'Loading…'}
+                                action={feeStmt.balance > 0 ? 'Pay Now' : undefined}
+                                onAction={() => child && navigation.navigate('PayFees' as any, {
+                                    studentId: child.id, studentName: child.full_name,
+                                    formId: child.form_id, balance: feeStmt.balance,
+                                    totalDue: feeStmt.annualTotal, totalPaid: feeStmt.totalPaid,
+                                })}
+                            />
 
-                                {/* Fee breakdown card */}
-                                <View style={styles.feeCard}>
-                                    {/* Header row */}
-                                    <View style={styles.feeCardHeader}>
-                                        <Text style={styles.feeCardHeaderText}>FEE ITEM</Text>
-                                        <Text style={styles.feeCardHeaderText}>AMOUNT (KES)</Text>
+                            {/* Fee breakdown table */}
+                            <View style={styles.feeCard}>
+                                <View style={styles.feeCardHeader}>
+                                    <Text style={styles.feeCardHeaderText}>FEE ITEM</Text>
+                                    <Text style={styles.feeCardHeaderText}>AMOUNT (KES)</Text>
+                                </View>
+
+                                {!feeStmt.loaded ? (
+                                    <View style={{ padding: 24, alignItems: 'center', gap: 8 }}>
+                                        <ActivityIndicator size="small" color={T.purple} />
+                                        <Text style={{ fontSize: 12, color: T.textSub }}>Loading fee data…</Text>
                                     </View>
-
-                                    {/* Term fees row */}
-                                    <View style={styles.feeRow}>
-                                        <View style={styles.feeRowLeft}>
-                                            <View style={[styles.feeDot, { backgroundColor: '#6366f1' }]} />
-                                            <Text style={styles.feeRowLabel}>Term Fees</Text>
-                                        </View>
-                                        <Text style={styles.feeRowValue}>{fmtKES(child.termTotal)}</Text>
-                                    </View>
-
-                                    {/* Arrears row - only if there are arrears */}
-                                    {child.prevArrears > 0 && (
-                                        <View style={[styles.feeRow, { backgroundColor: '#fff7ed' }]}>
-                                            <View style={styles.feeRowLeft}>
-                                                <View style={[styles.feeDot, { backgroundColor: '#f59e0b' }]} />
-                                                <Text style={[styles.feeRowLabel, { color: '#92400e' }]}>Previous Arrears</Text>
-                                            </View>
-                                            <Text style={[styles.feeRowValue, { color: '#dc2626' }]}>{fmtKES(child.prevArrears)}</Text>
-                                        </View>
-                                    )}
-
-                                    {/* Total paid row */}
-                                    <View style={[styles.feeRow, { backgroundColor: '#f0fdf4' }]}>
-                                        <View style={styles.feeRowLeft}>
-                                            <View style={[styles.feeDot, { backgroundColor: '#22c55e' }]} />
-                                            <Text style={[styles.feeRowLabel, { color: '#166534' }]}>Total Paid</Text>
-                                        </View>
-                                        <Text style={[styles.feeRowValue, { color: '#16a34a' }]}>- {fmtKES(child.totalPaid)}</Text>
-                                    </View>
-
-                                    {/* Divider */}
-                                    <View style={{ height: 1, backgroundColor: '#e2e8f0', marginVertical: 4 }} />
-
-                                    {/* Balance due row */}
-                                    <View style={[styles.feeRow, { backgroundColor: child.totalDue > 0 ? '#fef2f2' : '#f0fdf4', borderRadius: 10 }]}>
-                                        <View style={styles.feeRowLeft}>
-                                            <View style={[styles.feeDot, { backgroundColor: child.totalDue > 0 ? '#ef4444' : '#22c55e' }]} />
-                                            <Text style={[styles.feeRowLabel, { fontWeight: '800', color: child.totalDue > 0 ? '#991b1b' : '#166534' }]}>
-                                                {child.totalDue > 0 ? 'Balance Due' : '✅ Fully Cleared'}
-                                            </Text>
-                                        </View>
-                                        <Text style={[styles.feeRowValue, { fontWeight: '900', fontSize: 15, color: child.totalDue > 0 ? '#dc2626' : '#16a34a' }]}>
-                                            {fmtKES(child.totalDue)}
+                                ) : !feeStmt.hasFees ? (
+                                    <View style={{ padding: 24, alignItems: 'center', gap: 8 }}>
+                                        <Text style={{ fontSize: 28 }}>⚠️</Text>
+                                        <Text style={{ fontSize: 13, color: T.textSub, textAlign: 'center' }}>
+                                            No fee structure set yet.{'
+'}Contact school admin.
                                         </Text>
                                     </View>
-                                </View>
+                                ) : (
+                                    <>
+                                        {/* Per-term rows */}
+                                        {feeStmt.rows.map((row, idx) => (
+                                            <View key={idx} style={styles.feeRow}>
+                                                <View style={styles.feeRowLeft}>
+                                                    <View style={[styles.feeDot, { backgroundColor: '#6366f1' }]} />
+                                                    <Text style={styles.feeRowLabel}>{row.label}</Text>
+                                                </View>
+                                                <Text style={styles.feeRowValue}>{fmtKES(row.amount)}</Text>
+                                            </View>
+                                        ))}
 
-                                {/* Payment history */}
-                                <View style={styles.paymentsCard}>
-                                    ))}
+                                        {/* Total Annual Due */}
+                                        <View style={{ height: 1, backgroundColor: '#e2e8f0', marginHorizontal: 16 }} />
+                                        <View style={[styles.feeRow, { backgroundColor: '#f8faff' }]}>
+                                            <View style={styles.feeRowLeft}>
+                                                <View style={[styles.feeDot, { backgroundColor: '#4f46e5' }]} />
+                                                <Text style={[styles.feeRowLabel, { fontWeight: '800' }]}>Total Annual Due</Text>
+                                            </View>
+                                            <Text style={[styles.feeRowValue, { fontWeight: '900' }]}>{fmtKES(feeStmt.annualTotal)}</Text>
+                                        </View>
+
+                                        {/* Total Paid */}
+                                        <View style={[styles.feeRow, { backgroundColor: '#f0fdf4' }]}>
+                                            <View style={styles.feeRowLeft}>
+                                                <View style={[styles.feeDot, { backgroundColor: '#22c55e' }]} />
+                                                <Text style={[styles.feeRowLabel, { color: '#166534' }]}>Total Paid</Text>
+                                            </View>
+                                            <Text style={[styles.feeRowValue, { color: '#16a34a' }]}>- {fmtKES(feeStmt.totalPaid)}</Text>
+                                        </View>
+
+                                        {/* Divider */}
+                                        <View style={{ height: 2, backgroundColor: '#e2e8f0', marginHorizontal: 16 }} />
+
+                                        {/* Balance */}
+                                        <View style={[styles.feeRow, {
+                                            backgroundColor: feeStmt.balance > 0 ? '#fef2f2' : '#f0fdf4',
+                                            marginHorizontal: 8, borderRadius: 12, marginBottom: 8,
+                                        }]}>
+                                            <View style={styles.feeRowLeft}>
+                                                <View style={[styles.feeDot, { backgroundColor: feeStmt.balance > 0 ? '#ef4444' : '#22c55e' }]} />
+                                                <Text style={[styles.feeRowLabel, { fontWeight: '900', fontSize: 14,
+                                                    color: feeStmt.balance > 0 ? '#991b1b' : '#166534' }]}>
+                                                    {feeStmt.balance > 0 ? '⚠️ BALANCE DUE' : '✅ FULLY CLEARED'}
+                                                </Text>
+                                            </View>
+                                            <Text style={[styles.feeRowValue, { fontWeight: '900', fontSize: 16,
+                                                color: feeStmt.balance > 0 ? '#dc2626' : '#16a34a' }]}>
+                                                {fmtKES(feeStmt.balance)}
+                                            </Text>
+                                        </View>
+                                    </>
+                                )}
+                            </View>
+
+                            {/* Payment history */}
+                            <View style={styles.paymentsCard}>
+                                <View style={[styles.paymentRow, { backgroundColor: '#f8faff' }]}>
+                                    <Text style={{ fontSize: 10, fontWeight: '800', color: T.textSub, flex: 1 }}>PAYMENT HISTORY</Text>
+                                    <Text style={{ fontSize: 10, fontWeight: '800', color: T.textSub }}>AMOUNT</Text>
                                 </View>
-                            </>
-                        )}
+                                {feeStmt.totalPaid === 0 ? (
+                                    <View style={styles.emptyPayments}>
+                                        <Text style={styles.emptyPaymentsIcon}>💬</Text>
+                                        <Text style={styles.emptyPaymentsTitle}>No payments recorded yet</Text>
+                                        <Text style={styles.emptyPaymentsSub}>Payments appear here once processed by the bursar</Text>
+                                        {feeStmt.balance > 0 && child && (
+                                            <TouchableOpacity
+                                                onPress={() => navigation.navigate('PayFees' as any, {
+                                                    studentId: child.id, studentName: child.full_name,
+                                                    formId: child.form_id, balance: feeStmt.balance,
+                                                })}
+                                                style={styles.emptyPayBtn} activeOpacity={0.85}
+                                            >
+                                                <LinearGradient colors={T.gradGreen} style={styles.emptyPayBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                                                    <Text style={styles.emptyPayBtnText}>💳 Pay {fmtKES(feeStmt.balance)} Now</Text>
+                                                </LinearGradient>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                ) : (
+                                    (child?.recentPayments || []).map((p: any, idx: number) => (
+                                        <View key={idx} style={[styles.paymentRow,
+                                            idx < (child?.recentPayments?.length || 0) - 1 && styles.paymentRowBorder]}>
+                                            <View style={[styles.paymentMethodIcon, {
+                                                backgroundColor: p.payment_method?.toLowerCase() === 'mpesa' ? T.greenLight
+                                                    : p.payment_method?.toLowerCase() === 'cash' ? T.amberLight : T.blueLight
+                                            }]}>
+                                                <Text style={{ fontSize: 16 }}>
+                                                    {p.payment_method?.toLowerCase() === 'mpesa' ? '📱'
+                                                        : p.payment_method?.toLowerCase() === 'cash' ? '💵' : '🏦'}
+                                                </Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.paymentMethod}>{p.payment_method || 'Payment'}</Text>
+                                                <Text style={styles.paymentDate}>
+                                                    {p.payment_date
+                                                        ? new Date(p.payment_date).toLocaleDateString('en-KE',
+                                                            { day: 'numeric', month: 'short', year: 'numeric' })
+                                                        : '—'}
+                                                    {p.receipt_no ? ` · ${p.receipt_no}` : ''}
+                                                </Text>
+                                            </View>
+                                            <Text style={styles.paymentAmount}>+{fmtKES(Number(p.amount || 0))}</Text>
+                                        </View>
+                                    ))
+                                )}
+                            </View>
+                        </>
+
 
                         {/* ─── Announcements ───────────────────────── */}
                         {announcements.length > 0 && (
