@@ -45,6 +45,7 @@ import MarksHubScreen from './src/screens/teacher/MarksHubScreen';
 // ── Student ──────────────────────────────────────────────────
 import CBCAssessmentScreen from './src/screens/student/CBCAssessmentScreen';
 import FeeBalanceScreen from './src/screens/student/FeeBalanceScreen';
+import ResultsScreen from './src/screens/student/ResultsScreen';
 
 // ── Parent ───────────────────────────────────────────────────
 import PayFeesScreen from './src/screens/parent/PayFeesScreen';
@@ -52,6 +53,8 @@ import HealthRecordScreen from './src/screens/parent/HealthRecordScreen';
 import LeaveOutScreen from './src/screens/parent/LeaveOutScreen';
 import CircularScreen from './src/screens/parent/CircularScreen';
 import ChildTimetableScreen from './src/screens/parent/ChildTimetableScreen';
+import ParentAttendanceScreen from './src/screens/parent/AttendanceScreen';
+import ParentHomeworkScreen from './src/screens/parent/HomeworkScreen';
 
 // ── Principal ────────────────────────────────────────────────
 import PrincipalStudentsScreen from './src/screens/principal/PrincipalStudentsScreen';
@@ -196,6 +199,9 @@ export default function App() {
                             <Stack.Screen name="CBCTeacherHub" component={CBCTeacherHubScreen} />
                             <Stack.Screen name="MarksHub" component={MarksHubScreen} />
 
+                            {/* ── Student Results ─────────────────────── */}
+                            <Stack.Screen name="StudentResults" component={ResultsScreen} options={{ headerShown: false }} />
+
                             {/* ── Parent ────────────────────────────────── */}
                             <Stack.Screen name="PayFees" component={PayFeesScreen} />
                             <Stack.Screen name="HealthRecord" component={HealthRecordScreen} />
@@ -203,6 +209,8 @@ export default function App() {
                             <Stack.Screen name="FeeBalance" component={FeeBalanceScreen} />
                             <Stack.Screen name="Circular" component={CircularScreen} />
                             <Stack.Screen name="ChildTimetable" component={ChildTimetableScreen} />
+                            <Stack.Screen name="ParentAttendance" component={ParentAttendanceScreen} options={{ headerShown: false }} />
+                            <Stack.Screen name="ParentHomework" component={ParentHomeworkScreen} options={{ headerShown: false }} />
 
                             {/* ── Principal ─────────────────────────────── */}
                             <Stack.Screen name="PrincipalStudents" component={PrincipalStudentsScreen} />
