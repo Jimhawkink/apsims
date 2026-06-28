@@ -198,19 +198,20 @@ export default function ParentDashboard() {
                         ]);
 
                         // ── Fee calculation (mirrors web logic) ──────────────
-                        let yearFees = (allStructures || []).filter((f: any) => !f.year || f.year === currentYear);
+                        // Use Number() for type-safe comparison — Supabase may return year as string or number
+                        let yearFees = (allStructures || []).filter((f: any) => !f.year || Number(f.year) === currentYear);
                         if (yearFees.length === 0 && allStructures && allStructures.length > 0) {
-                            const maxYear = Math.max(...allStructures.map((f: any) => f.year || 0));
-                            yearFees = allStructures.filter((f: any) => !f.year || f.year === maxYear);
+                            const maxYear = Math.max(...allStructures.map((f: any) => Number(f.year) || 0));
+                            yearFees = allStructures.filter((f: any) => !f.year || Number(f.year) === maxYear);
                         }
 
-                        // Current term fees
+                        // Current term fees (type-safe term_id comparison)
                         const termFees = yearFees.filter((f: any) =>
-                            currentTermData ? (!f.term_id || f.term_id === currentTermData.id) : true
+                            currentTermData ? (!f.term_id || Number(f.term_id) === Number(currentTermData.id)) : true
                         );
-                        // Previous term fees (for arrears)
+                        // Previous term fees for arrears calculation
                         const prevTermFees = yearFees.filter((f: any) =>
-                            currentTermData && f.term_id && f.term_id !== currentTermData.id
+                            currentTermData && f.term_id && Number(f.term_id) !== Number(currentTermData.id)
                         );
 
                         const termTotal = termFees.reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0);
