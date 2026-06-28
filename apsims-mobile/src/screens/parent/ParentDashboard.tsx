@@ -516,35 +516,34 @@ export default function ParentDashboard() {
                                     </View>
                                 </View>
 
-                                {/* Fee status bar */}
+                                {/* Fee status bar — uses feeStmt (same source as PayFees screen) */}
                                 <View style={styles.heroFeeRow}>
                                     <View style={{ flex: 1 }}>
                                         <Text style={styles.heroFeeLabel}>
-                                            {!child.hasFeeStructure
+                                            {!feeStmt.hasFees
                                                 ? 'No Fee Structure Set'
-                                                : `Fee Status — ${child.collectionRate}% Paid`}
+                                                : `Fee Status — ${feeStmt.annualTotal > 0 ? Math.round((feeStmt.totalPaid / feeStmt.annualTotal) * 100) : 0}% Paid`}
                                         </Text>
                                         <View style={styles.heroProgressBg}>
                                             <View style={[styles.heroProgressFill, {
-                                                width: child.hasFeeStructure ? `${child.collectionRate}%` as any : '0%'
+                                                width: feeStmt.hasFees && feeStmt.annualTotal > 0
+                                                    ? `${Math.round((feeStmt.totalPaid / feeStmt.annualTotal) * 100)}%` as any
+                                                    : '0%'
                                             }]} />
                                         </View>
-                                        {child.hasFeeStructure && child.prevArrears > 0 && (
-                                            <Text style={{ fontSize: 9, color: 'rgba(255,200,100,1)', fontWeight: '700', marginTop: 2 }}>
-                                                ⚠ Arrears: {fmtKESShort(child.prevArrears)}
-                                            </Text>
-                                        )}
                                     </View>
                                     <View style={styles.heroBalanceBox}>
                                         <Text style={styles.heroBalanceLabel}>
-                                            {!child.hasFeeStructure ? 'No Fees' : child.isCleared ? 'Cleared' : 'Balance Due'}
+                                            {!feeStmt.loaded ? 'Loading…' : !feeStmt.hasFees ? 'No Fees' : feeStmt.balance === 0 ? 'Cleared' : 'Balance Due'}
                                         </Text>
                                         <Text style={styles.heroBalance}>
-                                            {!child.hasFeeStructure
+                                            {!feeStmt.loaded
+                                                ? '…'
+                                                : !feeStmt.hasFees
                                                 ? '⚠ N/A'
-                                                : child.isCleared
+                                                : feeStmt.balance === 0
                                                 ? '✅ KES 0'
-                                                : fmtKESShort(child.totalDue)}
+                                                : fmtKESShort(feeStmt.balance)}
                                         </Text>
                                     </View>
                                 </View>
@@ -552,8 +551,8 @@ export default function ParentDashboard() {
                                 {/* Quick stats strip */}
                                 <View style={styles.heroStrip}>
                                     {[
-                                        { l: 'Term Fees', v: child.hasFeeStructure ? fmtKESShort(child.termTotal) : 'N/A' },
-                                        { l: 'Paid', v: fmtKESShort(child.totalPaid) },
+                                        { l: 'Annual Fees', v: feeStmt.hasFees ? fmtKESShort(feeStmt.annualTotal) : 'N/A' },
+                                        { l: 'Paid', v: fmtKESShort(feeStmt.totalPaid) },
                                         { l: 'Attendance', v: `${child.attendanceRate}%` },
                                     ].map((s, i) => (
                                         <View key={i} style={[styles.heroStripItem, i < 2 && { borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.2)' }]}>
@@ -566,7 +565,7 @@ export default function ParentDashboard() {
                         )}
 
                         {/* ─── PAY FEES CTA ──────────────────────── */}
-                        {child && child.balance > 0 && (
+                        {child && feeStmt.balance > 0 && (
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('PayFees', {
                                     studentId: child.id,
@@ -575,9 +574,9 @@ export default function ParentDashboard() {
                                     admissionNumber: child.admission_number,
                                     formName: child.form_name,
                                     streamName: child.stream_name,
-                                    balance: child.balance,
-                                    totalDue: child.totalDue,
-                                    totalPaid: child.totalPaid,
+                                    balance: feeStmt.balance,
+                                    totalDue: feeStmt.annualTotal,
+                                    totalPaid: feeStmt.totalPaid,
                                 })}
                                 activeOpacity={0.88}
                                 style={styles.payFeesCTA}
@@ -587,7 +586,7 @@ export default function ParentDashboard() {
                                         <Text style={styles.payFeesCTAIcon}>💳</Text>
                                         <View>
                                             <Text style={styles.payFeesCTATitle}>Pay School Fees</Text>
-                                            <Text style={styles.payFeesCTASub}>Balance: {fmtKES(child.balance)} · M-Pesa STK or KCB</Text>
+                                            <Text style={styles.payFeesCTASub}>Balance: {fmtKES(feeStmt.balance)} · M-Pesa STK or KCB</Text>
                                         </View>
                                     </View>
                                     <Text style={styles.payFeesCTAArrow}>→</Text>
