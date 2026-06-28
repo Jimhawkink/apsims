@@ -116,6 +116,20 @@ export default function FeeStructurePage() {
 
   const currentTerm = useMemo(() => terms.find(t => t.is_current), [terms]);
 
+  // ── Set a term as current ──
+  const handleSetCurrentTerm = useCallback(async (termId: number) => {
+    try {
+      // Unset all terms
+      await supabase.from('school_terms').update({ is_current: false }).neq('id', 0);
+      // Set selected term as current
+      await supabase.from('school_terms').update({ is_current: true }).eq('id', termId);
+      toast.success('Current term updated! Refreshing...', { icon: '📅' });
+      fetchAll();
+    } catch (e: any) {
+      toast.error('Failed to update term: ' + e.message);
+    }
+  }, [fetchAll]);
+
   // All unique years from structures
   const years = useMemo(() => [...new Set(structures.map(s => s.year).filter(Boolean))].sort((a, b) => b - a), [structures]);
 
@@ -378,6 +392,105 @@ export default function FeeStructurePage() {
           sparkValues={forms.map(f => filtered.filter(s => s.form_id === f.id).reduce((a, b) => a + Number(b.amount || 0), 0))}
           color="#f59e0b" bg="#fffbeb" border="#fcd34d"
         />
+      </div>
+
+      {/* ═══ TERM & ACADEMIC YEAR MANAGEMENT PANEL ═══ */}
+      <div style={{
+        background: '#fff', borderRadius: 20, border: '2px solid #e0e7ff',
+        padding: '20px 24px', boxShadow: '0 4px 24px rgba(99,102,241,0.08)', marginBottom: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 11, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📅</div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 800, color: '#1e293b', margin: 0 }}>Term &amp; Academic Year</p>
+              <p style={{ fontSize: 11, color: '#64748b', margin: 0 }}>Click &ldquo;Set Active&rdquo; to change the current term for fees, marks &amp; reports</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ padding: '6px 14px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 11, fontWeight: 600, color: '#475569' }}>
+              Academic Year: <strong>{new Date().getFullYear()}</strong>
+            </div>
+            <div style={{ padding: '6px 14px', borderRadius: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 11, fontWeight: 700, color: '#059669' }}>
+              Today: {new Date().toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+          {terms.map(term => {
+            const isCurrent = term.is_current;
+            const today = new Date();
+            const start = term.start_date ? new Date(term.start_date) : null;
+            const end = term.end_date ? new Date(term.end_date) : null;
+            const isActive = start && end && today >= start && today <= end;
+            const isPast = end && today > end;
+            return (
+              <div key={term.id} style={{
+                borderRadius: 16,
+                border: isCurrent ? '2.5px solid #6366f1' : '1.5px solid #e2e8f0',
+                padding: '16px 18px',
+                background: isCurrent ? 'linear-gradient(135deg,#eef2ff,#f5f3ff)' : '#fafbff',
+                position: 'relative', overflow: 'hidden',
+                boxShadow: isCurrent ? '0 4px 20px rgba(99,102,241,0.15)' : 'none',
+                transition: 'all 0.2s',
+              }}>
+                {/* Active glow */}
+                {isCurrent && <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(99,102,241,0.08)' }} />}
+
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div>
+                    <p style={{ fontSize: 15, fontWeight: 900, color: isCurrent ? '#4f46e5' : '#1e293b', margin: 0 }}>{term.term_name}</p>
+                    <p style={{ fontSize: 10, color: '#94a3b8', margin: '2px 0 0', fontWeight: 600 }}>
+                      {term.start_date ? new Date(term.start_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) : '?'}
+                      {' — '}
+                      {term.end_date ? new Date(term.end_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '?'}
+                    </p>
+                  </div>
+                  {/* Status badge */}
+                  <span style={{
+                    fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 8,
+                    background: isCurrent ? '#6366f1' : isPast ? '#fee2e2' : isActive ? '#dcfce7' : '#f1f5f9',
+                    color: isCurrent ? '#fff' : isPast ? '#dc2626' : isActive ? '#16a34a' : '#64748b',
+                    textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0,
+                  }}>
+                    {isCurrent ? '✓ ACTIVE' : isPast ? 'PAST' : isActive ? 'RUNNING' : 'UPCOMING'}
+                  </span>
+                </div>
+
+                {/* Fee count for this term */}
+                <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 12px', fontWeight: 500 }}>
+                  {structures.filter(s => s.term_id === term.id).length} fee items configured
+                  {structures.filter(s => s.term_id === term.id).length > 0 && (
+                    <span style={{ color: '#4f46e5', fontWeight: 700 }}>
+                      {' · '}{fmt(structures.filter(s => s.term_id === term.id).reduce((a, b) => a + Number(b.amount || 0), 0))}
+                    </span>
+                  )}
+                </p>
+
+                {isCurrent ? (
+                  <div style={{ padding: '7px 14px', borderRadius: 10, background: '#6366f1', color: '#fff', fontSize: 11, fontWeight: 800, textAlign: 'center' }}>
+                    ✓ Currently Active Term
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleSetCurrentTerm(term.id)}
+                    style={{
+                      width: '100%', padding: '7px 14px', borderRadius: 10,
+                      background: 'transparent', border: '1.5px solid #6366f1',
+                      color: '#6366f1', fontSize: 11, fontWeight: 800, cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#6366f1'; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#6366f1'; }}
+                  >
+                    📅 Set as Active Term
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* ═══ FORM TOTALS CARDS WITH TREND BARS ═══ */}
