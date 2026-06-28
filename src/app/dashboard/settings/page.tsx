@@ -9,7 +9,7 @@ import RubricLevelBadge from '@/components/cbc/RubricLevelBadge';
 import PathwayBadge from '@/components/cbc/PathwayBadge';
 import { countElectivesForPathway } from '@/lib/cbc-utils';
 
-type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'cbc-pathways' | 'cbc-grading' | 'sms' | 'mpesa' | 'whatsapp';
+type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'cbc-pathways' | 'cbc-grading' | 'sms' | 'mpesa' | 'whatsapp' | 'terms';
 
 export default function SettingsPage() {
     const [tab, setTab] = useState<Tab>('school-details');
@@ -29,6 +29,12 @@ export default function SettingsPage() {
     const [savingPathway, setSavingPathway] = useState(false);
     const [savingRubric, setSavingRubric] = useState(false);
     const [rubricDraft, setRubricDraft] = useState<any[]>([]); // editable copy of rubric config
+    // Terms & Academic Year state
+    const [terms, setTerms] = useState<any[]>([]);
+    const [termForm, setTermForm] = useState<any>({ term_name: '', term_number: '', start_date: '', end_date: '', academic_year: new Date().getFullYear(), is_current: false });
+    const [editTermId, setEditTermId] = useState<number | null>(null);
+    const [showTermModal, setShowTermModal] = useState(false);
+    const [settingCurrent, setSettingCurrent] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [savingInfo, setSavingInfo] = useState(false);
     const [savingSMS, setSavingSMS] = useState(false);
@@ -94,6 +100,12 @@ export default function SettingsPage() {
                 setRubricDraft(data.map(r => ({ ...r })));
             }
         } catch { setCbcRubricConfig([]); }
+
+        // Fetch Terms & Academic Year
+        try {
+            const { data } = await supabase.from('school_terms').select('*').order('academic_year', { ascending: false });
+            setTerms(data || []);
+        } catch { setTerms([]); }
 
         setLoading(false);
     }, []);
@@ -304,6 +316,7 @@ export default function SettingsPage() {
 
     const tabs: { key: Tab; label: string; icon: string; count: number }[] = [
         { key: 'school-details', label: 'School Info', icon: '🏫', count: 0 },
+        { key: 'terms', label: 'Terms & Year', icon: '📅', count: terms.length },
         { key: 'forms', label: 'Forms', icon: '📋', count: forms.length },
         { key: 'streams', label: 'Streams', icon: '🏷️', count: streams.length },
         { key: 'subjects', label: 'Subjects', icon: '📚', count: subjects.length },
@@ -1239,6 +1252,236 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* ========== TERMS & ACADEMIC YEAR ========== */}
+            {tab === 'terms' && (
+                <div className="space-y-6">
+                    {/* Header */}
+                    <div style={{
+                        background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', borderRadius: 20,
+                        padding: '24px 28px', color: '#fff', position: 'relative', overflow: 'hidden',
+                    }}>
+                        <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                            <div>
+                                <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>📅 Terms &amp; Academic Year</h2>
+                                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: '4px 0 0' }}>
+                                    Set the active term · Edit dates · Manage academic year — all changes apply system-wide instantly
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => { setEditTermId(null); setTermForm({ term_name: '', term_number: '', start_date: '', end_date: '', academic_year: new Date().getFullYear(), is_current: false }); setShowTermModal(true); }}
+                                style={{ padding: '10px 18px', borderRadius: 12, border: '1.5px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                            >
+                                + Add Term
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Info box */}
+                    <div style={{ padding: '14px 18px', borderRadius: 14, background: '#fefce8', border: '1.5px solid #fde68a', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: 18, flexShrink: 0 }}>💡</span>
+                        <div>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: '#92400e', margin: 0 }}>How terms work in APSIMS</p>
+                            <p style={{ fontSize: 11, color: '#78350f', margin: '3px 0 0', lineHeight: 1.6 }}>
+                                Only <strong>ONE term</strong> can be active at a time. All fees, exam marks, SMS reminders and reports use the active term automatically.
+                                Click <strong>&quot;Set as Current&quot;</strong> when a new term begins. This is saved in the database — <strong>NOT hardcoded</strong> anywhere.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Terms list */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {terms.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '48px 24px', color: '#94a3b8', background: '#f8fafc', borderRadius: 16, border: '2px dashed #e2e8f0' }}>
+                                <div style={{ fontSize: 36, marginBottom: 12 }}>📅</div>
+                                <p style={{ fontWeight: 700, margin: '0 0 4px' }}>No terms configured yet</p>
+                                <p style={{ fontSize: 12, margin: 0 }}>Click &quot;+ Add Term&quot; above to create your first term</p>
+                            </div>
+                        ) : (
+                            terms.map((term: any) => {
+                                const isCurrent = !!term.is_current;
+                                const today = new Date();
+                                const start = term.start_date ? new Date(term.start_date) : null;
+                                const end = term.end_date ? new Date(term.end_date) : null;
+                                const isRunning = !!(start && end && today >= start && today <= end);
+                                const isPast = !!(end && today > end);
+                                return (
+                                    <div key={term.id} style={{
+                                        background: isCurrent ? 'linear-gradient(135deg,#eef2ff,#f5f3ff)' : '#fff',
+                                        border: isCurrent ? '2.5px solid #6366f1' : '1.5px solid #e2e8f0',
+                                        borderRadius: 18, padding: '20px 24px',
+                                        boxShadow: isCurrent ? '0 6px 24px rgba(99,102,241,0.15)' : '0 2px 8px rgba(0,0,0,0.04)',
+                                        display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
+                                        position: 'relative', overflow: 'hidden',
+                                    }}>
+                                        {isCurrent && <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(99,102,241,0.06)' }} />}
+
+                                        {/* Colour dot */}
+                                        <div style={{ width: 16, height: 16, borderRadius: '50%', flexShrink: 0, border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.15)', background: isCurrent ? '#6366f1' : isPast ? '#fca5a5' : isRunning ? '#86efac' : '#e2e8f0' }} />
+
+                                        {/* Info */}
+                                        <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5, flexWrap: 'wrap' }}>
+                                                <span style={{ fontSize: 17, fontWeight: 900, color: isCurrent ? '#4f46e5' : '#1e293b' }}>{term.term_name}</span>
+                                                <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 8, textTransform: 'uppercase' as const, letterSpacing: '0.06em', background: isCurrent ? '#6366f1' : isPast ? '#fee2e2' : isRunning ? '#dcfce7' : '#f1f5f9', color: isCurrent ? '#fff' : isPast ? '#dc2626' : isRunning ? '#16a34a' : '#64748b' }}>
+                                                    {isCurrent ? '✓ ACTIVE NOW' : isPast ? 'PAST' : isRunning ? 'RUNNING' : 'UPCOMING'}
+                                                </span>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>
+                                                    Academic Year {term.academic_year || '—'}
+                                                </span>
+                                            </div>
+                                            <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
+                                                📆 {term.start_date ? new Date(term.start_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' }) : 'No start date'}
+                                                {' → '}
+                                                {term.end_date ? new Date(term.end_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' }) : 'No end date'}
+                                            </p>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+                                            {!isCurrent && (
+                                                <button
+                                                    disabled={settingCurrent === term.id}
+                                                    onClick={async () => {
+                                                        setSettingCurrent(term.id);
+                                                        await supabase.from('school_terms').update({ is_current: false }).neq('id', 0);
+                                                        const { error } = await supabase.from('school_terms').update({ is_current: true }).eq('id', term.id);
+                                                        if (error) { toast.error('Failed: ' + error.message); }
+                                                        else { toast.success(`✅ ${term.term_name} is now the active term! All pages updated.`); fetchAll(); }
+                                                        setSettingCurrent(null);
+                                                    }}
+                                                    style={{ padding: '9px 16px', borderRadius: 10, border: '1.5px solid #6366f1', background: 'transparent', color: '#6366f1', fontSize: 12, fontWeight: 800, cursor: settingCurrent === term.id ? 'not-allowed' : 'pointer', opacity: settingCurrent === term.id ? 0.6 : 1, whiteSpace: 'nowrap' as const }}
+                                                >
+                                                    {settingCurrent === term.id ? '⏳ Setting...' : '📅 Set as Current'}
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => { setEditTermId(term.id); setTermForm({ term_name: term.term_name || '', term_number: term.term_number || '', start_date: term.start_date || '', end_date: term.end_date || '', academic_year: term.academic_year || new Date().getFullYear(), is_current: term.is_current || false }); setShowTermModal(true); }}
+                                                style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+                                            >
+                                                ✏️ Edit
+                                            </button>
+                                            {!isCurrent && (
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!confirm(`Delete "${term.term_name}"? This cannot be undone.`)) return;
+                                                        const { error } = await supabase.from('school_terms').delete().eq('id', term.id);
+                                                        if (error) { toast.error('Cannot delete — term may have fees or marks linked to it'); return; }
+                                                        toast.success('Term deleted');
+                                                        fetchAll();
+                                                    }}
+                                                    style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, cursor: 'pointer' }}
+                                                >
+                                                    🗑️
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                    {/* Add / Edit Term Modal */}
+                    {showTermModal && (
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
+                            <div style={{ background: '#fff', borderRadius: 24, padding: 32, width: '100%', maxWidth: 500, boxShadow: '0 32px 80px rgba(0,0,0,0.25)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                                    <div>
+                                        <h3 style={{ fontSize: 18, fontWeight: 900, color: '#1e293b', margin: 0 }}>{editTermId ? '✏️ Edit Term' : '+ Add New Term'}</h3>
+                                        <p style={{ fontSize: 11, color: '#64748b', margin: '4px 0 0' }}>Changes apply system-wide immediately</p>
+                                    </div>
+                                    <button onClick={() => setShowTermModal(false)} style={{ background: '#f1f5f9', border: 'none', width: 32, height: 32, borderRadius: 10, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>×</button>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    {/* Term Name */}
+                                    <div>
+                                        <label className="lbl">Term Name *</label>
+                                        <input value={termForm.term_name} onChange={e => setTermForm({ ...termForm, term_name: e.target.value })} placeholder="e.g. Term 1, Term 2, Term 3" className="input-modern w-full" />
+                                    </div>
+
+                                    {/* Term Number + Academic Year */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                        <div>
+                                            <label className="lbl">Term Number</label>
+                                            <select value={termForm.term_number} onChange={e => setTermForm({ ...termForm, term_number: e.target.value })} className="select-modern w-full">
+                                                <option value="">— Select —</option>
+                                                <option value="1">1 (First Term)</option>
+                                                <option value="2">2 (Second Term)</option>
+                                                <option value="3">3 (Third Term)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="lbl">Academic Year *</label>
+                                            <input type="number" value={termForm.academic_year} onChange={e => setTermForm({ ...termForm, academic_year: e.target.value })} placeholder="2026" className="input-modern w-full" min={2020} max={2040} />
+                                        </div>
+                                    </div>
+
+                                    {/* Start + End dates */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                        <div>
+                                            <label className="lbl">Start Date *</label>
+                                            <input type="date" value={termForm.start_date} onChange={e => setTermForm({ ...termForm, start_date: e.target.value })} className="input-modern w-full" />
+                                        </div>
+                                        <div>
+                                            <label className="lbl">End Date *</label>
+                                            <input type="date" value={termForm.end_date} onChange={e => setTermForm({ ...termForm, end_date: e.target.value })} className="input-modern w-full" />
+                                        </div>
+                                    </div>
+
+                                    {/* Set as current checkbox */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: termForm.is_current ? '#eef2ff' : '#f8fafc', border: `1.5px solid ${termForm.is_current ? '#c7d2fe' : '#e2e8f0'}`, cursor: 'pointer' }} onClick={() => setTermForm({ ...termForm, is_current: !termForm.is_current })}>
+                                        <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${termForm.is_current ? '#6366f1' : '#cbd5e1'}`, background: termForm.is_current ? '#6366f1' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            {termForm.is_current && <span style={{ color: '#fff', fontSize: 13, fontWeight: 900 }}>✓</span>}
+                                        </div>
+                                        <div>
+                                            <p style={{ fontSize: 13, fontWeight: 700, color: termForm.is_current ? '#4f46e5' : '#475569', margin: 0 }}>Set as Current / Active Term</p>
+                                            <p style={{ fontSize: 11, color: '#64748b', margin: 0 }}>All other terms will be deactivated automatically</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Buttons */}
+                                <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+                                    <button onClick={() => setShowTermModal(false)} className="btn-outline" style={{ flex: 1 }}>Cancel</button>
+                                    <button
+                                        className="btn-primary"
+                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                        onClick={async () => {
+                                            if (!termForm.term_name?.trim() || !termForm.start_date || !termForm.end_date || !termForm.academic_year) {
+                                                toast.error('Please fill Term Name, Start Date, End Date and Academic Year'); return;
+                                            }
+                                            const payload = {
+                                                term_name: termForm.term_name.trim(),
+                                                term_number: termForm.term_number ? Number(termForm.term_number) : null,
+                                                start_date: termForm.start_date,
+                                                end_date: termForm.end_date,
+                                                academic_year: Number(termForm.academic_year),
+                                                is_current: !!termForm.is_current,
+                                            };
+                                            // Unset current on all others if setting this as current
+                                            if (termForm.is_current) {
+                                                await supabase.from('school_terms').update({ is_current: false }).neq('id', editTermId ?? -1);
+                                            }
+                                            const { error } = editTermId
+                                                ? await supabase.from('school_terms').update(payload).eq('id', editTermId)
+                                                : await supabase.from('school_terms').insert([payload]);
+                                            if (error) { toast.error(error.message); return; }
+                                            toast.success(editTermId ? '✅ Term updated!' : '✅ Term added!');
+                                            setShowTermModal(false);
+                                            fetchAll();
+                                        }}
+                                    >
+                                        <FiSave size={14} /> {editTermId ? 'Update Term' : 'Add Term'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
