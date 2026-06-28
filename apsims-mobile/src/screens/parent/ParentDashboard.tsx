@@ -117,11 +117,7 @@ export default function ParentDashboard() {
             console.error('loadFeeStatement:', err.message);
             setFeeStmt(prev => ({ ...prev, loaded: true }));
         }
-    }, [selectedChild]);
-
-    useEffect(() => {
-        if (selectedChild) loadFeeStatement();
-    }, [selectedChild, loadFeeStatement]);
+    }, []); // no deps — child is passed as parameter, never reads selectedChild from closure
 
     // Greeting
     const hour = new Date().getHours();
@@ -167,6 +163,7 @@ export default function ParentDashboard() {
                 // Show the child instantly from session
                 setChildren([sessionChild]);
                 setSelectedChild(sessionChild);
+                loadFeeStatement(sessionChild);  // load fees immediately with known child
                 setLoading(false);
             }
 
@@ -313,7 +310,9 @@ export default function ParentDashboard() {
                     })
                 );
                 setChildren(enriched);
-                setSelectedChild(prev => enriched.find(e => e.id === prev?.id) || enriched[0]);
+                const selectedEnriched = enriched[0];
+                setSelectedChild(prev => enriched.find(e => e.id === prev?.id) || selectedEnriched);
+                loadFeeStatement(selectedEnriched);  // use enriched child — has correct .id
                 await cacheData(`parent_${portalUserId}_children`, enriched);
             } else if (!sesStudentId) {
                 // Nothing found at all — try cache
@@ -321,6 +320,7 @@ export default function ParentDashboard() {
                 if (cached?.data) {
                     setChildren(cached.data as ChildData[]);
                     setSelectedChild((cached.data as ChildData[])[0]);
+                    loadFeeStatement((cached.data as ChildData[])[0]);
                 }
             }
 
@@ -339,6 +339,7 @@ export default function ParentDashboard() {
             if (cached?.data) {
                 setChildren(cached.data as ChildData[]);
                 setSelectedChild((cached.data as ChildData[])[0]);
+                loadFeeStatement((cached.data as ChildData[])[0]);
             }
         } finally {
             setLoading(false);
@@ -347,8 +348,8 @@ export default function ParentDashboard() {
     }, [portalUserId, session]);
 
 
-    useEffect(() => { loadChildren(); loadFeeStatement(); }, [loadChildren, loadFeeStatement]);
-    const onRefresh = () => { setRefreshing(true); loadChildren(true); loadFeeStatement(); };
+    useEffect(() => { loadChildren(); }, [loadChildren]);
+    const onRefresh = () => { setRefreshing(true); loadChildren(true); };
 
     const child = selectedChild;
     const initials = child
