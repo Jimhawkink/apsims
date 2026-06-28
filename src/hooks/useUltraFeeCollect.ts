@@ -180,30 +180,39 @@ export function useUltraFeeCollect() {
     );
     const capitationTotal = stuCapitation.reduce((s, c) => s + Number(c.amount || 0), 0);
 
-    // Previous term arrears
+    // ── Payment Waterfall: apply payments first to prev term arrears, then current term ──
+    // This mirrors Kenya school fee convention correctly
     const prevTerms = terms.filter(t => !t.is_current);
-    let prevTermArrears = 0;
+    let prevTotal = 0;
     if (prevTerms.length > 0) {
-      const prevTermPays = payments.filter(p => p.student_id === studentId && prevTerms.some(pt => pt.id === p.term_id));
       const prevTermFees = yearFiltered.filter(f => prevTerms.some(pt => pt.id === f.term_id));
-      const prevTotal = prevTermFees.reduce((s, f) => s + Number(f.amount || 0), 0);
-      const prevPaid = prevTermPays.reduce((s, p) => s + Number(p.amount || 0), 0);
-      prevTermArrears = Math.max(0, prevTotal - prevPaid);
+      prevTotal = prevTermFees.reduce((s, f) => s + Number(f.amount || 0), 0);
     }
 
+    // Payments are applied: 1st to prev term arrears, 2nd to current term
+    const prevArrears    = Math.max(0, prevTotal - Math.min(totalPaid, prevTotal));
+    const termPaidAmt    = Math.max(0, totalPaid - prevTotal); // what's left after clearing arrears
+    const termBalanceFix = Math.max(0, termTotal - termPaidAmt);
+    const prevTermArrears = prevArrears;
+
     const waiverTotal = 0; // Can be extended with waiver records
-    const netDue = Math.max(0, termTotal - totalPaid - bursaryTotal - capitationTotal - waiverTotal + prevTermArrears);
+    // Total Due = arrears owed + current term balance (after deducting bursary/capitation)
+    const netDue = Math.max(0, prevArrears + termBalanceFix - bursaryTotal - capitationTotal - waiverTotal);
     // paymentProgress: only meaningful when a fee structure exists
     const paymentProgress = annualTotal > 0 ? Math.min(100, Math.round((totalPaid / annualTotal) * 100)) : 0;
     // hasFeeStructure: true only when the fee structure has been set up for this student's form
     const hasFeeStructure = termTotal > 0 || annualTotal > 0;
-    // isCleared: ONLY when fees exist AND fully paid — NOT when fees are simply zero/missing
-    const isCleared = hasFeeStructure && Math.max(0, termTotal - totalPaid) <= 0;
+    // isCleared: ONLY when fees exist AND all dues are fully paid — NOT when fees are simply zero/missing
+    const isCleared = hasFeeStructure && netDue <= 0 && totalPaid > 0;
 
     return {
-      totalPaid, termTotal, termBalance: Math.max(0, termTotal - totalPaid),
-      annualTotal, annualBalance: Math.max(0, annualTotal - totalPaid),
-      arrears: prevTermArrears, overpayment: totalPaid > annualTotal ? totalPaid - annualTotal : 0,
+      totalPaid,
+      termTotal,
+      termBalance: termBalanceFix,           // Current term unpaid (after applying prev-term payments first)
+      annualTotal,
+      annualBalance: Math.max(0, annualTotal - totalPaid), // All remaining fees for the year
+      arrears: prevArrears,
+      overpayment: totalPaid > annualTotal ? totalPaid - annualTotal : 0,
       bursaryTotal, capitationTotal, waiverTotal, netDue, paymentProgress,
       feeBreakdown, bursaryCredits, prevTermArrears,
       hasFeeStructure, isCleared,

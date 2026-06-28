@@ -114,22 +114,57 @@ export default function UltraStudentFeeProfile({ student, fees, getFormName, get
 
         {/* ═══════ 4 METRIC CARDS ═══════ */}
         <div className="px-4 pb-2 grid grid-cols-2 gap-2">
-          <MetricCard label="Term Fees" value={fmt(fees.termTotal)} gradient="from-violet-50 to-indigo-50" border="border-violet-100" textColor="text-violet-700" />
-          <MetricCard label="Total Paid" value={fmt(fees.totalPaid)} gradient="from-emerald-50 to-green-50" border="border-emerald-100" textColor="text-emerald-700" />
-          <MetricCard label="Term Balance" value={fmt(fees.termBalance)} gradient="from-red-50 to-rose-50" border="border-red-100" textColor="text-red-700" highlight={fees.termBalance > 0} />
-          <MetricCard label="Annual Balance" value={fmt(fees.annualBalance)} gradient="from-amber-50 to-orange-50" border="border-amber-100" textColor="text-amber-700" />
+          <MetricCard
+            label="Term Fees"
+            value={fees.hasFeeStructure ? fmt(fees.termTotal) : 'Not Set'}
+            gradient="from-violet-50 to-indigo-50" border="border-violet-100" textColor="text-violet-700" />
+          <MetricCard
+            label="Total Paid"
+            value={fmt(fees.totalPaid)}
+            gradient="from-emerald-50 to-green-50" border="border-emerald-100" textColor="text-emerald-700" />
+          <MetricCard
+            label="Term Balance"
+            value={fees.hasFeeStructure ? fmt(fees.termBalance) : 'N/A'}
+            gradient="from-red-50 to-rose-50" border="border-red-100" textColor="text-red-700"
+            highlight={fees.termBalance > 0} />
+          <MetricCard
+            label="Annual Balance"
+            value={fees.hasFeeStructure ? fmt(fees.annualBalance) : 'N/A'}
+            gradient="from-amber-50 to-orange-50" border="border-amber-100" textColor="text-amber-700" />
         </div>
+
+        {/* Arrears warning strip */}
+        {fees.prevTermArrears > 0 && (
+          <div className="mx-4 mb-2 px-3 py-2 rounded-xl bg-red-50 border border-red-100 flex items-center gap-2">
+            <span className="text-red-500 text-sm">⚠️</span>
+            <div>
+              <p className="text-[10px] font-bold text-red-700 uppercase tracking-wider">Previous Term Arrears</p>
+              <p className="text-sm font-extrabold text-red-600">{fmt(fees.prevTermArrears)}</p>
+            </div>
+            <div className="ml-auto text-right">
+              <p className="text-[9px] text-red-400">Carried forward</p>
+              <p className="text-[9px] text-red-400">to this term</p>
+            </div>
+          </div>
+        )}
 
         {/* ═══════ NET DUE BANNER ═══════ */}
         <div className="mx-4 mb-3 p-3 rounded-xl bg-gradient-to-r from-gray-900 to-gray-800 flex items-center justify-between">
           <div>
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Net Amount Due</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Total Due Now</p>
             <p className="text-xl font-black text-white mt-0.5">{fmt(fees.netDue)}</p>
+            {fees.prevTermArrears > 0 && (
+              <p className="text-[9px] text-amber-300 mt-0.5">
+                Arrears {fmt(fees.prevTermArrears)} + Term {fmt(fees.termBalance)}
+              </p>
+            )}
           </div>
           <div className="text-right space-y-0.5">
             {fees.bursaryTotal > 0 && <div className="text-[9px] text-emerald-400 font-medium">- {fmt(fees.bursaryTotal)} bursary</div>}
             {fees.capitationTotal > 0 && <div className="text-[9px] text-blue-400 font-medium">- {fmt(fees.capitationTotal)} capitation</div>}
-            {fees.prevTermArrears > 0 && <div className="text-[9px] text-red-400 font-medium">+ {fmt(fees.prevTermArrears)} arrears</div>}
+            {fees.annualBalance > fees.netDue && (
+              <div className="text-[9px] text-gray-400 font-medium">Annual bal: {fmt(fees.annualBalance)}</div>
+            )}
           </div>
         </div>
       </div>
