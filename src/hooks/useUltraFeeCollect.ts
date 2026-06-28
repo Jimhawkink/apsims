@@ -68,6 +68,10 @@ export interface StudentFeeProfile {
   feeBreakdown: FeeBreakdownItem[];
   bursaryCredits: BursaryCredit[];
   prevTermArrears: number;
+  /** true only when a fee structure exists AND the student has paid in full */
+  isCleared: boolean;
+  /** true when a fee structure exists for this student's form */
+  hasFeeStructure: boolean;
 }
 
 export function useUltraFeeCollect() {
@@ -189,7 +193,12 @@ export function useUltraFeeCollect() {
 
     const waiverTotal = 0; // Can be extended with waiver records
     const netDue = Math.max(0, termTotal - totalPaid - bursaryTotal - capitationTotal - waiverTotal + prevTermArrears);
-    const paymentProgress = annualTotal > 0 ? Math.round((totalPaid / annualTotal) * 100) : 0;
+    // paymentProgress: only meaningful when a fee structure exists
+    const paymentProgress = annualTotal > 0 ? Math.min(100, Math.round((totalPaid / annualTotal) * 100)) : 0;
+    // hasFeeStructure: true only when the fee structure has been set up for this student's form
+    const hasFeeStructure = termTotal > 0 || annualTotal > 0;
+    // isCleared: ONLY when fees exist AND fully paid — NOT when fees are simply zero/missing
+    const isCleared = hasFeeStructure && Math.max(0, termTotal - totalPaid) <= 0;
 
     return {
       totalPaid, termTotal, termBalance: Math.max(0, termTotal - totalPaid),
@@ -197,6 +206,7 @@ export function useUltraFeeCollect() {
       arrears: prevTermArrears, overpayment: totalPaid > annualTotal ? totalPaid - annualTotal : 0,
       bursaryTotal, capitationTotal, waiverTotal, netDue, paymentProgress,
       feeBreakdown, bursaryCredits, prevTermArrears,
+      hasFeeStructure, isCleared,
     };
   }, [payments, structures, terms, bursaryRecords, capitationRecords, currentTerm, currentYear]);
 

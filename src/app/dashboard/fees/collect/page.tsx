@@ -354,10 +354,15 @@ function StudentBreadcrumb({
       ? 'linear-gradient(135deg,#6366f1,#818cf8)'
       : 'linear-gradient(135deg,#ec4899,#f472b6)';
 
+  // hasFeeStructure guard — don't show green/cleared when there are no fees set at all
+  const hasFeeStructure = (fees?.termTotal ?? 0) > 0 || (fees?.annualTotal ?? 0) > 0;
+  const isActuallyCleared = hasFeeStructure && (fees?.termBalance ?? 1) <= 0;
+
   const balanceColor =
-    (fees?.termBalance ?? 1) <= 0 ? '#22c55e'
-      : (fees?.termBalance ?? 1) < 3000 ? '#f59e0b'
-        : '#ef4444';
+    !hasFeeStructure ? '#f59e0b'          // amber  — no fee structure set
+    : isActuallyCleared ? '#22c55e'       // green  — paid in full
+    : (fees?.termBalance ?? 1) < 3000 ? '#f59e0b'  // amber  — nearly there
+    : '#ef4444';                          // red    — significant balance
 
   return (
     <div style={{
@@ -397,13 +402,17 @@ function StudentBreadcrumb({
         </div>
       </div>
 
-      {/* Ring */}
+      {/* Ring — only show % when a fee structure exists */}
       {fees && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <FeeRing pct={pct} size={42} />
+          <FeeRing pct={hasFeeStructure ? pct : 0} size={42} />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 900, color: '#0f172a' }}>{pct}%</div>
-            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>paid</div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: '#0f172a' }}>
+              {hasFeeStructure ? `${pct}%` : 'N/A'}
+            </div>
+            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>
+              {hasFeeStructure ? 'paid' : 'no fees'}
+            </div>
           </div>
         </div>
       )}
@@ -416,11 +425,15 @@ function StudentBreadcrumb({
           border: `1px solid ${balanceColor}30`,
         }}>
           <div style={{ fontSize: 11, fontWeight: 800, color: balanceColor }}>
-            {(fees.termBalance as number) <= 0
+            {!hasFeeStructure
+              ? '⚠️ NO FEES SET'
+              : isActuallyCleared
               ? '✓ CLEARED'
               : `KES ${(fees.termBalance as number).toLocaleString('en-KE')} due`}
           </div>
-          <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600 }}>this term</div>
+          <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600 }}>
+            {!hasFeeStructure ? 'set fee structure' : 'this term'}
+          </div>
         </div>
       )}
 
@@ -510,8 +523,12 @@ export default function UltraCollectFeePage() {
       const f = getStudentFeeProfile(studentId, formId);
       return {
         termBalance: f.termBalance as number,
+        termTotal: f.termTotal as number,
+        annualTotal: f.annualTotal as number,
         annualBalance: f.annualBalance as number,
         totalPaid: f.totalPaid as number,
+        hasFeeStructure: f.hasFeeStructure,
+        isCleared: f.isCleared,
       };
     },
     [getStudentFeeProfile]

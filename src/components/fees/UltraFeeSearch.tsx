@@ -24,7 +24,15 @@ interface Props {
   onSelect: (student: SearchResult) => void;
   getFormName: (id: number) => string;
   getStreamName: (id: number) => string;
-  getFeeBalance: (studentId: number, formId: number) => { termBalance: number; annualBalance: number; totalPaid: number };
+  getFeeBalance: (studentId: number, formId: number) => {
+    termBalance: number;
+    termTotal: number;
+    annualTotal: number;
+    annualBalance: number;
+    totalPaid: number;
+    hasFeeStructure: boolean;
+    isCleared: boolean;
+  };
   selectedStudent: SearchResult | null;
   allStudents?: SearchResult[];
   forms?: { id: number; form_name: string }[];
@@ -94,9 +102,12 @@ export default function UltraFeeSearch({
       if (filterStream && s.stream_id !== filterStream) return false;
       if (filterStatus !== 'all') {
         const bal = getFeeBalance(s.id, s.form_id);
-        if (filterStatus === 'owing' && bal.termBalance <= 0) return false;
-        if (filterStatus === 'cleared' && bal.termBalance > 0) return false;
-        if (filterStatus === 'overpaid' && !(bal.totalPaid > 0 && bal.termBalance <= 0)) return false;
+        // 'owing': must have a fee structure AND have a balance due
+        if (filterStatus === 'owing' && !(bal.hasFeeStructure && bal.termBalance > 0)) return false;
+        // 'cleared': must have a fee structure AND be fully paid
+        if (filterStatus === 'cleared' && !bal.isCleared) return false;
+        // 'overpaid': paid more than annual total
+        if (filterStatus === 'overpaid' && !(bal.totalPaid > 0 && bal.termBalance <= 0 && bal.hasFeeStructure)) return false;
       }
       return true;
     }).slice(0, 50);
@@ -109,9 +120,9 @@ export default function UltraFeeSearch({
       if (filterStream && s.stream_id !== filterStream) return false;
       if (filterStatus !== 'all') {
         const bal = getFeeBalance(s.id, s.form_id);
-        if (filterStatus === 'owing' && bal.termBalance <= 0) return false;
-        if (filterStatus === 'cleared' && bal.termBalance > 0) return false;
-        if (filterStatus === 'overpaid' && !(bal.totalPaid > 0 && bal.termBalance <= 0)) return false;
+        if (filterStatus === 'owing' && !(bal.hasFeeStructure && bal.termBalance > 0)) return false;
+        if (filterStatus === 'cleared' && !bal.isCleared) return false;
+        if (filterStatus === 'overpaid' && !(bal.totalPaid > 0 && bal.termBalance <= 0 && bal.hasFeeStructure)) return false;
       }
       return true;
     });
@@ -393,12 +404,14 @@ export default function UltraFeeSearch({
             ) : displayList.map((student, idx) => {
               const adm = getAdm(student);
               const fees = getFeeBalance(student.id, student.form_id);
-              const annualPct = fees.totalPaid > 0
+              const annualPct = fees.hasFeeStructure && fees.totalPaid > 0
                 ? Math.min(100, Math.round((fees.totalPaid / Math.max(1, fees.totalPaid + fees.annualBalance)) * 100))
                 : 0;
               const isHighlighted = idx === highlightIndex;
               const isInactive = student.status === 'Inactive';
-              const isCleared = fees.termBalance <= 0;
+              // ONLY cleared when fee structure exists AND fully paid
+              const isCleared = fees.isCleared;
+              const noFeeStructure = !fees.hasFeeStructure;
 
               return (
                 <button
@@ -417,13 +430,16 @@ export default function UltraFeeSearch({
                     opacity: isInactive ? 0.6 : 1,
                   }}
                 >
-                  {/* Avatar */}
+                  {/* Avatar + status dot */}
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <Avatar student={student} size={42} />
                     <div style={{
                       position: 'absolute', bottom: -2, right: -2,
                       width: 14, height: 14, borderRadius: '50%',
-                      background: isCleared ? '#10b981' : fees.termBalance > 5000 ? '#ef4444' : '#f59e0b',
+                      background: noFeeStructure ? '#94a3b8'   // grey = no fees set
+                        : isCleared ? '#10b981'                 // green = cleared
+                        : fees.termBalance > 5000 ? '#ef4444'   // red = high balance
+                        : '#f59e0b',                            // amber = partial
                       border: '2px solid white',
                     }} />
                   </div>
@@ -464,16 +480,18 @@ export default function UltraFeeSearch({
                       <span style={{
                         position: 'absolute', fontSize: 7, fontWeight: 900,
                         color: annualPct >= 80 ? '#10b981' : annualPct >= 50 ? '#f59e0b' : '#ef4444',
-                      }}>{annualPct}%</span>
+                      }}>{noFeeStructure ? '?' : `${annualPct}%`}</span>
                     </div>
                     <div style={{ textAlign: 'right', minWidth: 72 }}>
                       <div style={{
-                        fontSize: 13, fontWeight: 800,
-                        color: isCleared ? '#10b981' : '#ef4444',
+                        fontSize: noFeeStructure ? 10 : 13, fontWeight: 800,
+                        color: noFeeStructure ? '#f59e0b' : isCleared ? '#10b981' : '#ef4444',
                       }}>
-                        {isCleared ? '✓ CLEAR' : fmt(fees.termBalance)}
+                        {noFeeStructure ? '⚠ NO FEES' : isCleared ? '✓ CLEAR' : fmt(fees.termBalance)}
                       </div>
-                      <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Term Bal</div>
+                      <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {noFeeStructure ? 'Set structure' : 'Term Bal'}
+                      </div>
                     </div>
                   </div>
                 </button>
