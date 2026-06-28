@@ -39,11 +39,18 @@ interface ChildData {
     stream_name: string;
     gender: string;
     photo_url?: string;
-    totalDue: number;
+    totalDue: number;       // arrears + current term balance
     totalPaid: number;
-    balance: number;
+    balance: number;          // same as totalDue (kept for compat)
+    termTotal: number;        // current term fees only
+    termBalance: number;      // current term unpaid
+    prevArrears: number;      // unpaid from previous terms
+    annualTotal: number;
+    annualBalance: number;
     collectionRate: number;
     attendanceRate: number;
+    hasFeeStructure: boolean; // true only when fee structure exists
+    isCleared: boolean;       // true only when fees exist AND fully paid
     recentPayments: any[];
     feeStructure: any[];
 }
@@ -95,7 +102,10 @@ export default function ParentDashboard() {
                     stream_name: sesStreamName || '',
                     gender: '',
                     totalDue: 0, totalPaid: 0, balance: 0,
+                    termTotal: 0, termBalance: 0, prevArrears: 0,
+                    annualTotal: 0, annualBalance: 0,
                     collectionRate: 0, attendanceRate: 0,
+                    hasFeeStructure: false, isCleared: false,
                     recentPayments: [], feeStructure: [],
                 };
                 // Show the child instantly from session
@@ -170,18 +180,53 @@ export default function ParentDashboard() {
 
             // ── Enrich with fees + attendance ──
             if (students.length > 0) {
+                // Fetch current term ONCE for all students
+                const { data: currentTermData } = await supabase
+                    .from('school_terms')
+                    .select('id, term_name')
+                    .eq('is_current', true)
+                    .single();
+                const currentYear = new Date().getFullYear();
+
                 const enriched: ChildData[] = await Promise.all(
                     students.map(async (s: any) => {
-                        const [{ data: payments }, { data: feeStructure }, { data: attendance }] = await Promise.all([
-                            supabase.from('school_fee_payments').select('amount, payment_date, payment_method, receipt_no').eq('student_id', s.id).order('payment_date', { ascending: false }),
-                            supabase.from('school_fee_structures').select('category, amount, term').eq('form_id', s.form_id),
+                        const [{ data: payments }, { data: allStructures }, { data: attendance }] = await Promise.all([
+                            supabase.from('school_fee_payments').select('amount, payment_date, payment_method, receipt_no, term_id').eq('student_id', s.id).order('payment_date', { ascending: false }),
+                            supabase.from('school_fee_structures').select('id, category, amount, term_id, year, form_id').or(`form_id.eq.${s.form_id},form_id.is.null`),
                             supabase.from('school_attendance').select('status').eq('student_id', s.id).gte('attendance_date', new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]),
                         ]);
 
-                        const totalDue = (feeStructure || []).reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0);
+                        // ── Fee calculation (mirrors web logic) ──────────────
+                        let yearFees = (allStructures || []).filter((f: any) => !f.year || f.year === currentYear);
+                        if (yearFees.length === 0 && allStructures && allStructures.length > 0) {
+                            const maxYear = Math.max(...allStructures.map((f: any) => f.year || 0));
+                            yearFees = allStructures.filter((f: any) => !f.year || f.year === maxYear);
+                        }
+
+                        // Current term fees
+                        const termFees = yearFees.filter((f: any) =>
+                            currentTermData ? (!f.term_id || f.term_id === currentTermData.id) : true
+                        );
+                        // Previous term fees (for arrears)
+                        const prevTermFees = yearFees.filter((f: any) =>
+                            currentTermData && f.term_id && f.term_id !== currentTermData.id
+                        );
+
+                        const termTotal = termFees.reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0);
+                        const prevTotal = prevTermFees.reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0);
+                        const annualTotal = yearFees.reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0);
                         const totalPaid = (payments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
-                        const balance = Math.max(0, totalDue - totalPaid);
-                        const collectionRate = totalDue > 0 ? Math.min(100, Math.round((totalPaid / totalDue) * 100)) : 0;
+
+                        // Apply payments: first to prev term arrears, then current term
+                        const prevArrears = Math.max(0, prevTotal - Math.min(totalPaid, prevTotal));
+                        const termPaidAmount = Math.max(0, totalPaid - prevTotal);
+                        const termBalance = Math.max(0, termTotal - termPaidAmount);
+                        const totalDue = prevArrears + termBalance;  // what parent owes NOW
+                        const annualBalance = Math.max(0, annualTotal - totalPaid);
+
+                        const hasFeeStructure = termTotal > 0 || prevTotal > 0;
+                        const isCleared = hasFeeStructure && totalDue <= 0;
+                        const collectionRate = annualTotal > 0 ? Math.min(100, Math.round((totalPaid / annualTotal) * 100)) : 0;
 
                         const attRecords = attendance || [];
                         const present = attRecords.filter((a: any) => a.status === 'Present').length;
@@ -198,9 +243,13 @@ export default function ParentDashboard() {
                             stream_name: (s.school_streams as any)?.stream_name || sesStreamName || '',
                             gender: s.gender,
                             photo_url: s.photo_url,
-                            totalDue, totalPaid, balance, collectionRate, attendanceRate,
+                            totalDue, totalPaid, balance: totalDue,
+                            termTotal, termBalance, prevArrears,
+                            annualTotal, annualBalance,
+                            collectionRate, attendanceRate,
+                            hasFeeStructure, isCleared,
                             recentPayments: (payments || []).slice(0, 5),
-                            feeStructure: feeStructure || [],
+                            feeStructure: allStructures || [],
                         };
                     })
                 );
@@ -359,8 +408,13 @@ export default function ParentDashboard() {
                                                 <Text style={styles.heroAvatarInitials}>{initials}</Text>
                                             </View>
                                         )}
-                                        <View style={[styles.heroBadge, { backgroundColor: child.balance > 0 ? T.red : T.green }]}>
-                                            <Text style={styles.heroBadgeText}>{child.balance > 0 ? '⚠' : '✓'}</Text>
+                                        <View style={[styles.heroBadge, {
+                                            backgroundColor: !child.hasFeeStructure ? '#f59e0b'
+                                                : child.isCleared ? T.green : T.red
+                                        }]}>
+                                            <Text style={styles.heroBadgeText}>
+                                                {!child.hasFeeStructure ? '!' : child.isCleared ? '✓' : '⚠'}
+                                            </Text>
                                         </View>
                                     </View>
                                     {/* Child details */}
@@ -377,15 +431,32 @@ export default function ParentDashboard() {
                                 {/* Fee status bar */}
                                 <View style={styles.heroFeeRow}>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={styles.heroFeeLabel}>Fee Status — {child.collectionRate}% Paid</Text>
+                                        <Text style={styles.heroFeeLabel}>
+                                            {!child.hasFeeStructure
+                                                ? 'No Fee Structure Set'
+                                                : `Fee Status — ${child.collectionRate}% Paid`}
+                                        </Text>
                                         <View style={styles.heroProgressBg}>
-                                            <View style={[styles.heroProgressFill, { width: `${child.collectionRate}%` as any }]} />
+                                            <View style={[styles.heroProgressFill, {
+                                                width: child.hasFeeStructure ? `${child.collectionRate}%` as any : '0%'
+                                            }]} />
                                         </View>
+                                        {child.hasFeeStructure && child.prevArrears > 0 && (
+                                            <Text style={{ fontSize: 9, color: 'rgba(255,200,100,1)', fontWeight: '700', marginTop: 2 }}>
+                                                ⚠ Arrears: {fmtKESShort(child.prevArrears)}
+                                            </Text>
+                                        )}
                                     </View>
                                     <View style={styles.heroBalanceBox}>
-                                        <Text style={styles.heroBalanceLabel}>{child.balance > 0 ? 'Balance' : 'Cleared'}</Text>
+                                        <Text style={styles.heroBalanceLabel}>
+                                            {!child.hasFeeStructure ? 'No Fees' : child.isCleared ? 'Cleared' : 'Balance Due'}
+                                        </Text>
                                         <Text style={styles.heroBalance}>
-                                            {child.balance > 0 ? fmtKESShort(child.balance) : '✅ KES 0'}
+                                            {!child.hasFeeStructure
+                                                ? '⚠ N/A'
+                                                : child.isCleared
+                                                ? '✅ KES 0'
+                                                : fmtKESShort(child.totalDue)}
                                         </Text>
                                     </View>
                                 </View>
@@ -393,7 +464,7 @@ export default function ParentDashboard() {
                                 {/* Quick stats strip */}
                                 <View style={styles.heroStrip}>
                                     {[
-                                        { l: 'Total Fees', v: fmtKESShort(child.totalDue) },
+                                        { l: 'Term Fees', v: child.hasFeeStructure ? fmtKESShort(child.termTotal) : 'N/A' },
                                         { l: 'Paid', v: fmtKESShort(child.totalPaid) },
                                         { l: 'Attendance', v: `${child.attendanceRate}%` },
                                     ].map((s, i) => (
@@ -436,10 +507,18 @@ export default function ParentDashboard() {
                             </TouchableOpacity>
                         )}
 
-                        {child && child.balance === 0 && (
+                        {/* Only show celebration when fees ACTUALLY exist and are cleared */}
+                        {child && child.hasFeeStructure && child.isCleared && (
                             <View style={styles.paidBanner}>
                                 <Text style={styles.paidBannerIcon}>🎉</Text>
                                 <Text style={styles.paidBannerText}>Fees fully cleared! Thank you.</Text>
+                            </View>
+                        )}
+                        {/* Show warning when no fee structure configured */}
+                        {child && !child.hasFeeStructure && (
+                            <View style={[styles.paidBanner, { backgroundColor: '#fffbeb', borderColor: '#fde68a' }]}>
+                                <Text style={styles.paidBannerIcon}>⚠️</Text>
+                                <Text style={[styles.paidBannerText, { color: '#92400e' }]}>Fee structure not yet set. Contact school admin.</Text>
                             </View>
                         )}
 
