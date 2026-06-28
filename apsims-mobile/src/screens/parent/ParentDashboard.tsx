@@ -105,7 +105,8 @@ export default function ParentDashboard() {
                     termTotal: 0, termBalance: 0, prevArrears: 0,
                     annualTotal: 0, annualBalance: 0,
                     collectionRate: 0, attendanceRate: 0,
-                    hasFeeStructure: false, isCleared: false,
+                    hasFeeStructure: null as any,  // null = loading, not 'no fees'
+                    isCleared: false,
                     recentPayments: [], feeStructure: [],
                 };
                 // Show the child instantly from session
@@ -224,8 +225,10 @@ export default function ParentDashboard() {
                         const totalDue = prevArrears + termBalance;  // what parent owes NOW
                         const annualBalance = Math.max(0, annualTotal - totalPaid);
 
-                        const hasFeeStructure = termTotal > 0 || prevTotal > 0;
-                        const isCleared = hasFeeStructure && totalDue <= 0;
+                        // hasFeeStructure: true if ANY fee structure exists for this form in the current year
+                        // (even if it's only for prev terms — it means the school has set up fees)
+                        const hasFeeStructure = annualTotal > 0;
+                        const isCleared = hasFeeStructure && totalDue <= 0 && totalPaid > 0;
                         const collectionRate = annualTotal > 0 ? Math.min(100, Math.round((totalPaid / annualTotal) * 100)) : 0;
 
                         const attRecords = attendance || [];
@@ -409,11 +412,12 @@ export default function ParentDashboard() {
                                             </View>
                                         )}
                                         <View style={[styles.heroBadge, {
-                                            backgroundColor: !child.hasFeeStructure ? '#f59e0b'
+                                            backgroundColor: child.hasFeeStructure == null ? '#94a3b8'
+                                                : !child.hasFeeStructure ? '#f59e0b'
                                                 : child.isCleared ? T.green : T.red
                                         }]}>
                                             <Text style={styles.heroBadgeText}>
-                                                {!child.hasFeeStructure ? '!' : child.isCleared ? '✓' : '⚠'}
+                                                {child.hasFeeStructure == null ? '…' : !child.hasFeeStructure ? '!' : child.isCleared ? '✓' : '⚠'}
                                             </Text>
                                         </View>
                                     </View>
@@ -432,7 +436,9 @@ export default function ParentDashboard() {
                                 <View style={styles.heroFeeRow}>
                                     <View style={{ flex: 1 }}>
                                         <Text style={styles.heroFeeLabel}>
-                                            {!child.hasFeeStructure
+                                            {child.hasFeeStructure == null
+                                                ? 'Loading fees...'
+                                                : !child.hasFeeStructure
                                                 ? 'No Fee Structure Set'
                                                 : `Fee Status — ${child.collectionRate}% Paid`}
                                         </Text>
@@ -449,10 +455,12 @@ export default function ParentDashboard() {
                                     </View>
                                     <View style={styles.heroBalanceBox}>
                                         <Text style={styles.heroBalanceLabel}>
-                                            {!child.hasFeeStructure ? 'No Fees' : child.isCleared ? 'Cleared' : 'Balance Due'}
+                                            {child.hasFeeStructure == null ? '...' : !child.hasFeeStructure ? 'No Fees' : child.isCleared ? 'Cleared' : 'Balance Due'}
                                         </Text>
                                         <Text style={styles.heroBalance}>
-                                            {!child.hasFeeStructure
+                                            {child.hasFeeStructure == null
+                                                ? '— —'
+                                                : !child.hasFeeStructure
                                                 ? '⚠ N/A'
                                                 : child.isCleared
                                                 ? '✅ KES 0'
@@ -464,7 +472,7 @@ export default function ParentDashboard() {
                                 {/* Quick stats strip */}
                                 <View style={styles.heroStrip}>
                                     {[
-                                        { l: 'Term Fees', v: child.hasFeeStructure ? fmtKESShort(child.termTotal) : 'N/A' },
+                                        { l: 'Term Fees', v: child.hasFeeStructure == null ? '...' : child.hasFeeStructure ? fmtKESShort(child.termTotal) : 'N/A' },
                                         { l: 'Paid', v: fmtKESShort(child.totalPaid) },
                                         { l: 'Attendance', v: `${child.attendanceRate}%` },
                                     ].map((s, i) => (
@@ -514,11 +522,11 @@ export default function ParentDashboard() {
                                 <Text style={styles.paidBannerText}>Fees fully cleared! Thank you.</Text>
                             </View>
                         )}
-                        {/* Show warning when no fee structure configured */}
-                        {child && !child.hasFeeStructure && (
+                        {/* Show warning ONLY when hasFeeStructure is explicitly false (not null=loading) */}
+                        {child && child.hasFeeStructure === false && (
                             <View style={[styles.paidBanner, { backgroundColor: '#fffbeb', borderColor: '#fde68a' }]}>
                                 <Text style={styles.paidBannerIcon}>⚠️</Text>
-                                <Text style={[styles.paidBannerText, { color: '#92400e' }]}>Fee structure not yet set. Contact school admin.</Text>
+                                <Text style={[styles.paidBannerText, { color: '#92400e' }]}>Fee structure not yet set for Term 2. Contact school admin to configure fees.</Text>
                             </View>
                         )}
 
