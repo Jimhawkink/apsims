@@ -121,7 +121,8 @@ export default function BulkRemindersPage() {
                 supabase.from('school_streams').select('id,stream_name'),
                 supabase.from('school_fee_payments').select('student_id,amount,term_id,year'),
                 supabase.from('school_fee_structures').select('form_id,amount,year,term_id'),
-                supabase.from('school_terms').select('id,term_name,year,is_current').order('id', { ascending: false }).limit(1).single(),
+                // BUG FIX: use is_current=true, not order-by-id (which returned Term 3 not Term 2)
+                supabase.from('school_terms').select('id,term_name,year,is_current').eq('is_current', true).maybeSingle(),
                 supabase.from('school_details').select('school_name').limit(1).single(),
             ]);
 
