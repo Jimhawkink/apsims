@@ -651,8 +651,7 @@ export default function ParentDashboard() {
                                     <View style={{ padding: 24, alignItems: 'center', gap: 8 }}>
                                         <Text style={{ fontSize: 28 }}>⚠️</Text>
                                         <Text style={{ fontSize: 13, color: T.textSub, textAlign: 'center' }}>
-                                            No fee structure set yet.{'
-'}Contact school admin.
+                                            No fee structure set yet. Contact school admin.
                                         </Text>
                                     </View>
                                 ) : (
