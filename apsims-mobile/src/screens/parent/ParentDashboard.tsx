@@ -78,13 +78,13 @@ export default function ParentDashboard() {
     const sesFormId    = session?.student_form_id    || 0;
 
     const loadFeeStatement = useCallback(async () => {
-        if (!sesStudentId) return;  // only need student ID — form_id optional (Grade 10 etc.)
+        if (!sesStudentId || !sesFormId) return;
         try {
             const currentYear = new Date().getFullYear();
             const [structRes, payRes, termRes] = await Promise.all([
                 supabase.from('school_fee_structures').select('id, category, amount, term_id, year, form_id'),
                 supabase.from('school_fee_payments')
-                    .select('id, amount, payment_date, payment_method, receipt_number')
+                    .select('id, amount, payment_date, payment_method, receipt_no')
                     .eq('student_id', sesStudentId)
                     .order('payment_date', { ascending: false }),
                 supabase.from('school_terms').select('id, term_name, is_current').order('id'),
@@ -187,7 +187,7 @@ export default function ParentDashboard() {
                 const { data: single } = await supabase
                     .from('school_students')
                     .select(`
-                        id, first_name, last_name, admission_number,
+                        id, full_name, first_name, last_name, admission_number,
                         form_id, gender, photo_url,
                         school_forms!inner(id, form_name, form_level),
                         school_streams(stream_name)
@@ -197,14 +197,30 @@ export default function ParentDashboard() {
                 if (single) students = [single];
             }
 
-            // TIER 2 skipped — parent_portal_user_id column does not exist in school_students
+            // ── TIER 2: All students linked via parent_portal_user_id ──
+            if (portalUserId > 0) {
+                const { data: byParentId } = await supabase
+                    .from('school_students')
+                    .select(`
+                        id, full_name, first_name, last_name, admission_number,
+                        form_id, gender, photo_url,
+                        school_forms!inner(id, form_name, form_level),
+                        school_streams(stream_name)
+                    `)
+                    .eq('parent_portal_user_id', portalUserId)
+                    .eq('status', 'Active');
+                if (byParentId?.length) {
+                    const existingIds = new Set(students.map((s: any) => s.id));
+                    byParentId.forEach((s: any) => { if (!existingIds.has(s.id)) students.push(s); });
+                }
+            }
 
             // ── TIER 3: Guardian name match ──
             if (students.length === 0 && session?.full_name) {
                 const { data: byGuardian } = await supabase
                     .from('school_students')
                     .select(`
-                        id, first_name, last_name, admission_number,
+                        id, full_name, first_name, last_name, admission_number,
                         form_id, gender, photo_url,
                         school_forms!inner(id, form_name, form_level),
                         school_streams(stream_name)
@@ -220,7 +236,7 @@ export default function ParentDashboard() {
                 const { data: byAdm } = await supabase
                     .from('school_students')
                     .select(`
-                        id, first_name, last_name, admission_number,
+                        id, full_name, first_name, last_name, admission_number,
                         form_id, gender, photo_url,
                         school_forms!inner(id, form_name, form_level),
                         school_streams(stream_name)
@@ -243,7 +259,7 @@ export default function ParentDashboard() {
                 const enriched: ChildData[] = await Promise.all(
                     students.map(async (s: any) => {
                         const [{ data: payments }, { data: allStructures }, { data: attendance }] = await Promise.all([
-                            supabase.from('school_fee_payments').select('amount, payment_date, payment_method, receipt_number, term_id').eq('student_id', s.id).order('payment_date', { ascending: false }),
+                            supabase.from('school_fee_payments').select('amount, payment_date, payment_method, receipt_no, term_id').eq('student_id', s.id).order('payment_date', { ascending: false }),
                             supabase.from('school_fee_structures').select('id, category, amount, term_id, year, form_id').or(`form_id.eq.${s.form_id},form_id.is.null`),
                             supabase.from('school_attendance').select('status').eq('student_id', s.id).gte('attendance_date', new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]),
                         ]);
@@ -289,7 +305,7 @@ export default function ParentDashboard() {
 
                         return {
                             id: s.id,
-                            full_name: `${s.first_name || ''} ${s.last_name || ''}`.trim(),
+                            full_name: s.full_name,
                             first_name: s.first_name,
                             last_name: s.last_name,
                             admission_number: s.admission_number,
@@ -310,16 +326,6 @@ export default function ParentDashboard() {
                 );
                 setChildren(enriched);
                 setSelectedChild(prev => enriched.find(e => e.id === prev?.id) || enriched[0]);
-                // Patch feeStmt paid from enriched child — enriched[0].totalPaid is correct
-                // (.eq('student_id', s.id) works regardless of session state)
-                if (enriched.length > 0) {
-                    const c = enriched[0];
-                    setFeeStmt(prev => ({
-                        ...prev,
-                        totalPaid: c.totalPaid,
-                        balance: Math.max(0, (prev.annualTotal || c.annualTotal || 0) - c.totalPaid),
-                    }));
-                }
                 await cacheData(`parent_${portalUserId}_children`, enriched);
             } else if (!sesStudentId) {
                 // Nothing found at all — try cache

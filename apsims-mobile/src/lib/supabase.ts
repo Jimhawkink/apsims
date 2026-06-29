@@ -168,7 +168,7 @@ export async function loginUser(username: string, password: string): Promise<Use
             full_name: data.full_name || data.username,
             user_type: data.user_type as 'teacher' | 'parent' | 'student' | 'principal' | 'bursar',
             linked_teacher_id: data.linked_teacher_id,
-            linked_student_id: student?.id || data.linked_student_id,  // use JOIN result (always correct school_students.id)
+            linked_student_id: data.linked_student_id,
             student_name: student ? `${student.first_name} ${student.last_name}` : undefined,
             student_admission: student?.admission_number,
             student_form: student?.school_forms?.form_name,
