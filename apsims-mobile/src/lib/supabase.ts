@@ -84,7 +84,8 @@ export interface FeePayment {
     payment_method: string;
     mpesa_code: string | null;
     reference_number: string | null;
-    receipt_number: string | null;
+    receipt_no: string | null;       // DB column name
+    receipt_number: string | null;   // alternate alias (some queries)
     created_at: string;
 }
 
@@ -502,26 +503,23 @@ export async function getStudentFeePayments(studentId: number): Promise<FeePayme
 export async function getStudentFeeStructures(formId: number): Promise<any[]> {
     try {
         const currentYear = new Date().getFullYear();
-        // Try current year first
+        // Fetch all structures then filter by form (includes general fees with no form_id)
         const { data, error } = await supabase
             .from('school_fee_structures')
-            .select('*')
-            .eq('form_id', formId)
-            .eq('year', currentYear);
+            .select('*');
         if (error) throw error;
 
-        // If no data for current year, fall back to any year for this form
-        if (!data || data.length === 0) {
-            const { data: fallback } = await supabase
-                .from('school_fee_structures')
-                .select('*')
-                .eq('form_id', formId)
-                .order('year', { ascending: false })
-                .limit(20);
-            return fallback || [];
+        // Filter: this form + general (null form_id), then by year
+        let applicable = (data || []).filter((f: any) => !f.form_id || Number(f.form_id) === Number(formId));
+        let yearData = applicable.filter((f: any) => !f.year || Number(f.year) === currentYear);
+
+        // Fall back to most-recent year if no current-year data
+        if (yearData.length === 0 && applicable.length > 0) {
+            const maxYear = Math.max(...applicable.map((f: any) => Number(f.year) || 0));
+            yearData = applicable.filter((f: any) => !f.year || Number(f.year) === maxYear);
         }
 
-        return data;
+        return yearData;
     } catch (err: any) {
         console.error('getStudentFeeStructures error:', err.message);
         return [];
