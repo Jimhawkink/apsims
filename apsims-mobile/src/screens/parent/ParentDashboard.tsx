@@ -78,16 +78,13 @@ export default function ParentDashboard() {
     const sesFormId    = session?.student_form_id    || 0;
 
     const loadFeeStatement = useCallback(async () => {
-        if (!sesStudentId) return;
-        // Use child's form_id if available, fall back to session form_id
-        const effectiveFormId = selectedChild?.form_id || sesFormId;
-        if (!effectiveFormId) return;
+        if (!sesStudentId || !sesFormId) return;
         try {
             const currentYear = new Date().getFullYear();
             const [structRes, payRes, termRes] = await Promise.all([
                 supabase.from('school_fee_structures').select('id, category, amount, term_id, year, form_id'),
                 supabase.from('school_fee_payments')
-                    .select('id, amount, payment_date, payment_method, receipt_no, mpesa_code, reference_number, receipt_number')
+                    .select('id, amount, payment_date, payment_method, receipt_no')
                     .eq('student_id', sesStudentId)
                     .order('payment_date', { ascending: false }),
                 supabase.from('school_terms').select('id, term_name, is_current').order('id'),
@@ -96,8 +93,8 @@ export default function ParentDashboard() {
             const allPay: any[] = payRes.data   || [];
             const allTrm: any[] = termRes.data   || [];
 
-            // Filter: general (no form_id) + this student's form, then by year
-            let applicable = allStr.filter((f: any) => !f.form_id || Number(f.form_id) === Number(effectiveFormId));
+            // Filter: general + this form, then by year
+            let applicable = allStr.filter((f: any) => !f.form_id || Number(f.form_id) === Number(sesFormId));
             let yearFees = applicable.filter((f: any) => !f.year || Number(f.year) === currentYear);
             if (yearFees.length === 0 && applicable.length > 0) {
                 const maxYear = Math.max(...applicable.map((f: any) => Number(f.year) || 0));
@@ -135,7 +132,7 @@ export default function ParentDashboard() {
             console.error('loadFeeStatement:', err.message);
             setFeeStmt(prev => ({ ...prev, loaded: true }));
         }
-    }, [sesStudentId, sesFormId, selectedChild]);
+    }, [sesStudentId, sesFormId]);
 
 
     // Greeting
@@ -261,18 +258,11 @@ export default function ParentDashboard() {
 
                 const enriched: ChildData[] = await Promise.all(
                     students.map(async (s: any) => {
-                        // Fetch all structures (no DB filter on form_id — filter in JS like loadFeeStatement)
-                        // This avoids .or() syntax issues and catches both form-specific and general fees
-                        const [{ data: payments }, { data: allStructuresRaw }, { data: attendance }] = await Promise.all([
-                            supabase.from('school_fee_payments').select('amount, payment_date, payment_method, receipt_no, mpesa_code, reference_number, receipt_number, term_id').eq('student_id', s.id).order('payment_date', { ascending: false }),
-                            supabase.from('school_fee_structures').select('id, category, amount, term_id, year, form_id'),
+                        const [{ data: payments }, { data: allStructures }, { data: attendance }] = await Promise.all([
+                            supabase.from('school_fee_payments').select('amount, payment_date, payment_method, receipt_no, term_id').eq('student_id', s.id).order('payment_date', { ascending: false }),
+                            supabase.from('school_fee_structures').select('id, category, amount, term_id, year, form_id').or(`form_id.eq.${s.form_id},form_id.is.null`),
                             supabase.from('school_attendance').select('status').eq('student_id', s.id).gte('attendance_date', new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]),
                         ]);
-
-                        // Filter structures for this student's form (or general/null form_id)
-                        const allStructures = (allStructuresRaw || []).filter(
-                            (f: any) => !f.form_id || Number(f.form_id) === Number(s.form_id)
-                        );
 
                         // ── Fee calculation (mirrors web logic) ──────────────
                         // Use Number() for type-safe comparison — Supabase may return year as string or number

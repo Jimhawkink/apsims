@@ -94,18 +94,12 @@ export default function StudentDashboard() {
                 .order('period_number');
             setTodayClasses(tt || []);
 
-            // Fee data — filter structures by current year (fall back to latest year if none)
-            const currentYear = new Date().getFullYear();
-            const [{ data: pays }, { data: allStructsRaw }] = await Promise.all([
+            // Fee data
+            const [{ data: pays }, { data: structs }] = await Promise.all([
                 supabase.from('school_fee_payments').select('amount').eq('student_id', studentId),
-                supabase.from('school_fee_structures').select('amount, year, form_id').eq('form_id', formId),
+                supabase.from('school_fee_structures').select('amount').eq('form_id', formId),
             ]);
-            let structs = (allStructsRaw || []).filter((f: any) => !f.year || Number(f.year) === currentYear);
-            if (structs.length === 0 && allStructsRaw && allStructsRaw.length > 0) {
-                const maxYear = Math.max(...allStructsRaw.map((f: any) => Number(f.year) || 0));
-                structs = allStructsRaw.filter((f: any) => !f.year || Number(f.year) === maxYear);
-            }
-            const due = structs.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+            const due = (structs || []).reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
             const paid = (pays || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
             const bal = Math.max(0, due - paid);
             const rate = due > 0 ? Math.min(100, Math.round((paid / due) * 100)) : 100;
