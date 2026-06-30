@@ -50,7 +50,9 @@ export default function MpesaIntegrationPage() {
         shortcode: '',
         passkey: '',
         callback_url: '',
-        environment: 'sandbox',
+        environment: 'production',
+        account_type: 'Till',
+        till_number: '',
     });
     const [showSecrets, setShowSecrets] = useState(false);
     const [savingConfig, setSavingConfig] = useState(false);
@@ -81,6 +83,8 @@ export default function MpesaIntegrationPage() {
                     passkey:         map.mpesa_passkey         || '',
                     callback_url:    map.mpesa_callback_url    || '',
                     environment:     map.mpesa_environment     || 'production',
+                    account_type:    map.mpesa_account_type    || 'Till',
+                    till_number:     map.mpesa_till_number     || '',
                 });
             }
         } catch (e) {
@@ -179,6 +183,8 @@ export default function MpesaIntegrationPage() {
                     mpesa_passkey:         config.passkey,
                     mpesa_callback_url:    config.callback_url,
                     mpesa_environment:     config.environment,
+                    mpesa_account_type:    config.account_type,
+                    mpesa_till_number:     config.till_number,
                 }),
             });
             const json = await res.json();
@@ -500,7 +506,8 @@ export default function MpesaIntegrationPage() {
                             {[
                                 { key: 'consumer_key', label: 'Consumer Key', placeholder: 'Daraja API Consumer Key' },
                                 { key: 'consumer_secret', label: 'Consumer Secret', placeholder: 'Daraja API Consumer Secret', secret: true },
-                                { key: 'shortcode', label: 'Shortcode (Paybill/Till)', placeholder: 'e.g. 174379' },
+                                { key: 'shortcode', label: 'Shortcode (Paybill Head Office)', placeholder: 'e.g. 7887702' },
+                                { key: 'till_number', label: '📌 Till Number (Buy Goods)', placeholder: 'e.g. 9830453 — required for CustomerBuyGoodsOnline' },
                                 { key: 'passkey', label: 'Lipa Na M-Pesa Passkey', placeholder: 'Online passkey from Safaricom', secret: true },
                                 { key: 'callback_url', label: 'Callback URL', placeholder: 'https://yourschool.com/api/mpesa/callback' },
                             ].map(field => (
@@ -508,7 +515,7 @@ export default function MpesaIntegrationPage() {
                                     <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 block">{field.label}</label>
                                     <div className="relative">
                                         <input
-                                            type={field.secret && !showSecrets ? 'password' : 'text'}
+                                            type={(field as any).secret && !showSecrets ? 'password' : 'text'}
                                             value={(config as any)[field.key]}
                                             onChange={e => setConfig(c => ({ ...c, [field.key]: e.target.value }))}
                                             placeholder={field.placeholder}
@@ -521,6 +528,17 @@ export default function MpesaIntegrationPage() {
                                     </div>
                                 </div>
                             ))}
+                            <div>
+                                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 block">Account Type</label>
+                                <select value={config.account_type} onChange={e => setConfig(c => ({ ...c, account_type: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-green-500">
+                                    <option value="Till">Buy Goods (Till Number)</option>
+                                    <option value="Paybill">Pay Bill (Paybill Number)</option>
+                                </select>
+                                {config.account_type === 'Till' && !config.till_number && (
+                                    <p className="text-xs text-red-500 mt-1">⚠️ Till Number is required for Buy Goods payments</p>
+                                )}
+                            </div>
                         </div>
 
                         <button onClick={saveConfig} disabled={savingConfig}
