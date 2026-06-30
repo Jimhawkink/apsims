@@ -151,16 +151,6 @@ export default function MpesaIntegrationPage() {
         if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.slice(1);
         if (!formattedPhone.startsWith('254')) { toast.error('Invalid Kenyan phone number'); return; }
 
-    const handleSendSTK = async () => {
-        if (!selectedStudent || !amount || !phone) {
-            toast.error('Please select a student, enter amount and phone number'); return;
-        }
-        const numAmount = Number(amount);
-        if (isNaN(numAmount) || numAmount < 1) { toast.error('Invalid amount'); return; }
-        let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
-        if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.slice(1);
-        if (!formattedPhone.startsWith('254')) { toast.error('Invalid Kenyan phone number'); return; }
-
         const studentSnapshot = selectedStudent;
         setSending(true);
         try {
