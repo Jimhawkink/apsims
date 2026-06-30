@@ -24,6 +24,9 @@ import ScreenHeader from '../../components/ScreenHeader';
 import { T, fmtKES, fmtKESShort } from '../../theme/PremiumTheme';
 import { ProgressBar } from '../../components/PremiumUI';
 
+const SCHOOL_API_BASE = 'https://apsims.vercel.app';
+
+
 type RouteProps = RouteProp<RootStackParamList, 'PayFees'>;
 type PayStep = 'overview' | 'amount' | 'method' | 'confirm' | 'processing' | 'success' | 'failed';
 type PayMethod = 'MPesa' | 'KCB' | 'Manual';
@@ -134,6 +137,20 @@ export default function PayFeesScreen() {
                     setBalance((prev: number) => Math.max(0, prev - Number(amount)));
                     setStep('success');
                     playSuccess();
+                    // Also record fee directly (backup if callback didn't fire)
+                    try {
+                        await fetch(`${SCHOOL_API_BASE}/api/payments/record-mpesa`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                checkoutId:   reqId,
+                                studentId,
+                                amount:       Number(amount),
+                                mpesaReceipt: result.receipt || '',
+                                phone,
+                            }),
+                        });
+                    } catch { /* non-fatal — callback may have already recorded it */ }
                     loadFeeData();
                 } else if (result.status === 'failed') {
                     clearInterval(pollRef.current!);
@@ -144,6 +161,7 @@ export default function PayFeesScreen() {
             } catch { /* Keep polling */ }
         }, 5000);
     };
+
 
     // ─── Handle initiate payment ───────────────────────────────
     const handleInitiate = async () => {

@@ -1789,17 +1789,25 @@ export async function pollSTKStatus(
     checkoutRequestId: string
 ): Promise<{ status: string; receipt?: string }> {
     try {
-        const { data, error } = await supabase
-            .from('school_mpesa_transactions')
-            .select('status, mpesa_receipt')
-            .eq('checkout_request_id', checkoutRequestId)
-            .limit(1)
-            .maybeSingle();
+        // Use server API — avoids RLS which blocks anon reads on school_mpesa_transactions
+        const res = await fetch(
+            `${SCHOOL_API_BASE}/api/mpesa/stk-status?checkoutId=${encodeURIComponent(checkoutRequestId)}`
+        );
+        if (!res.ok) return { status: 'pending' };
+        const data = await res.json();
 
-        if (error || !data) return { status: 'pending' };
-        return { status: data.status || 'pending', receipt: data.mpesa_receipt || undefined };
-    } catch (err: any) {
-        console.error('pollSTKStatus error:', err.message);
+        if (data.ResultCode === '0') {
+            // Trigger record-mpesa directly to guarantee fee is saved
+            await fetch(`${SCHOOL_API_BASE}/api/payments/record-mpesa`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ checkoutId: checkoutRequestId })
+            });
+            return { status: 'success', receipt: data.MpesaReceiptNumber || undefined };
+        }
+        if (data.ResultCode && data.ResultCode !== '0') return { status: 'failed' };
+        return { status: data.status || 'pending' };
+    } catch {
         return { status: 'pending' };
     }
 }

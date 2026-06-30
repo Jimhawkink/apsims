@@ -1,14 +1,15 @@
 export const dynamic = 'force-dynamic';
-// /api/payments/record-mpesa — Records a confirmed M-Pesa STK payment directly
-// Called by integration page when poll confirms success, bypassing callback dependency
+// /api/payments/record-mpesa — Records a confirmed M-Pesa STK payment
+// Called by: integration page (has studentId), mobile app (has only checkoutId)
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSession } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Auth check — allow mobile (session token) and web (cookie session)
+    let session: any = null;
+    try { session = await getSession(); } catch { /* mobile may not have cookie */ }
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,15 +17,36 @@ export async function POST(req: NextRequest) {
     );
 
     const body = await req.json();
-    const { studentId, amount, mpesaReceipt, phone, checkoutId } = body;
+    let { studentId, amount, mpesaReceipt, phone, checkoutId } = body;
 
-    if (!studentId || !amount) {
-      return NextResponse.json({ error: 'studentId and amount required' }, { status: 400 });
+    if (!checkoutId && !mpesaReceipt) {
+      return NextResponse.json({ error: 'checkoutId or mpesaReceipt required' }, { status: 400 });
     }
 
-    const results: any = {};
+    // If we only have checkoutId (mobile case), look up the transaction for studentId + amount
+    if (checkoutId && (!studentId || !amount)) {
+      const { data: tx } = await supabase
+        .from('school_mpesa_transactions')
+        .select('student_id, amount, mpesa_receipt, phone')
+        .eq('checkout_request_id', checkoutId)
+        .maybeSingle();
 
-    // 1. Check if fee payment already exists (to avoid duplicates from callback + this call)
+      if (tx) {
+        if (!studentId) studentId = tx.student_id;
+        if (!amount)    amount    = tx.amount;
+        if (!mpesaReceipt) mpesaReceipt = tx.mpesa_receipt;
+        if (!phone)     phone     = tx.phone;
+      }
+    }
+
+    if (!studentId || !amount) {
+      return NextResponse.json({
+        error: 'Could not determine studentId/amount. Payment may still be processing.',
+        hint: 'Transaction record not found — callback may not have fired yet.'
+      }, { status: 422 });
+    }
+
+    // Deduplicate by mpesa_receipt
     if (mpesaReceipt) {
       const { data: existing } = await supabase
         .from('school_fee_payments')
@@ -41,7 +63,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Save to school_fee_payments
+    // Save to school_fee_payments
     const { data: feePayment, error: feeErr } = await supabase
       .from('school_fee_payments')
       .insert([{
@@ -59,28 +81,20 @@ export async function POST(req: NextRequest) {
 
     if (feeErr) {
       console.error('Fee payment insert error:', feeErr.message);
-      results.feeError = feeErr.message;
-    } else {
-      results.feePaymentId = feePayment?.id;
-      console.log(`✅ Fee recorded: student ${studentId} KES ${amount} receipt ${mpesaReceipt}`);
+      return NextResponse.json({ error: `Failed to record fee: ${feeErr.message}` }, { status: 500 });
     }
 
-    // 3. Also update school_mpesa_transactions if record exists
+    console.log(`✅ Fee recorded: student ${studentId} KES ${amount} receipt ${mpesaReceipt}`);
+
+    // Also update school_mpesa_transactions status if record exists
     if (checkoutId && mpesaReceipt) {
-      const { error: txErr } = await supabase
+      await supabase
         .from('school_mpesa_transactions')
         .update({ status: 'success', mpesa_receipt: mpesaReceipt, result_code: 0 })
         .eq('checkout_request_id', checkoutId);
-
-      if (txErr) console.warn('TX update error (non-fatal):', txErr.message);
-      results.txUpdated = !txErr;
     }
 
-    if (feeErr && !results.feePaymentId) {
-      return NextResponse.json({ error: `Failed to record: ${feeErr.message}` }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, ...results });
+    return NextResponse.json({ success: true, feePaymentId: feePayment?.id });
   } catch (err: any) {
     console.error('record-mpesa error:', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
