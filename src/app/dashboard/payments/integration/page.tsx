@@ -59,6 +59,7 @@ export default function MpesaIntegrationPage() {
     const [stats, setStats] = useState({ total: 0, success: 0, failed: 0, amount: 0 });
     const [filterStatus, setFilterStatus] = useState<STKStatus | 'all'>('all');
     const [histSearch, setHistSearch] = useState('');
+    const [pendingSTK, setPendingSTK] = useState<{ student: any; amount: number; checkoutId: string; status: string } | null>(null);
 
     const loadStudents = useCallback(async () => {
         const { data } = await supabase
@@ -150,6 +151,17 @@ export default function MpesaIntegrationPage() {
         if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.slice(1);
         if (!formattedPhone.startsWith('254')) { toast.error('Invalid Kenyan phone number'); return; }
 
+    const handleSendSTK = async () => {
+        if (!selectedStudent || !amount || !phone) {
+            toast.error('Please select a student, enter amount and phone number'); return;
+        }
+        const numAmount = Number(amount);
+        if (isNaN(numAmount) || numAmount < 1) { toast.error('Invalid amount'); return; }
+        let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
+        if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.slice(1);
+        if (!formattedPhone.startsWith('254')) { toast.error('Invalid Kenyan phone number'); return; }
+
+        const studentSnapshot = selectedStudent;
         setSending(true);
         try {
             const res = await fetch('/api/payments/mpesa-stk', {
@@ -158,19 +170,57 @@ export default function MpesaIntegrationPage() {
                 body: JSON.stringify({
                     phone:              formattedPhone,
                     amount:             numAmount,
-                    studentId:          selectedStudent.id,
-                    accountReference:   selectedStudent.admission_no || selectedStudent.admission_number || 'SCH',
-                    transactionDesc:    `School Fees - ${selectedStudent.first_name} ${selectedStudent.last_name}`,
+                    studentId:          studentSnapshot.id,
+                    accountReference:   studentSnapshot.admission_no || studentSnapshot.admission_number || 'SCH',
+                    transactionDesc:    `School Fees - ${studentSnapshot.first_name} ${studentSnapshot.last_name}`,
                 }),
             });
             const result = await res.json();
             if (res.ok && result.success) {
-                toast.success('✅ STK Push sent! Ask parent to check their phone and enter M-Pesa PIN');
+                toast.success('📲 STK sent! Waiting for parent to enter PIN...');
+                const checkoutId = result.checkoutRequestId || result.CheckoutRequestID;
+                setPendingSTK({ student: studentSnapshot, amount: numAmount, checkoutId, status: 'pending' });
                 setAmount(''); setSelectedStudent(null); setSearch(''); setPhone('');
-                // Reload history after 5s then again at 30s to catch the callback
-                setTimeout(loadHistory, 5000);
-                setTimeout(loadHistory, 30000);
-                setTimeout(loadHistory, 60000);
+
+                // Poll for status — record fee directly when confirmed
+                let polls = 0;
+                const poll = setInterval(async () => {
+                    polls++;
+                    try {
+                        const s = await fetch(`/api/mpesa/stk-status?checkoutId=${checkoutId}`);
+                        const statusData = await s.json();
+                        if (statusData.ResultCode === '0') {
+                            clearInterval(poll);
+                            setPendingSTK(p => p ? { ...p, status: 'success' } : null);
+                            toast.success(`✅ Payment confirmed! KES ${numAmount} from ${studentSnapshot.first_name}`, { duration: 8000 });
+                            // Record fee payment via server API
+                            await fetch('/api/payments/record-mpesa', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    studentId:    studentSnapshot.id,
+                                    amount:       numAmount,
+                                    mpesaReceipt: statusData.MpesaReceiptNumber || '',
+                                    phone:        formattedPhone,
+                                    checkoutId,
+                                }),
+                            });
+                            setTimeout(() => { loadHistory(); setPendingSTK(null); }, 2000);
+                        } else if (statusData.ResultCode && statusData.ResultCode !== '0') {
+                            clearInterval(poll);
+                            setPendingSTK(p => p ? { ...p, status: 'failed' } : null);
+                            toast.error('Payment was cancelled or failed');
+                            setTimeout(() => setPendingSTK(null), 5000);
+                        }
+                    } catch { /* continue polling */ }
+                    if (polls >= 18) { // 90 second timeout
+                        clearInterval(poll);
+                        setPendingSTK(p => p ? { ...p, status: 'timeout' } : null);
+                        setTimeout(() => setPendingSTK(null), 10000);
+                    }
+                    // Also reload history every 3 polls
+                    if (polls % 3 === 0) loadHistory();
+                }, 5000);
             } else {
                 toast.error(result.error || 'Failed to send STK Push');
             }
@@ -180,6 +230,7 @@ export default function MpesaIntegrationPage() {
             setSending(false);
         }
     };
+
 
     const saveConfig = async () => {
         setSavingConfig(true);
@@ -364,6 +415,32 @@ export default function MpesaIntegrationPage() {
                                 <li>Receipt is generated and SMS sent to parent</li>
                             </ol>
                         </div>
+
+                        {/* Live STK status banner */}
+                        {pendingSTK && (
+                            <div className={`mt-4 p-4 rounded-xl border flex items-center gap-3 ${
+                                pendingSTK.status === 'pending'  ? 'bg-yellow-50 border-yellow-200' :
+                                pendingSTK.status === 'success'  ? 'bg-green-50 border-green-200' :
+                                pendingSTK.status === 'failed'   ? 'bg-red-50 border-red-200' :
+                                                                    'bg-gray-50 border-gray-200'
+                            }`}>
+                                {pendingSTK.status === 'pending' && (
+                                    <div className="w-5 h-5 border-2 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin flex-shrink-0" />
+                                )}
+                                {pendingSTK.status === 'success' && <span className="text-2xl">✅</span>}
+                                {pendingSTK.status === 'failed'  && <span className="text-2xl">❌</span>}
+                                {pendingSTK.status === 'timeout' && <span className="text-2xl">⏰</span>}
+                                <div>
+                                    <p className="text-sm font-bold text-gray-800">
+                                        {pendingSTK.status === 'pending' ? `Waiting for ${pendingSTK.student.first_name} to enter PIN...` :
+                                         pendingSTK.status === 'success' ? `KES ${pendingSTK.amount} confirmed & saved!` :
+                                         pendingSTK.status === 'failed'  ? 'Payment cancelled or failed' :
+                                         'Payment timed out — parent did not respond in time'}
+                                    </p>
+                                    <p className="text-xs text-gray-500">KES {pendingSTK.amount} · {pendingSTK.student.first_name} {pendingSTK.student.last_name}</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Live Status */}
