@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       mpesa_receipt: mpesaReceipt,
       transaction_date: transactionDate,
       msisdn: phone,
-      status: resultCode === 0 ? 'completed' : 'failed',
+      status: resultCode === 0 ? 'success' : 'failed',  // 'success' matches mobile poll check
       callback_received: true,
       raw_callback: body,
       matched: !!mpesaReceipt,
