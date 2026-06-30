@@ -58,8 +58,6 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-
-    // Build upsert rows — only known keys
     const rows = MPESA_KEYS
       .filter(k => body[k] !== undefined && body[k] !== null)
       .map(k => ({ key: k, value: String(body[k]) }));
@@ -69,13 +67,29 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = adminClient();
-    const { error } = await supabase
+
+    // Try upsert first (works if key has UNIQUE constraint)
+    const { error: upsertError } = await supabase
       .from('school_settings')
       .upsert(rows, { onConflict: 'key' });
 
-    if (error) throw error;
+    if (!upsertError) {
+      return NextResponse.json({ success: true, method: 'upsert', saved: rows.length });
+    }
 
-    return NextResponse.json({ success: true, saved: rows.length });
+    // Fallback: delete existing keys then insert fresh rows
+    console.warn('Upsert failed, using delete+insert:', upsertError.message);
+    const keysToSave = rows.map(r => r.key);
+
+    await supabase.from('school_settings').delete().in('key', keysToSave);
+
+    const { error: insertError } = await supabase
+      .from('school_settings')
+      .insert(rows);
+
+    if (insertError) throw new Error(`Save failed: ${insertError.message}`);
+
+    return NextResponse.json({ success: true, method: 'delete+insert', saved: rows.length });
   } catch (err: any) {
     console.error('POST /api/settings/mpesa error:', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
