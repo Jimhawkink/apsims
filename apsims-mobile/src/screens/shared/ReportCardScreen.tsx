@@ -138,10 +138,26 @@ export default function ReportCardScreen() {
     }, [studentId]);
 
     const loadTerms = useCallback(async () => {
-        const term = await getCurrentTerm();
-        if (term) {
-            setTerms([term]);
-            setSelectedTermId(term.id);
+        try {
+            // Load ALL terms so parent can browse previous term report cards
+            const { data: allTerms } = await supabase
+                .from('school_terms')
+                .select('id, term_name, is_current')
+                .order('id', { ascending: false });
+
+            if (allTerms && allTerms.length > 0) {
+                setTerms(allTerms as { id: number; term_name: string }[]);
+                // Default to current term if found, else latest
+                const cur = (allTerms as any[]).find((t: any) => t.is_current) || allTerms[0];
+                setSelectedTermId(cur.id);
+            } else {
+                // Fallback to getCurrentTerm
+                const term = await getCurrentTerm();
+                if (term) { setTerms([term]); setSelectedTermId(term.id); }
+            }
+        } catch {
+            const term = await getCurrentTerm();
+            if (term) { setTerms([term]); setSelectedTermId(term.id); }
         }
     }, []);
 
