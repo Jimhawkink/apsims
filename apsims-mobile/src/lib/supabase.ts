@@ -1119,30 +1119,78 @@ export async function getCBCCompetencySummaries(
     termId: number
 ): Promise<CBCCompetencySummary[]> {
     try {
+        // Query the REAL marks table (same as web app cbc-report-cards page)
         const { data, error } = await supabase
-            .from('cbc_competency_summaries')
-            .select('*, school_subjects(subject_name)')
+            .from('cbc_mark_scores')
+            .select('*, school_subjects(id, subject_name)')
             .eq('student_id', studentId)
             .eq('term_id', termId);
 
         if (error) throw error;
-        return (data || []).map((r: any) => ({
-            id: r.id,
-            student_id: r.student_id,
-            subject_id: r.subject_id,
-            subject_name: r.school_subjects?.subject_name || '',
-            term_id: r.term_id,
-            formative_level: r.formative_level as CBCLevel | null,
-            summative_level: r.summative_level as CBCLevel | null,
-            overall_level: r.overall_level as CBCLevel | null,
-            formative_count: r.formative_count || 0,
-            last_computed_at: r.last_computed_at,
-        }));
+        const rows = data || [];
+
+        // Group by subject_id (same logic as web app)
+        const grouped: Record<number, any[]> = {};
+        for (const row of rows) {
+            const sid = row.subject_id;
+            if (!grouped[sid]) grouped[sid] = [];
+            grouped[sid].push(row);
+        }
+
+        const LEVELS = ['EE', 'ME', 'AE', 'BE'] as const;
+        const WEIGHTS: Record<string, number> = { EE: 4, ME: 3, AE: 2, BE: 1 };
+        const NUM_TO_LEVEL: Record<number, CBCLevel> = { 4: 'EE', 3: 'ME', 2: 'AE', 1: 'BE' };
+
+        // Compute mode of rubric levels for formative/summative
+        const modeLevel = (items: any[]): CBCLevel | null => {
+            if (!items.length) return null;
+            const counts: Record<string, number> = {};
+            items.forEach(i => { if (i.rubric_level) counts[i.rubric_level] = (counts[i.rubric_level] || 0) + 1; });
+            let best: string | null = null, bestC = 0;
+            for (const lvl of LEVELS) {
+                if ((counts[lvl] || 0) > bestC) { best = lvl; bestC = counts[lvl] || 0; }
+            }
+            return best as CBCLevel | null;
+        };
+
+        let idx = 1;
+        return Object.entries(grouped).map(([subjectIdStr, group]) => {
+            const subjectId = Number(subjectIdStr);
+            const subjectName = group[0]?.school_subjects?.subject_name || '';
+            const formative = group.filter((g: any) => g.assessment_type === 'Formative' && g.rubric_level);
+            const summative = group.filter((g: any) => g.assessment_type === 'Summative' && g.rubric_level);
+
+            const fLevel = modeLevel(formative);
+            const sLevel = modeLevel(summative);
+
+            // Overall: 60% summative + 40% formative (same as web)
+            let overall: CBCLevel | null = null;
+            if (fLevel && sLevel) {
+                const w = Math.round((WEIGHTS[sLevel] || 0) * 0.6 + (WEIGHTS[fLevel] || 0) * 0.4);
+                overall = NUM_TO_LEVEL[Math.max(1, Math.min(4, w))] || 'BE';
+            } else {
+                overall = sLevel || fLevel;
+            }
+
+            return {
+                id: idx++,
+                student_id: studentId,
+                subject_id: subjectId,
+                subject_name: subjectName,
+                term_id: termId,
+                formative_level: fLevel,
+                summative_level: sLevel,
+                overall_level: overall,
+                formative_count: formative.length,
+                last_computed_at: new Date().toISOString(),
+            };
+        });
     } catch (err: any) {
         console.error('getCBCCompetencySummaries error:', err.message);
         return [];
     }
 }
+
 
 export async function saveCBCMarks(
     records: CBCMarkInput[]
