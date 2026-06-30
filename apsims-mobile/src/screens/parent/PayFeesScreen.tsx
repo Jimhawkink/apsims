@@ -137,20 +137,31 @@ export default function PayFeesScreen() {
                     setBalance((prev: number) => Math.max(0, prev - Number(amount)));
                     setStep('success');
                     playSuccess();
-                    // Also record fee directly (backup if callback didn't fire)
+
+                    // ── Save fee payment directly to Supabase (same columns as web app) ──
                     try {
-                        await fetch(`${SCHOOL_API_BASE}/api/payments/record-mpesa`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                checkoutId:   reqId,
-                                studentId,
-                                amount:       Number(amount),
-                                mpesaReceipt: result.receipt || '',
-                                phone,
-                            }),
-                        });
-                    } catch { /* non-fatal — callback may have already recorded it */ }
+                        const receiptNo = `APSIMS-${String(Date.now()).slice(-6)}`;
+                        const { error: feeErr } = await supabase
+                            .from('school_fee_payments')
+                            .insert([{
+                                student_id:       studentId,
+                                amount:           Number(amount),
+                                payment_date:     new Date().toISOString().split('T')[0],
+                                payment_method:   'M-Pesa',
+                                receipt_number:   receiptNo,
+                                reference_number: result.receipt || reqId || null,
+                                year:             new Date().getFullYear(),
+                                notes:            `M-Pesa STK. Code: ${result.receipt || 'N/A'}. Phone: ${phone}`,
+                            }]);
+                        if (feeErr) {
+                            console.error('Fee save error:', feeErr.message);
+                        } else {
+                            console.log('✅ Fee saved to DB:', receiptNo);
+                        }
+                    } catch (saveErr: any) {
+                        console.error('Fee save exception:', saveErr.message);
+                    }
+
                     loadFeeData();
                 } else if (result.status === 'failed') {
                     clearInterval(pollRef.current!);
