@@ -80,21 +80,31 @@ export async function POST(req: NextRequest) {
     if (resultCode === 0 && paidAmount && existing?.student_id) {
       const studentId = existing.student_id;
 
+      // Get current term
+      const { data: termData } = await supabase
+        .from('school_terms')
+        .select('id')
+        .eq('is_current', true)
+        .maybeSingle();
+
+      const receiptNo = `APSIMS-${String(Date.now()).slice(-6)}`;
+
       const { error: feeErr } = await supabase.from('school_fee_payments').insert([{
-        student_id:     studentId,
-        amount:         paidAmount,
-        amount_paid:    paidAmount,
-        payment_method: 'M-Pesa',
-        mpesa_receipt:  mpesaReceipt,
-        reference_no:   checkoutRequestId,
-        payment_date:   new Date().toISOString().split('T')[0],
-        notes:          `Auto via M-Pesa STK. Receipt: ${mpesaReceipt}`,
+        student_id:       studentId,
+        amount:           paidAmount,
+        payment_date:     new Date().toISOString().split('T')[0],
+        payment_method:   'M-Pesa',
+        receipt_number:   receiptNo,
+        reference_number: mpesaReceipt,          // M-Pesa receipt code
+        term_id:          termData?.id || null,
+        year:             new Date().getFullYear(),
+        notes:            `Auto via M-Pesa STK. Receipt: ${mpesaReceipt}`,
       }]);
 
       if (feeErr) {
         console.error('Fee payment insert error:', feeErr.message);
       } else {
-        console.log(`✅ Fee payment saved for student ${studentId} — KES ${paidAmount} — ${mpesaReceipt}`);
+        console.log(`✅ Fee payment saved: student=${studentId} KES=${paidAmount} receipt=${mpesaReceipt}`);
       }
     }
 
