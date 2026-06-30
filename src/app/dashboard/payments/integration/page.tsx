@@ -68,18 +68,26 @@ export default function MpesaIntegrationPage() {
     }, []);
 
     const loadConfig = useCallback(async () => {
+        // Read from school_settings key-value table
+        const mpesaKeys = [
+            'mpesa_consumer_key', 'mpesa_consumer_secret', 'mpesa_shortcode',
+            'mpesa_passkey', 'mpesa_callback_url', 'mpesa_environment',
+            'mpesa_account_type', 'mpesa_till_number',
+        ];
         const { data } = await supabase
-            .from('school_details')
-            .select('mpesa_consumer_key, mpesa_consumer_secret, mpesa_shortcode, mpesa_passkey, mpesa_callback_url, mpesa_environment')
-            .single();
-        if (data) {
+            .from('school_settings')
+            .select('key, value')
+            .in('key', mpesaKeys);
+        if (data && data.length > 0) {
+            const map: Record<string, string> = {};
+            data.forEach((r: any) => { map[r.key] = r.value || ''; });
             setConfig({
-                consumer_key: data.mpesa_consumer_key || '',
-                consumer_secret: data.mpesa_consumer_secret || '',
-                shortcode: data.mpesa_shortcode || '',
-                passkey: data.mpesa_passkey || '',
-                callback_url: data.mpesa_callback_url || '',
-                environment: data.mpesa_environment || 'sandbox',
+                consumer_key: map.mpesa_consumer_key || '',
+                consumer_secret: map.mpesa_consumer_secret || '',
+                shortcode: map.mpesa_shortcode || '',
+                passkey: map.mpesa_passkey || '',
+                callback_url: map.mpesa_callback_url || '',
+                environment: map.mpesa_environment || 'production',
             });
         }
     }, []);
@@ -133,7 +141,7 @@ export default function MpesaIntegrationPage() {
 
         setSending(true);
         try {
-            const res = await fetch('/api/mpesa/stk-push', {
+            const res = await fetch('/api/payments/mpesa-stk', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -164,18 +172,23 @@ export default function MpesaIntegrationPage() {
     const saveConfig = async () => {
         setSavingConfig(true);
         try {
-            const { error } = await supabase.from('school_details').update({
-                mpesa_consumer_key: config.consumer_key,
-                mpesa_consumer_secret: config.consumer_secret,
-                mpesa_shortcode: config.shortcode,
-                mpesa_passkey: config.passkey,
-                mpesa_callback_url: config.callback_url,
-                mpesa_environment: config.environment,
-            }).eq('id', 1);
+            // Upsert each key into school_settings (key-value table)
+            const rows = [
+                { key: 'mpesa_consumer_key',    value: config.consumer_key },
+                { key: 'mpesa_consumer_secret', value: config.consumer_secret },
+                { key: 'mpesa_shortcode',       value: config.shortcode },
+                { key: 'mpesa_passkey',         value: config.passkey },
+                { key: 'mpesa_callback_url',    value: config.callback_url },
+                { key: 'mpesa_environment',     value: config.environment },
+            ];
+            const { error } = await supabase
+                .from('school_settings')
+                .upsert(rows, { onConflict: 'key' });
             if (error) throw error;
-            toast.success('M-Pesa configuration saved!');
-        } catch {
-            toast.error('Failed to save configuration');
+            toast.success('✅ M-Pesa configuration saved!');
+        } catch (err: any) {
+            console.error('Save config error:', err);
+            toast.error('Failed to save: ' + (err?.message || 'Unknown error'));
         } finally {
             setSavingConfig(false);
         }

@@ -1,19 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-
-// ── M-Pesa Production Credentials ─────────────────────────────────────────────
-const MPESA_ENV         = process.env.MPESA_ENV || 'sandbox';
-const CONSUMER_KEY      = process.env.MPESA_CONSUMER_KEY || '';
-const CONSUMER_SECRET   = process.env.MPESA_CONSUMER_SECRET || '';
-const SHORTCODE         = process.env.MPESA_SHORTCODE || '174379';
-const PASSKEY           = process.env.MPESA_PASSKEY || '';
-const ACCOUNT_TYPE      = process.env.MPESA_ACCOUNT_TYPE || 'Till'; // Till | Paybill
-const TILL_NUMBER       = process.env.MPESA_TILL_NUMBER || SHORTCODE;
-const CALLBACK_URL      = process.env.MPESA_CALLBACK_URL || 'https://apsims.vercel.app/api/mpesa/callback';
-
-const BASE_URL = MPESA_ENV === 'live'
-  ? 'https://api.safaricom.co.ke'
-  : 'https://sandbox.safaricom.co.ke';
+import { createClient } from '@supabase/supabase-js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timestamp(): string {
@@ -33,24 +20,61 @@ function normalizePhone(phone: string): string {
   return p;
 }
 
-async function getAccessToken(): Promise<string> {
-  const auth = Buffer.from(`${CONSUMER_KEY}:${CONSUMER_SECRET}`).toString('base64');
-  const res = await fetch(`${BASE_URL}/oauth/v1/generate?grant_type=client_credentials`, {
+async function getAccessToken(baseUrl: string, key: string, secret: string): Promise<string> {
+  const auth = Buffer.from(`${key}:${secret}`).toString('base64');
+  const res = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
     headers: { Authorization: `Basic ${auth}` },
   });
-  if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`);
+  if (!res.ok) throw new Error(`Token fetch failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
+  if (!data.access_token) throw new Error('No access_token in Safaricom response');
   return data.access_token;
 }
 
+// ── Load credentials from school_settings DB, fallback to env vars ────────────
+// This means whatever you save in the web M-Pesa Config page is used here too
+async function loadMpesaConfig(supabase: any) {
+  const keys = [
+    'mpesa_consumer_key', 'mpesa_consumer_secret', 'mpesa_shortcode',
+    'mpesa_passkey', 'mpesa_callback_url', 'mpesa_environment',
+    'mpesa_account_type', 'mpesa_till_number',
+  ];
+  const { data } = await supabase
+    .from('school_settings')
+    .select('key, value')
+    .in('key', keys);
+
+  const db: Record<string, string> = {};
+  (data || []).forEach((r: any) => { if (r.value) db[r.key] = r.value; });
+
+  return {
+    consumerKey:    db.mpesa_consumer_key    || process.env.MPESA_CONSUMER_KEY    || '',
+    consumerSecret: db.mpesa_consumer_secret || process.env.MPESA_CONSUMER_SECRET || '',
+    shortcode:      db.mpesa_shortcode       || process.env.MPESA_SHORTCODE       || '174379',
+    passkey:        db.mpesa_passkey         || process.env.MPESA_PASSKEY         || '',
+    callbackUrl:    db.mpesa_callback_url    || process.env.MPESA_CALLBACK_URL    || 'https://apsims.vercel.app/api/mpesa/callback',
+    environment:    db.mpesa_environment     || process.env.MPESA_ENV             || 'production',
+    accountType:    db.mpesa_account_type    || process.env.MPESA_ACCOUNT_TYPE    || 'Till',
+    tillNumber:     db.mpesa_till_number     || process.env.MPESA_TILL_NUMBER     || '',
+  };
+}
+
 // ── POST /api/payments/mpesa-stk ──────────────────────────────────────────────
-// Mobile-friendly: no session/CSRF required
+// Mobile-friendly: no session/CSRF — credentials read from school_settings DB
 // Body: { phone, amount, accountReference?, transactionDesc?, studentId? }
 export async function POST(req: NextRequest) {
   try {
-    if (!CONSUMER_KEY || !CONSUMER_SECRET || !PASSKEY) {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    // ── Load M-Pesa config from DB (set via web Finance → M-Pesa Config page)
+    const cfg = await loadMpesaConfig(supabase);
+
+    if (!cfg.consumerKey || !cfg.consumerSecret || !cfg.passkey) {
       return NextResponse.json(
-        { error: 'M-Pesa not configured. Contact the school administrator.' },
+        { error: 'M-Pesa not configured. Go to Finance → M-Pesa Config in the web admin and save your credentials.' },
         { status: 503 }
       );
     }
@@ -62,9 +86,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Phone and amount are required' }, { status: 400 });
     }
 
-    const normalizedPhone = normalizePhone(phone);
-    if (!/^2547\d{8}$|^2541\d{8}$/.test(normalizedPhone)) {
-      return NextResponse.json({ error: 'Invalid Kenyan phone number' }, { status: 400 });
+    const normalizedPhone = normalizePhone(String(phone));
+    if (!/^254[0-9]{9}$/.test(normalizedPhone)) {
+      return NextResponse.json({ error: 'Invalid Kenyan phone number. Use format 07XXXXXXXX' }, { status: 400 });
     }
 
     const amountInt = Math.ceil(Number(amount));
@@ -72,19 +96,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Amount must be at least KES 1' }, { status: 400 });
     }
 
-    // ── Build STK payload ──────────────────────────────────────────────────
-    const ts  = timestamp();
-    const pwd = makePassword(SHORTCODE, PASSKEY, ts);
-    const accessToken = await getAccessToken();
+    // ── Safaricom base URL ────────────────────────────────────────────────────
+    const BASE_URL = cfg.environment.toLowerCase() === 'sandbox'
+      ? 'https://sandbox.safaricom.co.ke'
+      : 'https://api.safaricom.co.ke';
 
-    // For Till (Buy Goods): TransactionType=CustomerBuyGoodsOnline, PartyB=TillNumber
-    // For Paybill:          TransactionType=CustomerPayBillOnline,  PartyB=ShortCode
-    const isTill = ACCOUNT_TYPE.toLowerCase() === 'till';
+    const ts  = timestamp();
+    const pwd = makePassword(cfg.shortcode, cfg.passkey, ts);
+    const accessToken = await getAccessToken(BASE_URL, cfg.consumerKey, cfg.consumerSecret);
+
+    // Till (Buy Goods): TransactionType=CustomerBuyGoodsOnline, PartyB=TillNumber
+    // Paybill:          TransactionType=CustomerPayBillOnline,  PartyB=Shortcode
+    const isTill  = cfg.accountType.toLowerCase() === 'till';
     const txnType = isTill ? 'CustomerBuyGoodsOnline' : 'CustomerPayBillOnline';
-    const partyB  = isTill ? TILL_NUMBER : SHORTCODE;
+    const partyB  = isTill ? (cfg.tillNumber || cfg.shortcode) : cfg.shortcode;
 
     const stkPayload = {
-      BusinessShortCode: SHORTCODE,
+      BusinessShortCode: cfg.shortcode,
       Password:          pwd,
       Timestamp:         ts,
       TransactionType:   txnType,
@@ -92,22 +120,21 @@ export async function POST(req: NextRequest) {
       PartyA:            normalizedPhone,
       PartyB:            partyB,
       PhoneNumber:       normalizedPhone,
-      CallBackURL:       CALLBACK_URL,
+      CallBackURL:       cfg.callbackUrl,
       AccountReference:  accountReference || `SCH-${studentId || Date.now()}`,
-      TransactionDesc:   transactionDesc || 'School Fee Payment',
+      TransactionDesc:   transactionDesc  || 'School Fee Payment',
     };
+
+    console.log('STK payload:', JSON.stringify({ ...stkPayload, Password: '***' }));
 
     const stkRes = await fetch(`${BASE_URL}/mpesa/stkpush/v1/processrequest`, {
       method: 'POST',
-      headers: {
-        Authorization:  `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(stkPayload),
     });
 
     const result = await stkRes.json();
-    console.log('STK Push response:', JSON.stringify(result));
+    console.log('STK response:', JSON.stringify(result));
 
     if (result.ResponseCode !== '0') {
       return NextResponse.json(
@@ -116,31 +143,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Log to Supabase ────────────────────────────────────────────────────
+    // ── Log to Supabase (non-fatal) ───────────────────────────────────────────
     try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
       await supabase.from('school_mpesa_transactions').insert([{
-        merchant_request_id:  result.MerchantRequestID,
-        checkout_request_id:  result.CheckoutRequestID,
-        amount:               amountInt,
-        phone_number:         normalizedPhone,
-        student_id:           studentId || null,
-        account_reference:    stkPayload.AccountReference,
-        transaction_desc:     stkPayload.TransactionDesc,
-        status:               'processing',
-        result_code:          result.ResponseCode,
-        result_desc:          result.ResponseDescription,
+        merchant_request_id: result.MerchantRequestID,
+        checkout_request_id: result.CheckoutRequestID,
+        amount:              amountInt,
+        phone_number:        normalizedPhone,
+        student_id:          studentId || null,
+        account_reference:   stkPayload.AccountReference,
+        transaction_desc:    stkPayload.TransactionDesc,
+        status:              'processing',
+        result_code:         result.ResponseCode,
+        result_desc:         result.ResponseDescription,
       }]);
     } catch (dbErr) {
-      // Non-fatal — STK was already sent
-      console.warn('DB log failed:', dbErr);
+      console.warn('DB log failed (non-fatal):', dbErr);
     }
 
-    // ── Return mobile-expected format ──────────────────────────────────────
+    // ── Return format expected by mobile app ──────────────────────────────────
     return NextResponse.json({
       success:           true,
       checkoutRequestId: result.CheckoutRequestID,
