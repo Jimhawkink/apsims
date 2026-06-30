@@ -68,27 +68,23 @@ export default function MpesaIntegrationPage() {
     }, []);
 
     const loadConfig = useCallback(async () => {
-        // Read from school_settings key-value table
-        const mpesaKeys = [
-            'mpesa_consumer_key', 'mpesa_consumer_secret', 'mpesa_shortcode',
-            'mpesa_passkey', 'mpesa_callback_url', 'mpesa_environment',
-            'mpesa_account_type', 'mpesa_till_number',
-        ];
-        const { data } = await supabase
-            .from('school_settings')
-            .select('key, value')
-            .in('key', mpesaKeys);
-        if (data && data.length > 0) {
-            const map: Record<string, string> = {};
-            data.forEach((r: any) => { map[r.key] = r.value || ''; });
-            setConfig({
-                consumer_key: map.mpesa_consumer_key || '',
-                consumer_secret: map.mpesa_consumer_secret || '',
-                shortcode: map.mpesa_shortcode || '',
-                passkey: map.mpesa_passkey || '',
-                callback_url: map.mpesa_callback_url || '',
-                environment: map.mpesa_environment || 'production',
-            });
+        try {
+            const res = await fetch('/api/settings/mpesa');
+            if (!res.ok) return;
+            const json = await res.json();
+            const map = json.config || {};
+            if (Object.keys(map).length > 0) {
+                setConfig({
+                    consumer_key:    map.mpesa_consumer_key    || '',
+                    consumer_secret: map.mpesa_consumer_secret || '',
+                    shortcode:       map.mpesa_shortcode       || '',
+                    passkey:         map.mpesa_passkey         || '',
+                    callback_url:    map.mpesa_callback_url    || '',
+                    environment:     map.mpesa_environment     || 'production',
+                });
+            }
+        } catch (e) {
+            console.warn('loadConfig error:', e);
         }
     }, []);
 
@@ -172,19 +168,21 @@ export default function MpesaIntegrationPage() {
     const saveConfig = async () => {
         setSavingConfig(true);
         try {
-            // Upsert each key into school_settings (key-value table)
-            const rows = [
-                { key: 'mpesa_consumer_key',    value: config.consumer_key },
-                { key: 'mpesa_consumer_secret', value: config.consumer_secret },
-                { key: 'mpesa_shortcode',       value: config.shortcode },
-                { key: 'mpesa_passkey',         value: config.passkey },
-                { key: 'mpesa_callback_url',    value: config.callback_url },
-                { key: 'mpesa_environment',     value: config.environment },
-            ];
-            const { error } = await supabase
-                .from('school_settings')
-                .upsert(rows, { onConflict: 'key' });
-            if (error) throw error;
+            // POST to server route — uses service role key, bypasses RLS
+            const res = await fetch('/api/settings/mpesa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mpesa_consumer_key:    config.consumer_key,
+                    mpesa_consumer_secret: config.consumer_secret,
+                    mpesa_shortcode:       config.shortcode,
+                    mpesa_passkey:         config.passkey,
+                    mpesa_callback_url:    config.callback_url,
+                    mpesa_environment:     config.environment,
+                }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Save failed');
             toast.success('✅ M-Pesa configuration saved!');
         } catch (err: any) {
             console.error('Save config error:', err);
