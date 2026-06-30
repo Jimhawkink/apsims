@@ -95,12 +95,11 @@ export default function MpesaIntegrationPage() {
     const loadHistory = useCallback(async () => {
         setLoadingHist(true);
         try {
-            const { data } = await supabase
-                .from('school_mpesa_transactions')
-                .select('id, phone, amount, checkout_request_id, merchant_request_id, status, result_desc, mpesa_receipt, student_id, created_at')
-                .order('created_at', { ascending: false })
-                .limit(200);
-            const rows = ((data || []).map((r: any) => ({
+            // Use server API — bypasses RLS (school_mpesa_transactions is locked for client reads)
+            const res = await fetch('/api/transactions/mpesa');
+            if (!res.ok) throw new Error('Failed to load transactions');
+            const json = await res.json();
+            const rows = ((json.transactions || []).map((r: any) => ({
                 id: String(r.id),
                 phone: r.phone || '',
                 amount: Number(r.amount),
@@ -119,6 +118,8 @@ export default function MpesaIntegrationPage() {
                 failed: rows.filter(r => r.status === 'failed').length,
                 amount: rows.filter(r => r.status === 'success').reduce((s, r) => s + Number(r.amount), 0),
             });
+        } catch (e: any) {
+            console.warn('loadHistory error:', e.message);
         } finally {
             setLoadingHist(false);
         }
