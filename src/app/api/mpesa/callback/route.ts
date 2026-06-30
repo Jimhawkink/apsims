@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
+  // IMPORTANT: Always return 200 to Safaricom or they will keep retrying
   try {
     const body = await req.json();
     console.log('M-Pesa Callback received:', JSON.stringify(body, null, 2));
@@ -14,93 +15,96 @@ export async function POST(req: NextRequest) {
 
     const callbackData = body?.Body?.stkCallback;
     if (!callbackData) {
-      return NextResponse.json({ error: 'Invalid callback format' }, { status: 400 });
+      console.error('Invalid callback format:', JSON.stringify(body));
+      return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' });
     }
 
     const checkoutRequestId = callbackData.CheckoutRequestID;
     const merchantRequestId = callbackData.MerchantRequestID;
-    const resultCode = callbackData.ResultCode;
-    const resultDesc = callbackData.ResultDesc;
+    const resultCode       = Number(callbackData.ResultCode);
+    const resultDesc       = callbackData.ResultDesc || '';
 
-    // Find the existing transaction
-    const { data: existing } = await supabase
+    // Find the existing transaction record
+    const { data: existing, error: findErr } = await supabase
       .from('school_mpesa_transactions')
-      .select('*')
+      .select('id, student_id, amount')
       .eq('checkout_request_id', checkoutRequestId)
-      .single();
+      .maybeSingle();
 
-    if (!existing) {
-      console.error('Transaction not found for checkout:', checkoutRequestId);
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
-    }
+    if (findErr) console.error('Find transaction error:', findErr.message);
 
     // Extract payment details if successful
-    let mpesaReceipt = null;
-    let transactionDate = null;
-    let phone = null;
-    let paidAmount = null;
+    let mpesaReceipt: string | null    = null;
+    let transactionDate: string | null = null;
+    let paidAmount: number | null      = null;
 
     if (resultCode === 0 && callbackData.CallbackMetadata) {
-      const items = callbackData.CallbackMetadata.Item || [];
+      const items: any[] = callbackData.CallbackMetadata.Item || [];
       for (const item of items) {
-        if (item.Name === 'MpesaReceiptNumber') mpesaReceipt = item.Value;
-        if (item.Name === 'TransactionDate') transactionDate = String(item.Value);
-        if (item.Name === 'PhoneNumber') phone = String(item.Value);
-        if (item.Name === 'Amount') paidAmount = Number(item.Value);
+        if (item.Name === 'MpesaReceiptNumber') mpesaReceipt   = String(item.Value);
+        if (item.Name === 'TransactionDate')    transactionDate = String(item.Value);
+        if (item.Name === 'Amount')             paidAmount      = Number(item.Value);
       }
     }
 
-    // Update M-Pesa transaction
-    await supabase.from('school_mpesa_transactions').update({
-      result_code: String(resultCode),
-      result_desc: resultDesc,
-      mpesa_receipt: mpesaReceipt,
-      transaction_date: transactionDate,
-      msisdn: phone,
-      status: resultCode === 0 ? 'success' : 'failed',  // 'success' matches mobile poll check
-      callback_received: true,
-      raw_callback: body,
-      matched: !!mpesaReceipt,
-      matched_at: resultCode === 0 ? new Date().toISOString() : null,
-    }).eq('id', existing.id);
+    const newStatus = resultCode === 0 ? 'success' : 'failed'; // 'success' matches mobile poll
 
-    // Update payment attempt
-    if (existing.student_id) {
-      await supabase.from('school_payment_attempts').update({
-        status: resultCode === 0 ? 'completed' : 'failed',
-        callback_received: true,
-        callback_data: body,
-        external_ref: mpesaReceipt || checkoutRequestId,
-      }).eq('student_id', existing.student_id)
-        .eq('external_ref', checkoutRequestId);
-    }
-
-    // If successful, create a fee payment record
-    if (resultCode === 0 && paidAmount && existing.student_id) {
-      const { data: student } = await supabase
-        .from('school_students')
-        .select('id')
-        .eq('id', existing.student_id)
-        .single();
-
-      if (student) {
-        await supabase.from('school_fee_payments').insert([{
-          student_id: existing.student_id,
-          amount_paid: paidAmount,
-          payment_method: 'mpesa',
+    // Update the transaction record (only columns that actually exist in the table)
+    if (existing?.id) {
+      const { error: updateErr } = await supabase
+        .from('school_mpesa_transactions')
+        .update({
+          result_code:   resultCode,
+          result_desc:   resultDesc,
           mpesa_receipt: mpesaReceipt,
-          mpesa_phone: phone,
-          reference_no: existing.account_reference || checkoutRequestId,
-          payment_date: new Date().toISOString().split('T')[0],
-          notes: `Auto-matched from M-Pesa STK. Receipt: ${mpesaReceipt}`,
-        }]);
+          status:        newStatus,
+        })
+        .eq('id', existing.id);
+
+      if (updateErr) console.error('Update transaction error:', updateErr.message);
+    } else {
+      // Transaction not found — insert it so the record exists
+      console.warn('Transaction not found for checkout:', checkoutRequestId, '— inserting');
+      await supabase.from('school_mpesa_transactions').insert([{
+        checkout_request_id:  checkoutRequestId,
+        merchant_request_id:  merchantRequestId,
+        result_code:          resultCode,
+        result_desc:          resultDesc,
+        mpesa_receipt:        mpesaReceipt,
+        amount:               paidAmount,
+        status:               newStatus,
+      }]);
+    }
+
+    // If successful, save to school_fee_payments
+    if (resultCode === 0 && paidAmount && existing?.student_id) {
+      const studentId = existing.student_id;
+
+      const { error: feeErr } = await supabase.from('school_fee_payments').insert([{
+        student_id:     studentId,
+        amount:         paidAmount,
+        amount_paid:    paidAmount,
+        payment_method: 'M-Pesa',
+        mpesa_receipt:  mpesaReceipt,
+        reference_no:   checkoutRequestId,
+        payment_date:   new Date().toISOString().split('T')[0],
+        notes:          `Auto via M-Pesa STK. Receipt: ${mpesaReceipt}`,
+      }]);
+
+      if (feeErr) {
+        console.error('Fee payment insert error:', feeErr.message);
+      } else {
+        console.log(`✅ Fee payment saved for student ${studentId} — KES ${paidAmount} — ${mpesaReceipt}`);
       }
     }
 
-    return NextResponse.json({ success: true });
+    // Always return 200 so Safaricom stops retrying
+    return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+
   } catch (error: any) {
-    console.error('M-Pesa Callback Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('M-Pesa Callback Error:', error.message);
+    // Still return 200 to Safaricom
+    return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' });
   }
 }
 

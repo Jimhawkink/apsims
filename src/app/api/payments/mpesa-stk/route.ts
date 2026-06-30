@@ -143,22 +143,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Log to Supabase (non-fatal) ───────────────────────────────────────────
+    // ── Log to Supabase ───────────────────────────────────────────────────────
     try {
-      await supabase.from('school_mpesa_transactions').insert([{
+      const { error: dbErr } = await supabase.from('school_mpesa_transactions').insert([{
         merchant_request_id: result.MerchantRequestID,
         checkout_request_id: result.CheckoutRequestID,
         amount:              amountInt,
-        phone_number:        normalizedPhone,
+        phone:               normalizedPhone,          // correct column name
         student_id:          studentId || null,
-        account_reference:   stkPayload.AccountReference,
-        transaction_desc:    stkPayload.TransactionDesc,
-        status:              'processing',
-        result_code:         result.ResponseCode,
-        result_desc:         result.ResponseDescription,
+        status:              'pending',                // will be updated by callback
+        result_code:         0,
+        result_desc:         result.ResponseDescription || 'STK Push initiated',
       }]);
-    } catch (dbErr) {
-      console.warn('DB log failed (non-fatal):', dbErr);
+      if (dbErr) console.error('DB insert error (non-fatal):', dbErr.message);
+    } catch (dbErr: any) {
+      console.warn('DB log failed (non-fatal):', dbErr.message);
     }
 
     // ── Return format expected by mobile app ──────────────────────────────────

@@ -96,11 +96,22 @@ export default function MpesaIntegrationPage() {
         setLoadingHist(true);
         try {
             const { data } = await supabase
-                .from('school_mpesa_stk_requests')
-                .select('*')
+                .from('school_mpesa_transactions')
+                .select('id, phone, amount, checkout_request_id, merchant_request_id, status, result_desc, mpesa_receipt, student_id, created_at')
                 .order('created_at', { ascending: false })
                 .limit(200);
-            const rows = (data || []) as STKRequest[];
+            const rows = ((data || []).map((r: any) => ({
+                id: String(r.id),
+                phone: r.phone || '',
+                amount: Number(r.amount),
+                student_name: '',
+                admission_no: '',
+                checkout_request_id: r.checkout_request_id || '',
+                status: r.status as STKStatus,
+                result_desc: r.result_desc || '',
+                created_at: r.created_at,
+                mpesa_receipt: r.mpesa_receipt || undefined,
+            }))) as STKRequest[];
             setRequests(rows);
             setStats({
                 total: rows.length,
@@ -134,7 +145,6 @@ export default function MpesaIntegrationPage() {
         }
         const numAmount = Number(amount);
         if (isNaN(numAmount) || numAmount < 1) { toast.error('Invalid amount'); return; }
-        // Format phone: 07XXXXXXXX → 2547XXXXXXXX
         let formattedPhone = phone.replace(/\s+/g, '').replace(/^\+/, '');
         if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.slice(1);
         if (!formattedPhone.startsWith('254')) { toast.error('Invalid Kenyan phone number'); return; }
@@ -145,20 +155,21 @@ export default function MpesaIntegrationPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    phone: formattedPhone,
-                    amount: numAmount,
-                    student_id: selectedStudent.id,
-                    student_name: `${selectedStudent.first_name} ${selectedStudent.last_name}`,
-                    admission_no: selectedStudent.admission_no || selectedStudent.admission_number,
-                    account_ref: selectedStudent.admission_no || selectedStudent.admission_number || 'SCHOOL',
-                    description: `School Fees - ${selectedStudent.first_name} ${selectedStudent.last_name}`,
+                    phone:              formattedPhone,
+                    amount:             numAmount,
+                    studentId:          selectedStudent.id,
+                    accountReference:   selectedStudent.admission_no || selectedStudent.admission_number || 'SCH',
+                    transactionDesc:    `School Fees - ${selectedStudent.first_name} ${selectedStudent.last_name}`,
                 }),
             });
             const result = await res.json();
             if (res.ok && result.success) {
                 toast.success('✅ STK Push sent! Ask parent to check their phone and enter M-Pesa PIN');
                 setAmount(''); setSelectedStudent(null); setSearch(''); setPhone('');
-                setTimeout(loadHistory, 3000);
+                // Reload history after 5s then again at 30s to catch the callback
+                setTimeout(loadHistory, 5000);
+                setTimeout(loadHistory, 30000);
+                setTimeout(loadHistory, 60000);
             } else {
                 toast.error(result.error || 'Failed to send STK Push');
             }
