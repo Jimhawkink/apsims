@@ -1776,15 +1776,6 @@ export async function initiateSTKPush(
             return { checkoutRequestId: null, error: result.error || 'STK Push failed' };
         }
 
-        // Record pending transaction
-        await supabase.from('school_mpesa_transactions').insert([{
-            student_id: params.studentId,
-            amount: params.amount,
-            phone_number: normalized,
-            checkout_request_id: result.checkoutRequestId || result.CheckoutRequestID,
-            status: 'pending',
-        }]);
-
         return {
             checkoutRequestId: result.checkoutRequestId || result.CheckoutRequestID || null,
             error: null,

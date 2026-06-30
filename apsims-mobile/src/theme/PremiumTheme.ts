@@ -100,10 +100,12 @@ export const T = {
 export const fmtKES = (n: number) =>
     `KES ${(n || 0).toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
 
-export const fmtKESShort = (n: number) =>
-    n >= 1_000_000 ? `KES ${(n / 1_000_000).toFixed(1)}M`
-    : n >= 1_000   ? `KES ${(n / 1_000).toFixed(0)}K`
-    : `KES ${n || 0}`;
+export const fmtKESShort = (n: number) => {
+    const v = n || 0;
+    if (v >= 1_000_000) return `KES ${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 10_000)    return `KES ${Math.floor(v / 1_000)}K`;
+    return `KES ${v.toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
+};
 
 export const fmtPct = (n: number) => `${Math.round(n || 0)}%`;
 
