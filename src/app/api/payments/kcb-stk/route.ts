@@ -84,20 +84,30 @@ async function initiateSTKPush(accessToken: string, params: {
         TransactionName:     'School Fee Payment',
     };
 
-    console.log('[KCB] STK Push request:', { phone: params.phone, amount: params.amount });
+    console.log('[KCB] STK Push request:', {
+        phone: params.phone,
+        amount: params.amount,
+        account: KCB_ACCOUNT_NUMBER || 'NOT SET',
+        paybill: KCB_PAYBILL || 'NOT SET',
+        env: IS_SANDBOX ? 'sandbox' : 'live',
+        url: `${KCB_BASE}/mm/api/request/1.0.0`,
+    });
 
+    // KCB Buni (WSO2 API Manager) uses 'apikey' header — NOT 'Authorization: Bearer'
     const res = await fetch(`${KCB_BASE}/mm/api/request/1.0.0`, {
         method: 'POST',
         headers: {
-            'Authorization':    `Bearer ${accessToken}`,
+            'apikey':           accessToken,   // WSO2 API Key header
             'Content-Type':     'application/json',
             'x-Correlation-Id': genUUID(),
-            'x-api-key':        KCB_API_KEY || '',  // Some endpoints need both
         },
         body: JSON.stringify(body),
     });
 
-    const data = await res.json();
+    const rawText = await res.text();
+    console.log('[KCB] Raw response:', res.status, rawText);
+    let data: any = {};
+    try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
     console.log('[KCB] STK Response:', JSON.stringify(data));
     return { data, status: res.status };
 }
