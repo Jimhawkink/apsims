@@ -119,10 +119,10 @@ export async function POST(req: NextRequest) {
         // If 9 digits with no country code e.g. 712345678 → 254712345678
         if (normalizedPhone.length === 9) normalizedPhone = '254' + normalizedPhone;
 
-        // Validate: must be 254XXXXXXXXX (12 digits)
-        if (!/^254[17]\d{8}$/.test(normalizedPhone)) {
+        // Validate: must be 12 digits starting with 254
+        if (!/^254\d{9}$/.test(normalizedPhone)) {
             return NextResponse.json({
-                error: `Invalid phone format. Enter your Safaricom number e.g. 0712345678 (got: ${normalizedPhone})`,
+                error: `Invalid phone number format (got: ${normalizedPhone}). Use your Safaricom number e.g. 0712345678 or 0119087458`,
             }, { status: 400 });
         }
 
@@ -161,10 +161,10 @@ export async function POST(req: NextRequest) {
 
         // Map KCB raw errors to user-friendly messages
         let friendlyMsg = rawDesc;
-        if (rawDesc.toLowerCase().includes('busy'))       friendlyMsg = 'KCB system is busy. Please try again in 1-2 minutes.';
-        if (rawDesc.toLowerCase().includes('invalid phon')) friendlyMsg = 'Phone number not registered on M-Pesa. Use your real Safaricom number e.g. 0712345678.';
+        if (rawDesc.toLowerCase().includes('busy'))         friendlyMsg = 'KCB system is busy right now. Please try again in 1-2 minutes.';
+        if (rawDesc.toLowerCase().includes('duplicate'))    friendlyMsg = 'Duplicate request - please wait 30 seconds before trying again.';
         if (rawDesc.toLowerCase().includes('invalid amount')) friendlyMsg = 'Invalid amount. Minimum is KES 1.';
-        if (rawDesc.toLowerCase().includes('duplicate'))   friendlyMsg = 'Duplicate request. Please wait 30 seconds before trying again.';
+        // NOTE: Do NOT override 'Invalid PhoneNumber' - show the actual KCB message so user knows
 
         console.log('[KCB] statusCode:', statusCode, '| httpStatus:', httpStatus, '| desc:', rawDesc);
 
