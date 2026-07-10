@@ -1,69 +1,61 @@
 // ═══════════════════════════════════════════════════════════════
-// KCB Buni M-Pesa Express STK Push API v2
+// KCB Buni M-Pesa Express STK Push
 // POST /api/payments/kcb-stk
 //
-// New KCB Buni Auth: API Key (JWT) — from Sandbox/Production Keys → API Key → GENERATE KEY
-// Token endpoint: https://accounts.buni.kcbgroup.com/oauth2/token
-// STK endpoint:   https://uat.buni.kcbgroup.com/mm/api/request/1.0.0 (sandbox)
-//                 https://api.buni.kcbgroup.com/mm/api/request/1.0.0  (live)
+// Auth: OAuth2 Client Credentials → Bearer token
+// Token URL: https://accounts.buni.kcbgroup.com/oauth2/token
+// STK URL:   https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush
 // ═══════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-
-// Built-in Node.js crypto — no external package needed
-const genUUID = () => crypto.randomUUID();
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// ── KCB Buni config
-const KCB_API_KEY         = process.env.KCB_API_KEY!;          // JWT from Buni → API Key → GENERATE KEY
-const KCB_CLIENT_ID       = process.env.KCB_CLIENT_ID || '';   // OAuth2 client_id (if using OAuth2)
-const KCB_CLIENT_SECRET   = process.env.KCB_CLIENT_SECRET || '';// OAuth2 client_secret (if using OAuth2)
-const KCB_PAYBILL         = process.env.KCB_PAYBILL!;
-const KCB_ACCOUNT_NUMBER  = process.env.KCB_ACCOUNT_NUMBER!;
+const KCB_CONSUMER_KEY    = process.env.KCB_CONSUMER_KEY!;
+const KCB_CONSUMER_SECRET = process.env.KCB_CONSUMER_SECRET!;
+const KCB_ACCOUNT_NUMBER  = process.env.KCB_ACCOUNT_NUMBER || '8113915';
+const KCB_PAYBILL         = process.env.KCB_PAYBILL || '522533';
 const KCB_MERCHANT_NAME   = process.env.KCB_MERCHANT_NAME || 'Alpha School';
 const KCB_CALLBACK_URL    = process.env.KCB_CALLBACK_URL || 'https://apsims.vercel.app/api/payments/kcb-callback';
+const IS_SANDBOX          = process.env.KCB_ENV !== 'live';
 
-const IS_SANDBOX   = process.env.KCB_ENV !== 'live';
-const KCB_BASE     = IS_SANDBOX ? 'https://uat.buni.kcbgroup.com'     : 'https://api.buni.kcbgroup.com';
-const KCB_AUTH_URL = IS_SANDBOX ? 'https://uat-accounts.buni.kcbgroup.com/oauth2/token' : 'https://accounts.buni.kcbgroup.com/oauth2/token';
+// OAuth2 token endpoint (Identity Server)
+const TOKEN_URL = IS_SANDBOX
+    ? 'https://accounts.buni.kcbgroup.com/oauth2/token'   // same for sandbox
+    : 'https://accounts.buni.kcbgroup.com/oauth2/token';
 
-// ── Get access token
-// Method 1: API Key (JWT) — simplest, from Buni → API Key → GENERATE KEY
-// Method 2: OAuth2 Client Credentials — from Buni → OAuth2 Tokens
-async function getAccessToken(): Promise<string> {
-    // If API Key (JWT) is provided, use it directly as Bearer token
-    if (KCB_API_KEY && KCB_API_KEY.length > 10) {
-        return KCB_API_KEY;
+// STK Push endpoint (gateway)
+const STK_URL = IS_SANDBOX
+    ? 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush'
+    : 'https://api.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
+
+// ── Step 1: Get OAuth2 access token using Client Credentials
+async function getOAuthToken(): Promise<string> {
+    const credentials = Buffer.from(`${KCB_CONSUMER_KEY}:${KCB_CONSUMER_SECRET}`).toString('base64');
+
+    const res = await fetch(TOKEN_URL, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Basic ${credentials}`,
+            'Content-Type':  'application/x-www-form-urlencoded',
+        },
+        body: 'grant_type=client_credentials',
+    });
+
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`OAuth token error ${res.status}: ${err}`);
     }
-
-    // OAuth2 Client Credentials flow
-    if (KCB_CLIENT_ID && KCB_CLIENT_SECRET) {
-        const credentials = Buffer.from(`${KCB_CLIENT_ID}:${KCB_CLIENT_SECRET}`).toString('base64');
-        const res = await fetch(KCB_AUTH_URL, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Basic ${credentials}`,
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: 'grant_type=client_credentials',
-        });
-        if (!res.ok) {
-            const err = await res.text();
-            throw new Error(`KCB OAuth2 token error ${res.status}: ${err}`);
-        }
-        const data = await res.json();
-        return data.access_token;
-    }
-
-    throw new Error('KCB credentials not configured. Set KCB_API_KEY (from Buni → API Key → Generate Key) in Vercel env vars.');
+    const data = await res.json();
+    if (!data.access_token) throw new Error('No access_token in OAuth response');
+    return data.access_token;
 }
 
-// ── Initiate STK Push
-async function initiateSTKPush(accessToken: string, params: {
+// ── Step 2: Initiate STK Push
+async function initiateSTKPush(token: string, params: {
     phone: string;
     amount: number;
     merchantTransId: string;
@@ -84,34 +76,26 @@ async function initiateSTKPush(accessToken: string, params: {
         TransactionName:     'School Fee Payment',
     };
 
-    console.log('[KCB] STK Push request:', {
-        phone: params.phone,
-        amount: params.amount,
-        account: KCB_ACCOUNT_NUMBER || 'NOT SET',
-        paybill: KCB_PAYBILL || 'NOT SET',
-        env: IS_SANDBOX ? 'sandbox' : 'live',
-        url: `${KCB_BASE}/mm/api/request/1.0.0`,
-    });
+    console.log('[KCB STK] Sending to:', STK_URL, { phone: params.phone, amount: params.amount });
 
-    // KCB Buni (WSO2 API Manager) uses 'apikey' header — NOT 'Authorization: Bearer'
-    const res = await fetch(`${KCB_BASE}/mm/api/request/1.0.0`, {
+    const res = await fetch(STK_URL, {
         method: 'POST',
         headers: {
-            'apikey':           accessToken,   // WSO2 API Key header
-            'Content-Type':     'application/json',
-            'x-Correlation-Id': genUUID(),
+            'Authorization': `Bearer ${token}`,
+            'Content-Type':  'application/json',
         },
         body: JSON.stringify(body),
     });
 
-    const rawText = await res.text();
-    console.log('[KCB] Raw response:', res.status, rawText);
+    const text = await res.text();
+    console.log('[KCB STK] Response:', res.status, text);
+
     let data: any = {};
-    try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
-    console.log('[KCB] STK Response:', JSON.stringify(data));
-    return { data, status: res.status };
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    return { data, httpStatus: res.status };
 }
 
+// ── Main handler
 export async function POST(req: NextRequest) {
     try {
         const { phone, amount, studentId, description } = await req.json();
@@ -119,23 +103,23 @@ export async function POST(req: NextRequest) {
         if (!phone || !amount || !studentId) {
             return NextResponse.json({ error: 'Missing: phone, amount, studentId' }, { status: 400 });
         }
-        if (!KCB_API_KEY && (!KCB_CLIENT_ID || !KCB_CLIENT_SECRET)) {
+        if (!KCB_CONSUMER_KEY || !KCB_CONSUMER_SECRET) {
             return NextResponse.json({
-                error: 'KCB not configured. Go to Vercel → Environment Variables and add KCB_API_KEY (get it from Buni portal → Your Application → Sandbox Keys → API Key → Generate Key)',
+                error: 'KCB not configured. Add KCB_CONSUMER_KEY and KCB_CONSUMER_SECRET in Vercel env vars. Get them from: Buni portal → Applications → DefaultApplication → Sandbox Keys → OAuth2 Tokens → Generate Keys',
             }, { status: 500 });
         }
 
-        // Normalize phone: 0712345678 or +254712345678 → 254712345678
-        const normalizedPhone = phone.replace(/^\+/, '').replace(/^0/, '254');
+        // Normalize phone: 0712345678 → 254712345678
+        const normalizedPhone = String(phone).replace(/^\+/, '').replace(/^0/, '254');
 
         const merchantTransId = `APSIMS-${studentId}-${Date.now()}`;
         const referenceNo     = `STU${studentId}`;
 
-        // Get token
-        const accessToken = await getAccessToken();
+        // Get OAuth token
+        const token = await getOAuthToken();
 
         // Send STK Push
-        const { data: result, status: httpStatus } = await initiateSTKPush(accessToken, {
+        const { data: result, httpStatus } = await initiateSTKPush(token, {
             phone:           normalizedPhone,
             amount:          Number(amount),
             merchantTransId,
@@ -152,11 +136,11 @@ export async function POST(req: NextRequest) {
             status:              'Pending',
             payment_method:      'KCB',
             created_at:          new Date().toISOString(),
-        }]).then(({ error: e }) => { if (e) console.error('[KCB] DB log error:', e.message); });
+        }]).then(({ error: e }) => { if (e) console.error('[KCB] DB log:', e.message); });
 
-        // KCB success: responseCode "0" or "200" or status 200
-        const responseCode = result?.header?.responseCode ?? result?.ResponseCode ?? result?.statusCode ?? result?.code;
-        const isSuccess    = httpStatus === 200 || responseCode === '0' || responseCode === 0 || responseCode === '200';
+        // Check success — KCB returns 200 or responseCode 0
+        const responseCode = result?.header?.responseCode ?? result?.ResponseCode ?? result?.statusCode ?? result?.code ?? result?.status;
+        const isSuccess    = httpStatus === 200 || responseCode === '0' || responseCode === 0 || responseCode === 200;
 
         if (isSuccess) {
             return NextResponse.json({
@@ -166,7 +150,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        const errMsg = result?.header?.responseMessage || result?.ResponseDescription || result?.message || `KCB error: ${responseCode}`;
+        const errMsg = result?.header?.responseMessage || result?.message || result?.description || `KCB error code: ${responseCode}`;
         return NextResponse.json({ error: errMsg, raw: result }, { status: 400 });
 
     } catch (err: any) {
