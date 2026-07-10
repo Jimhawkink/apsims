@@ -9,7 +9,9 @@
 // ═══════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { v4 as uuidv4 } from 'uuid';
+
+// Built-in Node.js crypto — no external package needed
+const genUUID = () => crypto.randomUUID();
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -89,7 +91,7 @@ async function initiateSTKPush(accessToken: string, params: {
         headers: {
             'Authorization':    `Bearer ${accessToken}`,
             'Content-Type':     'application/json',
-            'x-Correlation-Id': uuidv4(),
+            'x-Correlation-Id': genUUID(),
             'x-api-key':        KCB_API_KEY || '',  // Some endpoints need both
         },
         body: JSON.stringify(body),
