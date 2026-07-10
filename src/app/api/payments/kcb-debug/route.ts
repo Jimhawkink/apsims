@@ -1,9 +1,8 @@
-// KCB Resource Path Discovery
-// GET /api/payments/kcb-debug
+// Test auth methods on the correct /stkpush path
 import { NextResponse } from 'next/server';
 
 const API_KEY = process.env.KCB_API_KEY || '';
-const BASE = 'https://uat.buni.kcbgroup.com';
+const URL = 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
 
 const BODY = JSON.stringify({
     MerchantTransID:     `TEST-${Date.now()}`,
@@ -16,47 +15,33 @@ const BODY = JSON.stringify({
     SendingCountryCode:  'KE', TransactionName: 'Test',
 });
 
-async function tryPath(path: string, method = 'POST') {
-    const url = `${BASE}${path}`;
+async function tryAuth(label: string, headers: Record<string, string>) {
     try {
-        const r = await fetch(url, {
-            method,
-            headers: { 'apikey': API_KEY, 'Content-Type': 'application/json' },
-            body: method === 'POST' ? BODY : undefined,
-            signal: AbortSignal.timeout(6000),
+        const r = await fetch(URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: BODY,
+            signal: AbortSignal.timeout(8000),
         });
         const text = await r.text();
-        // Only return non-404 "no matching resource" responses
-        const isPortalHTML = text.includes('<!DOCTYPE html') || text.includes('<html');
-        const body = isPortalHTML ? '[HTML portal page]' : text.substring(0, 150);
-        return { path, method, status: r.status, body, interesting: r.status !== 404 || !text.includes('No matching resource') };
+        return { label, status: r.status, body: text.substring(0, 200) };
     } catch (e: any) {
-        return { path, method, status: 0, body: e.message, interesting: false };
+        return { label, status: 0, body: e.message };
     }
 }
 
 export async function GET() {
-    const paths = [
-        '/mm/api/request/1.0.0',
-        '/mm/api/request/1.0.0/',
-        '/mm/api/request/1.0.0/payment',
-        '/mm/api/request/1.0.0/initiate',
-        '/mm/api/request/1.0.0/stkpush',
-        '/mm/api/request/1.0.0/express',
-        '/mm/api/request/1.0.0/processrequest',
-        '/mm/api/request/1.0.0/request',
-        '/mm/api/request/1.0.0/lipa',
-        '/mm/api/request/1.0.0/push',
-        '/mm/api/request/1.0.0/send',
-        '/mm/api/request/1.0.0/c2b',
-        '/mm/api/request',
-        '/mm/api/request/1.0.0/stk',
-        '/mm/api/request/1.0.0/pay',
-    ];
+    const results = await Promise.all([
+        tryAuth('apikey header',               { 'apikey': API_KEY }),
+        tryAuth('Authorization Bearer',        { 'Authorization': `Bearer ${API_KEY}` }),
+        tryAuth('x-api-key header',            { 'x-api-key': API_KEY }),
+        tryAuth('apikey + Bearer',             { 'apikey': API_KEY, 'Authorization': `Bearer ${API_KEY}` }),
+        tryAuth('Authorization ApiKey',        { 'Authorization': `ApiKey ${API_KEY}` }),
+    ]);
 
-    const results = await Promise.all(paths.map(p => tryPath(p)));
-    const interesting = results.filter(r => r.interesting);
-    const all = results.map(r => ({ p: r.path, s: r.status, b: r.body.substring(0, 100) }));
-
-    return NextResponse.json({ interesting, all });
+    return NextResponse.json({
+        endpoint: URL,
+        apiKeyLength: API_KEY.length,
+        results
+    });
 }
