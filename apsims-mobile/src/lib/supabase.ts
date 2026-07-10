@@ -628,7 +628,9 @@ export async function getPastPapers(): Promise<any[]> {
 }
 
 // ============================================================
-// PARENT — KCB STK Push Payment
+// ============================================================
+// PARENT — KCB Buni STK Push Payment
+// Mobile → apsims.vercel.app/api/payments/kcb-stk → KCB Buni
 // ============================================================
 
 export async function initiateKCBSTKPush(params: {
@@ -639,35 +641,63 @@ export async function initiateKCBSTKPush(params: {
     description: string;
 }): Promise<{ checkoutRequestId: string | null; error: string | null }> {
     try {
-        const normalized = normalizePhone(params.phone);
-        if (!normalized) return { checkoutRequestId: null, error: 'Invalid phone number' };
+        // Normalize phone: 0712345678 → 254712345678
+        const normalized = params.phone.startsWith('0')
+            ? '254' + params.phone.slice(1)
+            : params.phone.startsWith('+')
+            ? params.phone.slice(1)
+            : params.phone;
 
-        const payload = {
-            phone: normalized,
-            amount: Math.round(params.amount),
-            accountReference: `APSIMS-${params.studentId}`,
-            transactionDesc: params.description || 'School Fee Payment',
-            studentId: params.studentId,
-        };
+        if (!normalized || normalized.length < 10) {
+            return { checkoutRequestId: null, error: 'Invalid phone number. Use format: 0712345678' };
+        }
 
+        // Call web app API — web app holds KCB credentials securely
         const response = await fetch(`${SCHOOL_API_BASE}/api/payments/kcb-stk`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify({
+                phone:       normalized,
+                amount:      Math.round(params.amount),
+                studentId:   params.studentId,
+                description: params.description || 'School Fee Payment',
+            }),
         });
 
         const result = await response.json();
 
         if (!response.ok || result.error) {
-            return { checkoutRequestId: null, error: result.error || 'STK Push failed' };
+            return { checkoutRequestId: null, error: result.error || 'KCB STK Push failed' };
         }
 
         return {
-            checkoutRequestId: result.checkoutRequestId || result.CheckoutRequestID || null,
+            checkoutRequestId: result.checkoutRequestId || null,
             error: null,
         };
     } catch (err: any) {
-        return { checkoutRequestId: null, error: 'Network error — please try again' };
+        return { checkoutRequestId: null, error: 'Network error — check your internet connection' };
+    }
+}
+
+// Poll KCB payment status via web app
+export async function pollKCBStatus(checkoutRequestId: string): Promise<{
+    status: 'Pending' | 'Success' | 'Failed';
+    receipt?: string;
+    amount?: number;
+}> {
+    try {
+        const res = await fetch(
+            `${SCHOOL_API_BASE}/api/payments/kcb-status?checkoutRequestId=${encodeURIComponent(checkoutRequestId)}`
+        );
+        if (!res.ok) return { status: 'Pending' };
+        const data = await res.json();
+        return {
+            status:  data.status === 'Success' ? 'Success' : data.status === 'Failed' ? 'Failed' : 'Pending',
+            receipt: data.receipt || '',
+            amount:  data.amount  || 0,
+        };
+    } catch {
+        return { status: 'Pending' };
     }
 }
 
