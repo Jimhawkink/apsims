@@ -155,12 +155,18 @@ export async function POST(req: NextRequest) {
         }]).then(({ error: e }) => { if (e) console.error('[KCB] DB log:', e.message); });
 
         // KCB returns: { header: { statusCode: '0', statusDescription: 'Success' }, response: {...} }
-        // statusCode '0' = success, anything else = error
         const statusCode  = result?.header?.statusCode;
-        const statusDesc  = result?.header?.statusDescription || result?.message || result?.description || 'Unknown KCB error';
+        const rawDesc     = result?.header?.statusDescription || result?.message || result?.description || 'Unknown KCB error';
         const isSuccess   = httpStatus === 200 && (statusCode === '0' || statusCode === 0);
 
-        console.log('[KCB] statusCode:', statusCode, '| httpStatus:', httpStatus, '| desc:', statusDesc);
+        // Map KCB raw errors to user-friendly messages
+        let friendlyMsg = rawDesc;
+        if (rawDesc.toLowerCase().includes('busy'))       friendlyMsg = 'KCB system is busy. Please try again in 1-2 minutes.';
+        if (rawDesc.toLowerCase().includes('invalid phon')) friendlyMsg = 'Phone number not registered on M-Pesa. Use your real Safaricom number e.g. 0712345678.';
+        if (rawDesc.toLowerCase().includes('invalid amount')) friendlyMsg = 'Invalid amount. Minimum is KES 1.';
+        if (rawDesc.toLowerCase().includes('duplicate'))   friendlyMsg = 'Duplicate request. Please wait 30 seconds before trying again.';
+
+        console.log('[KCB] statusCode:', statusCode, '| httpStatus:', httpStatus, '| desc:', rawDesc);
 
         if (isSuccess) {
             return NextResponse.json({
@@ -170,7 +176,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        return NextResponse.json({ error: statusDesc, code: statusCode, raw: result }, { status: 400 });
+        return NextResponse.json({ error: friendlyMsg, code: statusCode, raw: result }, { status: 400 });
 
     } catch (err: any) {
         console.error('[KCB STK] Error:', err.message);
