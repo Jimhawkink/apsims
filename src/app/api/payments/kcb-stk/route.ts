@@ -105,12 +105,28 @@ export async function POST(req: NextRequest) {
         }
         if (!KCB_CONSUMER_KEY || !KCB_CONSUMER_SECRET) {
             return NextResponse.json({
-                error: 'KCB not configured. Add KCB_CONSUMER_KEY and KCB_CONSUMER_SECRET in Vercel env vars. Get them from: Buni portal → Applications → DefaultApplication → Sandbox Keys → OAuth2 Tokens → Generate Keys',
+                error: 'KCB not configured. Add KCB_CONSUMER_KEY and KCB_CONSUMER_SECRET in Vercel env vars.',
             }, { status: 500 });
         }
 
-        // Normalize phone: 0712345678 → 254712345678
-        const normalizedPhone = String(phone).replace(/^\+/, '').replace(/^0/, '254');
+        // ── Robust phone normalization
+        // Strip all spaces, dashes, brackets
+        let normalizedPhone = String(phone).replace(/[\s\-\(\)]/g, '');
+        // Remove leading +
+        if (normalizedPhone.startsWith('+')) normalizedPhone = normalizedPhone.slice(1);
+        // 0712345678 → 254712345678
+        if (normalizedPhone.startsWith('0')) normalizedPhone = '254' + normalizedPhone.slice(1);
+        // If 9 digits with no country code e.g. 712345678 → 254712345678
+        if (normalizedPhone.length === 9) normalizedPhone = '254' + normalizedPhone;
+
+        // Validate: must be 254XXXXXXXXX (12 digits)
+        if (!/^254[17]\d{8}$/.test(normalizedPhone)) {
+            return NextResponse.json({
+                error: `Invalid phone format. Enter your Safaricom number e.g. 0712345678 (got: ${normalizedPhone})`,
+            }, { status: 400 });
+        }
+
+        console.log('[KCB] Phone normalized:', String(phone), '→', normalizedPhone);
 
         const merchantTransId = `APSIMS-${studentId}-${Date.now()}`;
         const referenceNo     = `STU${studentId}`;
