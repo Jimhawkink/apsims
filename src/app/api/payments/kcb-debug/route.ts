@@ -1,55 +1,62 @@
-// KCB URL Discovery — tries multiple gateway URLs from Vercel server
+// KCB Resource Path Discovery
 // GET /api/payments/kcb-debug
 import { NextResponse } from 'next/server';
 
 const API_KEY = process.env.KCB_API_KEY || '';
+const BASE = 'https://uat.buni.kcbgroup.com';
 
 const BODY = JSON.stringify({
     MerchantTransID:     `TEST-${Date.now()}`,
     MerchantAccount:     process.env.KCB_ACCOUNT_NUMBER || '8113915',
     MerchantCallbackURL: 'https://apsims.vercel.app/api/payments/kcb-callback',
     CustomerMSISDN:      '254712345678',
-    Language:            'EN',
-    Currency:            'KES',
-    Amount:              '1',
-    MerchantName:        process.env.KCB_MERCHANT_NAME || 'Alpha School',
-    ReferenceNo:         'TEST001',
-    Operator:            '63902',
-    SendingCountryCode:  'KE',
-    TransactionName:     'Test Payment',
+    Language:            'EN', Currency: 'KES', Amount: '1',
+    MerchantName:        'Alpha School',
+    ReferenceNo:         'TEST001', Operator: '63902',
+    SendingCountryCode:  'KE', TransactionName: 'Test',
 });
 
-async function tryURL(url: string) {
+async function tryPath(path: string, method = 'POST') {
+    const url = `${BASE}${path}`;
     try {
         const r = await fetch(url, {
-            method: 'POST',
+            method,
             headers: { 'apikey': API_KEY, 'Content-Type': 'application/json' },
-            body: BODY,
-            signal: AbortSignal.timeout(8000),
+            body: method === 'POST' ? BODY : undefined,
+            signal: AbortSignal.timeout(6000),
         });
         const text = await r.text();
-        return { url, status: r.status, body: text.substring(0, 200) };
+        // Only return non-404 "no matching resource" responses
+        const isPortalHTML = text.includes('<!DOCTYPE html') || text.includes('<html');
+        const body = isPortalHTML ? '[HTML portal page]' : text.substring(0, 150);
+        return { path, method, status: r.status, body, interesting: r.status !== 404 || !text.includes('No matching resource') };
     } catch (e: any) {
-        return { url, status: 0, body: e.message };
+        return { path, method, status: 0, body: e.message, interesting: false };
     }
 }
 
 export async function GET() {
-    const envCheck = {
-        KCB_ENV:            process.env.KCB_ENV || 'NOT SET',
-        KCB_PAYBILL:        process.env.KCB_PAYBILL || 'NOT SET',
-        KCB_ACCOUNT_NUMBER: process.env.KCB_ACCOUNT_NUMBER || 'NOT SET',
-        KCB_API_KEY_SET:    API_KEY.length > 10 ? `YES (${API_KEY.length} chars)` : 'NOT SET',
-    };
+    const paths = [
+        '/mm/api/request/1.0.0',
+        '/mm/api/request/1.0.0/',
+        '/mm/api/request/1.0.0/payment',
+        '/mm/api/request/1.0.0/initiate',
+        '/mm/api/request/1.0.0/stkpush',
+        '/mm/api/request/1.0.0/express',
+        '/mm/api/request/1.0.0/processrequest',
+        '/mm/api/request/1.0.0/request',
+        '/mm/api/request/1.0.0/lipa',
+        '/mm/api/request/1.0.0/push',
+        '/mm/api/request/1.0.0/send',
+        '/mm/api/request/1.0.0/c2b',
+        '/mm/api/request',
+        '/mm/api/request/1.0.0/stk',
+        '/mm/api/request/1.0.0/pay',
+    ];
 
-    // Test all possible KCB gateway URLs
-    const results = await Promise.all([
-        tryURL('https://uat.buni.kcbgroup.com/mm/api/request/1.0.0'),
-        tryURL('https://sandbox.buni.kcbgroup.com/mm/api/request/1.0.0'),
-        tryURL('https://api.buni.kcbgroup.com/mm/api/request/1.0.0'),
-        tryURL('https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/'),
-        tryURL('https://sandbox.buni.kcbgroup.com:8243/mm/api/request/1.0.0'),
-    ]);
+    const results = await Promise.all(paths.map(p => tryPath(p)));
+    const interesting = results.filter(r => r.interesting);
+    const all = results.map(r => ({ p: r.path, s: r.status, b: r.body.substring(0, 100) }));
 
-    return NextResponse.json({ envCheck, urlTests: results });
+    return NextResponse.json({ interesting, all });
 }
