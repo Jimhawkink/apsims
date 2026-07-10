@@ -138,9 +138,13 @@ export async function POST(req: NextRequest) {
             created_at:          new Date().toISOString(),
         }]).then(({ error: e }) => { if (e) console.error('[KCB] DB log:', e.message); });
 
-        // Check success — KCB returns 200 or responseCode 0
-        const responseCode = result?.header?.responseCode ?? result?.ResponseCode ?? result?.statusCode ?? result?.code ?? result?.status;
-        const isSuccess    = httpStatus === 200 || responseCode === '0' || responseCode === 0 || responseCode === 200;
+        // KCB returns: { header: { statusCode: '0', statusDescription: 'Success' }, response: {...} }
+        // statusCode '0' = success, anything else = error
+        const statusCode  = result?.header?.statusCode;
+        const statusDesc  = result?.header?.statusDescription || result?.message || result?.description || 'Unknown KCB error';
+        const isSuccess   = httpStatus === 200 && (statusCode === '0' || statusCode === 0);
+
+        console.log('[KCB] statusCode:', statusCode, '| httpStatus:', httpStatus, '| desc:', statusDesc);
 
         if (isSuccess) {
             return NextResponse.json({
@@ -150,8 +154,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        const errMsg = result?.header?.responseMessage || result?.message || result?.description || `KCB error code: ${responseCode}`;
-        return NextResponse.json({ error: errMsg, raw: result }, { status: 400 });
+        return NextResponse.json({ error: statusDesc, code: statusCode, raw: result }, { status: 400 });
 
     } catch (err: any) {
         console.error('[KCB STK] Error:', err.message);
