@@ -20,8 +20,8 @@ const supabase = createClient(
 
 const KCB_CONSUMER_KEY    = process.env.KCB_CONSUMER_KEY!;
 const KCB_CONSUMER_SECRET = process.env.KCB_CONSUMER_SECRET!;
-const KCB_ORG_SHORT_CODE  = process.env.KCB_PAYBILL || '522533';          // orgShortCode = paybill
-const KCB_PASS_KEY        = process.env.KCB_PASS_KEY || '';                // orgPassKey — get from KCB support
+const KCB_ORG_SHORT_CODE  = process.env.KCB_ACCOUNT_NUMBER || '8113915';  // Dedicated merchant shortcode (NOT KCB shared 522533)
+const KCB_PASS_KEY        = process.env.KCB_PASS_KEY || '';               // orgPassKey — get from KCB support if needed
 const KCB_CALLBACK_URL    = process.env.KCB_CALLBACK_URL || 'https://apsims.vercel.app/api/payments/kcb-callback';
 
 // Token & STK endpoints (from KCB official docs)
@@ -64,12 +64,12 @@ async function initiateSTKPush(token: string, params: {
     const body = {
         phoneNumber:            params.phone,
         amount:                 String(Math.round(params.amount)),
-        invoiceNumber:          params.invoiceNumber,
-        sharedShortCode:        true,
-        orgShortCode:           KCB_ORG_SHORT_CODE,
+        invoiceNumber:          params.invoiceNumber,   // Student ref — routes payment correctly
+        sharedShortCode:        false,                  // false = dedicated paybill 8113915 (not KCB shared 522533)
+        orgShortCode:           KCB_ORG_SHORT_CODE,     // 8113915 = your dedicated merchant shortcode
         orgPassKey:             KCB_PASS_KEY,
         callbackUrl:            KCB_CALLBACK_URL,
-        transactionDescription: 'School Fee',          // max 13 chars
+        transactionDescription: 'School Fee',           // max 13 chars
     };
 
     console.log('[KCB STK] Payload:', JSON.stringify(body));
