@@ -122,7 +122,16 @@ export async function POST(req: NextRequest) {
         // Validate: must be 12 digits starting with 254
         if (!/^254\d{9}$/.test(normalizedPhone)) {
             return NextResponse.json({
-                error: `Invalid phone number format (got: ${normalizedPhone}). Use your Safaricom number e.g. 0712345678 or 0119087458`,
+                error: `Invalid phone number format (got: ${normalizedPhone}). Use your Safaricom number e.g. 0712345678`,
+            }, { status: 400 });
+        }
+
+        // KCB Buni does NOT support 011X Safaricom number range — only 07XX
+        // Confirmed via testing: 254119XXXXXX always returns "Invalid PhoneNumber"
+        if (/^25411/.test(normalizedPhone)) {
+            return NextResponse.json({
+                error: 'KCB does not support 011X Safaricom numbers. Please use M-Pesa payment instead, or use a 07XX Safaricom number for KCB.',
+                useAlternative: 'MPesa',
             }, { status: 400 });
         }
 
