@@ -139,7 +139,10 @@ export async function POST(req: NextRequest) {
             }, { status: 429 });
         }
 
-        const invoiceNumber = `APSIMS-${studentId}-${Date.now()}`;
+        // invoiceNumber = KCB merchant account number (8113915)
+        // This routes payment to YOUR account under KCB's shared shortcode
+        // Confirmed by KCB Buni API support team
+        const invoiceNumber = process.env.KCB_ACCOUNT_NUMBER || '8113915';
 
         // Get token & send STK push
         const token = await getOAuthToken();
