@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
         if (rawDesc.toLowerCase().includes('busy'))            friendlyMsg = 'KCB system is busy right now. Please wait 30 seconds and try again.';
         if (rawDesc.toLowerCase().includes('duplicate'))       friendlyMsg = 'Duplicate request - please wait 60 seconds before trying again.';
         if (rawDesc.toLowerCase().includes('invalid amount'))  friendlyMsg = 'Invalid amount. Minimum is KES 1.';
-        if (rawDesc.toLowerCase().includes('invalid phone'))   friendlyMsg = 'Check your phone — a KCB push may already be on its way. Wait 60 seconds before retrying.';
+        // Show raw KCB message for Invalid PhoneNumber
 
         console.log('[KCB] statusCode:', statusCode, '| httpStatus:', httpStatus, '| desc:', rawDesc);
 
