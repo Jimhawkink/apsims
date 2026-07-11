@@ -126,15 +126,6 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        // KCB Buni does NOT support 011X Safaricom number range — only 07XX
-        // Confirmed via testing: 254119XXXXXX always returns "Invalid PhoneNumber"
-        if (/^25411/.test(normalizedPhone)) {
-            return NextResponse.json({
-                error: 'KCB does not support 011X Safaricom numbers. Please use M-Pesa payment instead, or use a 07XX Safaricom number for KCB.',
-                useAlternative: 'MPesa',
-            }, { status: 400 });
-        }
-
         console.log('[KCB] Phone normalized:', String(phone), '→', normalizedPhone);
 
         const merchantTransId = `APSIMS-${studentId}-${Date.now()}`;
