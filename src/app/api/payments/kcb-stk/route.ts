@@ -139,18 +139,6 @@ export async function POST(req: NextRequest) {
             invoiceNumber,
         });
 
-        // Log to Supabase
-        await supabase.from('school_mpesa_transactions').insert([{
-            checkout_request_id: invoiceNumber,
-            merchant_request_id: result?.response?.MerchantRequestID || invoiceNumber,
-            student_id:          studentId,
-            amount:              Number(amount),
-            phone_number:        normalizedPhone,
-            status:              'Pending',
-            payment_method:      'KCB',
-            created_at:          new Date().toISOString(),
-        }]).then(({ error: e }) => { if (e) console.error('[KCB] DB log:', e.message); });
-
         // Parse KCB response
         // Success: { header: { statusCode: '0', statusDescription: 'Success' }, response: { ResponseCode: 0, ... } }
         const statusCode = result?.header?.statusCode;
@@ -160,19 +148,34 @@ export async function POST(req: NextRequest) {
                         || 'Unknown KCB error';
         const isSuccess  = httpStatus === 200 && (statusCode === '0' || statusCode === 0);
 
+        // Use the real KCB CheckoutRequestID so callback can match it
+        const kcbCheckoutId = result?.response?.CheckoutRequestID || invoiceNumber;
+
+        // Log to Supabase — use real KCB CheckoutRequestID as primary key
+        await supabase.from('school_mpesa_transactions').insert([{
+            checkout_request_id: kcbCheckoutId,
+            merchant_request_id: result?.response?.MerchantRequestID || invoiceNumber,
+            student_id:          studentId,
+            amount:              Number(amount),
+            phone_number:        normalizedPhone,
+            status:              'Pending',
+            payment_method:      'KCB',
+            created_at:          new Date().toISOString(),
+        }]).then(({ error: e }) => { if (e) console.error('[KCB] DB log:', e.message); });
+
         // Friendly error messages
         let friendlyMsg = rawDesc;
         if (rawDesc.toLowerCase().includes('busy'))           friendlyMsg = 'KCB system is busy. Please wait 30 seconds and try again.';
         if (rawDesc.toLowerCase().includes('duplicate'))      friendlyMsg = 'Duplicate request. Please wait 60 seconds before retrying.';
         if (rawDesc.toLowerCase().includes('invalid amount')) friendlyMsg = 'Invalid amount. Minimum is KES 1.';
 
-        console.log('[KCB] statusCode:', statusCode, '| http:', httpStatus, '| desc:', rawDesc);
+        console.log('[KCB] statusCode:', statusCode, '| http:', httpStatus, '| kcbId:', kcbCheckoutId, '| desc:', rawDesc);
 
         if (isSuccess) {
             lastPushTime.set(normalizedPhone, Date.now());
             return NextResponse.json({
                 success:           true,
-                checkoutRequestId: invoiceNumber,
+                checkoutRequestId: kcbCheckoutId,   // Return real KCB ID — callback will match this
                 message:           'STK Push sent! Check your phone for the M-Pesa prompt.',
             });
         }

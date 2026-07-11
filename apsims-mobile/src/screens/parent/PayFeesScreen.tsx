@@ -114,7 +114,7 @@ export default function PayFeesScreen() {
         pulseRef.current.start();
     };
 
-    // ─── Poll STK status ───────────────────────────────────────
+    // ─── Poll STK status (M-Pesa / Safaricom) ────────────────
     const startPolling = (reqId: string) => {
         let elapsed = 0;
         pollRef.current = setInterval(async () => {
@@ -138,7 +138,7 @@ export default function PayFeesScreen() {
                     setStep('success');
                     playSuccess();
 
-                    // ── Save fee payment directly to Supabase (same columns as web app) ──
+                    // ── Save fee payment directly to Supabase
                     try {
                         const receiptNo = `APSIMS-${String(Date.now()).slice(-6)}`;
                         const { error: feeErr } = await supabase
@@ -170,6 +170,41 @@ export default function PayFeesScreen() {
                     setError('Payment was declined or cancelled. Please try again.');
                 }
             } catch { /* Keep polling */ }
+        }, 5000);
+    };
+
+    // ─── Poll KCB Buni status ──────────────────────────────────
+    const startKCBPolling = (reqId: string) => {
+        let elapsed = 0;
+        pollRef.current = setInterval(async () => {
+            elapsed += 5;
+            setPollSeconds(elapsed);
+            if (elapsed >= 120) {
+                clearInterval(pollRef.current!);
+                pulseRef.current?.stop();
+                setStep('failed');
+                setError('Payment timed out. Check your M-Pesa messages — if deducted, it will reflect shortly.');
+                return;
+            }
+            try {
+                const result = await pollKCBStatus(reqId);
+                const s = result.status?.toLowerCase();
+                if (s === 'success') {
+                    clearInterval(pollRef.current!);
+                    pulseRef.current?.stop();
+                    setPaidAmount(Number(amount));
+                    if (result.receipt) setReceipt(result.receipt);
+                    setBalance((prev: number) => Math.max(0, prev - Number(amount)));
+                    setStep('success');
+                    playSuccess();
+                    loadFeeData();
+                } else if (s === 'failed') {
+                    clearInterval(pollRef.current!);
+                    pulseRef.current?.stop();
+                    setStep('failed');
+                    setError('KCB payment was declined or cancelled. Please try again.');
+                }
+            } catch { /* Keep polling on network hiccup */ }
         }, 5000);
     };
 
@@ -213,7 +248,7 @@ export default function PayFeesScreen() {
                 });
                 if (result?.checkoutRequestId) {
                     setCheckoutId(result.checkoutRequestId);
-                    startPolling(result.checkoutRequestId);
+                    startKCBPolling(result.checkoutRequestId);  // Use KCB-specific polling
                 } else {
                     throw new Error(result?.error || 'KCB Push failed. Try M-Pesa instead.');
                 }
