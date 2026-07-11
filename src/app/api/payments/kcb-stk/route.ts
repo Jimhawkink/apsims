@@ -139,10 +139,11 @@ export async function POST(req: NextRequest) {
             }, { status: 429 });
         }
 
-        // invoiceNumber = KCB merchant account number (8113915)
-        // This routes payment to YOUR account under KCB's shared shortcode
-        // Confirmed by KCB Buni API support team
-        const invoiceNumber = process.env.KCB_ACCOUNT_NUMBER || '8113915';
+        // invoiceNumber format: {merchantAccount}-{studentRef}
+        // KCB confirmed: 8113915 routes to Jimhawkins Korir account
+        // studentId after dash identifies the specific student/transaction
+        const kcbMerchantAccount = process.env.KCB_ACCOUNT_NUMBER || '8113915';
+        const invoiceNumber = `${kcbMerchantAccount}-${studentId}`;
 
         // Get token & send STK push
         const token = await getOAuthToken();
