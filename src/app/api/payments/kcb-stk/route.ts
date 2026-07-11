@@ -32,6 +32,12 @@ const TOKEN_URL = IS_SANDBOX
 // api.buni.kcbgroup.com returns 900901 and is NOT the correct endpoint.
 const STK_URL = 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
 
+// ── Duplicate prevention: KCB blocks same phone within ~90 seconds
+// Map of phone → timestamp of last successful push
+const lastPushTime = new Map<string, number>();
+const KCB_COOLDOWN_MS = 90_000; // 90 seconds
+
+
 // ── Step 1: Get OAuth2 access token using Client Credentials
 async function getOAuthToken(): Promise<string> {
     const credentials = Buffer.from(`${KCB_CONSUMER_KEY}:${KCB_CONSUMER_SECRET}`).toString('base64');
@@ -128,6 +134,17 @@ export async function POST(req: NextRequest) {
 
         console.log('[KCB] Phone normalized:', String(phone), '→', normalizedPhone);
 
+        // ── Duplicate prevention: block rapid retries (KCB cooldown ~90s)
+        const lastPush = lastPushTime.get(normalizedPhone);
+        const now = Date.now();
+        if (lastPush && (now - lastPush) < KCB_COOLDOWN_MS) {
+            const waitSecs = Math.ceil((KCB_COOLDOWN_MS - (now - lastPush)) / 1000);
+            return NextResponse.json({
+                error: `A KCB push was just sent to this number. Check your phone for the M-Pesa prompt, or wait ${waitSecs} seconds before retrying.`,
+            }, { status: 429 });
+        }
+
+
         const merchantTransId = `APSIMS-${studentId}-${Date.now()}`;
         const referenceNo     = `STU${studentId}`;
 
@@ -161,14 +178,16 @@ export async function POST(req: NextRequest) {
 
         // Map KCB raw errors to user-friendly messages
         let friendlyMsg = rawDesc;
-        if (rawDesc.toLowerCase().includes('busy'))         friendlyMsg = 'KCB system is busy right now. Please try again in 1-2 minutes.';
-        if (rawDesc.toLowerCase().includes('duplicate'))    friendlyMsg = 'Duplicate request - please wait 30 seconds before trying again.';
-        if (rawDesc.toLowerCase().includes('invalid amount')) friendlyMsg = 'Invalid amount. Minimum is KES 1.';
-        // NOTE: Do NOT override 'Invalid PhoneNumber' - show the actual KCB message so user knows
+        if (rawDesc.toLowerCase().includes('busy'))            friendlyMsg = 'KCB system is busy right now. Please wait 30 seconds and try again.';
+        if (rawDesc.toLowerCase().includes('duplicate'))       friendlyMsg = 'Duplicate request - please wait 60 seconds before trying again.';
+        if (rawDesc.toLowerCase().includes('invalid amount'))  friendlyMsg = 'Invalid amount. Minimum is KES 1.';
+        if (rawDesc.toLowerCase().includes('invalid phone'))   friendlyMsg = 'Check your phone — a KCB push may already be on its way. Wait 60 seconds before retrying.';
 
         console.log('[KCB] statusCode:', statusCode, '| httpStatus:', httpStatus, '| desc:', rawDesc);
 
         if (isSuccess) {
+            // Record successful push time for duplicate prevention
+            lastPushTime.set(normalizedPhone, Date.now());
             return NextResponse.json({
                 success:           true,
                 checkoutRequestId: merchantTransId,
