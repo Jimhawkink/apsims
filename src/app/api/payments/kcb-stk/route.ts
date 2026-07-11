@@ -2,9 +2,13 @@
 // KCB Buni M-Pesa Express STK Push
 // POST /api/payments/kcb-stk
 //
-// Auth: OAuth2 Client Credentials → Bearer token
-// Token URL: https://accounts.buni.kcbgroup.com/oauth2/token
-// STK URL:   https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush
+// Auth:    OAuth2 Client Credentials → Bearer token
+// Token:   https://uat.buni.kcbgroup.com/token
+// STK URL: https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush
+//
+// CORRECT payload (from KCB Buni swagger spec STKPushRequest):
+//   phoneNumber, amount, invoiceNumber, sharedShortCode,
+//   orgShortCode, orgPassKey, callbackUrl, transactionDescription
 // ═══════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -16,29 +20,19 @@ const supabase = createClient(
 
 const KCB_CONSUMER_KEY    = process.env.KCB_CONSUMER_KEY!;
 const KCB_CONSUMER_SECRET = process.env.KCB_CONSUMER_SECRET!;
-const KCB_ACCOUNT_NUMBER  = process.env.KCB_ACCOUNT_NUMBER || '522533'; // Paybill = MerchantAccount
-const KCB_PAYBILL         = process.env.KCB_PAYBILL || '522533';
-const KCB_MERCHANT_NAME   = process.env.KCB_MERCHANT_NAME || 'Alpha School';
+const KCB_ORG_SHORT_CODE  = process.env.KCB_PAYBILL || '522533';          // orgShortCode = paybill
+const KCB_PASS_KEY        = process.env.KCB_PASS_KEY || '';                // orgPassKey — get from KCB support
 const KCB_CALLBACK_URL    = process.env.KCB_CALLBACK_URL || 'https://apsims.vercel.app/api/payments/kcb-callback';
-const IS_SANDBOX          = process.env.KCB_ENV !== 'live';
 
-// OAuth2 token endpoint (Identity Server)
-const TOKEN_URL = IS_SANDBOX
-    ? 'https://accounts.buni.kcbgroup.com/oauth2/token'   // same for sandbox
-    : 'https://accounts.buni.kcbgroup.com/oauth2/token';
-
-// STK Push endpoint — uat.buni.kcbgroup.com is the correct gateway for BOTH
-// sandbox and production on KCB Buni (confirmed via testing).
-// api.buni.kcbgroup.com returns 900901 and is NOT the correct endpoint.
-const STK_URL = 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
+// Token & STK endpoints (from KCB official docs)
+const TOKEN_URL = 'https://uat.buni.kcbgroup.com/token';
+const STK_URL   = 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
 
 // ── Duplicate prevention: KCB blocks same phone within ~90 seconds
-// Map of phone → timestamp of last successful push
 const lastPushTime = new Map<string, number>();
-const KCB_COOLDOWN_MS = 90_000; // 90 seconds
+const KCB_COOLDOWN_MS = 90_000;
 
-
-// ── Step 1: Get OAuth2 access token using Client Credentials
+// ── Step 1: Get OAuth2 Bearer token
 async function getOAuthToken(): Promise<string> {
     const credentials = Buffer.from(`${KCB_CONSUMER_KEY}:${KCB_CONSUMER_SECRET}`).toString('base64');
 
@@ -60,29 +54,25 @@ async function getOAuthToken(): Promise<string> {
     return data.access_token;
 }
 
-// ── Step 2: Initiate STK Push
+// ── Step 2: Initiate STK Push with CORRECT KCB Buni payload fields
 async function initiateSTKPush(token: string, params: {
     phone: string;
     amount: number;
-    merchantTransId: string;
-    referenceNo: string;
+    invoiceNumber: string;
 }) {
+    // CORRECT field names from KCB Buni STKPushRequest swagger schema
     const body = {
-        MerchantTransID:     params.merchantTransId,
-        MerchantAccount:     KCB_ACCOUNT_NUMBER,
-        MerchantCallbackURL: KCB_CALLBACK_URL,
-        CustomerMSISDN:      params.phone,
-        Language:            'EN',
-        Currency:            'KES',
-        Amount:              String(Math.round(params.amount)),
-        MerchantName:        KCB_MERCHANT_NAME,
-        ReferenceNo:         params.referenceNo,
-        Operator:            '63902',
-        SendingCountryCode:  'KE',
-        TransactionName:     'School Fee Payment',
+        phoneNumber:            params.phone,
+        amount:                 String(Math.round(params.amount)),
+        invoiceNumber:          params.invoiceNumber,
+        sharedShortCode:        true,
+        orgShortCode:           KCB_ORG_SHORT_CODE,
+        orgPassKey:             KCB_PASS_KEY,
+        callbackUrl:            KCB_CALLBACK_URL,
+        transactionDescription: 'School Fee',          // max 13 chars
     };
 
-    console.log('[KCB STK] Sending to:', STK_URL, { phone: params.phone, amount: params.amount });
+    console.log('[KCB STK] Payload:', JSON.stringify(body));
 
     const res = await fetch(STK_URL, {
         method: 'POST',
@@ -115,54 +105,44 @@ export async function POST(req: NextRequest) {
             }, { status: 500 });
         }
 
-        // ── Robust phone normalization
-        // Strip all spaces, dashes, brackets
+        // ── Phone normalization → 254XXXXXXXXX
         let normalizedPhone = String(phone).replace(/[\s\-\(\)]/g, '');
-        // Remove leading +
         if (normalizedPhone.startsWith('+')) normalizedPhone = normalizedPhone.slice(1);
-        // 0712345678 → 254712345678
         if (normalizedPhone.startsWith('0')) normalizedPhone = '254' + normalizedPhone.slice(1);
-        // If 9 digits with no country code e.g. 712345678 → 254712345678
-        if (normalizedPhone.length === 9) normalizedPhone = '254' + normalizedPhone;
+        if (normalizedPhone.length === 9)    normalizedPhone = '254' + normalizedPhone;
 
-        // Validate: must be 12 digits starting with 254
         if (!/^254\d{9}$/.test(normalizedPhone)) {
             return NextResponse.json({
-                error: `Invalid phone number format (got: ${normalizedPhone}). Use your Safaricom number e.g. 0712345678`,
+                error: `Invalid phone number format. Use your Safaricom number e.g. 0712345678 (got: ${normalizedPhone})`,
             }, { status: 400 });
         }
 
-        console.log('[KCB] Phone normalized:', String(phone), '→', normalizedPhone);
+        console.log('[KCB] Phone:', String(phone), '→', normalizedPhone);
 
-        // ── Duplicate prevention: block rapid retries (KCB cooldown ~90s)
+        // ── Duplicate prevention (KCB cooldown ~90s)
         const lastPush = lastPushTime.get(normalizedPhone);
         const now = Date.now();
         if (lastPush && (now - lastPush) < KCB_COOLDOWN_MS) {
             const waitSecs = Math.ceil((KCB_COOLDOWN_MS - (now - lastPush)) / 1000);
             return NextResponse.json({
-                error: `A KCB push was just sent to this number. Check your phone for the M-Pesa prompt, or wait ${waitSecs} seconds before retrying.`,
+                error: `STK push already sent. Check your phone for the M-Pesa prompt, or wait ${waitSecs}s to retry.`,
             }, { status: 429 });
         }
 
+        const invoiceNumber = `APSIMS-${studentId}-${Date.now()}`;
 
-        const merchantTransId = `APSIMS-${studentId}-${Date.now()}`;
-        const referenceNo     = `STU${studentId}`;
-
-        // Get OAuth token
+        // Get token & send STK push
         const token = await getOAuthToken();
-
-        // Send STK Push
         const { data: result, httpStatus } = await initiateSTKPush(token, {
-            phone:           normalizedPhone,
-            amount:          Number(amount),
-            merchantTransId,
-            referenceNo,
+            phone:         normalizedPhone,
+            amount:        Number(amount),
+            invoiceNumber,
         });
 
         // Log to Supabase
         await supabase.from('school_mpesa_transactions').insert([{
-            checkout_request_id: merchantTransId,
-            merchant_request_id: result?.requestId || merchantTransId,
+            checkout_request_id: invoiceNumber,
+            merchant_request_id: result?.response?.MerchantRequestID || invoiceNumber,
             student_id:          studentId,
             amount:              Number(amount),
             phone_number:        normalizedPhone,
@@ -171,26 +151,28 @@ export async function POST(req: NextRequest) {
             created_at:          new Date().toISOString(),
         }]).then(({ error: e }) => { if (e) console.error('[KCB] DB log:', e.message); });
 
-        // KCB returns: { header: { statusCode: '0', statusDescription: 'Success' }, response: {...} }
-        const statusCode  = result?.header?.statusCode;
-        const rawDesc     = result?.header?.statusDescription || result?.message || result?.description || 'Unknown KCB error';
-        const isSuccess   = httpStatus === 200 && (statusCode === '0' || statusCode === 0);
+        // Parse KCB response
+        // Success: { header: { statusCode: '0', statusDescription: 'Success' }, response: { ResponseCode: 0, ... } }
+        const statusCode = result?.header?.statusCode;
+        const rawDesc    = result?.header?.statusDescription
+                        || result?.message
+                        || result?.description
+                        || 'Unknown KCB error';
+        const isSuccess  = httpStatus === 200 && (statusCode === '0' || statusCode === 0);
 
-        // Map KCB raw errors to user-friendly messages
+        // Friendly error messages
         let friendlyMsg = rawDesc;
-        if (rawDesc.toLowerCase().includes('busy'))            friendlyMsg = 'KCB system is busy right now. Please wait 30 seconds and try again.';
-        if (rawDesc.toLowerCase().includes('duplicate'))       friendlyMsg = 'Duplicate request - please wait 60 seconds before trying again.';
-        if (rawDesc.toLowerCase().includes('invalid amount'))  friendlyMsg = 'Invalid amount. Minimum is KES 1.';
-        // Show raw KCB message for Invalid PhoneNumber
+        if (rawDesc.toLowerCase().includes('busy'))           friendlyMsg = 'KCB system is busy. Please wait 30 seconds and try again.';
+        if (rawDesc.toLowerCase().includes('duplicate'))      friendlyMsg = 'Duplicate request. Please wait 60 seconds before retrying.';
+        if (rawDesc.toLowerCase().includes('invalid amount')) friendlyMsg = 'Invalid amount. Minimum is KES 1.';
 
-        console.log('[KCB] statusCode:', statusCode, '| httpStatus:', httpStatus, '| desc:', rawDesc);
+        console.log('[KCB] statusCode:', statusCode, '| http:', httpStatus, '| desc:', rawDesc);
 
         if (isSuccess) {
-            // Record successful push time for duplicate prevention
             lastPushTime.set(normalizedPhone, Date.now());
             return NextResponse.json({
                 success:           true,
-                checkoutRequestId: merchantTransId,
+                checkoutRequestId: invoiceNumber,
                 message:           'STK Push sent! Check your phone for the M-Pesa prompt.',
             });
         }
