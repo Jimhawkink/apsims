@@ -16,7 +16,7 @@ const supabase = createClient(
 
 const KCB_CONSUMER_KEY    = process.env.KCB_CONSUMER_KEY!;
 const KCB_CONSUMER_SECRET = process.env.KCB_CONSUMER_SECRET!;
-const KCB_ACCOUNT_NUMBER  = process.env.KCB_ACCOUNT_NUMBER || '8113915';
+const KCB_ACCOUNT_NUMBER  = process.env.KCB_ACCOUNT_NUMBER || '522533'; // Paybill = MerchantAccount
 const KCB_PAYBILL         = process.env.KCB_PAYBILL || '522533';
 const KCB_MERCHANT_NAME   = process.env.KCB_MERCHANT_NAME || 'Alpha School';
 const KCB_CALLBACK_URL    = process.env.KCB_CALLBACK_URL || 'https://apsims.vercel.app/api/payments/kcb-callback';
