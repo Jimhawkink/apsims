@@ -20,9 +20,13 @@ const supabase = createClient(
 
 const KCB_CONSUMER_KEY    = process.env.KCB_CONSUMER_KEY!;
 const KCB_CONSUMER_SECRET = process.env.KCB_CONSUMER_SECRET!;
-const KCB_ORG_SHORT_CODE  = process.env.KCB_ACCOUNT_NUMBER || '8113915';  // Dedicated merchant shortcode (NOT KCB shared 522533)
-const KCB_PASS_KEY        = process.env.KCB_PASS_KEY || '';               // orgPassKey — get from KCB support if needed
+// orgShortCode: empty string for sandbox (KCB's official Postman sample)
+// For production: KCB will provide the real shortcode
+const KCB_ORG_SHORT_CODE  = process.env.KCB_ACCOUNT_NUMBER || '';
+const KCB_PASS_KEY        = process.env.KCB_PASS_KEY || '';
 const KCB_CALLBACK_URL    = process.env.KCB_CALLBACK_URL || 'https://apsims.vercel.app/api/payments/kcb-callback';
+// routeCode 207 = KCB's official routing code from their Postman collection
+const KCB_ROUTE_CODE      = process.env.KCB_ROUTE_CODE || '207';
 
 // Token & STK endpoints (from KCB official docs)
 const TOKEN_URL = 'https://uat.buni.kcbgroup.com/token';
@@ -61,15 +65,16 @@ async function initiateSTKPush(token: string, params: {
     invoiceNumber: string;
 }) {
     // CORRECT field names from KCB Buni STKPushRequest swagger schema
+    // Per KCB official Postman: sharedShortCode=true, orgShortCode="" for sandbox
     const body = {
         phoneNumber:            params.phone,
         amount:                 String(Math.round(params.amount)),
-        invoiceNumber:          params.invoiceNumber,   // Student ref — routes payment correctly
-        sharedShortCode:        false,                  // false = dedicated paybill 8113915 (not KCB shared 522533)
-        orgShortCode:           KCB_ORG_SHORT_CODE,     // 8113915 = your dedicated merchant shortcode
+        invoiceNumber:          params.invoiceNumber,
+        sharedShortCode:        true,
+        orgShortCode:           KCB_ORG_SHORT_CODE,   // '' for sandbox, real code for production
         orgPassKey:             KCB_PASS_KEY,
         callbackUrl:            KCB_CALLBACK_URL,
-        transactionDescription: 'School Fee',           // max 13 chars
+        transactionDescription: 'School Fee',          // max 13 chars
     };
 
     console.log('[KCB STK] Payload:', JSON.stringify(body));
@@ -79,6 +84,11 @@ async function initiateSTKPush(token: string, params: {
         headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type':  'application/json',
+            'accept':        'application/json',
+            // Required headers from KCB official Postman collection
+            'routeCode':     KCB_ROUTE_CODE,
+            'operation':     'STKPush',
+            'messageId':     `APSIMS_${Date.now()}`,
         },
         body: JSON.stringify(body),
     });
