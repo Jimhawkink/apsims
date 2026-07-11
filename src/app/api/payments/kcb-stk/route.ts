@@ -27,10 +27,10 @@ const TOKEN_URL = IS_SANDBOX
     ? 'https://accounts.buni.kcbgroup.com/oauth2/token'   // same for sandbox
     : 'https://accounts.buni.kcbgroup.com/oauth2/token';
 
-// STK Push endpoint (gateway)
-const STK_URL = IS_SANDBOX
-    ? 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush'
-    : 'https://api.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
+// STK Push endpoint — uat.buni.kcbgroup.com is the correct gateway for BOTH
+// sandbox and production on KCB Buni (confirmed via testing).
+// api.buni.kcbgroup.com returns 900901 and is NOT the correct endpoint.
+const STK_URL = 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
 
 // ── Step 1: Get OAuth2 access token using Client Credentials
 async function getOAuthToken(): Promise<string> {
