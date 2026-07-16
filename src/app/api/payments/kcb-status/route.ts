@@ -2,9 +2,11 @@
 // KCB Payment Status Polling Endpoint
 // GET /api/payments/kcb-status?checkoutRequestId=ws_CO_...
 //
-// Checks TWO sources:
-//   1. school_mpesa_transactions — updated by KCB callback (may be delayed)
-//   2. school_fee_payments       — pre-saved by kcb-stk immediately on success
+// Priority order:
+//   1. school_mpesa_transactions.status = 'Success' → real M-Pesa code from callback
+//   2. school_fee_payments with real code (not ws_CO_) → callback updated it
+//   3. school_fee_payments with ws_CO_ → pre-saved, still waiting for callback
+//   4. Nothing found → Pending
 // ═══════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Missing checkoutRequestId' }, { status: 400 });
         }
 
-        // ── Check 1: school_mpesa_transactions (updated by KCB callback) ──
+        // ── Check 1: school_mpesa_transactions (updated by KCB callback with real code) ──
         const { data: txn } = await supabase
             .from('school_mpesa_transactions')
             .select('status, receipt_no, amount, phone_number, updated_at')
@@ -33,6 +35,7 @@ export async function GET(req: NextRequest) {
         if (txn) {
             const s = (txn.status || '').toLowerCase();
             if (s === 'success' || s === 'completed') {
+                // ✅ Callback arrived — receipt_no is the real M-Pesa code (e.g. QFX12345AB)
                 return NextResponse.json({
                     status:  'Success',
                     receipt: txn.receipt_no || checkoutRequestId,
@@ -45,8 +48,7 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // ── Check 2: school_fee_payments (pre-saved by kcb-stk on initiation) ──
-        // As soon as STK push succeeds, we pre-save a record with receipt_number = checkoutRequestId
+        // ── Check 2: school_fee_payments — has real M-Pesa code if callback updated it ──
         const { data: feePay } = await supabase
             .from('school_fee_payments')
             .select('receipt_number, reference_number, amount, status, created_at')
@@ -56,17 +58,31 @@ export async function GET(req: NextRequest) {
             .maybeSingle();
 
         if (feePay) {
-            // Record exists — STK was initiated. Treat as success.
-            // (callback will later update with confirmed receipt if it arrives)
+            const savedReceipt = feePay.receipt_number || feePay.reference_number || '';
+            const isRealCode = savedReceipt &&
+                               !savedReceipt.startsWith('ws_CO_') &&
+                               savedReceipt !== checkoutRequestId;
+
+            if (isRealCode) {
+                // ✅ Callback updated the record with real M-Pesa code
+                return NextResponse.json({
+                    status:  'Success',
+                    receipt: savedReceipt,
+                    amount:  feePay.amount || 0,
+                    source:  'fee-confirmed',
+                });
+            }
+
+            // Pre-saved record exists (ws_CO_) but callback hasn't arrived yet with real code
+            // Return Pending — keep polling to get the real M-Pesa code
             return NextResponse.json({
-                status:  'Success',
-                receipt: feePay.receipt_number || feePay.reference_number || checkoutRequestId,
-                amount:  feePay.amount || 0,
-                source:  'pre-saved',
+                status:  'Pending',
+                receipt: '',
+                message: 'Payment sent — waiting for M-Pesa confirmation code…',
             });
         }
 
-        // ── Still pending ──
+        // ── Nothing found yet ──
         return NextResponse.json({
             status:  'Pending',
             receipt: '',
