@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ultra APSIMS",
     "slug": "apsims-mobile",
-    "version": "2.0.4",
+    "version": "2.0.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -31,7 +31,7 @@
         "backgroundColor": "#F8FAFF"
       },
       "package": "com.alphasolutions.apsims",
-      "versionCode": 24,
+      "versionCode": 25,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
@@ -70,6 +70,7 @@
     }
   }
 }
+
 
 
 
