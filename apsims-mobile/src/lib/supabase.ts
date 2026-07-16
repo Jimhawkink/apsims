@@ -489,7 +489,7 @@ export async function getStudentFeePayments(studentId: number): Promise<FeePayme
             .from('school_fee_payments')
             .select('*')
             .eq('student_id', studentId)
-            .order('payment_date', { ascending: false });
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
         return data || [];

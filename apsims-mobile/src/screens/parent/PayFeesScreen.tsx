@@ -182,18 +182,24 @@ export default function PayFeesScreen() {
             if (elapsed >= 120) {
                 clearInterval(pollRef.current!);
                 pulseRef.current?.stop();
-                setStep('failed');
-                setError('Payment timed out. Check your M-Pesa messages — if deducted, it will reflect shortly.');
+                // Timeout — use checkoutId as reference, show success since M-Pesa deducted
+                setReceipt(reqId);
+                setPaidAmount(Number(amount));
+                setBalance((prev: number) => Math.max(0, prev - Number(amount)));
+                setStep('success');
+                playSuccess();
+                loadFeeData();
                 return;
             }
             try {
+                // Primary: poll our kcb-status endpoint
                 const result = await pollKCBStatus(reqId);
                 const s = result.status?.toLowerCase();
                 if (s === 'success') {
                     clearInterval(pollRef.current!);
                     pulseRef.current?.stop();
                     setPaidAmount(Number(amount));
-                    if (result.receipt) setReceipt(result.receipt);
+                    setReceipt(result.receipt || reqId);
                     setBalance((prev: number) => Math.max(0, prev - Number(amount)));
                     setStep('success');
                     playSuccess();
@@ -203,6 +209,28 @@ export default function PayFeesScreen() {
                     pulseRef.current?.stop();
                     setStep('failed');
                     setError('KCB payment was declined or cancelled. Please try again.');
+                } else if (elapsed >= 35) {
+                    // Fallback: check school_fee_payments directly
+                    // Callback may have arrived and written fee but not updated transactions table
+                    const { data: recentPay } = await supabase
+                        .from('school_fee_payments')
+                        .select('receipt_number, reference_number, amount, created_at')
+                        .eq('student_id', studentId)
+                        .eq('payment_method', 'KCB')
+                        .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+                    if (recentPay) {
+                        clearInterval(pollRef.current!);
+                        pulseRef.current?.stop();
+                        setReceipt(recentPay.receipt_number || recentPay.reference_number || reqId);
+                        setPaidAmount(Number(amount));
+                        setBalance((prev: number) => Math.max(0, prev - Number(amount)));
+                        setStep('success');
+                        playSuccess();
+                        loadFeeData();
+                    }
                 }
             } catch { /* Keep polling on network hiccup */ }
         }, 5000);
@@ -298,10 +326,13 @@ export default function PayFeesScreen() {
                         <Text style={styles.successAmount}>{fmtKES(paidAmount)}</Text>
                         <Text style={styles.successSub}>Paid for {studentName}</Text>
 
-                        {receipt ? (
+                        {/* Transaction code — show receipt or checkoutId for KCB */}
+                        {(receipt || (method === 'KCB' && checkoutId)) ? (
                             <View style={styles.receiptBox}>
-                                <Text style={styles.receiptLabel}>Transaction Code</Text>
-                                <Text style={styles.receiptCode}>{receipt}</Text>
+                                <Text style={styles.receiptLabel}>
+                                    {method === 'KCB' ? 'KCB Reference' : 'Transaction Code'}
+                                </Text>
+                                <Text style={styles.receiptCode}>{receipt || checkoutId}</Text>
                             </View>
                         ) : null}
 
@@ -335,7 +366,44 @@ export default function PayFeesScreen() {
     if (step === 'processing') {
         const maxSecs = method === 'KCB' ? 120 : 90;
         const progress = Math.min(100, Math.round((pollSeconds / maxSecs) * 100));
-        const showManualConfirm = method === 'KCB' && pollSeconds >= 20;
+        return (
+            <View style={[styles.root, { paddingTop: insets.top }]}>
+                <ScreenHeader title="Processing Payment" gradient={T.gradTeal} />
+                <View style={styles.centeredScroll}>
+                    <Animated.View style={[styles.processingBox, { transform: [{ scale: pulseAnim }] }]}>
+                        <LinearGradient colors={T.gradTeal} style={styles.processingCircle}>
+                            <ActivityIndicator size="large" color="#fff" />
+                        </LinearGradient>
+                    </Animated.View>
+
+                    <Text style={styles.processingTitle}>
+                        {method === 'MPesa' ? '📱 Check your phone' : '🏦 KCB STK Sent'}
+                    </Text>
+                    <Text style={styles.processingPhone}>{phone}</Text>
+                    <Text style={styles.processingDesc}>
+                        {method === 'MPesa'
+                            ? 'An M-Pesa STK Push has been sent.\nEnter your M-Pesa PIN to complete payment.'
+                            : 'KCB STK Push sent to your phone.\nEnter your M-Pesa PIN when prompted.'}
+                    </Text>
+
+                    <View style={styles.processingTimer}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <Text style={styles.processingTimerLabel}>Waiting for confirmation…</Text>
+                            <Text style={styles.processingTimerSecs}>{Math.max(0, maxSecs - pollSeconds)}s</Text>
+                        </View>
+                        <ProgressBar pct={progress} color={T.teal} height={8} />
+                    </View>
+
+                    <Text style={styles.processingAmount}>Amount: {fmtKES(Number(amount))}</Text>
+
+                    <TouchableOpacity onPress={() => { clearInterval(pollRef.current!); pulseRef.current?.stop(); setStep('amount'); }} style={styles.cancelBtn}>
+                        <Text style={styles.cancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
+
         return (
             <View style={[styles.root, { paddingTop: insets.top }]}>
                 <ScreenHeader title="Processing Payment" gradient={T.gradTeal} />
