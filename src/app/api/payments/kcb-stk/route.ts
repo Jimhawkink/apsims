@@ -1,14 +1,15 @@
 // ═══════════════════════════════════════════════════════════════
-// KCB Buni M-Pesa Express STK Push
+// KCB Buni M-Pesa Express STK Push  ── PRODUCTION
 // POST /api/payments/kcb-stk
 //
 // Auth:    OAuth2 Client Credentials → Bearer token
-// Token:   https://uat.buni.kcbgroup.com/token
-// STK URL: https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush
+// Token:   https://api.buni.kcbgroup.com/token
+// STK URL: https://api.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush
 //
-// CORRECT payload (from KCB Buni swagger spec STKPushRequest):
-//   phoneNumber, amount, invoiceNumber, sharedShortCode,
-//   orgShortCode, orgPassKey, callbackUrl, transactionDescription
+// CORRECT payload (KCB Buni confirmed):
+//   phoneNumber, amount, invoiceNumber=8113915-{studentId},
+//   sharedShortCode=true, orgShortCode='', orgPassKey='',
+//   callbackUrl, transactionDescription
 // ═══════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -28,9 +29,9 @@ const KCB_CALLBACK_URL    = process.env.KCB_CALLBACK_URL || 'https://apsims.verc
 // routeCode 207 = KCB's official routing code from their Postman collection
 const KCB_ROUTE_CODE      = process.env.KCB_ROUTE_CODE || '207';
 
-// Token & STK endpoints (from KCB official docs)
-const TOKEN_URL = 'https://uat.buni.kcbgroup.com/token';
-const STK_URL   = 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
+// PRODUCTION endpoints — confirmed by KCB Buni support 2026-07-16
+const TOKEN_URL = process.env.KCB_TOKEN_URL || 'https://api.buni.kcbgroup.com/token';
+const STK_URL   = process.env.KCB_STK_URL   || 'https://api.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
 
 // ── Duplicate prevention: KCB blocks same phone within ~90 seconds
 const lastPushTime = new Map<string, number>();
