@@ -179,7 +179,7 @@ export default function PayFeesScreen() {
         pollRef.current = setInterval(async () => {
             elapsed += 5;
             setPollSeconds(elapsed);
-            if (elapsed >= 120) {
+            if (elapsed >= 30) {
                 clearInterval(pollRef.current!);
                 pulseRef.current?.stop();
                 // Timeout — use checkoutId as reference, show success since M-Pesa deducted
@@ -364,7 +364,7 @@ export default function PayFeesScreen() {
 
     // ─── RENDER: Processing ────────────────────────────────────────
     if (step === 'processing') {
-        const maxSecs = method === 'KCB' ? 120 : 90;
+        const maxSecs = method === 'KCB' ? 30 : 90;
         const progress = Math.min(100, Math.round((pollSeconds / maxSecs) * 100));
         return (
             <View style={[styles.root, { paddingTop: insets.top }]}>

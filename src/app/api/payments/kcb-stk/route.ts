@@ -188,9 +188,24 @@ export async function POST(req: NextRequest) {
 
         if (isSuccess) {
             lastPushTime.set(normalizedPhone, Date.now());
+
+            // Pre-save to school_fee_payments so mobile polling can detect success
+            // even if KCB callback never arrives (production callback delay issue)
+            await supabase.from('school_fee_payments').insert([{
+                student_id:       studentId,
+                amount:           Number(amount),
+                payment_date:     new Date().toISOString().split('T')[0],
+                payment_method:   'KCB',
+                receipt_number:   kcbCheckoutId,
+                reference_number: kcbCheckoutId,
+                year:             new Date().getFullYear(),
+                notes:            `KCB Buni STK Initiated. CheckoutID: ${kcbCheckoutId}. Phone: ${normalizedPhone}. InvoiceNo: ${invoiceNumber}`,
+                status:           'Initiated',
+            }]).then(({ error: e }) => { if (e) console.error('[KCB] fee pre-save:', e.message); });
+
             return NextResponse.json({
                 success:           true,
-                checkoutRequestId: kcbCheckoutId,   // Return real KCB ID — callback will match this
+                checkoutRequestId: kcbCheckoutId,
                 message:           'STK Push sent! Check your phone for the M-Pesa prompt.',
             });
         }
