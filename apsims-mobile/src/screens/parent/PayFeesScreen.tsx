@@ -331,9 +331,11 @@ export default function PayFeesScreen() {
         );
     }
 
-    // ─── RENDER: Processing ─────────────────────────────────────
+    // ─── RENDER: Processing ────────────────────────────────────────
     if (step === 'processing') {
-        const progress = Math.min(100, Math.round((pollSeconds / 90) * 100));
+        const maxSecs = method === 'KCB' ? 120 : 90;
+        const progress = Math.min(100, Math.round((pollSeconds / maxSecs) * 100));
+        const showManualConfirm = method === 'KCB' && pollSeconds >= 20;
         return (
             <View style={[styles.root, { paddingTop: insets.top }]}>
                 <ScreenHeader title="Processing Payment" gradient={T.gradTeal} />
@@ -345,25 +347,59 @@ export default function PayFeesScreen() {
                     </Animated.View>
 
                     <Text style={styles.processingTitle}>
-                        {method === 'MPesa' ? '📱 Check your phone' : '🏦 KCB processing'}
+                        {method === 'MPesa' ? '📱 Check your phone' : '🏦 KCB STK Sent'}
                     </Text>
                     <Text style={styles.processingPhone}>{phone}</Text>
                     <Text style={styles.processingDesc}>
                         {method === 'MPesa'
                             ? 'An M-Pesa STK Push has been sent.\nEnter your M-Pesa PIN to complete payment.'
-                            : 'KCB Buni push sent.\nApprove on your KCB mobile app or USSD.'}
+                            : 'KCB Buni push sent to your phone.\nEnter your M-Pesa PIN when prompted.'}
                     </Text>
 
                     {/* Timer progress */}
                     <View style={styles.processingTimer}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                             <Text style={styles.processingTimerLabel}>Waiting for confirmation…</Text>
-                            <Text style={styles.processingTimerSecs}>{Math.max(0, 90 - pollSeconds)}s</Text>
+                            <Text style={styles.processingTimerSecs}>{Math.max(0, maxSecs - pollSeconds)}s</Text>
                         </View>
                         <ProgressBar pct={progress} color={T.teal} height={8} />
                     </View>
 
                     <Text style={styles.processingAmount}>Amount: {fmtKES(Number(amount))}</Text>
+
+                    {/* KCB Manual Confirm — appears after 20s if callback delayed */}
+                    {showManualConfirm && (
+                        <TouchableOpacity
+                            onPress={async () => {
+                                clearInterval(pollRef.current!);
+                                pulseRef.current?.stop();
+                                // Save payment directly since callback may be delayed
+                                try {
+                                    await supabase.from('school_fee_payments').insert([{
+                                        student_id:      studentId,
+                                        amount:          Number(amount),
+                                        payment_date:    new Date().toISOString(),
+                                        payment_method:  'KCB',
+                                        receipt_number:  checkoutId || `KCB-${Date.now()}`,
+                                        reference_number: checkoutId,
+                                        year:            new Date().getFullYear(),
+                                        notes:           `KCB Buni STK. CheckoutID: ${checkoutId}. Phone: ${phone}`,
+                                    }]);
+                                } catch (e) { /* DB save best-effort */ }
+                                setPaidAmount(Number(amount));
+                                setBalance((prev: number) => Math.max(0, prev - Number(amount)));
+                                setStep('success');
+                                playSuccess();
+                                loadFeeData();
+                            }}
+                            activeOpacity={0.85}
+                            style={[styles.successBtn, { marginTop: 16, backgroundColor: '#16a34a' }]}
+                        >
+                            <LinearGradient colors={T.gradGreen} style={styles.successBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                                <Text style={styles.successBtnText}>✅ I've Completed the Payment</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    )}
 
                     <TouchableOpacity onPress={() => { clearInterval(pollRef.current!); pulseRef.current?.stop(); setStep('amount'); }} style={styles.cancelBtn}>
                         <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -658,7 +694,7 @@ export default function PayFeesScreen() {
                     </LinearGradient>
                 </TouchableOpacity>
 
-                {/* ─── Recent payments ────────────────────────────── */}
+                {/* ─── Recent payments ──────────────────────────── */}
                 {paymentHistory.length > 0 && (
                     <>
                         <Text style={styles.sectionTitle}>🕐 Recent Payments</Text>
