@@ -5,9 +5,9 @@ import { createClient } from '@supabase/supabase-js';
 // Same Supabase instance as the AlphaSchool web app
 // ============================================================
 
-const SUPABASE_URL = 'https://enlqpifpxuecxxozyiak.supabase.co';
+const SUPABASE_URL = 'https://zkamuhvrmazozhudbtuw.supabase.co';
 const SUPABASE_ANON_KEY =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVubHFwaWZweHVlY3h4b3p5aWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMjUzNjgsImV4cCI6MjA4MTYwMTM2OH0.-z3-2Mf3SkkZR3ZryOGyG-60jWERX9YLKIee048OziE';
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprYW11aHZybWF6b3podWRidHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNDE3OTYsImV4cCI6MjA5OTgxNzc5Nn0.Y6gkKQDWuLxcmhlYTZvKase7MzDO_Ehymitef6OE5JU';
 
 // AlphaSchool Web API — for KCB STK Push
 const SCHOOL_API_BASE = 'https://apsims.vercel.app';
