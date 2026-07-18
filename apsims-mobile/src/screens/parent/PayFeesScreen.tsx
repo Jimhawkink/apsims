@@ -124,7 +124,7 @@ export default function PayFeesScreen() {
                 clearInterval(pollRef.current!);
                 pulseRef.current?.stop();
                 setStep('failed');
-                setError('Payment timed out. Please try again or check your M-Pesa messages.');
+                setError('Payment timed out. Please check your M-Pesa messages. If deducted, contact school.');
                 return;
             }
             try {
@@ -132,15 +132,17 @@ export default function PayFeesScreen() {
                 if (result.status === 'success') {
                     clearInterval(pollRef.current!);
                     pulseRef.current?.stop();
+                    // Only use real M-Pesa receipt code — never show reqId
+                    const realCode = result.receipt && result.receipt.length > 4 ? result.receipt : '';
                     setPaidAmount(Number(amount));
-                    if (result.receipt) setReceipt(result.receipt);
+                    setReceipt(realCode);
                     setBalance((prev: number) => Math.max(0, prev - Number(amount)));
                     setStep('success');
                     playSuccess();
 
-                    // ── Save fee payment directly to Supabase
+                    // ── Save fee payment only on confirmed M-Pesa success
                     try {
-                        const receiptNo = `APSIMS-${String(Date.now()).slice(-6)}`;
+                        const receiptNo = `MPESA-${String(Date.now()).slice(-6)}`;
                         const { error: feeErr } = await supabase
                             .from('school_fee_payments')
                             .insert([{
@@ -149,15 +151,13 @@ export default function PayFeesScreen() {
                                 payment_date:     new Date().toISOString().split('T')[0],
                                 payment_method:   'M-Pesa',
                                 receipt_number:   receiptNo,
-                                reference_number: result.receipt || reqId || null,
+                                mpesa_code:       realCode || null,
+                                reference_number: realCode || null,
                                 year:             new Date().getFullYear(),
-                                notes:            `M-Pesa STK. Code: ${result.receipt || 'N/A'}. Phone: ${phone}`,
+                                notes:            `M-Pesa STK confirmed. Code: ${realCode || 'N/A'}. Phone: ${phone}`,
                             }]);
-                        if (feeErr) {
-                            console.error('Fee save error:', feeErr.message);
-                        } else {
-                            console.log('✅ Fee saved to DB:', receiptNo);
-                        }
+                        if (!feeErr) console.log('✅ M-Pesa fee saved:', realCode);
+                        else console.error('Fee save error:', feeErr.message);
                     } catch (saveErr: any) {
                         console.error('Fee save exception:', saveErr.message);
                     }
@@ -167,7 +167,7 @@ export default function PayFeesScreen() {
                     clearInterval(pollRef.current!);
                     pulseRef.current?.stop();
                     setStep('failed');
-                    setError('Payment was declined or cancelled. Please try again.');
+                    setError('Payment was declined or cancelled. Your money was NOT deducted.');
                 }
             } catch { /* Keep polling */ }
         }, 5000);
@@ -179,42 +179,65 @@ export default function PayFeesScreen() {
         pollRef.current = setInterval(async () => {
             elapsed += 5;
             setPollSeconds(elapsed);
-            if (elapsed >= 30) {
+
+            // ⚠️ SAFETY: Never auto-succeed on timeout — user may have cancelled PIN
+            if (elapsed >= 90) {
                 clearInterval(pollRef.current!);
                 pulseRef.current?.stop();
-                // Timeout — use checkoutId as reference, show success since M-Pesa deducted
-                setReceipt(reqId);
-                setPaidAmount(Number(amount));
-                setBalance((prev: number) => Math.max(0, prev - Number(amount)));
-                setStep('success');
-                playSuccess();
-                loadFeeData();
+                setStep('failed');
+                setError('KCB payment timed out. If money was deducted, contact the school with your KCB SMS code.');
                 return;
             }
+
             try {
-                // Primary: poll our kcb-status endpoint
                 const result = await pollKCBStatus(reqId);
                 const s = result.status?.toLowerCase();
+
                 if (s === 'success') {
                     clearInterval(pollRef.current!);
                     pulseRef.current?.stop();
+                    // Only show real KCB transaction code — never the internal reqId
+                    const realCode = result.receipt && !result.receipt.startsWith('cW') ? result.receipt : '';
                     setPaidAmount(Number(amount));
-                    setReceipt(result.receipt || reqId);
+                    setReceipt(realCode);
                     setBalance((prev: number) => Math.max(0, prev - Number(amount)));
                     setStep('success');
                     playSuccess();
+
+                    // ── Save KCB payment to DB with real transaction code
+                    try {
+                        const { error: feeErr } = await supabase
+                            .from('school_fee_payments')
+                            .insert([{
+                                student_id:       studentId,
+                                amount:           Number(amount),
+                                payment_date:     new Date().toISOString().split('T')[0],
+                                payment_method:   'KCB',
+                                receipt_number:   `KCB-${String(Date.now()).slice(-6)}`,
+                                mpesa_code:       realCode || null,
+                                reference_number: realCode || null,
+                                year:             new Date().getFullYear(),
+                                notes:            `KCB Buni confirmed. Code: ${realCode || 'N/A'}. Phone: ${phone}`,
+                            }]);
+                        if (!feeErr) console.log('✅ KCB fee saved:', realCode);
+                        else console.error('KCB fee save error:', feeErr.message);
+                    } catch (saveErr: any) {
+                        console.error('KCB fee save exception:', saveErr.message);
+                    }
+
                     loadFeeData();
+
                 } else if (s === 'failed') {
                     clearInterval(pollRef.current!);
                     pulseRef.current?.stop();
                     setStep('failed');
-                    setError('KCB payment was declined or cancelled. Please try again.');
-                } else if (elapsed >= 35) {
-                    // Fallback: check school_fee_payments directly
-                    // Callback may have arrived and written fee but not updated transactions table
+                    setError('KCB payment was declined or cancelled. Your money was NOT deducted.');
+
+                } else if (elapsed >= 40) {
+                    // Fallback: check if server callback already wrote a payment record
                     const { data: recentPay } = await supabase
                         .from('school_fee_payments')
-                        .select('receipt_number, reference_number, amount, created_at')
+                        .select('receipt_number, reference_number, mpesa_code, amount, created_at')
                         .eq('student_id', studentId)
                         .eq('payment_method', 'KCB')
                         .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
@@ -224,7 +247,8 @@ export default function PayFeesScreen() {
                     if (recentPay) {
                         clearInterval(pollRef.current!);
                         pulseRef.current?.stop();
-                        setReceipt(recentPay.receipt_number || recentPay.reference_number || reqId);
+                        const code = recentPay.mpesa_code || recentPay.reference_number || recentPay.receipt_number || '';
+                        setReceipt(code.startsWith('cW') ? '' : code);
                         setPaidAmount(Number(amount));
                         setBalance((prev: number) => Math.max(0, prev - Number(amount)));
                         setStep('success');
@@ -696,18 +720,34 @@ export default function PayFeesScreen() {
                     <>
                         <Text style={styles.sectionTitle}>🕐 Recent Payments</Text>
                         <View style={styles.historyCard}>
-                            {paymentHistory.map((p: any, i: number) => (
+                            {paymentHistory.map((p: any, i: number) => {
+                                // Real transaction code: mpesa_code first, then reference_number (skip internal cW... IDs)
+                                const txCode = [p.mpesa_code, p.reference_number, p.receipt_number]
+                                    .find((c: any) => c && typeof c === 'string' && c.length > 3 && !c.startsWith('cW') && !c.startsWith('MPESA-') && !c.startsWith('KCB-') && !c.startsWith('APSIMS-'));
+                                const isKCB = ['kcb','bank','kCB'].some(k => p.payment_method?.toLowerCase().includes(k.toLowerCase()));
+                                const isMpesa = p.payment_method?.toLowerCase().includes('mpesa') || p.payment_method?.toLowerCase().includes('m-pesa');
+                                // Date + time
+                                const dt = p.created_at ? new Date(p.created_at) : (p.payment_date ? new Date(p.payment_date) : null);
+                                const dateStr = dt ? dt.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+                                const timeStr = p.created_at ? dt!.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+                                return (
                                 <View key={i} style={[styles.historyRow, i < paymentHistory.length - 1 && styles.historyBorder]}>
-                                    <View style={[styles.historyIcon, { backgroundColor: p.payment_method?.toLowerCase() === 'mpesa' ? T.greenLight : T.blueLight }]}>
-                                        <Text style={{ fontSize: 14 }}>{p.payment_method?.toLowerCase() === 'mpesa' ? '📱' : '🏦'}</Text>
+                                    <View style={[styles.historyIcon, { backgroundColor: isKCB ? T.blueLight : T.greenLight }]}>
+                                        <Text style={{ fontSize: 14 }}>{isKCB ? '🏦' : '📱'}</Text>
                                     </View>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={styles.historyMethod}>{p.payment_method || 'Payment'}{p.receipt_no ? ` · ${p.receipt_no}` : ''}</Text>
-                                        <Text style={styles.historyDate}>{p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Text>
+                                        <Text style={styles.historyMethod}>
+                                            {isKCB ? 'KCB Buni' : isMpesa ? 'M-Pesa' : (p.payment_method || 'Payment')}
+                                            {txCode ? ` · ${txCode}` : ''}
+                                        </Text>
+                                        <Text style={styles.historyDate}>
+                                            {dateStr}{timeStr ? `  ${timeStr}` : ''}
+                                        </Text>
                                     </View>
                                     <Text style={styles.historyAmt}>+{fmtKES(Number(p.amount || 0))}</Text>
                                 </View>
-                            ))}
+                                );
+                            })}
                         </View>
                     </>
                 )}
