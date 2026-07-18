@@ -244,14 +244,16 @@ export default function PayFeesScreen() {
                     return;
                 }
 
-                // ── SECONDARY: Also check school_fee_payments for server-recorded payments
-                // (handles edge case where transaction was saved without updating mpesa_transactions)
-                if (elapsed >= 20) {
+                // ── SECONDARY: Also check school_fee_payments ONLY for
+                // CONFIRMED payments (mpesa_code present, not an 'Initiated' record)
+                if (elapsed >= 25) {
                     const { data: recentPay } = await supabase
                         .from('school_fee_payments')
-                        .select('receipt_number, mpesa_code, reference_number, amount, created_at')
+                        .select('receipt_number, mpesa_code, reference_number, amount, notes, created_at')
                         .eq('student_id', studentId)
-                        .in('payment_method', ['KCB', 'KCB Buni', 'MPesa', 'M-Pesa'])
+                        .in('payment_method', ['KCB', 'KCB Buni'])
+                        .not('notes', 'ilike', '%Initiated%')       // skip "STK Initiated" records
+                        .not('notes', 'ilike', '%STK Initiated%')
                         .gte('created_at', new Date(Date.now() - 3 * 60 * 1000).toISOString())
                         .order('created_at', { ascending: false })
                         .limit(1)
@@ -260,8 +262,9 @@ export default function PayFeesScreen() {
                     if (recentPay) {
                         clearInterval(pollRef.current!);
                         pulseRef.current?.stop();
-                        const raw = recentPay.mpesa_code || recentPay.reference_number || recentPay.receipt_number || '';
-                        const code = (raw.startsWith('cW') || raw.startsWith('ws_')) ? '' : raw;
+                        const raw = recentPay.mpesa_code || recentPay.reference_number || '';
+                        // Only use code if it is a real M-Pesa/KCB code (not ws_CO... or internal IDs)
+                        const code = (raw && !raw.startsWith('ws_') && !raw.startsWith('cW') && raw.length > 4) ? raw : '';
                         setReceipt(code);
                         setPaidAmount(Number(amount));
                         setBalance((prev: number) => Math.max(0, prev - Number(amount)));
@@ -364,15 +367,22 @@ export default function PayFeesScreen() {
                         <Text style={styles.successAmount}>{fmtKES(paidAmount)}</Text>
                         <Text style={styles.successSub}>Paid for {studentName}</Text>
 
-                        {/* Transaction code — show receipt or checkoutId for KCB */}
-                        {(receipt || (method === 'KCB' && checkoutId)) ? (
+                        {/* Transaction code — only show REAL M-Pesa/KCB codes, never internal ws_CO... IDs */}
+                        {receipt && receipt.length > 4 && !receipt.startsWith('ws_') && !receipt.startsWith('cW') ? (
                             <View style={styles.receiptBox}>
                                 <Text style={styles.receiptLabel}>
-                                    {method === 'KCB' ? 'KCB Reference' : 'Transaction Code'}
+                                    {method === 'KCB' ? 'KCB M-Pesa Code' : 'M-Pesa Code'}
                                 </Text>
-                                <Text style={styles.receiptCode}>{receipt || checkoutId}</Text>
+                                <Text style={styles.receiptCode}>{receipt}</Text>
                             </View>
-                        ) : null}
+                        ) : (
+                            <View style={styles.receiptBox}>
+                                <Text style={styles.receiptLabel}>Payment Confirmed ✓</Text>
+                                <Text style={[styles.receiptCode, { fontSize: 14, color: T.green }]}>
+                                    Check your M-Pesa/KCB SMS for the transaction code
+                                </Text>
+                            </View>
+                        )}
 
                         {/* Remaining balance */}
                         <View style={styles.successBalanceBox}>
