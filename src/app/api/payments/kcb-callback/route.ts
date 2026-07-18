@@ -51,6 +51,16 @@ export async function POST(req: NextRequest) {
         let paidAmount = Number(flat?.Amount || flat?.amount || 0);
         let msisdn     = flat?.MSISDN || flat?.msisdn || flat?.PhoneNumber || '';
 
+        // Extract invoiceNumber/AccountReference — KCB echoes back what we sent
+        // Format: '8113915-{studentId}' — parse studentId from it securely
+        const invoiceNumber =
+            flat?.invoiceNumber      ||
+            flat?.InvoiceNumber      ||
+            flat?.AccountReference   ||
+            flat?.accountReference   ||
+            flat?.BillRefNumber      ||
+            stkCallback?.AccountReference || '';
+
         // Daraja-style CallbackMetadata (most reliable)
         const metaItems = stkCallback?.CallbackMetadata?.Item || flat?.CallbackMetadata?.Item || [];
         for (const item of metaItems) {
@@ -104,12 +114,24 @@ export async function POST(req: NextRequest) {
         console.log('[KCB Callback] school_mpesa_transactions:', isSuccess ? 'success' : 'failed',
                     '| receipt:', receiptNo, '| student:', txn?.student_id);
 
-        // ── 2. Resolve student_id: from UPDATE, Pending record, or phone number ──
+        // ── 2. Resolve student_id: from UPDATE → invoiceNumber → Pending record ──
         let studentId = txn?.student_id;
         const txnAmount = paidAmount || Number(txn?.amount || 0);
 
+        // PRIMARY: parse studentId from invoiceNumber (set by kcb-stk at initiation)
+        // Format: '{merchantAccount}-{studentId}' e.g. '8113915-90'
+        // This is secure: set server-side when student was authenticated, echoed back by KCB
+        if (!studentId && invoiceNumber) {
+            const parts = String(invoiceNumber).split('-');
+            const parsed = parts.length >= 2 ? Number(parts[parts.length - 1]) : NaN;
+            if (!isNaN(parsed) && parsed > 0) {
+                studentId = parsed;
+                console.log('[KCB Callback] Got student_id from invoiceNumber:', studentId, 'ref:', invoiceNumber);
+            }
+        }
+
         if (!studentId) {
-            // FALLBACK 1: Look up the most recent Pending initiated record for student_id
+            // FALLBACK: Look up the most recent Pending initiated record for student_id
             const { data: pendingTxn } = await supabase
                 .from('school_mpesa_transactions')
                 .select('student_id, checkout_request_id')
@@ -121,7 +143,6 @@ export async function POST(req: NextRequest) {
             if (pendingTxn?.student_id) {
                 studentId = pendingTxn.student_id;
                 console.log('[KCB Callback] Found student_id from pending record:', studentId);
-                // Update the Pending record to final status
                 await supabase
                     .from('school_mpesa_transactions')
                     .update({
@@ -135,12 +156,9 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // NOTE: No phone-number fallback — anyone can pay from any phone.
-        // student_id MUST come from the Pending record written at initiation time.
-        // If still null here, log it for admin review but do NOT assign to a student.
         if (!studentId) {
-            console.warn('[KCB Callback] student_id unknown. Receipt:', receiptNo, 'Amount:', txnAmount,
-                         '— admin must manually reconcile this payment.');
+            console.warn('[KCB Callback] student_id unknown. Receipt:', receiptNo,
+                         'invoiceNumber:', invoiceNumber, '— admin must manually reconcile.');
         }
 
         if (isSuccess && studentId && txnAmount > 0 && receiptNo) {
