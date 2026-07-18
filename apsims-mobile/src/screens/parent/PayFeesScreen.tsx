@@ -155,11 +155,14 @@ export default function PayFeesScreen() {
     };
 
 
-    // ─── Poll KCB Buni status ─────────────────────────────────────────────
-    // Queries school_mpesa_transactions DIRECTLY using checkout_request_id
-    // This is exactly what the KCB server callback writes to — instant detection
+    // ─── Poll KCB Buni status ─────────────────────────────────────────────────
+    // STRATEGY: school_fee_payments is the AUTHORITATIVE source — the KCB callback
+    // reliably inserts confirmed payments there. school_mpesa_transactions has a
+    // checkout_request_id mismatch so we use time-based detection instead.
     const startKCBPolling = (reqId: string) => {
         let elapsed = 0;
+        const pollStart = new Date(Date.now() - 2000).toISOString(); // 2s before poll
+
         pollRef.current = setInterval(async () => {
             elapsed += 5;
             setPollSeconds(elapsed);
@@ -174,88 +177,64 @@ export default function PayFeesScreen() {
             }
 
             try {
-                // ── PRIMARY: Query school_mpesa_transactions directly by checkoutRequestId
-                // The KCB callback writes here IMMEDIATELY when user enters PIN (or cancels)
-                const { data: txn } = await supabase
-                    .from('school_mpesa_transactions')
-                    .select('status, result_code, result_desc, mpesa_receipt, amount')
-                    .eq('checkout_request_id', reqId)
+                // ── PRIMARY: school_fee_payments — KCB callback reliably writes here ──
+                // Only check for confirmed records (receipt_number is a real M-Pesa code, not ws_CO_)
+                const { data: confirmedPay } = await supabase
+                    .from('school_fee_payments')
+                    .select('receipt_number, mpesa_code, amount, created_at')
+                    .eq('student_id', studentId)
+                    .eq('payment_method', 'KCB')
+                    .gte('created_at', pollStart)          // only payments AFTER this STK started
+                    .not('receipt_number', 'ilike', 'ws_%') // skip ws_CO_... initiated records
+                    .not('receipt_number', 'ilike', 'cW%')
+                    .order('created_at', { ascending: false })
+                    .limit(1)
                     .maybeSingle();
 
-                if (txn) {
+                if (confirmedPay) {
                     clearInterval(pollRef.current!);
                     pulseRef.current?.stop();
-
-                    if (txn.status === 'success') {
-                        // ✅ Real M-Pesa code from KCB callback
-                        const realCode = txn.mpesa_receipt && !txn.mpesa_receipt.startsWith('ws_') ? txn.mpesa_receipt : '';
-
-                        // 🔒 SECURITY: Validate amount matches what was initiated (prevent amount tampering)
-                        const confirmedAmount = Number(txn.amount || 0);
-                        const requestedAmount = Number(amount);
-                        if (confirmedAmount > 0 && Math.abs(confirmedAmount - requestedAmount) > 1) {
-                            // Amount mismatch — do NOT show success
-                            setStep('failed');
-                            setError(`⚠️ Amount mismatch: KCB confirmed KES ${confirmedAmount} but KES ${requestedAmount} was requested. Contact school.`);
-                            return;
-                        }
-
-                        setPaidAmount(confirmedAmount > 0 ? confirmedAmount : requestedAmount);
-                        setReceipt(realCode);
-                        setBalance((prev: number) => Math.max(0, prev - (confirmedAmount || requestedAmount)));
-                        setStep('success');
-                        playSuccess();
-
-                        // ⚠️ Server callback ALREADY recorded the payment via service_role.
-                        // The mobile app NEVER writes directly to payment tables (RLS protected).
-                        loadFeeData();
-
-                    } else {
-                        // ❌ Payment failed — show specific reason
-                        const code = String(txn.result_code || '');
-                        let msg = 'KCB payment failed. Your money was NOT deducted.';
-                        if (code === '1032') msg = '❌ Payment cancelled by user. Your money was NOT deducted.';
-                        else if (code === '1') msg = '❌ Insufficient M-Pesa balance. Please top up and try again.';
-                        else if (code === '2001') msg = '❌ Wrong PIN entered. Your money was NOT deducted.';
-                        else if (txn.result_desc) msg = `❌ ${txn.result_desc}`;
-                        setStep('failed');
-                        setError(msg);
-                    }
+                    const code = confirmedPay.mpesa_code || confirmedPay.receipt_number || '';
+                    const confirmedAmt = Number(confirmedPay.amount || amount);
+                    setReceipt(code && code.length > 4 ? code : '');
+                    setPaidAmount(confirmedAmt);
+                    setBalance((prev: number) => Math.max(0, prev - confirmedAmt));
+                    setStep('success');
+                    playSuccess();
+                    loadFeeData();
                     return;
                 }
 
-                // ── SECONDARY: Also check school_fee_payments ONLY for
-                // CONFIRMED payments (mpesa_code present, not an 'Initiated' record)
-                if (elapsed >= 25) {
-                    const { data: recentPay } = await supabase
-                        .from('school_fee_payments')
-                        .select('receipt_number, mpesa_code, reference_number, amount, notes, created_at')
-                        .eq('student_id', studentId)
-                        .in('payment_method', ['KCB', 'KCB Buni'])
-                        .not('notes', 'ilike', '%Initiated%')       // skip "STK Initiated" records
-                        .not('notes', 'ilike', '%STK Initiated%')
-                        .gte('created_at', new Date(Date.now() - 3 * 60 * 1000).toISOString())
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
+                // ── SECONDARY: kcb-status API — checks for cancel/fail ──
+                // Polls every 10s (every 2nd cycle) to detect cancellation faster
+                if (elapsed % 10 === 0) {
+                    try {
+                        const statusRes = await fetch(
+                            `${SCHOOL_API_BASE}/api/payments/kcb-status?checkoutRequestId=${encodeURIComponent(reqId)}`
+                        );
+                        const statusData = await statusRes.json().catch(() => ({}));
+                        const s = (statusData?.status || '').toLowerCase();
 
-                    if (recentPay) {
-                        clearInterval(pollRef.current!);
-                        pulseRef.current?.stop();
-                        const raw = recentPay.mpesa_code || recentPay.reference_number || '';
-                        // Only use code if it is a real M-Pesa/KCB code (not ws_CO... or internal IDs)
-                        const code = (raw && !raw.startsWith('ws_') && !raw.startsWith('cW') && raw.length > 4) ? raw : '';
-                        setReceipt(code);
-                        setPaidAmount(Number(amount));
-                        setBalance((prev: number) => Math.max(0, prev - Number(amount)));
-                        setStep('success');
-                        playSuccess();
-                        loadFeeData();
-                    }
+                        if (s === 'failed' || s === 'cancelled') {
+                            clearInterval(pollRef.current!);
+                            pulseRef.current?.stop();
+                            const desc = statusData?.description || statusData?.result_desc || '';
+                            const code = statusData?.result_code ? String(statusData.result_code) : '';
+                            let msg = 'KCB payment failed. Your money was NOT deducted.';
+                            if (code === '1032') msg = '❌ Payment cancelled by user. Money NOT deducted.';
+                            else if (code === '1')    msg = '❌ Insufficient M-Pesa balance. Please top up.';
+                            else if (code === '2001') msg = '❌ Wrong PIN entered. Money NOT deducted.';
+                            else if (desc) msg = `❌ ${desc}`;
+                            setStep('failed');
+                            setError(msg);
+                        }
+                    } catch { /* ignore status API errors */ }
                 }
+
             } catch { /* Keep polling on network hiccup */ }
         }, 5000);
     };
+
 
 
     // ─── Handle initiate payment ───────────────────────────────
