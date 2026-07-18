@@ -150,6 +150,8 @@ export async function loginUser(username: string, password: string): Promise<Use
 
         // Fetch student separately (no joins)
         let student: any = null;
+        let studentForm: any = null;
+        let studentStream: any = null;
         if (data.linked_student_id) {
             const { data: sd } = await supabase
                 .from('school_students')
@@ -157,6 +159,24 @@ export async function loginUser(username: string, password: string): Promise<Use
                 .eq('id', data.linked_student_id)
                 .single();
             student = sd;
+            // Fetch form name separately
+            if (sd?.form_id) {
+                const { data: fd } = await supabase
+                    .from('school_forms')
+                    .select('id, form_name, form_level')
+                    .eq('id', sd.form_id)
+                    .single();
+                studentForm = fd;
+            }
+            // Fetch stream name separately
+            if (sd?.stream_id) {
+                const { data: strd } = await supabase
+                    .from('school_streams')
+                    .select('id, stream_name')
+                    .eq('id', sd.stream_id)
+                    .single();
+                studentStream = strd;
+            }
         }
 
         // Fetch teacher separately (no joins)
@@ -179,11 +199,11 @@ export async function loginUser(username: string, password: string): Promise<Use
             linked_student_id: data.linked_student_id,
             student_name: student ? `${student.first_name} ${student.last_name}` : undefined,
             student_admission: student?.admission_number,
-            student_form: student?.school_forms?.form_name,
+            student_form: studentForm?.form_name,
             student_form_id: student?.form_id,
             student_stream_id: student?.stream_id,
-            student_stream_name: student?.school_streams?.stream_name,
-            student_form_level: student?.school_forms?.form_level,
+            student_stream_name: studentStream?.stream_name,
+            student_form_level: studentForm?.form_level,
             teacher_name: teacher ? `${teacher.first_name} ${teacher.last_name}` : undefined,
             teacher_tsc: teacher?.tsc_number,
             loggedInAt: Date.now(),

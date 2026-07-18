@@ -182,37 +182,43 @@ export default function ParentDashboard() {
                 setLoading(false);
             }
 
-            // ── TIER 1: Fetch full student record by linked_student_id ──
+            // ── TIER 1: Fetch full student record by linked_student_id (no FK joins) ──
             if (sesStudentId) {
                 const { data: single } = await supabase
                     .from('school_students')
-                    .select(`
-                        id, first_name, last_name, admission_number,
-                        form_id, gender, photo_url,
-                        school_forms!inner(id, form_name, form_level),
-                        school_streams(stream_name)
-                    `)
+                    .select('id, first_name, last_name, admission_number, form_id, stream_id, gender, photo_url')
                     .eq('id', sesStudentId)
                     .single();
-                if (single) students = [single];
+                if (single) {
+                    // Fetch form/stream separately
+                    const [{ data: frmData }, { data: strmData }] = await Promise.all([
+                        supabase.from('school_forms').select('id, form_name, form_level').eq('id', single.form_id).single(),
+                        supabase.from('school_streams').select('id, stream_name').eq('id', single.stream_id || 0).single(),
+                    ]);
+                    students = [{ ...single, school_forms: frmData, school_streams: strmData }];
+                }
             }
 
             // TIER 2 skipped: parent_portal_user_id column does not exist in school_students
 
-            // ── TIER 3: Guardian name match ──
+            // ── TIER 3: Guardian name match (no FK joins) ──
             if (students.length === 0 && session?.full_name) {
                 const { data: byGuardian } = await supabase
                     .from('school_students')
-                    .select(`
-                        id, first_name, last_name, admission_number,
-                        form_id, gender, photo_url,
-                        school_forms!inner(id, form_name, form_level),
-                        school_streams(stream_name)
-                    `)
+                    .select('id, first_name, last_name, admission_number, form_id, stream_id, gender, photo_url')
                     .ilike('guardian_name', `%${session.full_name.split(' ')[0]}%`)
                     .eq('status', 'Active')
                     .limit(5);
-                if (byGuardian?.length) students = byGuardian;
+                if (byGuardian?.length) {
+                    const enriched = await Promise.all(byGuardian.map(async (s: any) => {
+                        const [{ data: frmData }, { data: strmData }] = await Promise.all([
+                            supabase.from('school_forms').select('id, form_name, form_level').eq('id', s.form_id).single(),
+                            supabase.from('school_streams').select('id, stream_name').eq('id', s.stream_id || 0).single(),
+                        ]);
+                        return { ...s, school_forms: frmData, school_streams: strmData };
+                    }));
+                    students = enriched;
+                }
             }
 
             // ── TIER 4: Username = admission number ──
