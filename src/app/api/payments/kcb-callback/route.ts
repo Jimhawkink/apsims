@@ -104,13 +104,12 @@ export async function POST(req: NextRequest) {
         console.log('[KCB Callback] school_mpesa_transactions:', isSuccess ? 'success' : 'failed',
                     '| receipt:', receiptNo, '| student:', txn?.student_id);
 
-        // ── 2. Resolve student_id: from UPDATE result or from the Pending initiated record ──
+        // ── 2. Resolve student_id: from UPDATE, Pending record, or phone number ──
         let studentId = txn?.student_id;
         const txnAmount = paidAmount || Number(txn?.amount || 0);
 
         if (!studentId) {
-            // UPDATE found 0 rows (ID mismatch). Look up the Pending initiated record
-            // that matches by amount + recent time window to get the student_id.
+            // FALLBACK 1: Look up the most recent Pending initiated record for student_id
             const { data: pendingTxn } = await supabase
                 .from('school_mpesa_transactions')
                 .select('student_id, checkout_request_id')
@@ -122,8 +121,7 @@ export async function POST(req: NextRequest) {
             if (pendingTxn?.student_id) {
                 studentId = pendingTxn.student_id;
                 console.log('[KCB Callback] Found student_id from pending record:', studentId);
-
-                // Also update the initiated Pending record to final status
+                // Update the Pending record to final status
                 await supabase
                     .from('school_mpesa_transactions')
                     .update({
@@ -134,6 +132,26 @@ export async function POST(req: NextRequest) {
                         updated_at:    new Date().toISOString(),
                     })
                     .eq('checkout_request_id', pendingTxn.checkout_request_id);
+            }
+        }
+
+        if (!studentId && msisdn) {
+            // FALLBACK 2: Look up student by guardian_phone from the callback PhoneNumber
+            // Normalize phone to match DB format (e.g. 254712345678 → 0712345678)
+            const phoneStr = String(msisdn);
+            const normalized0   = phoneStr.startsWith('254') ? '0' + phoneStr.slice(3) : phoneStr;
+            const normalized254 = phoneStr.startsWith('0')   ? '254' + phoneStr.slice(1) : phoneStr;
+
+            const { data: studentRow } = await supabase
+                .from('school_students')
+                .select('id')
+                .or(`guardian_phone.eq.${normalized0},guardian_phone.eq.${normalized254},guardian_phone.eq.+${normalized254},emergency_contact_phone.eq.${normalized0},emergency_contact_phone.eq.${normalized254}`)
+                .limit(1)
+                .maybeSingle();
+
+            if (studentRow?.id) {
+                studentId = studentRow.id;
+                console.log('[KCB Callback] Found student_id from phone lookup:', studentId, 'phone:', normalized0);
             }
         }
 
