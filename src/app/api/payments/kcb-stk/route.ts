@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// KCB Buni M-Pesa Express STK Push  ── PRODUCTION
+// KCB Buni M-Pesa Express STK Push  ── PRODUCTION (service_role key active)
 // POST /api/payments/kcb-stk
 //
 // Auth:    OAuth2 Client Credentials → Bearer token
