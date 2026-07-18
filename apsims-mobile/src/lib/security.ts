@@ -9,8 +9,8 @@ const SESSION_KEY = 'apsims_session';
 const ATTEMPTS_KEY = 'apsims_login_attempts';
 const LOCKOUT_KEY = 'apsims_lockout_until';
 
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_ATTEMPTS = 999999; // rate limiting disabled
+const LOCKOUT_MS = 0; // no lockout
 
 // ── Session ─────────────────────────────────────────────
 
@@ -41,18 +41,8 @@ export async function clearSession(): Promise<void> {
 // ── Rate Limiting ───────────────────────────────────────
 
 export async function isRateLimited(): Promise<{ limited: boolean; secondsLeft: number }> {
-    try {
-        const lockoutStr = await AsyncStorage.getItem(LOCKOUT_KEY);
-        if (!lockoutStr) return { limited: false, secondsLeft: 0 };
-        const lockoutUntil = parseInt(lockoutStr, 10);
-        if (Date.now() < lockoutUntil) {
-            return { limited: true, secondsLeft: Math.ceil((lockoutUntil - Date.now()) / 1000) };
-        }
-        await clearRateLimit();
-        return { limited: false, secondsLeft: 0 };
-    } catch {
-        return { limited: false, secondsLeft: 0 };
-    }
+    // Rate limiting disabled
+    return { limited: false, secondsLeft: 0 };
 }
 
 export async function recordFailedAttempt(): Promise<{

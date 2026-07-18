@@ -37,11 +37,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
   }
 
-  // ─── Lookup Portal User ───
+  // ─── Lookup Portal User (no joins — avoids FK constraint issues) ───
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('school_portal_users')
-    .select('*, school_students(id, first_name, last_name, admission_number, form_id, status, school_forms(id, form_name)), school_teachers(id, first_name, last_name, tsc_number)')
+    .select('*')
     .ilike('username', username.trim())
     .eq('is_active', true)
     .single();
@@ -51,6 +51,29 @@ export async function POST(req: NextRequest) {
     await auditLog({ action: 'portal_login_failed', details: { username: username.trim(), reason: 'not_found' }, ip_address: ip });
     return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
   }
+
+  // ─── Fetch linked student separately ───
+  let studentData = null;
+  if (data.linked_student_id) {
+    const { data: sd } = await supabase
+      .from('school_students')
+      .select('id, first_name, last_name, admission_number, form_id, status, school_forms(id, form_name)')
+      .eq('id', data.linked_student_id)
+      .single();
+    studentData = sd;
+  }
+
+  // ─── Fetch linked teacher separately ───
+  let teacherData = null;
+  if (data.linked_teacher_id) {
+    const { data: td } = await supabase
+      .from('school_teachers')
+      .select('id, first_name, last_name, tsc_number')
+      .eq('id', data.linked_teacher_id)
+      .single();
+    teacherData = td;
+  }
+
 
   // ─── Verify Password ───
   const isValid = await verifyPassword(password, data.password_hash);
@@ -111,7 +134,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: true,
     user: sessionData,
-    student: data.school_students,
-    teacher: data.school_teachers,
+    student: studentData,
+    teacher: teacherData,
   });
 }
