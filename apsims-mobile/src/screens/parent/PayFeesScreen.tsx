@@ -140,24 +140,6 @@ export default function PayFeesScreen() {
                     setStep('success');
                     playSuccess();
 
-                    // ── Save fee payment only on confirmed M-Pesa success
-                    try {
-                        const receiptNo = `MPESA-${String(Date.now()).slice(-6)}`;
-                        const { error: feeErr } = await supabase
-                            .from('school_fee_payments')
-                            .insert([{
-                                student_id:       studentId,
-                                amount:           Number(amount),
-                                payment_date:     new Date().toISOString().split('T')[0],
-                                payment_method:   'M-Pesa',
-                                receipt_number:   receiptNo,
-                                mpesa_code:       realCode || null,
-                                reference_number: realCode || null,
-                                year:             new Date().getFullYear(),
-                                notes:            `M-Pesa STK confirmed. Code: ${realCode || 'N/A'}. Phone: ${phone}`,
-                            }]);
-                        if (!feeErr) console.log('✅ M-Pesa fee saved:', realCode);
-                        else console.error('Fee save error:', feeErr.message);
                     } catch (saveErr: any) {
                         console.error('Fee save exception:', saveErr.message);
                     }
@@ -207,27 +189,25 @@ export default function PayFeesScreen() {
                     if (txn.status === 'success') {
                         // ✅ Real M-Pesa code from KCB callback
                         const realCode = txn.mpesa_receipt && !txn.mpesa_receipt.startsWith('ws_') ? txn.mpesa_receipt : '';
-                        setPaidAmount(Number(amount));
+
+                        // 🔒 SECURITY: Validate amount matches what was initiated (prevent amount tampering)
+                        const confirmedAmount = Number(txn.amount || 0);
+                        const requestedAmount = Number(amount);
+                        if (confirmedAmount > 0 && Math.abs(confirmedAmount - requestedAmount) > 1) {
+                            // Amount mismatch — do NOT show success
+                            setStep('failed');
+                            setError(`⚠️ Amount mismatch: KCB confirmed KES ${confirmedAmount} but KES ${requestedAmount} was requested. Contact school.`);
+                            return;
+                        }
+
+                        setPaidAmount(confirmedAmount > 0 ? confirmedAmount : requestedAmount);
                         setReceipt(realCode);
-                        setBalance((prev: number) => Math.max(0, prev - Number(amount)));
+                        setBalance((prev: number) => Math.max(0, prev - (confirmedAmount || requestedAmount)));
                         setStep('success');
                         playSuccess();
 
-                        // Save to fee_payments (server callback may have already done this)
-                        try {
-                            await supabase.from('school_fee_payments').insert([{
-                                student_id:       studentId,
-                                amount:           Number(amount),
-                                payment_date:     new Date().toISOString().split('T')[0],
-                                payment_method:   'KCB',
-                                receipt_number:   `KCB-${String(Date.now()).slice(-6)}`,
-                                mpesa_code:       realCode || null,
-                                reference_number: realCode || null,
-                                year:             new Date().getFullYear(),
-                                notes:            `KCB confirmed. Code: ${realCode || 'N/A'}. Phone: ${phone}`,
-                            }]);
-                        } catch { /* Server callback may have already saved it */ }
-
+                        // ⚠️ Server callback ALREADY recorded the payment via service_role.
+                        // The mobile app NEVER writes directly to payment tables (RLS protected).
                         loadFeeData();
 
                     } else {
@@ -322,18 +302,28 @@ export default function PayFeesScreen() {
                     throw new Error(result?.error || 'KCB Push failed. Try M-Pesa instead.');
                 }
             } else {
-                // Manual code — record payment via static import
-                const { error: dbErr } = await supabase.from('school_fee_payments').insert([{
-                    student_id: studentId, amount: Number(amount),
-                    payment_method: 'MPesa', mpesa_code: manualCode.trim().toUpperCase(),
-                    payment_date: new Date().toISOString().split('T')[0],
-                    recorded_by: session?.full_name || 'Parent Portal',
-                    year: new Date().getFullYear(),
-                }]);
-                if (dbErr) throw new Error(dbErr.message);
+                // Manual code — route through server API (validated server-side, uses service_role)
+                // The mobile app NEVER writes directly to school_fee_payments
+                const cleanCode = manualCode.trim().toUpperCase();
+                const res = await fetch(`${SCHOOL_API_BASE}/api/payments/record-manual`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        studentId,
+                        amount:        Number(amount),
+                        mpesaCode:     cleanCode,
+                        paymentMethod: 'M-Pesa',
+                        recordedBy:    session?.full_name || 'Parent Portal',
+                        phone,
+                    }),
+                });
+                const result = await res.json().catch(() => ({}));
+                if (!res.ok || result.error) {
+                    throw new Error(result.error || 'Could not record payment. Please try again.');
+                }
                 pulseRef.current?.stop();
                 setPaidAmount(Number(amount));
-                setReceipt(manualCode.trim().toUpperCase());
+                setReceipt(cleanCode);
                 setBalance((prev: number) => Math.max(0, prev - Number(amount)));
                 setStep('success');
                 playSuccess();
