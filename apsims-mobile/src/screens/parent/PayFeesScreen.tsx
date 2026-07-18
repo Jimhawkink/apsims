@@ -173,42 +173,49 @@ export default function PayFeesScreen() {
         }, 5000);
     };
 
-    // ─── Poll KCB Buni status ──────────────────────────────────
+    // ─── Poll KCB Buni status ─────────────────────────────────────────────
+    // Queries school_mpesa_transactions DIRECTLY using checkout_request_id
+    // This is exactly what the KCB server callback writes to — instant detection
     const startKCBPolling = (reqId: string) => {
         let elapsed = 0;
         pollRef.current = setInterval(async () => {
             elapsed += 5;
             setPollSeconds(elapsed);
 
-            // ⚠️ SAFETY: Never auto-succeed on timeout — user may have cancelled PIN
+            // ⚠️ SAFETY: Never auto-succeed on timeout
             if (elapsed >= 90) {
                 clearInterval(pollRef.current!);
                 pulseRef.current?.stop();
                 setStep('failed');
-                setError('KCB payment timed out. If money was deducted, contact the school with your KCB SMS code.');
+                setError('KCB payment timed out. If money was deducted, contact school with your KCB SMS code.');
                 return;
             }
 
             try {
-                const result = await pollKCBStatus(reqId);
-                const s = result.status?.toLowerCase();
+                // ── PRIMARY: Query school_mpesa_transactions directly by checkoutRequestId
+                // The KCB callback writes here IMMEDIATELY when user enters PIN (or cancels)
+                const { data: txn } = await supabase
+                    .from('school_mpesa_transactions')
+                    .select('status, result_code, result_desc, mpesa_receipt, amount')
+                    .eq('checkout_request_id', reqId)
+                    .maybeSingle();
 
-                if (s === 'success') {
+                if (txn) {
                     clearInterval(pollRef.current!);
                     pulseRef.current?.stop();
-                    // Only show real KCB transaction code — never the internal reqId
-                    const realCode = result.receipt && !result.receipt.startsWith('cW') ? result.receipt : '';
-                    setPaidAmount(Number(amount));
-                    setReceipt(realCode);
-                    setBalance((prev: number) => Math.max(0, prev - Number(amount)));
-                    setStep('success');
-                    playSuccess();
 
-                    // ── Save KCB payment to DB with real transaction code
-                    try {
-                        const { error: feeErr } = await supabase
-                            .from('school_fee_payments')
-                            .insert([{
+                    if (txn.status === 'success') {
+                        // ✅ Real M-Pesa code from KCB callback
+                        const realCode = txn.mpesa_receipt && !txn.mpesa_receipt.startsWith('ws_') ? txn.mpesa_receipt : '';
+                        setPaidAmount(Number(amount));
+                        setReceipt(realCode);
+                        setBalance((prev: number) => Math.max(0, prev - Number(amount)));
+                        setStep('success');
+                        playSuccess();
+
+                        // Save to fee_payments (server callback may have already done this)
+                        try {
+                            await supabase.from('school_fee_payments').insert([{
                                 student_id:       studentId,
                                 amount:           Number(amount),
                                 payment_date:     new Date().toISOString().split('T')[0],
@@ -217,38 +224,45 @@ export default function PayFeesScreen() {
                                 mpesa_code:       realCode || null,
                                 reference_number: realCode || null,
                                 year:             new Date().getFullYear(),
-                                notes:            `KCB Buni confirmed. Code: ${realCode || 'N/A'}. Phone: ${phone}`,
+                                notes:            `KCB confirmed. Code: ${realCode || 'N/A'}. Phone: ${phone}`,
                             }]);
-                        if (!feeErr) console.log('✅ KCB fee saved:', realCode);
-                        else console.error('KCB fee save error:', feeErr.message);
-                    } catch (saveErr: any) {
-                        console.error('KCB fee save exception:', saveErr.message);
+                        } catch { /* Server callback may have already saved it */ }
+
+                        loadFeeData();
+
+                    } else {
+                        // ❌ Payment failed — show specific reason
+                        const code = String(txn.result_code || '');
+                        let msg = 'KCB payment failed. Your money was NOT deducted.';
+                        if (code === '1032') msg = '❌ Payment cancelled by user. Your money was NOT deducted.';
+                        else if (code === '1') msg = '❌ Insufficient M-Pesa balance. Please top up and try again.';
+                        else if (code === '2001') msg = '❌ Wrong PIN entered. Your money was NOT deducted.';
+                        else if (txn.result_desc) msg = `❌ ${txn.result_desc}`;
+                        setStep('failed');
+                        setError(msg);
                     }
+                    return;
+                }
 
-                    loadFeeData();
-
-                } else if (s === 'failed') {
-                    clearInterval(pollRef.current!);
-                    pulseRef.current?.stop();
-                    setStep('failed');
-                    setError('KCB payment was declined or cancelled. Your money was NOT deducted.');
-
-                } else if (elapsed >= 40) {
-                    // Fallback: check if server callback already wrote a payment record
+                // ── SECONDARY: Also check school_fee_payments for server-recorded payments
+                // (handles edge case where transaction was saved without updating mpesa_transactions)
+                if (elapsed >= 20) {
                     const { data: recentPay } = await supabase
                         .from('school_fee_payments')
-                        .select('receipt_number, reference_number, mpesa_code, amount, created_at')
+                        .select('receipt_number, mpesa_code, reference_number, amount, created_at')
                         .eq('student_id', studentId)
-                        .eq('payment_method', 'KCB')
-                        .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
+                        .in('payment_method', ['KCB', 'KCB Buni', 'MPesa', 'M-Pesa'])
+                        .gte('created_at', new Date(Date.now() - 3 * 60 * 1000).toISOString())
                         .order('created_at', { ascending: false })
                         .limit(1)
                         .maybeSingle();
+
                     if (recentPay) {
                         clearInterval(pollRef.current!);
                         pulseRef.current?.stop();
-                        const code = recentPay.mpesa_code || recentPay.reference_number || recentPay.receipt_number || '';
-                        setReceipt(code.startsWith('cW') ? '' : code);
+                        const raw = recentPay.mpesa_code || recentPay.reference_number || recentPay.receipt_number || '';
+                        const code = (raw.startsWith('cW') || raw.startsWith('ws_')) ? '' : raw;
+                        setReceipt(code);
                         setPaidAmount(Number(amount));
                         setBalance((prev: number) => Math.max(0, prev - Number(amount)));
                         setStep('success');
