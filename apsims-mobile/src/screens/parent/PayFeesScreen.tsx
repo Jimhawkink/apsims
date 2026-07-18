@@ -140,11 +140,10 @@ export default function PayFeesScreen() {
                     setStep('success');
                     playSuccess();
 
-                    } catch (saveErr: any) {
-                        console.error('Fee save exception:', saveErr.message);
-                    }
-
+                    // ⚠️ Server callback already records the payment via service_role.
+                    // The mobile app NEVER writes directly to payment tables (RLS protected).
                     loadFeeData();
+
                 } else if (result.status === 'failed') {
                     clearInterval(pollRef.current!);
                     pulseRef.current?.stop();
@@ -154,6 +153,7 @@ export default function PayFeesScreen() {
             } catch { /* Keep polling */ }
         }, 5000);
     };
+
 
     // ─── Poll KCB Buni status ─────────────────────────────────────────────
     // Queries school_mpesa_transactions DIRECTLY using checkout_request_id
