@@ -72,8 +72,8 @@ export async function POST(req: NextRequest) {
         const { data: txn, error: txnErr } = await supabase
             .from('school_mpesa_transactions')
             .update({
-                status:      isSuccess ? 'success' : 'failed',  // lowercase to match app polling
-                mpesa_receipt: receiptNo || null,                // correct column name
+                status:        isSuccess ? 'success' : 'failed',
+                mpesa_receipt: receiptNo || null,
                 result_code:   String(resultCode),
                 result_desc:   stkCallback?.ResultDesc || flat?.ResultDesc || flat?.resultDesc || '',
                 updated_at:    new Date().toISOString(),
@@ -83,7 +83,25 @@ export async function POST(req: NextRequest) {
             .maybeSingle();
 
         if (txnErr) console.error('[KCB Callback] txn update error:', txnErr.message);
-        console.log('[KCB Callback] school_mpesa_transactions updated:', isSuccess ? 'success' : 'failed',
+
+        // ✔ If UPDATE found nothing (ID mismatch between initiation and callback),
+        // INSERT a fresh record so the status API can find it by ws_CO_ ID
+        if (!txn && checkoutRequestId) {
+            await supabase.from('school_mpesa_transactions').insert([{
+                checkout_request_id:  checkoutRequestId,
+                merchant_request_id:  flat?.MerchantRequestID || flat?.merchantRequestId || '',
+                status:               isSuccess ? 'success' : 'failed',
+                mpesa_receipt:        receiptNo || null,
+                result_code:          String(resultCode),
+                result_desc:          stkCallback?.ResultDesc || flat?.ResultDesc || flat?.resultDesc || '',
+                amount:               paidAmount || null,
+                created_at:           new Date().toISOString(),
+                updated_at:           new Date().toISOString(),
+            }]);
+            console.log('[KCB Callback] Inserted new school_mpesa_transactions record for:', checkoutRequestId);
+        }
+
+        console.log('[KCB Callback] school_mpesa_transactions:', isSuccess ? 'success' : 'failed',
                     '| receipt:', receiptNo, '| student:', txn?.student_id);
 
 

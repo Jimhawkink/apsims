@@ -156,12 +156,12 @@ export default function PayFeesScreen() {
 
 
     // ─── Poll KCB Buni status ─────────────────────────────────────────────────
-    // STRATEGY: school_fee_payments is the AUTHORITATIVE source — the KCB callback
-    // reliably inserts confirmed payments there. school_mpesa_transactions has a
-    // checkout_request_id mismatch so we use time-based detection instead.
+    // PRIMARY:   school_fee_payments — KCB callback reliably inserts confirmed
+    //            payments here via service_role. Use 3-min window (not pollStart)
+    //            to handle server/client clock skew.
+    // SECONDARY: kcb-status API for cancel/fail detection every poll cycle.
     const startKCBPolling = (reqId: string) => {
         let elapsed = 0;
-        const pollStart = new Date(Date.now() - 2000).toISOString(); // 2s before poll
 
         pollRef.current = setInterval(async () => {
             elapsed += 5;
@@ -177,16 +177,18 @@ export default function PayFeesScreen() {
             }
 
             try {
-                // ── PRIMARY: school_fee_payments — KCB callback reliably writes here ──
-                // Only check for confirmed records (receipt_number is a real M-Pesa code, not ws_CO_)
+                // ── PRIMARY: school_fee_payments — 3-minute window ──────────────
+                // Use 3-min window NOT a per-session timestamp to handle clock skew
+                const windowStart = new Date(Date.now() - 3 * 60 * 1000).toISOString();
                 const { data: confirmedPay } = await supabase
                     .from('school_fee_payments')
                     .select('receipt_number, mpesa_code, amount, created_at')
                     .eq('student_id', studentId)
                     .eq('payment_method', 'KCB')
-                    .gte('created_at', pollStart)          // only payments AFTER this STK started
-                    .not('receipt_number', 'ilike', 'ws_%') // skip ws_CO_... initiated records
+                    .gte('created_at', windowStart)
+                    .not('receipt_number', 'ilike', 'ws_%')
                     .not('receipt_number', 'ilike', 'cW%')
+                    .not('receipt_number', 'ilike', '%-initiated%')
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();
@@ -205,31 +207,40 @@ export default function PayFeesScreen() {
                     return;
                 }
 
-                // ── SECONDARY: kcb-status API — checks for cancel/fail ──
-                // Polls every 10s (every 2nd cycle) to detect cancellation faster
-                if (elapsed % 10 === 0) {
-                    try {
-                        const statusRes = await fetch(
-                            `${SCHOOL_API_BASE}/api/payments/kcb-status?checkoutRequestId=${encodeURIComponent(reqId)}`
-                        );
-                        const statusData = await statusRes.json().catch(() => ({}));
-                        const s = (statusData?.status || '').toLowerCase();
+                // ── SECONDARY: kcb-status API — detects cancel/fail every poll ──
+                try {
+                    const statusRes = await fetch(
+                        `${SCHOOL_API_BASE}/api/payments/kcb-status?checkoutRequestId=${encodeURIComponent(reqId)}`
+                    );
+                    const statusData = await statusRes.json().catch(() => ({}));
+                    const s = (statusData?.status || '').toLowerCase();
 
-                        if (s === 'failed' || s === 'cancelled') {
-                            clearInterval(pollRef.current!);
-                            pulseRef.current?.stop();
-                            const desc = statusData?.description || statusData?.result_desc || '';
-                            const code = statusData?.result_code ? String(statusData.result_code) : '';
-                            let msg = 'KCB payment failed. Your money was NOT deducted.';
-                            if (code === '1032') msg = '❌ Payment cancelled by user. Money NOT deducted.';
-                            else if (code === '1')    msg = '❌ Insufficient M-Pesa balance. Please top up.';
-                            else if (code === '2001') msg = '❌ Wrong PIN entered. Money NOT deducted.';
-                            else if (desc) msg = `❌ ${desc}`;
-                            setStep('failed');
-                            setError(msg);
-                        }
-                    } catch { /* ignore status API errors */ }
-                }
+                    if (s === 'success') {
+                        // Callback confirmed via kcb-status (belt and suspenders)
+                        clearInterval(pollRef.current!);
+                        pulseRef.current?.stop();
+                        const code = statusData?.receipt || '';
+                        setReceipt(code && code.length > 4 ? code : '');
+                        setPaidAmount(Number(statusData?.amount || amount));
+                        setBalance((prev: number) => Math.max(0, prev - Number(statusData?.amount || amount)));
+                        setStep('success');
+                        playSuccess();
+                        loadFeeData();
+
+                    } else if (s === 'failed' || s === 'cancelled') {
+                        clearInterval(pollRef.current!);
+                        pulseRef.current?.stop();
+                        const desc = statusData?.result_desc || statusData?.description || '';
+                        const code = statusData?.result_code ? String(statusData.result_code) : '';
+                        let msg = '❌ KCB payment failed. Money NOT deducted.';
+                        if (code === '1032') msg = '❌ Payment cancelled by user. Money NOT deducted.';
+                        else if (code === '1')    msg = '❌ Insufficient M-Pesa balance. Please top up.';
+                        else if (code === '2001') msg = '❌ Wrong PIN entered. Money NOT deducted.';
+                        else if (desc)            msg = `❌ ${desc}`;
+                        setStep('failed');
+                        setError(msg);
+                    }
+                } catch { /* ignore status API errors — keep polling */ }
 
             } catch { /* Keep polling on network hiccup */ }
         }, 5000);
