@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'; // db: zkamuhvrmazozhudbtuw
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPassword, isBcryptHash, hashPassword, setSessionCookie, checkRateLimit, recordFailedAttempt, clearFailedAttempts, auditLog } from '@/lib/auth';
 
