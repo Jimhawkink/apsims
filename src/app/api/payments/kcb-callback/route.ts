@@ -104,13 +104,41 @@ export async function POST(req: NextRequest) {
         console.log('[KCB Callback] school_mpesa_transactions:', isSuccess ? 'success' : 'failed',
                     '| receipt:', receiptNo, '| student:', txn?.student_id);
 
+        // ── 2. Resolve student_id: from UPDATE result or from the Pending initiated record ──
+        let studentId = txn?.student_id;
+        const txnAmount = paidAmount || Number(txn?.amount || 0);
 
-        const studentId = txn?.student_id;
-        const txnAmount = paidAmount || txn?.amount || 0;
+        if (!studentId) {
+            // UPDATE found 0 rows (ID mismatch). Look up the Pending initiated record
+            // that matches by amount + recent time window to get the student_id.
+            const { data: pendingTxn } = await supabase
+                .from('school_mpesa_transactions')
+                .select('student_id, checkout_request_id')
+                .eq('status', 'Pending')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
 
+            if (pendingTxn?.student_id) {
+                studentId = pendingTxn.student_id;
+                console.log('[KCB Callback] Found student_id from pending record:', studentId);
+
+                // Also update the initiated Pending record to final status
+                await supabase
+                    .from('school_mpesa_transactions')
+                    .update({
+                        status:        isSuccess ? 'success' : 'failed',
+                        mpesa_receipt: receiptNo || null,
+                        result_code:   String(resultCode),
+                        result_desc:   stkCallback?.ResultDesc || flat?.ResultDesc || '',
+                        updated_at:    new Date().toISOString(),
+                    })
+                    .eq('checkout_request_id', pendingTxn.checkout_request_id);
+            }
+        }
 
         if (isSuccess && studentId && txnAmount > 0 && receiptNo) {
-            // ── 2. SUCCESS: Insert confirmed payment into school_fee_payments ──
+            // ── 3. SUCCESS: Insert confirmed payment into school_fee_payments ──
             // Deduplicate: check if this receipt code was already recorded
             const { data: existing } = await supabase
                 .from('school_fee_payments')
@@ -137,18 +165,10 @@ export async function POST(req: NextRequest) {
             }
 
         } else if (!isSuccess) {
-            // ── 3. FAILED/CANCELLED: Clean up any pending fee_payments with this checkoutId ──
-            // The kcb-stk route no longer pre-inserts, but clean up any old initiated records
-            const { error: delErr } = await supabase
-                .from('school_fee_payments')
-                .delete()
-                .eq('receipt_number', checkoutRequestId)  // ws_CO_... initiated records
-                .ilike('notes', '%Initiated%');            // only delete initiated, not confirmed
-
-            if (!delErr) console.log('[KCB Callback] ❌ Cleaned up pending record for:', checkoutRequestId);
-            console.log('[KCB Callback] Payment FAILED. Code:', resultCode,
+            console.log('[KCB Callback] ❌ Payment FAILED. Code:', resultCode,
                         '| Desc:', stkCallback?.ResultDesc || flat?.ResultDesc || '');
         }
+
 
         return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' });
 
