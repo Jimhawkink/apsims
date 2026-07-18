@@ -189,17 +189,9 @@ export async function POST(req: NextRequest) {
         if (isSuccess) {
             lastPushTime.set(normalizedPhone, Date.now());
 
-            // Pre-save to school_fee_payments so mobile polling can detect success
-            // Only use columns proven to exist in the table
-            await supabase.from('school_fee_payments').insert([{
-                student_id:      studentId,
-                amount:          Number(amount),
-                payment_date:    new Date().toISOString().split('T')[0],
-                payment_method:  'KCB',
-                receipt_number:  kcbCheckoutId,
-                notes:           `KCB STK Initiated. CheckoutID: ${kcbCheckoutId}. Phone: ${normalizedPhone}`,
-                created_at:      new Date().toISOString(),
-            }]).then(({ error: e }) => { if (e) console.error('[KCB] fee pre-save error:', e.message); });
+            // ✅ school_mpesa_transactions is ONLY for tracking/polling — NOT a payment record
+            // school_fee_payments is ONLY written by the callback AFTER KCB confirms success
+            // NEVER pre-insert into school_fee_payments here — that creates fake transactions!
 
             return NextResponse.json({
                 success:           true,

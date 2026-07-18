@@ -67,40 +67,33 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ ResultCode: 0, ResultDesc: 'OK' });
         }
 
-        // ── 1. Update school_mpesa_transactions ──
+        // ── 1. Update school_mpesa_transactions with result ──
+        // IMPORTANT: write lowercase 'success'/'failed' — mobile app polls for lowercase!
         const { data: txn, error: txnErr } = await supabase
             .from('school_mpesa_transactions')
             .update({
-                status:     isSuccess ? 'Success' : 'Failed',
-                receipt_no: receiptNo,
-                updated_at: new Date().toISOString(),
+                status:      isSuccess ? 'success' : 'failed',  // lowercase to match app polling
+                mpesa_receipt: receiptNo || null,                // correct column name
+                result_code:   String(resultCode),
+                result_desc:   stkCallback?.ResultDesc || flat?.ResultDesc || flat?.resultDesc || '',
+                updated_at:    new Date().toISOString(),
             })
             .eq('checkout_request_id', checkoutRequestId)
             .select('student_id, amount')
             .maybeSingle();
 
         if (txnErr) console.error('[KCB Callback] txn update error:', txnErr.message);
+        console.log('[KCB Callback] school_mpesa_transactions updated:', isSuccess ? 'success' : 'failed',
+                    '| receipt:', receiptNo, '| student:', txn?.student_id);
 
-        // ── 2. Update the pre-saved school_fee_payments record with real M-Pesa code ──
-        if (receiptNo) {
-            const { error: feeUpdateErr } = await supabase
-                .from('school_fee_payments')
-                .update({
-                    receipt_number: receiptNo,
-                    notes: `KCB confirmed. M-Pesa Code: ${receiptNo}. CheckoutID: ${checkoutRequestId}`,
-                })
-                .eq('receipt_number', checkoutRequestId);  // find by ws_CO_ value
-
-            if (feeUpdateErr) console.error('[KCB Callback] fee update error:', feeUpdateErr.message);
-            else console.log('[KCB Callback] ✅ Pre-saved record updated with real code:', receiptNo);
-        }
 
         const studentId = txn?.student_id;
         const txnAmount = paidAmount || txn?.amount || 0;
 
-        // ── 3. If callback has new data not in pre-save, insert confirmed record ──
+
         if (isSuccess && studentId && txnAmount > 0 && receiptNo) {
-            // Check if pre-save already exists (it will if kcb-stk worked)
+            // ── 2. SUCCESS: Insert confirmed payment into school_fee_payments ──
+            // Deduplicate: check if this receipt code was already recorded
             const { data: existing } = await supabase
                 .from('school_fee_payments')
                 .select('id')
@@ -108,20 +101,35 @@ export async function POST(req: NextRequest) {
                 .maybeSingle();
 
             if (!existing) {
-                // Pre-save didn't work — insert fresh confirmed record
-                await supabase.from('school_fee_payments').insert([{
+                const { error: insertErr } = await supabase.from('school_fee_payments').insert([{
                     student_id:     studentId,
                     amount:         txnAmount,
                     payment_date:   new Date().toISOString().split('T')[0],
                     payment_method: 'KCB',
                     receipt_number: receiptNo,
-                    phone_number:   msisdn,
-                    transaction_id: checkoutRequestId,
-                    notes:          `KCB Buni. M-Pesa: ${receiptNo}. CheckoutID: ${checkoutRequestId}`,
+                    mpesa_code:     receiptNo,
+                    notes:          `KCB confirmed. M-Pesa Code: ${receiptNo}. CheckoutID: ${checkoutRequestId}`,
+                    year:           new Date().getFullYear(),
                     created_at:     new Date().toISOString(),
                 }]);
-                console.log(`[KCB Callback] ✅ New fee record: student=${studentId} KES${txnAmount} code=${receiptNo}`);
+                if (insertErr) console.error('[KCB Callback] fee insert error:', insertErr.message);
+                else console.log(`[KCB Callback] ✅ Fee recorded: student=${studentId} KES${txnAmount} code=${receiptNo}`);
+            } else {
+                console.log('[KCB Callback] Fee already recorded for receipt:', receiptNo);
             }
+
+        } else if (!isSuccess) {
+            // ── 3. FAILED/CANCELLED: Clean up any pending fee_payments with this checkoutId ──
+            // The kcb-stk route no longer pre-inserts, but clean up any old initiated records
+            const { error: delErr } = await supabase
+                .from('school_fee_payments')
+                .delete()
+                .eq('receipt_number', checkoutRequestId)  // ws_CO_... initiated records
+                .ilike('notes', '%Initiated%');            // only delete initiated, not confirmed
+
+            if (!delErr) console.log('[KCB Callback] ❌ Cleaned up pending record for:', checkoutRequestId);
+            console.log('[KCB Callback] Payment FAILED. Code:', resultCode,
+                        '| Desc:', stkCallback?.ResultDesc || flat?.ResultDesc || '');
         }
 
         return NextResponse.json({ ResultCode: 0, ResultDesc: 'Accepted' });
