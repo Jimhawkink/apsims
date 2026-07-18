@@ -135,24 +135,12 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        if (!studentId && msisdn) {
-            // FALLBACK 2: Look up student by guardian_phone from the callback PhoneNumber
-            // Normalize phone to match DB format (e.g. 254712345678 → 0712345678)
-            const phoneStr = String(msisdn);
-            const normalized0   = phoneStr.startsWith('254') ? '0' + phoneStr.slice(3) : phoneStr;
-            const normalized254 = phoneStr.startsWith('0')   ? '254' + phoneStr.slice(1) : phoneStr;
-
-            const { data: studentRow } = await supabase
-                .from('school_students')
-                .select('id')
-                .or(`guardian_phone.eq.${normalized0},guardian_phone.eq.${normalized254},guardian_phone.eq.+${normalized254},emergency_contact_phone.eq.${normalized0},emergency_contact_phone.eq.${normalized254}`)
-                .limit(1)
-                .maybeSingle();
-
-            if (studentRow?.id) {
-                studentId = studentRow.id;
-                console.log('[KCB Callback] Found student_id from phone lookup:', studentId, 'phone:', normalized0);
-            }
+        // NOTE: No phone-number fallback — anyone can pay from any phone.
+        // student_id MUST come from the Pending record written at initiation time.
+        // If still null here, log it for admin review but do NOT assign to a student.
+        if (!studentId) {
+            console.warn('[KCB Callback] student_id unknown. Receipt:', receiptNo, 'Amount:', txnAmount,
+                         '— admin must manually reconcile this payment.');
         }
 
         if (isSuccess && studentId && txnAmount > 0 && receiptNo) {
