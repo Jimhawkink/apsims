@@ -117,32 +117,22 @@ export interface HomeworkItem {
 
 export async function loginUser(username: string, password: string): Promise<UserSession | null> {
     try {
-        // Fetch portal user by username
+        // Fetch portal user WITHOUT joins (new DB has no FK constraints defined)
         const { data, error } = await supabase
             .from('school_portal_users')
-            .select(`
-                id, username, full_name, user_type, password_hash,
-                linked_student_id, linked_teacher_id,
-                school_students(
-                    id, first_name, last_name, admission_number, form_id, stream_id,
-                    school_forms(id, form_name, form_level),
-                    school_streams(id, stream_name)
-                ),
-                school_teachers(id, first_name, last_name, tsc_number)
-            `)
+            .select('id, username, full_name, user_type, password_hash, linked_student_id, linked_teacher_id, is_active')
             .ilike('username', username.trim())
             .eq('is_active', true)
             .single();
 
         if (error || !data) return null;
 
-        // Password verification — mobile side (bcrypt not available in RN, so we use plain comparison)
-        // For production, this should call an API endpoint. For now, support plaintext match.
+        // Password verification
         const storedHash = data.password_hash || '';
         const isBcrypt = storedHash.startsWith('$2');
 
         if (isBcrypt) {
-            // Call server-side validation endpoint
+            // Call server-side validation (bcrypt not available in React Native)
             try {
                 const res = await fetch(`${SCHOOL_API_BASE}/api/auth/portal-login`, {
                     method: 'POST',
@@ -155,12 +145,30 @@ export async function loginUser(username: string, password: string): Promise<Use
                 return null;
             }
         } else {
-            // Legacy plaintext comparison
             if (password !== storedHash) return null;
         }
 
-        const student = (data as any).school_students;
-        const teacher = (data as any).school_teachers;
+        // Fetch student separately (no joins)
+        let student: any = null;
+        if (data.linked_student_id) {
+            const { data: sd } = await supabase
+                .from('school_students')
+                .select('id, first_name, last_name, admission_number, form_id, stream_id')
+                .eq('id', data.linked_student_id)
+                .single();
+            student = sd;
+        }
+
+        // Fetch teacher separately (no joins)
+        let teacher: any = null;
+        if (data.linked_teacher_id) {
+            const { data: td } = await supabase
+                .from('school_teachers')
+                .select('id, first_name, last_name, tsc_number')
+                .eq('id', data.linked_teacher_id)
+                .single();
+            teacher = td;
+        }
 
         return {
             portal_user_id: data.id,

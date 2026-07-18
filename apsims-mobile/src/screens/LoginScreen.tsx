@@ -167,15 +167,7 @@ export default function LoginScreen() {
                 // Navigation is handled by App.tsx based on session state
             } else {
                 triggerShake();
-                const { locked, attemptsLeft, lockoutMs } = await recordFailedAttempt();
-                if (locked) {
-                    startLockoutCountdown(Math.ceil(lockoutMs / 1000));
-                } else {
-                    setError(attemptsLeft > 0
-                        ? `Invalid credentials — ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} left`
-                        : 'Invalid credentials'
-                    );
-                }
+                setError('Invalid credentials. Please try again.');
             }
         } catch {
             setError('Connection error. Please try again.');
