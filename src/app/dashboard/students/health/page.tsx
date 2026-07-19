@@ -23,7 +23,7 @@ export default function StudentHealthPage() {
   const [editRec, setEditRec] = useState<any>(null);
 
   const [recForm, setRecForm] = useState({ student_id: 0, blood_group: '', genotype: '', height_cm: '', weight_kg: '', vision_left: '', vision_right: '', chronic_conditions: '', allergies_text: '', current_medications: '', disability_notes: '' });
-  const [visitForm, setVisitForm] = useState({ student_id: 0, complaint: '', diagnosis: '', treatment: '', medication_given: '', temperature: '', blood_pressure: '', referred_to: '', attended_by: '', notes: '', sms_parent: true });
+  const [visitForm, setVisitForm] = useState({ student_id: 0, visit_date: new Date().toISOString().split('T')[0], complaint: '', diagnosis: '', treatment: '', medication_given: '', temperature: '', blood_pressure: '', referred_to: '', attended_by: '', notes: '', sms_parent: true });
   const [allergyForm, setAllergyForm] = useState({ student_id: 0, allergen: '', severity: 'mild', reaction: '', management_plan: '' });
   const [contactForm, setContactForm] = useState({ student_id: 0, contact_name: '', relationship: '', phone: '', alt_phone: '', email: '', is_primary: false, escalation_order: 1, can_authorize_treatment: false });
 
@@ -73,7 +73,9 @@ export default function StudentHealthPage() {
     setSaving(true);
     try {
       const { error } = await supabase.from('school_clinic_visits').insert([{
-        student_id: visitForm.student_id, complaint: visitForm.complaint.trim(),
+        student_id: visitForm.student_id,
+        visit_date: visitForm.visit_date || new Date().toISOString().split('T')[0],
+        complaint: visitForm.complaint.trim(),
         diagnosis: visitForm.diagnosis.trim() || null, treatment: visitForm.treatment.trim() || null,
         medication_given: visitForm.medication_given.trim() || null,
         temperature: visitForm.temperature ? Number(visitForm.temperature) : null,
@@ -164,7 +166,7 @@ export default function StudentHealthPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={fetchAll} className="p-2.5 rounded-xl border border-gray-200 text-gray-400 hover:text-teal-600 hover:border-teal-300 transition-all hover:shadow-sm"><FiRefreshCw size={15} /></button>
-          <button onClick={() => { setShowModal('visit'); setVisitForm({ student_id: 0, complaint: '', diagnosis: '', treatment: '', medication_given: '', temperature: '', blood_pressure: '', referred_to: '', attended_by: '', notes: '', sms_parent: true }); }}
+          <button onClick={() => { setShowModal('visit'); setVisitForm({ student_id: 0, visit_date: new Date().toISOString().split('T')[0], complaint: '', diagnosis: '', treatment: '', medication_given: '', temperature: '', blood_pressure: '', referred_to: '', attended_by: '', notes: '', sms_parent: true }); }}
             className="px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]" style={{ background: 'linear-gradient(135deg,#ecfdf5,#d1fae5)', color: '#065f46', border: 'none', cursor: 'pointer' }}>🩺 Clinic Visit</button>
           <button onClick={() => { setShowModal('allergy'); setAllergyForm({ student_id: 0, allergen: '', severity: 'mild', reaction: '', management_plan: '' }); }}
             className="px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]" style={{ background: 'linear-gradient(135deg,#fffbeb,#fef3c7)', color: '#92400e', border: 'none', cursor: 'pointer' }}>⚠️ Allergy</button>
