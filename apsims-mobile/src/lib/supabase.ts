@@ -934,11 +934,19 @@ export interface LeaveOutRecord {
     student_id: number;
     reason: string;
     reason_details: string | null;
+    teacher_name: string | null;
+    class_teacher_id: number | null;
     time_left: string;
     time_returned: string | null;
     status: string;
     sms_sent: boolean;
+    sms_phone: string | null;
     qr_code: string | null;
+    created_at: string | null;
+    created_by: string | null;
+    leave_days: number | null;
+    expected_return: string | null;
+    authorized_by: string | null;
 }
 
 // Notifications
@@ -1433,11 +1441,19 @@ export async function getStudentLeaveOuts(
             student_id: r.student_id,
             reason: r.reason || '',
             reason_details: r.reason_details,
+            teacher_name: r.teacher_name || null,
+            class_teacher_id: r.class_teacher_id || null,
             time_left: r.time_left,
             time_returned: r.time_returned,
             status: r.status || 'Pending',
             sms_sent: r.sms_sent || false,
+            sms_phone: r.sms_phone || null,
             qr_code: r.qr_code,
+            created_at: r.created_at,
+            created_by: r.created_by || null,
+            leave_days: r.leave_days ? Number(r.leave_days) : null,
+            expected_return: r.expected_return || null,
+            authorized_by: r.authorized_by || null,
         }));
     } catch (err: any) {
         console.error('getStudentLeaveOuts error:', err.message);
