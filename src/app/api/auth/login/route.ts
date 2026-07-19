@@ -4,7 +4,12 @@ import { verifyPassword, isBcryptHash, hashPassword, setSessionCookie, clearSess
 
 function getSupabase() {
   const { createClient } = require('@supabase/supabase-js');
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  // Use service_role key — this is a server-side API route only, never exposed to client.
+  // Anon key is blocked by RLS on school_users, causing all logins to fail.
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 }
 
 export async function POST(req: NextRequest) {
