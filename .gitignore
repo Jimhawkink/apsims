@@ -45,3 +45,11 @@ next-env.d.ts
 APSIMS_BACKUP_*/
 *.zip
 build_*.log
+
+# Android keystore & built APKs
+*.jks
+*.keystore
+apsims-mobile/android/app/release/*.apk
+apsims-mobile/apsims-release/
+apsims-mobile/.expo/
+
