@@ -55,6 +55,7 @@ import CircularScreen from './src/screens/parent/CircularScreen';
 import ChildTimetableScreen from './src/screens/parent/ChildTimetableScreen';
 import ParentAttendanceScreen from './src/screens/parent/AttendanceScreen';
 import ParentHomeworkScreen from './src/screens/parent/HomeworkScreen';
+import ParentDisciplineScreen from './src/screens/parent/DisciplineScreen';
 
 // ── Principal ────────────────────────────────────────────────
 import PrincipalStudentsScreen from './src/screens/principal/PrincipalStudentsScreen';
@@ -211,6 +212,7 @@ export default function App() {
                             <Stack.Screen name="ChildTimetable" component={ChildTimetableScreen} />
                             <Stack.Screen name="ParentAttendance" component={ParentAttendanceScreen} options={{ headerShown: false }} />
                             <Stack.Screen name="ParentHomework" component={ParentHomeworkScreen} options={{ headerShown: false }} />
+                            <Stack.Screen name="ParentDiscipline" component={ParentDisciplineScreen} options={{ headerShown: false }} />
 
                             {/* ── Principal ─────────────────────────────── */}
                             <Stack.Screen name="PrincipalStudents" component={PrincipalStudentsScreen} />

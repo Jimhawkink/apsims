@@ -154,10 +154,17 @@ export default function MoreScreen() {
                     onPress: () => navigation.navigate('HealthRecord'),
                 },
                 {
-                    emoji: '🚪', title: 'Leave Outs',
+                    emoji: '🚸', title: 'Leave Outs',
                     subtitle: "Track your child's leave-out records",
                     gradient: ['#f97316', '#ea580c'],
                     onPress: () => navigation.navigate('LeaveOut'),
+                },
+                {
+                    emoji: '🚨', title: 'Discipline Records',
+                    subtitle: "View your child's behavioural incidents & actions",
+                    gradient: ['#7c3aed', '#6d28d9'],
+                    onPress: () => navigation.navigate('ParentDiscipline'),
+                    badge: 'NEW',
                 },
             ],
         },
