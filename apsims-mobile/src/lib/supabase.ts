@@ -887,11 +887,17 @@ export interface HealthRecord {
     genotype: string | null;
     height_cm: number | null;
     weight_kg: number | null;
+    vision_left: string | null;
+    vision_right: string | null;
+    hearing: string | null;
+    dental_notes: string | null;
     allergies: string | null;
     chronic_conditions: string | null;
     current_medications: string | null;
-    immunization_status: any | null;
+    immunization_status: string | null;
     disability_notes: string | null;
+    created_at: string | null;
+    updated_at: string | null;
 }
 
 export interface HealthAllergy {
@@ -901,6 +907,25 @@ export interface HealthAllergy {
     severity: string;
     reaction: string;
     management_plan: string | null;
+}
+
+export interface ClinicVisit {
+    id: number;
+    student_id: number;
+    visit_date: string;
+    complaint: string | null;
+    diagnosis: string | null;
+    treatment: string | null;
+    medication_given: string | null;
+    temperature: number | null;
+    blood_pressure: string | null;
+    referred_to: string | null;
+    discharged: boolean | null;
+    discharge_time: string | null;
+    attended_by: string | null;
+    notes: string | null;
+    term_id: string | null;
+    created_at: string | null;
 }
 
 // Leave Outs
@@ -1353,28 +1378,41 @@ export async function getCBCStudentsForSubject(
 
 export async function getStudentHealthRecord(
     studentId: number
-): Promise<{ record: HealthRecord | null; allergies: HealthAllergy[] }> {
+): Promise<{ record: HealthRecord | null; allergies: HealthAllergy[]; clinicVisits: ClinicVisit[] }> {
     try {
-        const [recordRes, allergiesRes] = await Promise.all([
+        const [recordRes, clinicRes] = await Promise.all([
             supabase
                 .from('school_health_records')
                 .select('*')
                 .eq('student_id', studentId)
                 .maybeSingle(),
             supabase
+                .from('school_clinic_visits')
+                .select('*')
+                .eq('student_id', studentId)
+                .order('visit_date', { ascending: false })
+                .limit(50),
+        ]);
+
+        // school_health_allergies may not exist — skip silently
+        let allergies: HealthAllergy[] = [];
+        try {
+            const allergiesRes = await supabase
                 .from('school_health_allergies')
                 .select('*')
                 .eq('student_id', studentId)
-                .order('id'),
-        ]);
+                .order('id');
+            allergies = (allergiesRes.data || []) as HealthAllergy[];
+        } catch { /* table may not exist */ }
 
         return {
             record: recordRes.data as HealthRecord | null,
-            allergies: (allergiesRes.data || []) as HealthAllergy[],
+            allergies,
+            clinicVisits: (clinicRes.data || []) as ClinicVisit[],
         };
     } catch (err: any) {
         console.error('getStudentHealthRecord error:', err.message);
-        return { record: null, allergies: [] };
+        return { record: null, allergies: [], clinicVisits: [] };
     }
 }
 
