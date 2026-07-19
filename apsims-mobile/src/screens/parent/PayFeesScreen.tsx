@@ -156,10 +156,8 @@ export default function PayFeesScreen() {
 
 
     // ─── Poll KCB Buni status ─────────────────────────────────────────────────
-    // PRIMARY:   school_fee_payments — KCB callback reliably inserts confirmed
-    //            payments here via service_role. Use 3-min window (not pollStart)
-    //            to handle server/client clock skew.
-    // SECONDARY: kcb-status API for cancel/fail detection every poll cycle.
+    // ONLY uses kcb-status API which queries the EXACT ws_CO_ checkout ID.
+    // No school_fee_payments polling — that caused false positives from previous payments.
     const startKCBPolling = (reqId: string) => {
         let elapsed = 0;
 
@@ -177,70 +175,55 @@ export default function PayFeesScreen() {
             }
 
             try {
-                // ── PRIMARY: school_fee_payments — 3-minute window ──────────────
-                // Use 3-min window NOT a per-session timestamp to handle clock skew
-                const windowStart = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-                const { data: confirmedPay } = await supabase
-                    .from('school_fee_payments')
-                    .select('receipt_number, mpesa_code, amount, created_at')
-                    .eq('student_id', studentId)
-                    .eq('payment_method', 'KCB')
-                    .gte('created_at', windowStart)
-                    .not('receipt_number', 'ilike', 'ws_%')
-                    .not('receipt_number', 'ilike', 'cW%')
-                    .not('receipt_number', 'ilike', '%-initiated%')
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
+                // ── kcb-status API: queries the EXACT ws_CO_ ID — no false positives ──
+                const statusRes = await fetch(
+                    `${SCHOOL_API_BASE}/api/payments/kcb-status?checkoutRequestId=${encodeURIComponent(reqId)}`
+                );
+                const statusData = await statusRes.json().catch(() => ({}));
+                const s = (statusData?.status || '').toLowerCase();
 
-                if (confirmedPay) {
+                if (s === 'success') {
                     clearInterval(pollRef.current!);
                     pulseRef.current?.stop();
-                    const code = confirmedPay.mpesa_code || confirmedPay.receipt_number || '';
-                    const confirmedAmt = Number(confirmedPay.amount || amount);
+                    const code = statusData?.receipt || '';
+                    const confirmedAmt = Number(statusData?.amount || amount);
                     setReceipt(code && code.length > 4 ? code : '');
                     setPaidAmount(confirmedAmt);
                     setBalance((prev: number) => Math.max(0, prev - confirmedAmt));
                     setStep('success');
                     playSuccess();
-                    loadFeeData();
-                    return;
-                }
-
-                // ── SECONDARY: kcb-status API — detects cancel/fail every poll ──
-                try {
-                    const statusRes = await fetch(
-                        `${SCHOOL_API_BASE}/api/payments/kcb-status?checkoutRequestId=${encodeURIComponent(reqId)}`
-                    );
-                    const statusData = await statusRes.json().catch(() => ({}));
-                    const s = (statusData?.status || '').toLowerCase();
-
-                    if (s === 'success') {
-                        // Callback confirmed via kcb-status (belt and suspenders)
-                        clearInterval(pollRef.current!);
-                        pulseRef.current?.stop();
-                        const code = statusData?.receipt || '';
-                        setReceipt(code && code.length > 4 ? code : '');
-                        setPaidAmount(Number(statusData?.amount || amount));
-                        setBalance((prev: number) => Math.max(0, prev - Number(statusData?.amount || amount)));
-                        setStep('success');
-                        playSuccess();
+                    // ✅ Record to school_fee_payments via server (validates receipt)
+                    if (code && code.length > 4) {
+                        fetch(`${SCHOOL_API_BASE}/api/payments/record-fee-payment`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                studentId,
+                                receiptCode: code,
+                                amount: confirmedAmt,
+                                checkoutRequestId: reqId,
+                            }),
+                        })
+                        .then(r => r.json())
+                        .then(d => { console.log('[PayFees] recorded:', d); loadFeeData(); })
+                        .catch(e => console.warn('[PayFees] record error:', e));
+                    } else {
                         loadFeeData();
-
-                    } else if (s === 'failed' || s === 'cancelled') {
-                        clearInterval(pollRef.current!);
-                        pulseRef.current?.stop();
-                        const desc = statusData?.result_desc || statusData?.description || '';
-                        const code = statusData?.result_code ? String(statusData.result_code) : '';
-                        let msg = '❌ KCB payment failed. Money NOT deducted.';
-                        if (code === '1032') msg = '❌ Payment cancelled by user. Money NOT deducted.';
-                        else if (code === '1')    msg = '❌ Insufficient M-Pesa balance. Please top up.';
-                        else if (code === '2001') msg = '❌ Wrong PIN entered. Money NOT deducted.';
-                        else if (desc)            msg = `❌ ${desc}`;
-                        setStep('failed');
-                        setError(msg);
                     }
-                } catch { /* ignore status API errors — keep polling */ }
+
+                } else if (s === 'failed' || s === 'cancelled') {
+                    clearInterval(pollRef.current!);
+                    pulseRef.current?.stop();
+                    const desc = statusData?.result_desc || statusData?.description || '';
+                    const code = statusData?.result_code ? String(statusData.result_code) : '';
+                    let msg = '❌ KCB payment failed. Money NOT deducted.';
+                    if (code === '1032') msg = '❌ Payment cancelled by user. Money NOT deducted.';
+                    else if (code === '1')    msg = '❌ Insufficient M-Pesa balance. Please top up.';
+                    else if (code === '2001') msg = '❌ Wrong PIN entered. Money NOT deducted.';
+                    else if (desc)            msg = `❌ ${desc}`;
+                    setStep('failed');
+                    setError(msg);
+                }
 
             } catch { /* Keep polling on network hiccup */ }
         }, 5000);
