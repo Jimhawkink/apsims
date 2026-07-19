@@ -38,3 +38,10 @@ apsims-mobile/android/app/build/
 next-env.d.ts
 .vercel
 .kiro/
+
+# Migration & diagnostic scripts
+*.js
+!jest.config.js
+APSIMS_BACKUP_*/
+*.zip
+build_*.log
