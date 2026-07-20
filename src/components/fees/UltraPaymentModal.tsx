@@ -992,7 +992,7 @@ export default function UltraPaymentModal({
               {[
                 { label: 'Paying', val: fmt(numAmount), color: '#6366f1', bg: '#eef2ff' },
                 { label: 'Balance After', val: fmt(balanceAfter), color: balanceAfter > 0 ? '#ef4444' : '#10b981', bg: balanceAfter > 0 ? '#fef2f2' : '#f0fdf4' },
-                { label: 'Change Due', val: fmt(changeDue), color: changeDue > 0 ? '#d97706' : '#9ca3af', bg: changeDue > 0 ? '#fffbeb' : '#f9fafb' },
+                { label: changeDue > 0 ? 'Next Term Prepayment' : 'Change Due', val: fmt(changeDue), color: changeDue > 0 ? '#0891b2' : '#9ca3af', bg: changeDue > 0 ? '#ecfeff' : '#f9fafb' },
               ].map((c, i) => (
                 <div key={i} style={{ padding: '10px 8px', background: c.bg, borderRadius: 10, textAlign: 'center', border: `1px solid ${c.color}22` }}>
                   <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>{c.label}</p>

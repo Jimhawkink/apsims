@@ -300,7 +300,11 @@ export function useUltraFeeCollect() {
       .insert([payload])
       .select('id')
       .single();
-    if (error) throw error;
+    if (error) throw new Error(
+      error.message
+        ? `Payment insert failed: ${error.message}${error.details ? ' — ' + error.details : ''}${error.hint ? ' (' + error.hint + ')' : ''}`
+        : JSON.stringify(error)
+    );
 
     const paymentId = saved?.id;
 
