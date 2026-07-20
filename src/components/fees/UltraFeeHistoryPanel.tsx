@@ -3,6 +3,12 @@
 import { useState } from 'react';
 import { fmt } from '@/hooks/useUltraFeeCollect';
 import { printThermalReceipt } from './UltraThermalReceipt';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface Props {
   student: any;
@@ -35,7 +41,23 @@ export default function UltraFeeHistoryPanel({ student, payments, statement, fee
     { id: 'receipts' as const, label: 'Receipts', icon: '🧾', count: payments.length },
   ];
 
-  const handlePrintReceipt = (p: any) => {
+  const handlePrintReceipt = async (p: any) => {
+    // Fetch stored allocations for this payment from DB for accurate breakdown
+    let allocations: { head: string; amount: number }[] = [];
+    try {
+      const { data: allocs } = await supabase
+        .from('school_fee_payment_allocations')
+        .select('vote_head_name, vote_head_code, allocated_amount')
+        .eq('payment_id', p.id)
+        .order('allocated_amount', { ascending: false });
+      if (allocs && allocs.length > 0) {
+        allocations = allocs.map((a: any) => ({
+          head: a.vote_head_name || a.vote_head_code || 'General',
+          amount: Number(a.allocated_amount),
+        }));
+      }
+    } catch { /* if fetch fails, print without breakdown */ }
+
     printThermalReceipt({
       receiptNumber: p.receipt_number || '', paymentDate: p.payment_date,
       studentName: `${student.first_name} ${student.last_name}`, admissionNo: adm,
@@ -45,6 +67,7 @@ export default function UltraFeeHistoryPanel({ student, payments, statement, fee
       amount: Number(p.amount), totalPaid: fees.totalPaid,
       termFees: fees.termTotal, termBalance: fees.termBalance,
       annualFees: fees.annualTotal, annualBalance: fees.annualBalance,
+      allocations,
       schoolName: settings?.school_name, schoolPhone: settings?.school_phone,
       schoolAddress: settings?.school_address, schoolEmail: settings?.school_email,
     });

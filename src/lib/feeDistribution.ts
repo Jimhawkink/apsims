@@ -54,7 +54,7 @@ export async function autoDistributePayment(
 
     try {
         // ── Load all data in parallel ───────────────────────────────
-        const [studentRes, vhRes, allPayRes, allStructRes, allocRes] = await Promise.all([
+        const [studentRes, vhRes, allPayRes, allStructRes, allocRes, termsRes] = await Promise.all([
 
             // Student's form (to look up fee structure)
             supabase.from('school_students').select('form_id').eq('id', studentId).single(),
@@ -81,6 +81,12 @@ export async function autoDistributePayment(
                 .select('vote_head_code, allocated_amount, term_id, year')
                 .eq('student_id', studentId)
                 .neq('payment_id', paymentId),
+
+            // ALL terms ordered — needed to tell past from future
+            supabase.from('school_terms')
+                .select('id, year')
+                .order('year', { ascending: true })
+                .order('id',   { ascending: true }),
         ]);
 
         const formId     = studentRes.data?.form_id ?? null;
@@ -90,6 +96,17 @@ export async function autoDistributePayment(
             !formId || s.form_id === formId || !s.form_id
         );
         const existAllocs: any[] = allocRes.data || [];
+
+        // Build set of PAST term IDs (terms that come before current in chronological order)
+        // This prevents future terms (e.g. Term 3 when we are in Term 2) from being
+        // counted as arrears just because no payments have been made for them yet.
+        const allTermsOrdered: any[] = termsRes.data || [];
+        const currentTermIdx = allTermsOrdered.findIndex(t => String(t.id) === String(termId));
+        const pastTermIdSet = new Set(
+            allTermsOrdered
+                .slice(0, Math.max(0, currentTermIdx))   // everything BEFORE current term
+                .map(t => String(t.id))
+        );
 
         // ── STEP 1: Calculate ARREARS from previous terms ───────────
         // Group fee structures by term+year
@@ -106,12 +123,13 @@ export async function autoDistributePayment(
             termPaidMap[key] = (termPaidMap[key] || 0) + Number(p.amount || 0);
         }
 
-        // Arrears = sum of all previous term shortfalls
-        // "Previous" means any term_id ≠ current termId OR year < current year
+        // Arrears = sum of all PAST term shortfalls (never include future terms)
         const currentKey = `${termId}|${year}`;
         let arrearsTotal = 0;
         for (const [key, expected] of Object.entries(termFeeMap)) {
             if (key === currentKey) continue;           // skip current term
+            const tid = key.split('|')[0];
+            if (!pastTermIdSet.has(tid)) continue;     // skip FUTURE terms ← KEY FIX
             const paid    = termPaidMap[key] || 0;
             const deficit = Math.max(0, expected - paid);
             arrearsTotal += deficit;
@@ -307,12 +325,13 @@ export async function getStudentVoteHeadSummary(
     code: string; name: string; priority: number; color: string | null;
     expected: number; paid: number; balance: number; is_arrears?: boolean;
 }[]> {
-    const [studentRes, vhRes, allStructRes, allPayRes, allocRes] = await Promise.all([
+    const [studentRes, vhRes, allStructRes, allPayRes, allocRes, termsRes] = await Promise.all([
         supabase.from('school_students').select('form_id').eq('id', studentId).single(),
         supabase.from('school_vote_heads').select('id,code,name,priority,color').eq('is_active', true).order('priority'),
         supabase.from('school_fee_structures').select('category,amount,form_id,term_id,year'),
         supabase.from('school_fee_payments').select('amount,term_id,year').eq('student_id', studentId),
         supabase.from('school_fee_payment_allocations').select('vote_head_code,allocated_amount,term_id,year').eq('student_id', studentId),
+        supabase.from('school_terms').select('id,year').order('year', { ascending: true }).order('id', { ascending: true }),
     ]);
 
     const formId     = studentRes.data?.form_id ?? null;
@@ -320,6 +339,13 @@ export async function getStudentVoteHeadSummary(
     const allStructs: any[] = (allStructRes.data || []).filter((s: any) => !formId || s.form_id === formId || !s.form_id);
     const allPays:   any[] = allPayRes.data || [];
     const allocs:    any[] = allocRes.data || [];
+
+    // Determine which terms are PAST (before current term in order)
+    const allTermsOrdered: any[] = termsRes.data || [];
+    const currentTermIdx2 = allTermsOrdered.findIndex(t => String(t.id) === String(termId));
+    const pastTermIdSet2 = new Set(
+        allTermsOrdered.slice(0, Math.max(0, currentTermIdx2)).map(t => String(t.id))
+    );
 
     // Current term expected per vote head
     const currentStructs = allStructs.filter(s =>
@@ -353,6 +379,8 @@ export async function getStudentVoteHeadSummary(
     }
     let arrearsTotal = 0;
     for (const [k, exp] of Object.entries(termFeeMap)) {
+        const tid2 = k.split('|')[0];
+        if (!pastTermIdSet2.has(tid2)) continue;   // skip FUTURE terms
         arrearsTotal += Math.max(0, exp - (termPaidMap[k] || 0));
     }
 
