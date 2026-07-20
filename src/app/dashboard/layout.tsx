@@ -171,6 +171,7 @@ const menuGroups = [
             { href: '/dashboard/income', label: '📈 Income (Ultra)', icon: FiTrendingUp, perm: 'income' },
             { href: '/dashboard/fees/bulk-reminders', label: '📱 Bulk SMS/WA Reminders', icon: FiSend, perm: 'fees' },
             { href: '/dashboard/fees/reports/pl', label: '📊 P&L Report', icon: FiBarChart2, perm: 'fees' },
+            { href: '/dashboard/fees/reports/vote-heads', label: '⚡ Vote Head Reports', icon: FiLayers, perm: 'fees' },
             { href: '/dashboard/payments/integration', label: 'Payment Integration', icon: FiSmartphone, perm: 'fees' },
             { href: '/dashboard/fees/analytics', label: '📊 Financial Analytics', icon: FiBarChart2, perm: 'fees' },
             { href: '/dashboard/fees/mpesa-reconciliation', label: '💳 M-Pesa Reconciliation', icon: FiCreditCard, perm: 'fees' },
