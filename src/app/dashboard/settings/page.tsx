@@ -1500,6 +1500,7 @@ export default function SettingsPage() {
                         </div>
                     )}
                 </div>
+            )}
 
             {/* ══ RECEIPT NUMBERING — SUPER ADMIN ONLY ══ */}
             {tab === 'receipt-settings' && (
@@ -1524,7 +1525,6 @@ export default function SettingsPage() {
                 </div>
             )}
 
-            </div>
         </div>
     );
 }
