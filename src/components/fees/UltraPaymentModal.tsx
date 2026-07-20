@@ -701,9 +701,14 @@ export default function UltraPaymentModal({
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontWeight: 800, color: '#94a3b8', fontSize: 16, pointerEvents: 'none' }}>KES</span>
               <input
-                type="number" min="0"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={isInKind ? inKindValue : amount}
-                onChange={e => isInKind ? setInKindValue(e.target.value) : setAmount(e.target.value)}
+                onChange={e => {
+                  const v = e.target.value.replace(/[^0-9.]/g, '');
+                  isInKind ? setInKindValue(v) : setAmount(v);
+                }}
                 placeholder="0"
                 autoFocus
                 style={{
@@ -711,6 +716,7 @@ export default function UltraPaymentModal({
                   fontSize: 32, fontWeight: 900, textAlign: 'center', borderRadius: 14,
                   border: '2px solid #e2e8f0', outline: 'none', background: '#fafbff',
                   boxSizing: 'border-box', transition: 'border-color 0.15s',
+                  MozAppearance: 'textfield',
                 } as React.CSSProperties}
                 onFocus={e => (e.target.style.borderColor = '#6366f1')}
                 onBlur={e => (e.target.style.borderColor = '#e2e8f0')}
