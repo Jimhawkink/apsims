@@ -15,6 +15,8 @@ export default function ArrearsPage() {
   const [search, setSearch] = useState('');
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<any[]>([]);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 15;
 
   // Arrears modal
   const [selected, setSelected] = useState<any>(null);       // student selected for entry
@@ -44,14 +46,19 @@ export default function ArrearsPage() {
 
   // ── Filter students by search ────────────────────────────────
   useEffect(() => {
-    if (!search.trim()) { setFilteredStudents(allStudents); return; }
+    if (!search.trim()) { setFilteredStudents(allStudents); setPage(0); return; }
     const q = search.toLowerCase();
     setFilteredStudents(allStudents.filter(s => {
       const name = `${s.first_name} ${s.last_name}`.toLowerCase();
       const adm  = (s.admission_no || s.admission_number || '').toLowerCase();
       return name.includes(q) || adm.includes(q);
     }));
+    setPage(0);
   }, [search, allStudents]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredStudents.length / PAGE_SIZE);
+  const pagedStudents = filteredStudents.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   // ── Load student detail when selected ───────────────────────
   const openDetail = useCallback(async (student: any) => {
@@ -89,24 +96,33 @@ export default function ArrearsPage() {
 
   // ── Save opening balance ─────────────────────────────────────
   const handleSave = async () => {
-    if (!selected || !selectedTerm || !obAmount || Number(obAmount) <= 0) {
-      toast.error('Enter a valid amount'); return;
+    if (!selected || !selectedTerm || obAmount === '' || obAmount === null) {
+      toast.error('Enter an amount (enter 0 if student paid nothing)'); return;
     }
+    const amt = Number(obAmount);
+    if (isNaN(amt) || amt < 0) { toast.error('Enter a valid amount'); return; }
     setSaving(true);
     try {
+      // If amt = 0, we record it to explicitly mark that student paid nothing
       const { error } = await supabase.from('school_fee_payments').insert([{
         student_id:     selected.id,
-        amount:         Number(obAmount),
+        amount:         amt,
         payment_date:   new Date().toISOString().split('T')[0],
-        payment_method: 'Opening Balance',
+        payment_method: amt === 0 ? 'Opening Balance (Nil)' : 'Opening Balance',
         receipt_number: `OB-${Date.now().toString().slice(-6)}`,
         term_id:        selectedTerm.id,
         year:           selectedTerm.year,
         notes: obNotes.trim() ||
-          `Opening balance — amount paid before system for ${selectedTerm.term_name} ${selectedTerm.year}`,
+          (amt === 0
+            ? `Student paid nothing in ${selectedTerm.term_name} ${selectedTerm.year} — full arrears confirmed`
+            : `Opening balance — amount paid before system for ${selectedTerm.term_name} ${selectedTerm.year}`),
       }]);
       if (error) throw new Error(error.message);
-      toast.success(`✅ KES ${Number(obAmount).toLocaleString('en-KE')} recorded for ${selected.first_name}`);
+      toast.success(
+        amt === 0
+          ? `✅ Confirmed: ${selected.first_name} paid KES 0 in ${selectedTerm.term_name} — full arrears noted`
+          : `✅ KES ${amt.toLocaleString('en-KE')} recorded for ${selected.first_name}`
+      );
       // Reload payments
       await openDetail(selected);
       setObAmount('');
@@ -173,14 +189,14 @@ export default function ArrearsPage() {
             <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94a3b8' }}>{filteredStudents.length} students</p>
           </div>
 
-          {/* Student list */}
+          {/* Student list — paginated */}
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {filteredStudents.length === 0 && (
               <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                 No students found
               </div>
             )}
-            {filteredStudents.map(s => (
+            {pagedStudents.map(s => (
               <button key={s.id}
                 onClick={() => openDetail(s)}
                 style={{
@@ -198,6 +214,20 @@ export default function ArrearsPage() {
               </button>
             ))}
           </div>
+
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <div style={{ padding: '10px 12px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #e2e8f0', background: page === 0 ? '#f1f5f9' : '#fff', cursor: page === 0 ? 'not-allowed' : 'pointer', fontSize: 13, color: page === 0 ? '#cbd5e1' : '#374151', fontWeight: 700 }}>‹ Prev</button>
+              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                Page {page + 1} / {totalPages}
+                <span style={{ color: '#94a3b8', marginLeft: 6 }}>({filteredStudents.length} total)</span>
+              </span>
+              <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+                style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #e2e8f0', background: page >= totalPages - 1 ? '#f1f5f9' : '#fff', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', fontSize: 13, color: page >= totalPages - 1 ? '#cbd5e1' : '#374151', fontWeight: 700 }}>Next ›</button>
+            </div>
+          )}
         </div>
 
         {/* ── RIGHT PANEL: Student Arrears Detail ── */}
@@ -344,18 +374,18 @@ export default function ArrearsPage() {
                         style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
                     </div>
 
-                    {obAmount && Number(obAmount) > 0 && (
+                    {obAmount !== '' && obAmount !== null && !isNaN(Number(obAmount)) && (
                       <div style={{ background: '#f0fdf4', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                         <span style={{ color: '#166534' }}>Arrears after this entry:</span>
                         <strong style={{ color: arrearsAfterEntry > 0 ? '#dc2626' : '#16a34a' }}>{fmt(arrearsAfterEntry)}</strong>
                       </div>
                     )}
 
-                    <button onClick={handleSave} disabled={saving || !obAmount || Number(obAmount) <= 0}
-                      style={{ width: '100%', padding: '14px', borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 15, cursor: saving ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
-                        background: saving || !obAmount || Number(obAmount) <= 0 ? '#e2e8f0' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                        color: saving || !obAmount || Number(obAmount) <= 0 ? '#94a3b8' : '#fff' }}>
-                      {saving ? '⏳ Saving...' : `✅ Record KES ${obAmount ? Number(obAmount).toLocaleString('en-KE') : 0} as Opening Balance`}
+                    <button onClick={handleSave} disabled={saving || obAmount === '' || isNaN(Number(obAmount)) || Number(obAmount) < 0}
+                      style={{ width: '100%', padding: '14px', borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 15, cursor: (saving || obAmount === '' || isNaN(Number(obAmount)) || Number(obAmount) < 0) ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
+                        background: (saving || obAmount === '' || isNaN(Number(obAmount)) || Number(obAmount) < 0) ? '#e2e8f0' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                        color: (saving || obAmount === '' || isNaN(Number(obAmount)) || Number(obAmount) < 0) ? '#94a3b8' : '#fff' }}>
+                      {saving ? '⏳ Saving...' : obAmount === '' ? 'Enter an amount above' : `✅ Record KES ${Number(obAmount).toLocaleString('en-KE')} as Opening Balance`}
                     </button>
                   </div>
                 </>
