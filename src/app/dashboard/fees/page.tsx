@@ -259,10 +259,11 @@ export default function FeeDashboardPage() {
                     { label: 'Outstanding', href: '/dashboard/fees/outstanding', icon: FiAlertTriangle, color: '#ef4444' },
                     { label: 'Payments', href: '/dashboard/fees/payments', icon: FiFileText, color: '#3b82f6' },
                     { label: 'Fee Structure', href: '/dashboard/fees/structure', icon: FiGrid, color: '#8b5cf6' },
-                    { label: 'Statements', href: '/dashboard/fees/statements', icon: FiBookOpen, color: '#f59e0b' },
+                    { label: 'Vote Heads', href: '/dashboard/fees/vote-heads', icon: FiGrid, color: '#f59e0b' },
+                    { label: 'Statements', href: '/dashboard/fees/statements', icon: FiBookOpen, color: '#0891b2' },
                     { label: 'Bulk SMS/WA', href: '/dashboard/fees/bulk-reminders', icon: FiSend, color: '#7c3aed' },
-                    { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: FiBarChart2, color: '#0891b2' },
-                    { label: 'Expenses', href: '/dashboard/expenses', icon: FiTrendingDown, color: '#dc2626' },
+                    { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: FiBarChart2, color: '#dc2626' },
+
                 ].map((a, i) => {
                     const Icon = a.icon;
                     return (

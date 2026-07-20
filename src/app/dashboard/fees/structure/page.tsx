@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { useFeeData, fmt, feeVoteHeads } from '../useFeeData';
+import { useFeeData, fmt, useVoteHeads } from '../useFeeData';
+
 import {
   FiGrid, FiPlus, FiEdit2, FiTrash2, FiSave, FiX, FiDollarSign,
   FiArrowLeft, FiSearch, FiDownload, FiRefreshCw, FiCopy,
@@ -89,6 +90,9 @@ const FORM_BG    = ['#eef2ff', '#ecfeff', '#f0fdf4', '#fffbeb'];
 
 export default function FeeStructurePage() {
   const { forms, structures, terms, loading, fetchAll, getFormName } = useFeeData();
+  // Live vote heads from DB — used in the category dropdown (priority order)
+  const { voteHeadNames } = useVoteHeads();
+
 
   // Modal state
   const [showModal, setShowModal]     = useState(false);
@@ -812,7 +816,10 @@ export default function FeeStructurePage() {
                 <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
                   style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '1.5px solid #e2e8f0', fontSize: 13, background: '#fafbff', outline: 'none', fontWeight: 600, cursor: 'pointer' }}>
                   <option value="">— Select vote head —</option>
-                  {feeVoteHeads.map(c => <option key={c}>{c}</option>)}
+                  {voteHeadNames.length > 0
+                    ? voteHeadNames.map(c => <option key={c}>{c}</option>)
+                    : <option disabled>Loading vote heads…</option>}
+
                 </select>
               </div>
               {/* Amount */}
