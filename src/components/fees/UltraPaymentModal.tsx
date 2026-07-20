@@ -2,9 +2,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import {
-  fmt, PAYMENT_METHODS, BURSARY_SOURCES, WAIVER_TYPES, FEE_VOTE_HEADS,
+  fmt, PAYMENT_METHODS, BURSARY_SOURCES, WAIVER_TYPES, useVoteHeadNames,
   type StudentFeeProfile,
 } from '@/hooks/useUltraFeeCollect';
+
 
 // ─── Types ────────────────────────────────────────────────────────
 export interface PaymentData {
@@ -167,6 +168,9 @@ export default function UltraPaymentModal({
   const [sendWhatsapp, setSendWhatsapp] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showReceiptEdit, setShowReceiptEdit] = useState(false);
+
+  // Live vote heads from DB (auto-distribution priority order)
+  const { names: voteHeadNames } = useVoteHeadNames();
 
   // M-Pesa
   const [mpesaPhone, setMpesaPhone] = useState('');
@@ -745,8 +749,9 @@ export default function UltraPaymentModal({
             </Field>
             <Field label="Allocate to Vote Head">
               <Select value={allocationHead} onChange={setAllocationHead}>
-                <option value="">— Auto-distribute (FIFO) —</option>
-                {FEE_VOTE_HEADS.map(h => <option key={h} value={h}>{h}</option>)}
+                <option value="">⚡ Auto-distribute by priority (recommended)</option>
+                {voteHeadNames.map(h => <option key={h} value={h}>{h}</option>)}
+
               </Select>
             </Field>
           </div>

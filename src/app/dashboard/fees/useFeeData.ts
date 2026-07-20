@@ -11,12 +11,46 @@ export const methodColors: Record<string, string> = {
 };
 export const getMethodColor = (m: string) => Object.entries(methodColors).find(([k]) => m?.includes(k))?.[1] || 'bg-purple-100 text-purple-700';
 
-export const feeVoteHeads = [
-    'Tuition','Boarding','Lunch Program','Activity','Exam Fee','Library','Computer / ICT',
-    'Development Levy','Caution Money','Medical','Transport','Uniform','Stationery','Sports',
-    'Laboratory','Admission','Motivation','Holiday Tuition','Remedial','Diary','Prize Giving',
-    'Co-curricular','Electricity & Water','Insurance','Other'
-];
+// ── Vote Heads: now fetched from school_vote_heads table ──
+// Use the useVoteHeads() hook in components instead of a static array
+export interface VoteHead {
+    id: number;
+    code: string;
+    name: string;
+    category: 'fee' | 'discount' | 'credit' | 'expense';
+    sort_order: number;
+    is_active: boolean;
+    description: string | null;
+}
+
+/**
+ * Hook that fetches live vote heads from the database.
+ * Returns active vote head names (for dropdowns) + full objects for advanced use.
+ * Falls back to empty array if table is empty or unavailable.
+ */
+export function useVoteHeads() {
+    const [voteHeads, setVoteHeads] = useState<VoteHead[]>([]);
+    const [loadingVoteHeads, setLoadingVoteHeads] = useState(true);
+
+    const fetchVoteHeads = useCallback(async () => {
+        setLoadingVoteHeads(true);
+        const { data, error } = await supabase
+            .from('school_vote_heads')
+            .select('*')
+            .eq('is_active', true)
+            .order('sort_order')
+            .order('name');
+        if (!error) setVoteHeads(data || []);
+        setLoadingVoteHeads(false);
+    }, []);
+
+    useEffect(() => { fetchVoteHeads(); }, [fetchVoteHeads]);
+
+    // Simple name array for <select> dropdowns
+    const voteHeadNames: string[] = voteHeads.map(v => v.name);
+
+    return { voteHeads, voteHeadNames, loadingVoteHeads, fetchVoteHeads };
+}
 
 export function useFeeData() {
     const [forms, setForms] = useState<any[]>([]);

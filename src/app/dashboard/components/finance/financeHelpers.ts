@@ -68,7 +68,23 @@ export const METHOD_COLORS: Record<string, string> = {
   'M-Pesa': '#10b981', 'Bank': '#3b82f6', 'Cash': '#f59e0b', 'HELB': '#8b5cf6', 'Cheque': '#ec4899',
 };
 
-export const VOTE_HEADS = ['Salaries & wages', 'Operations', 'Procurement', 'Infrastructure', 'Library & ICT', 'Extra-curricular'];
+// ── VOTE_HEADS: managed from DB via school_vote_heads table ──
+// Use useVoteHeads() hook (from useFeeData) or fetchVoteHeads() below.
+// Do NOT hardcode vote heads here — add them via /dashboard/fees/vote-heads
+
+import { supabase as _supabase } from '@/lib/supabase';
+
+/** Fetch active vote head names from DB (for server-side or one-off use) */
+export async function fetchVoteHeadNames(): Promise<string[]> {
+    const { data } = await _supabase
+        .from('school_vote_heads')
+        .select('name')
+        .eq('is_active', true)
+        .order('sort_order')
+        .order('name');
+    return (data || []).map((v: { name: string }) => v.name);
+}
+
 
 export const EXPENSE_COLORS = ['#ef4444', '#f59e0b', '#8b5cf6', '#3b82f6', '#6366f1', '#10b981'];
 

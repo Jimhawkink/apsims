@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { autoDistributePayment } from '@/lib/feeDistribution';
 
 export const fmt = (n: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(n);
 
@@ -25,14 +26,40 @@ export const WAIVER_TYPES = [
   { id: 'scholarship', label: 'Scholarship' },
 ] as const;
 
-export const FEE_VOTE_HEADS = [
-  'Tuition', 'Boarding', 'Lunch Program', 'Activity Fee', 'Exam Levy',
-  'Library', 'Computer / ICT', 'Development Levy', 'Caution Money',
-  'Medical Fee', 'Transport', 'Uniform', 'Stationery', 'Sports',
-  'Laboratory', 'Admission', 'Motivation', 'Holiday Tuition',
-  'Remedial', 'Diary', 'Prize Giving', 'Co-curricular',
-  'Electricity & Water', 'Insurance', 'Arrears', 'Other',
+// FEE_VOTE_HEADS is now DB-driven via school_vote_heads table.
+// Use useVoteHeadNames() hook below — fetches live from DB in priority order.
+// The fallback below is only used when DB is empty or unreachable.
+export const FEE_VOTE_HEADS_FALLBACK = [
+  'Arrears', 'BES', 'Activity', 'Bursary', 'Prepayment', 'General',
 ] as const;
+
+/** Live vote head names from DB — use this in dropdowns */
+export function useVoteHeadNames(): { names: string[]; loading: boolean; refetch: () => void } {
+  const [names, setNames] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('school_vote_heads')
+      .select('name')
+      .eq('is_active', true)
+      .order('priority', { ascending: true })
+      .order('name');
+    if (!error && data && data.length > 0) {
+      setNames(data.map((v: any) => v.name));
+    } else {
+      setNames([...FEE_VOTE_HEADS_FALLBACK]);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+  return { names, loading, refetch };
+}
+
+// Backwards-compatible alias so existing imports don't break
+export const FEE_VOTE_HEADS = FEE_VOTE_HEADS_FALLBACK;
 
 export interface FeeBreakdownItem {
   voteHead: string;
@@ -271,10 +298,37 @@ export function useUltraFeeCollect() {
       notes: notes.trim() || null,
     };
 
-    const { error } = await supabase.from('school_fee_payments').insert([payload]);
+    // Insert and get back the new payment ID (needed for allocations)
+    const { data: saved, error } = await supabase
+      .from('school_fee_payments')
+      .insert([payload])
+      .select('id')
+      .single();
     if (error) throw error;
 
-    return { ...payload, receipt_number: receiptNo };
+    const paymentId = saved?.id;
+
+    // ── Auto-distribute payment across vote heads by priority ──────
+    if (paymentId) {
+      try {
+        const result = await autoDistributePayment(supabase, {
+          paymentId,
+          studentId:  data.studentId,
+          amount,
+          termId:     currentTerm?.id || null,
+          year:       currentYear,
+        });
+        console.log(
+          `[recordPayment] Distributed KES ${amount}:`,
+          result.allocations.map((a: any) => `${a.vote_head_code}=KES${a.allocated_amount}`).join(', ')
+        );
+      } catch (distErr) {
+        // Distribution failure must NEVER block the payment itself
+        console.warn('[recordPayment] Auto-distribution failed (payment saved OK):', distErr);
+      }
+    }
+
+    return { ...payload, id: paymentId, receipt_number: receiptNo };
   }, [genReceipt, currentTerm, currentYear]);
 
   // Update payment
@@ -283,8 +337,11 @@ export function useUltraFeeCollect() {
     if (error) throw error;
   }, []);
 
-  // Delete payment
+  // Delete payment + its allocations (keep data consistent)
   const deletePayment = useCallback(async (paymentId: number) => {
+    // Remove child allocation rows first
+    await supabase.from('school_fee_payment_allocations').delete().eq('payment_id', paymentId);
+    // Then remove the payment
     const { error } = await supabase.from('school_fee_payments').delete().eq('id', paymentId);
     if (error) throw error;
   }, []);

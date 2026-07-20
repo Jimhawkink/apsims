@@ -7,6 +7,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
+import { autoDistributePayment } from '../../lib/feeDistribution';
 import ScreenHeader from '../../components/ScreenHeader';
 
 const { width: W } = Dimensions.get('window');
@@ -166,153 +167,55 @@ export default function BursarFeesScreen() {
     const [collectMethod, setCollectMethod] = useState('Cash');
     const [collectRef, setCollectRef] = useState('');
     const [saving, setSaving] = useState(false);
-    const currentYear = new Date().getFullYear();
 
     const fetchData = useCallback(async () => {
         try {
             const [
-                { data: formData },
-                { data: streamData },
-                { data: payData },
-                { data: structData },
-                { data: studentData },
+                { data: formData }, { data: streamData }, { data: payData },
+                { data: structData }, { data: studentData },
             ] = await Promise.all([
                 supabase.from('school_forms').select('*').order('form_level'),
                 supabase.from('school_streams').select('*').order('stream_name'),
-                supabase.from('school_fee_payments').select('student_id,amount,year').eq('year', currentYear),
-                supabase.from('school_fee_structures').select('form_id,amount').eq('year', currentYear),
+                supabase.from('school_fee_payments').select('student_id,amount,year').eq('year', new Date().getFullYear()),
+                supabase.from('school_fee_structures').select('form_id,amount').eq('year', new Date().getFullYear()),
                 supabase.from('school_students').select('id,first_name,last_name,admission_no,admission_number,form_id,stream_id,status,gender').order('first_name', { ascending: true }).limit(5000),
             ]);
-
-            const pays = payData || [];
-            const structs = structData || [];
-            const studs = studentData || [];
-            const fms = formData || [];
-            const stms = streamData || [];
-
-            // Per-student fees map
+            const pays = payData || [], structs = structData || [], studs = studentData || [], fms = formData || [], stms = streamData || [];
             const paidByStudent = new Map<number, number>();
-            pays.forEach(p => paidByStudent.set(p.student_id, (paidByStudent.get(p.student_id) || 0) + Number(p.amount || 0)));
-
-            // Per-form expected fee (sum of all vote heads for that form)
+            pays.forEach((p: any) => paidByStudent.set(p.student_id, (paidByStudent.get(p.student_id) || 0) + Number(p.amount || 0)));
             const feeByForm = new Map<number, number>();
-            fms.forEach(f => {
-                const total = structs.filter(s => !s.form_id || s.form_id === f.id).reduce((a, b) => a + Number(b.amount || 0), 0);
-                feeByForm.set(f.id, total);
-            });
-
-            // Enrich forms with financial stats
-            const enrichedForms = fms.map(f => {
-                const formStuds = studs.filter(s => s.form_id === f.id);
-                const expectedPerStudent = feeByForm.get(f.id) || 0;
-                const totalExpected = expectedPerStudent * formStuds.length;
-                const totalPaid = formStuds.reduce((s, st) => s + (paidByStudent.get(st.id) || 0), 0);
-                const totalBalance = Math.max(0, totalExpected - totalPaid);
-                const defaulters = formStuds.filter(s => (paidByStudent.get(s.id) || 0) < expectedPerStudent * 0.5).length;
-                const formStreams = [...new Set(formStuds.map(s => s.stream_id).filter(Boolean))].length;
-                return {
-                    ...f,
-                    students: formStuds.length,
-                    streams: formStreams,
-                    expected: totalExpected,
-                    paid: totalPaid,
-                    balance: totalBalance,
-                    defaulters,
-                    expectedPerStudent,
-                };
-            });
-
-            // Enrich streams with financial stats
-            const enrichedStreams = stms.map(sm => {
-                const smStuds = studs.filter(s => s.stream_id === sm.id);
-                const formId = smStuds[0]?.form_id;
-                const expectedPerStudent = formId ? (feeByForm.get(formId) || 0) : 0;
-                const totalExpected = expectedPerStudent * smStuds.length;
-                const totalPaid = smStuds.reduce((s, st) => s + (paidByStudent.get(st.id) || 0), 0);
-                return {
-                    ...sm,
-                    students: smStuds.length,
-                    expected: totalExpected,
-                    paid: totalPaid,
-                    balance: Math.max(0, totalExpected - totalPaid),
-                    form_id: formId,
-                };
-            });
-
-            // Enrich students
-            const enrichedStudents = studs.map(s => {
-                const expectedPerStudent = feeByForm.get(s.form_id) || 0;
-                const paid = paidByStudent.get(s.id) || 0;
-                const stream = stms.find(sm => sm.id === s.stream_id);
-                return {
-                    ...s,
-                    paid,
-                    expected: expectedPerStudent,
-                    balance: Math.max(0, expectedPerStudent - paid),
-                    stream_name: stream?.stream_name || '—',
-                };
-            });
-
-            setForms(enrichedForms);
-            setStreams(enrichedStreams);
-            setStudents(enrichedStudents);
+            fms.forEach((f: any) => { const t = structs.filter((s: any) => !s.form_id || s.form_id === f.id).reduce((a: number, b: any) => a + Number(b.amount || 0), 0); feeByForm.set(f.id, t); });
+            const enrichedForms = fms.map((f: any) => { const fs = studs.filter((s: any) => s.form_id === f.id); const ep = feeByForm.get(f.id) || 0; const tp = fs.reduce((s: number, st: any) => s + (paidByStudent.get(st.id) || 0), 0); return { ...f, students: fs.length, streams: [...new Set(fs.map((s: any) => s.stream_id).filter(Boolean))].length, expected: ep * fs.length, paid: tp, balance: Math.max(0, ep * fs.length - tp), defaulters: fs.filter((s: any) => (paidByStudent.get(s.id) || 0) < ep * 0.5).length, expectedPerStudent: ep }; });
+            const enrichedStreams = stms.map((sm: any) => { const ss = studs.filter((s: any) => s.stream_id === sm.id); const fi = ss[0]?.form_id; const ep = fi ? (feeByForm.get(fi) || 0) : 0; const tp = ss.reduce((s: number, st: any) => s + (paidByStudent.get(st.id) || 0), 0); return { ...sm, students: ss.length, expected: ep * ss.length, paid: tp, balance: Math.max(0, ep * ss.length - tp), form_id: fi }; });
+            const enrichedStudents = studs.map((s: any) => { const ep = feeByForm.get(s.form_id) || 0; const paid = paidByStudent.get(s.id) || 0; const stream = stms.find((sm: any) => sm.id === s.stream_id); return { ...s, paid, expected: ep, balance: Math.max(0, ep - paid), stream_name: stream?.stream_name || "—" }; });
+            setForms(enrichedForms); setStreams(enrichedStreams); setStudents(enrichedStudents);
             if (!selectedForm && enrichedForms.length > 0) setSelectedForm(enrichedForms[0]);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); setRefreshing(false); }
-    }, [currentYear]);
+        } catch (e) { console.error(e); } finally { setLoading(false); setRefreshing(false); }
+    }, []);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    // Filter forms by curriculum
-    const visibleForms = useMemo(() => forms.filter(f => {
-        if (filterCurriculum === '844') return !isCBC(f.form_level);
-        if (filterCurriculum === 'cbc') return isCBC(f.form_level);
-        return true;
-    }), [forms, filterCurriculum]);
+    const visibleForms = useMemo(() => forms.filter((f: any) => { if (filterCurriculum === "844") return !isCBC(f.form_level); if (filterCurriculum === "cbc") return isCBC(f.form_level); return true; }), [forms, filterCurriculum]);
+    const visibleStudents = useMemo(() => { let s = students; if (selectedForm) s = s.filter((st: any) => st.form_id === selectedForm.id); if (filterStatus === "cleared") s = s.filter((st: any) => st.balance <= 0); if (filterStatus === "partial") s = s.filter((st: any) => st.balance > 0 && st.balance < st.expected * 0.5); if (filterStatus === "owing") s = s.filter((st: any) => st.balance >= st.expected * 0.5); if (search) { const q = search.toLowerCase(); s = s.filter((st: any) => `${st.first_name} ${st.last_name}`.toLowerCase().includes(q) || (st.admission_no || "").toLowerCase().includes(q)); } return s; }, [students, selectedForm, filterStatus, search]);
+    const selectedFormStreams = useMemo(() => streams.filter((sm: any) => sm.form_id === selectedForm?.id), [streams, selectedForm]);
+    const totals = useMemo(() => ({ expected: visibleForms.reduce((s: number, f: any) => s + f.expected, 0), paid: visibleForms.reduce((s: number, f: any) => s + f.paid, 0), balance: visibleForms.reduce((s: number, f: any) => s + f.balance, 0) }), [visibleForms]);
 
-    // Filter students
-    const visibleStudents = useMemo(() => {
-        let s = students;
-        if (selectedForm) s = s.filter(st => st.form_id === selectedForm.id);
-        if (filterStatus !== 'all') {
-            if (filterStatus === 'cleared') s = s.filter(st => st.balance <= 0);
-            if (filterStatus === 'partial') s = s.filter(st => st.balance > 0 && st.balance < st.expected * 0.5);
-            if (filterStatus === 'owing') s = s.filter(st => st.balance >= st.expected * 0.5);
-        }
-        if (search) {
-            const q = search.toLowerCase();
-            s = s.filter(st => `${st.first_name} ${st.last_name}`.toLowerCase().includes(q) || (st.admission_no || '').toLowerCase().includes(q));
-        }
-        return s;
-    }, [students, selectedForm, filterStatus, search]);
-
-    const selectedFormStreams = useMemo(() => streams.filter(sm => sm.form_id === selectedForm?.id), [streams, selectedForm]);
-
-    // Grand totals
-    const totals = useMemo(() => ({
-        expected: visibleForms.reduce((s, f) => s + f.expected, 0),
-        paid: visibleForms.reduce((s, f) => s + f.paid, 0),
-        balance: visibleForms.reduce((s, f) => s + f.balance, 0),
-    }), [visibleForms]);
-
+    // Auto-distribute payment across vote heads by priority
     const handleCollect = async () => {
-        if (!collectStudent || !collectAmount || Number(collectAmount) <= 0) { Alert.alert('Error', 'Enter a valid amount'); return; }
+        if (!collectStudent || !collectAmount || Number(collectAmount) <= 0) { Alert.alert("Error", "Enter a valid amount"); return; }
         setSaving(true);
         try {
             const receipt = `RCT${Date.now().toString().slice(-6)}`;
-            const { error } = await supabase.from('school_fee_payments').insert([{
-                student_id: collectStudent.id,
-                amount: Number(collectAmount),
-                payment_date: new Date().toISOString().split('T')[0],
-                payment_method: collectMethod,
-                reference_number: collectRef || receipt,
-                receipt_number: receipt,
-                year: currentYear,
-            }]);
-            if (error) { Alert.alert('Error', error.message); return; }
-            Alert.alert('✅ Success', `Receipt ${receipt} generated for ${fmt(Number(collectAmount))}`);
-            setShowCollectModal(false); setCollectAmount(''); setCollectRef('');
-            fetchData();
+            const { data: saved, error } = await supabase.from("school_fee_payments").insert([{ student_id: collectStudent.id, amount: Number(collectAmount), payment_date: new Date().toISOString().split("T")[0], payment_method: collectMethod, reference_number: collectRef || receipt, receipt_number: receipt, year: new Date().getFullYear() }]).select("id, term_id").single();
+            if (error) { Alert.alert("Error", error.message); return; }
+            if (saved?.id) {
+                try {
+                    const result = await autoDistributePayment(supabase, { paymentId: saved.id, studentId: collectStudent.id, amount: Number(collectAmount), termId: saved.term_id ?? null, year: new Date().getFullYear() });
+                    console.log(`[BursarFees] ${receipt}:`, result.allocations.map((a: any) => `${a.vote_head_code}=KES${a.allocated_amount}`).join(", "));
+                } catch (de: any) { console.warn("[BursarFees] Distribution note:", de?.message); }
+            }
+            Alert.alert("✅ Payment Recorded", `Receipt: ${receipt}\nAmount: ${fmt(Number(collectAmount))}\nAuto-distributed to vote heads by priority.`);
+            setShowCollectModal(false); setCollectAmount(""); setCollectRef(""); fetchData();
         } finally { setSaving(false); }
     };
 
@@ -322,7 +225,6 @@ export default function BursarFeesScreen() {
             <Text style={{ color: '#fff', marginTop: 12, fontWeight: '700' }}>Loading Fee Data…</Text>
         </LinearGradient>
     );
-
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#0c4a6e" translucent={false} />
