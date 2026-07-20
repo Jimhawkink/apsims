@@ -119,8 +119,8 @@ export default function UltraStudentFeeProfile({ student, fees, getFormName, get
             value={fees.hasFeeStructure ? fmt(fees.termTotal) : 'Not Set'}
             gradient="from-violet-50 to-indigo-50" border="border-violet-100" textColor="text-violet-700" />
           <MetricCard
-            label="Total Paid"
-            value={fmt(fees.totalPaid)}
+            label="Paid This Term"
+            value={fmt(fees.termPaidAmt ?? 0)}
             gradient="from-emerald-50 to-green-50" border="border-emerald-100" textColor="text-emerald-700" />
           <MetricCard
             label="Term Balance"

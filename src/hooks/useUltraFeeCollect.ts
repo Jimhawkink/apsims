@@ -82,6 +82,7 @@ export interface BursaryCredit {
 
 export interface StudentFeeProfile {
   totalPaid: number;
+  termPaidAmt: number;   // paid in current term only (after arrears deducted)
   termTotal: number;
   termBalance: number;
   annualTotal: number;
@@ -235,6 +236,7 @@ export function useUltraFeeCollect() {
 
     return {
       totalPaid,
+      termPaidAmt,           // Current term paid only
       termTotal,
       termBalance: termBalanceFix,           // Current term unpaid (after applying prev-term payments first)
       annualTotal,

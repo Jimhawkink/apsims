@@ -74,59 +74,84 @@ export default function UltraFeeHistoryPanel({ student, payments, statement, fee
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">
         {/* ═══════ PAYMENT HISTORY TAB ═══════ */}
-        {activeTab === 'history' && (
-          payments.length === 0 ? (
+        {activeTab === 'history' && (() => {
+          // Split payments into current term vs previous terms
+          const currentTermId = fees?.currentTermId ||
+            (terms.find((t: any) => t.is_current))?.id;
+          const thisTermPays  = payments.filter((p: any) => p.term_id === currentTermId);
+          const prevTermPays  = payments.filter((p: any) => p.term_id !== currentTermId);
+          const allEmpty      = payments.length === 0;
+
+          if (allEmpty) return (
             <div className="flex flex-col items-center justify-center py-20 text-gray-300">
               <svg className="w-12 h-12 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               <p className="text-sm font-medium">No payments recorded yet</p>
               <p className="text-xs text-gray-300 mt-1">Record a payment to get started</p>
             </div>
-          ) : (
-            <div>
-              {/* Summary strip */}
-              <div className="px-4 py-3 bg-gradient-to-r from-violet-50/50 to-indigo-50/50 border-b border-gray-100 flex items-center gap-3 flex-wrap">
-                <span className="px-2.5 py-1 bg-violet-100 text-violet-700 rounded-lg text-[10px] font-bold">{payments.length} payments</span>
-                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-bold">Total: {fmt(payments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0))}</span>
-              </div>
-              {/* Payment rows */}
-              <div className="divide-y divide-gray-50">
-                {payments.map((p: any, i: number) => (
-                  <div key={p.id}>
-                    <button onClick={() => setExpandedRow(expandedRow === p.id ? null : p.id)} className="w-full text-left px-4 py-3 hover:bg-gray-50/50 transition-colors flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center text-violet-600 text-[10px] font-black">{i + 1}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{p.receipt_number || '-'}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${getMethodColor(p.payment_method)}`}>{p.payment_method}</span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{new Date(p.payment_date).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                      </div>
-                      <span className="text-sm font-extrabold text-emerald-600">{fmt(Number(p.amount))}</span>
-                      <svg className={`w-4 h-4 text-gray-300 transition-transform ${expandedRow === p.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {expandedRow === p.id && (
-                      <div className="px-4 pb-3 pt-1 bg-gray-50/50 space-y-2" style={{ animation: 'slideDown 0.2s ease-out' }}>
-                        {p.reference_number && <div className="flex justify-between text-xs"><span className="text-gray-400">Reference</span><span className="font-mono font-semibold">{p.reference_number}</span></div>}
-                        {p.term_id && <div className="flex justify-between text-xs"><span className="text-gray-400">Term</span><span className="font-semibold">{terms.find((t: any) => t.id === p.term_id)?.term_name || '-'}</span></div>}
-                        {p.notes && <div className="text-xs text-gray-500 bg-white p-2 rounded-lg border border-gray-100">📝 {p.notes}</div>}
-                        <div className="flex gap-2 pt-1">
-                          <button onClick={() => handlePrintReceipt(p)} className="px-3 py-1.5 text-[10px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg flex items-center gap-1 transition-colors">🖨️ Receipt</button>
-                          <button onClick={() => onEditPayment(p)} className="px-3 py-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-1 transition-colors">✏️ Edit</button>
-                          <button onClick={() => { if (confirm('Delete this payment?')) onDeletePayment(p.id); }} className="px-3 py-1.5 text-[10px] font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-1 transition-colors">🗑️ Delete</button>
-                        </div>
-                      </div>
-                    )}
+          );
+
+          const renderRows = (list: any[], startIdx = 0) => list.map((p: any, i: number) => (
+            <div key={p.id}>
+              <button onClick={() => setExpandedRow(expandedRow === p.id ? null : p.id)} className="w-full text-left px-4 py-3 hover:bg-gray-50/50 transition-colors flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center text-violet-600 text-[10px] font-black">{startIdx + i + 1}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{p.receipt_number || '-'}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${getMethodColor(p.payment_method)}`}>{p.payment_method}</span>
+                    {p.term_id && <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{terms.find((t: any) => t.id === p.term_id)?.term_name || ''}</span>}
                   </div>
-                ))}
+                  <p className="text-[10px] text-gray-400 mt-0.5">{new Date(p.payment_date).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                </div>
+                <span className="text-sm font-extrabold text-emerald-600">{fmt(Number(p.amount))}</span>
+                <svg className={`w-4 h-4 text-gray-300 transition-transform ${expandedRow === p.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {expandedRow === p.id && (
+                <div className="px-4 pb-3 pt-1 bg-gray-50/50 space-y-2">
+                  {p.reference_number && <div className="flex justify-between text-xs"><span className="text-gray-400">Reference</span><span className="font-mono font-semibold">{p.reference_number}</span></div>}
+                  {p.term_id && <div className="flex justify-between text-xs"><span className="text-gray-400">Term</span><span className="font-semibold text-violet-700">{terms.find((t: any) => t.id === p.term_id)?.term_name || '-'}</span></div>}
+                  {p.notes && <div className="text-xs text-gray-500 bg-white p-2 rounded-lg border border-gray-100">📝 {p.notes}</div>}
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => handlePrintReceipt(p)} className="px-3 py-1.5 text-[10px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg flex items-center gap-1 transition-colors">🖨️ Receipt</button>
+                    <button onClick={() => onEditPayment(p)} className="px-3 py-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-1 transition-colors">✏️ Edit</button>
+                    <button onClick={() => { if (confirm('Delete this payment?')) onDeletePayment(p.id); }} className="px-3 py-1.5 text-[10px] font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-1 transition-colors">🗑️ Delete</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ));
+
+          return (
+            <div>
+              {/* ── THIS TERM ── */}
+              <div className="px-4 py-2 bg-violet-50 border-b border-violet-100 flex items-center gap-2">
+                <span className="text-[10px] font-black text-violet-600 uppercase tracking-wider">📅 This Term</span>
+                <span className="ml-auto text-[10px] font-bold text-violet-500">{fmt(thisTermPays.reduce((s: number, p: any) => s + Number(p.amount || 0), 0))}</span>
               </div>
+              {thisTermPays.length === 0 ? (
+                <div className="px-4 py-4 text-xs text-gray-400 italic">No payments recorded for this term yet.</div>
+              ) : (
+                <div className="divide-y divide-gray-50">{renderRows(thisTermPays, 0)}</div>
+              )}
+
+              {/* ── PREVIOUS TERMS ── */}
+              {prevTermPays.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-amber-50 border-y border-amber-100 flex items-center gap-2">
+                    <span className="text-[10px] font-black text-amber-600 uppercase tracking-wider">⏮️ Previous Terms (Arrears History)</span>
+                    <span className="ml-auto text-[10px] font-bold text-amber-500">{fmt(prevTermPays.reduce((s: number, p: any) => s + Number(p.amount || 0), 0))}</span>
+                  </div>
+                  <div className="divide-y divide-gray-50">{renderRows(prevTermPays, thisTermPays.length)}</div>
+                </>
+              )}
+
               {/* Total footer */}
               <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-t-2 border-gray-200 flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-600">Total ({payments.length})</span>
+                <span className="text-xs font-bold text-gray-600">All Payments ({payments.length})</span>
                 <span className="text-sm font-extrabold text-emerald-700">{fmt(payments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0))}</span>
               </div>
             </div>
-          )
-        )}
+          );
+        })()}
 
         {/* ═══════ STATEMENT TAB ═══════ */}
         {activeTab === 'statement' && (

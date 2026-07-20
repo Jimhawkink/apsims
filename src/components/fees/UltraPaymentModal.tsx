@@ -563,7 +563,7 @@ export default function UltraPaymentModal({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
           {[
             { label: 'Term Fees', val: fmt(fees.termTotal), color: '#6366f1' },
-            { label: 'Paid', val: fmt(fees.totalPaid), color: '#10b981' },
+            { label: 'Paid This Term', val: fmt(fees.termPaidAmt ?? 0), color: '#10b981' },
             { label: 'Term Balance', val: fmt(fees.termBalance), color: fees.termBalance > 0 ? '#ef4444' : '#10b981' },
             { label: 'Annual Balance', val: fmt(fees.annualBalance), color: '#f59e0b' },
             { label: 'Net Due', val: fmt(fees.netDue), color: '#7c3aed' },
