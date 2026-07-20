@@ -7,22 +7,25 @@ const PUBLIC_ROUTES = [
 ];
 
 // ─── Role hierarchy ─────────────────────────────────────────────────────────
-// auditor  → read-only across entire dashboard (blocked from all write routes)
-// bursar   → finance + fees only
-// teacher  → exams + attendance only
+// auditor     → read-only across entire dashboard (blocked from all write routes)
+// bursar      → finance + fees only
+// teacher     → exams + attendance only
 // admin / principal → full access
+// super-admin → ULTIMATE ACCESS — bypasses middleware entirely (line ~92)
 // ─────────────────────────────────────────────────────────────────────────────
+
+const SUPER_ADMIN_ROLES = ['super-admin', 'superadmin', 'super_admin'];
 
 // Routes that require specific roles
 const ROLE_ROUTES: Record<string, string[]> = {
-  '/dashboard/settings':        ['admin', 'principal'],
-  '/dashboard/payroll':         ['admin', 'principal', 'bursar'],
-  '/dashboard/users':           ['admin', 'principal'],
-  '/dashboard/sms':             ['admin', 'principal'],
-  '/dashboard/website-builder': ['admin', 'principal'],
-  '/dashboard/bank-reconciliation': ['admin', 'principal', 'bursar'],
-  '/dashboard/staff/salary-slips':  ['admin', 'principal', 'bursar'],
-  '/dashboard/ptm':             ['admin', 'principal', 'teacher'],
+  '/dashboard/settings':            ['admin', 'principal', ...SUPER_ADMIN_ROLES],
+  '/dashboard/payroll':             ['admin', 'principal', 'bursar', ...SUPER_ADMIN_ROLES],
+  '/dashboard/users':               ['admin', 'principal', ...SUPER_ADMIN_ROLES],
+  '/dashboard/sms':                 ['admin', 'principal', ...SUPER_ADMIN_ROLES],
+  '/dashboard/website-builder':     ['admin', 'principal', ...SUPER_ADMIN_ROLES],
+  '/dashboard/bank-reconciliation': ['admin', 'principal', 'bursar', ...SUPER_ADMIN_ROLES],
+  '/dashboard/staff/salary-slips':  ['admin', 'principal', 'bursar', ...SUPER_ADMIN_ROLES],
+  '/dashboard/ptm':                 ['admin', 'principal', 'teacher', ...SUPER_ADMIN_ROLES],
 };
 
 // Write-action routes blocked for auditor role (auditor = read-only)
@@ -89,7 +92,14 @@ export async function middleware(req: NextRequest) {
 
     const userRole = (decoded.role || decoded.user_type || '').toLowerCase();
 
-    // ── Auditor: block all write routes ──────────────────────────────────────
+    // ══ SUPER-ADMIN: ultimate access — bypasses ALL role checks ══
+    const isSuperAdmin = userRole === 'super-admin' || userRole === 'superadmin' || userRole === 'super_admin';
+    if (isSuperAdmin) {
+      // Super-admin sees everything — skip all route guards
+      return NextResponse.next();
+    }
+
+    // ── Auditor: block all write routes ────────────────────────────────────────────
     if (userRole === 'auditor') {
       const isBlocked = AUDITOR_BLOCKED_PATHS.some(p => pathname.startsWith(p));
       if (isBlocked) {
