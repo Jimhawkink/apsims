@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getNextDocumentNumber } from '@/lib/receiptNumber';
 import toast from 'react-hot-toast';
 import {
     FiPlus, FiTrash2, FiX, FiSearch, FiDownload, FiRefreshCw,
@@ -81,10 +82,22 @@ export default function ExpensesPage() {
     const blankForm = {
         expense_date: new Date().toISOString().split('T')[0], category_id: '',
         description: '', amount: '', payment_method: 'Cash',
-        reference_number: `EXP-${Date.now().toString().slice(-6)}`,
+        reference_number: '',   // filled async from DB when modal opens
         approved_by: '', notes: '', status: 'approved',
     };
     const [form, setForm] = useState<Record<string, string>>(blankForm);
+
+    // Open Add modal and pre-fill with DB payment voucher number
+    const openAddModal = async () => {
+        try {
+            const pvNum = await getNextDocumentNumber(supabase, 'PAYMENT_VOUCHER');
+            setForm({ ...blankForm, reference_number: pvNum });
+        } catch {
+            setForm({ ...blankForm, reference_number: `PV/${Date.now().toString().slice(-6)}` });
+        }
+        setEditingId(null);
+        setShowModal(true);
+    };
 
     // ── Fetch ──────────────────────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
@@ -270,7 +283,7 @@ export default function ExpensesPage() {
                         <div className="flex items-center gap-2">
                             <button onClick={fetchAll} className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition" title="Refresh"><FiRefreshCw size={15} /></button>
                             <button onClick={exportData} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition"><FiDownload size={14} />Export</button>
-                            <button onClick={() => { setEditingId(null); setForm(blankForm); setShowModal(true); }}
+                            <button onClick={openAddModal}
                                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-white transition"
                                 style={{ background: 'linear-gradient(135deg,#ef4444,#dc2626)' }}>
                                 <FiPlus size={15} />Add Expense
@@ -470,7 +483,12 @@ export default function ExpensesPage() {
                                             </td>
                                             <td className="px-4 py-3 font-black text-red-600 whitespace-nowrap">{fmt(Number(e.amount))}</td>
                                             <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{e.payment_method}</td>
-                                            <td className="px-4 py-3 text-xs text-gray-500 font-mono">{e.reference_number || '—'}</td>
+                                            <td className="px-4 py-3">
+                                                {e.reference_number
+                                                    ? <span className="inline-flex items-center gap-1 font-mono font-black text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">{e.reference_number}</span>
+                                                    : <span className="text-gray-300 text-xs">—</span>
+                                                }
+                                            </td>
                                             <td className="px-4 py-3"><StatusBadge status={status} /></td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-1.5">

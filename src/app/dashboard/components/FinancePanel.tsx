@@ -5,7 +5,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, L
 import FinanceKPIs from './finance/FinanceKPIs';
 import FinanceCharts from './finance/FinanceCharts';
 import FinanceTables from './finance/FinanceTables';
-import { fmt, fmtDate, fmtTime, METHOD_COLORS, VOTE_HEADS, EXPENSE_COLORS, DEMO_ALERTS, type FinanceData } from './finance/financeHelpers';
+import { fmt, fmtDate, fmtTime, METHOD_COLORS, EXPENSE_COLORS, DEMO_ALERTS, type FinanceData } from './finance/financeHelpers';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, LineElement, PointElement, Title, Tooltip, Legend, Filler);
 
@@ -142,7 +142,7 @@ export default function FinancePanel() {
       const budgetData = budgetVotes.length > 0 ? budgetVotes.map((v: any) => ({
         head: v.vote_head, budget: Number(v.budget_amount || 0), actual: Number(v.actual_amount || 0),
         pct: Number(v.budget_amount) > 0 ? Math.round((Number(v.actual_amount) / Number(v.budget_amount)) * 100) : 0,
-      })) : VOTE_HEADS.map((h, i) => {
+      })) : ['Tuition', 'Boarding', 'Meals', 'Stationery', 'Sports', 'Maintenance'].map((h: string, i: number) => {
         const b = [1400000, 284000, 196000, 120000, 84000, 56000][i] || 100000;
         const a = Math.round(b * ([0.61, 0.78, 0.54, 0.33, 0.62, 0.41][i] || 0.5));
         return { head: h, budget: b, actual: a, pct: Math.round((a / b) * 100) };

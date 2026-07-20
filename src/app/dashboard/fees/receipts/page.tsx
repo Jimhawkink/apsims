@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getNextDocumentNumber } from '@/lib/receiptNumber';
 import toast from 'react-hot-toast';
 import {
     FiFileText, FiSearch, FiPrinter, FiDownload, FiRefreshCw,
@@ -63,12 +64,8 @@ export default function ReceiptsPage() {
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    // Generate receipt number
-    const genReceiptNo = () => {
-        const year = new Date().getFullYear();
-        const nextNum = (receipts.length + 1).toString().padStart(5, '0');
-        return `RCT-${year}-${nextNum}`;
-    };
+    // Generate receipt number — uses atomic DB counter (school_document_counters)
+    const genReceiptNo = async () => getNextDocumentNumber(supabase, 'RECEIPT');
 
     // Search students
     const searchResults = useMemo(() => {
@@ -94,7 +91,7 @@ export default function ReceiptsPage() {
         if (!selPayment || !selStudent) return;
         if (hasReceipt(selPayment.id)) { toast.error('Receipt already exists for this payment'); return; }
 
-        const receiptNo = genReceiptNo();
+        const receiptNo = await genReceiptNo();
         const amount = Number(selPayment.amount || 0);
         const { error } = await supabase.from('school_fee_receipts').insert([{
             receipt_number: receiptNo,

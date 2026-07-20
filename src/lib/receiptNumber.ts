@@ -1,72 +1,97 @@
 /**
- * ═══════════════════════════════════════════════════════════════
- * APSIMS Receipt Number Engine
- * ═══════════════════════════════════════════════════════════════
- * Uses a Postgres atomic function to guarantee:
- *   - No duplicates even with concurrent payments
- *   - Works from web, mobile APK, parent portal, M-Pesa webhook
- *   - School can set their own start number at any time
- * ═══════════════════════════════════════════════════════════════
+ * APSIMS Document Numbering System
+ * Central source of truth for ALL document numbers in the school.
+ * 
+ * Uses school_document_counters table with atomic DB functions.
+ * Covers: Receipts, Payment Vouchers, Payroll, Petty Cash, LPO, Journal Vouchers,
+ *         Stores Issue/Receipt Vouchers, Imprest Warrants, Debit Notes.
+ *
+ * Usage:
+ *   import { getNextDocumentNumber, DocType } from '@/lib/receiptNumber';
+ *   const receiptNo = await getNextDocumentNumber(supabase, 'RECEIPT');
+ *   const pvNo      = await getNextDocumentNumber(supabase, 'PAYMENT_VOUCHER');
+ *   const payNo     = await getNextDocumentNumber(supabase, 'PAYROLL');
  */
 
-/**
- * Get the next receipt number atomically from the DB.
- * Always call this — never generate receipt numbers client-side.
- *
- * @returns e.g. "89635" or "RCT/89635" depending on school prefix setting
- */
+export type DocType =
+  | 'RECEIPT'
+  | 'PAYMENT_VOUCHER'
+  | 'PAYROLL'
+  | 'PETTY_CASH'
+  | 'LPO'
+  | 'JOURNAL'
+  | 'STORES_ISSUE'
+  | 'STORES_RECEIPT'
+  | 'IMPREST'
+  | 'DEBIT_NOTE';
+
+export interface DocumentCounter {
+  doc_code: DocType;
+  doc_prefix: string;
+  doc_label: string;
+  doc_description: string;
+  doc_icon: string;
+  doc_category: string;
+  counter: number;
+  start_num: number;
+  is_active: boolean;
+}
+
+/** Atomically get next document number for any doc type */
+export async function getNextDocumentNumber(supabase: any, docCode: DocType): Promise<string> {
+  const { data, error } = await supabase
+    .rpc('get_next_document_number', { p_doc_code: docCode });
+  if (error) throw new Error(`Document number error (${docCode}): ${error.message}`);
+  return data as string;
+}
+
+/** Convenience: get next receipt number (legacy compat) */
 export async function getNextReceiptNumber(supabase: any): Promise<string> {
-    try {
-        const { data, error } = await supabase.rpc('get_next_receipt_number');
-        if (error) throw new Error(error.message);
-        return String(data);
-    } catch (err: any) {
-        console.error('[receiptNumber] getNextReceiptNumber failed:', err.message);
-        // Fallback: timestamp-based (no duplicates, but not sequential)
-        return `RCT${Date.now()}`;
-    }
+  return getNextDocumentNumber(supabase, 'RECEIPT');
 }
 
-/**
- * Set the starting receipt number (and optional prefix) for the school.
- * Call this from the Settings page when admin enters their book number.
- *
- * @param start  - The number to start FROM (e.g. 89635 means next receipt = 89635)
- * @param prefix - Optional prefix (e.g. "RCT/" → "RCT/89635"). Leave empty for plain numbers.
- */
-export async function setReceiptStart(
-    supabase: any,
-    start: number,
-    prefix: string = ''
+/** Set the starting number for any document type */
+export async function setDocumentStart(
+  supabase: any,
+  docCode: DocType,
+  startNumber: number,
+  prefix?: string
 ): Promise<string> {
-    const { data, error } = await supabase.rpc('set_receipt_start', {
-        p_start:  start,
-        p_prefix: prefix,
-    });
-    if (error) throw new Error(error.message);
-    return String(data);
+  const params: any = { p_doc_code: docCode, p_start: startNumber };
+  if (prefix !== undefined) params.p_prefix = prefix;
+  const { data, error } = await supabase.rpc('set_document_start', params);
+  if (error) throw new Error(`Set start error (${docCode}): ${error.message}`);
+  return data as string;
 }
 
-/**
- * Load current receipt settings (counter, prefix, start).
- * Use this to preview next receipt number in the UI.
- */
-export async function getReceiptSettings(supabase: any): Promise<{
-    receipt_counter: number;
-    receipt_prefix:  string;
-    receipt_start:   number;
-}> {
-    const { data, error } = await supabase
-        .from('school_settings')
-        .select('receipt_counter, receipt_prefix, receipt_start')
-        .order('id', { ascending: true })
-        .limit(1)
-        .single();
+/** Legacy: set receipt start (kept for backward compat) */
+export async function setReceiptStart(
+  supabase: any,
+  startNumber: number,
+  prefix: string = ''
+): Promise<string> {
+  return setDocumentStart(supabase, 'RECEIPT', startNumber, prefix);
+}
 
-    if (error) return { receipt_counter: 1, receipt_prefix: '', receipt_start: 1 };
-    return {
-        receipt_counter: Number(data.receipt_counter ?? 1),
-        receipt_prefix:  data.receipt_prefix ?? '',
-        receipt_start:   Number(data.receipt_start ?? 1),
-    };
+/** Get all document counter settings */
+export async function getAllDocumentSettings(supabase: any): Promise<DocumentCounter[]> {
+  const { data, error } = await supabase
+    .from('school_document_counters')
+    .select('*')
+    .order('id');
+  if (error) throw new Error('Failed to load document settings: ' + error.message);
+  return data || [];
+}
+
+/** Get receipt settings (legacy compat) */
+export async function getReceiptSettings(supabase: any): Promise<{
+  receipt_counter: number; receipt_prefix: string; receipt_start: number;
+}> {
+  const all = await getAllDocumentSettings(supabase);
+  const r = all.find(d => d.doc_code === 'RECEIPT');
+  return {
+    receipt_counter: r?.counter ?? 1,
+    receipt_prefix: r?.doc_prefix ?? '',
+    receipt_start: r?.start_num ?? 1,
+  };
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getNextDocumentNumber } from '@/lib/receiptNumber';
 import toast from 'react-hot-toast';
 import { FiPlus, FiTrash2, FiX, FiSearch } from 'react-icons/fi';
 
@@ -68,12 +69,17 @@ export default function PayrollPage() {
         const totalDed = paye + nhif + nssf + loan + otherDed;
         const net = gross - totalDed;
 
+        // Get payroll voucher number from DB counter
+        let payroll_number = `PR/${filterMonth}/${filterYear}`; // fallback
+        try { payroll_number = await getNextDocumentNumber(supabase, 'PAYROLL'); } catch { /* keep fallback */ }
+
         const { error } = await supabase.from('school_payroll').insert([{
             staff_type: staff.type, staff_id: staff.id, staff_name: `${staff.first_name} ${staff.last_name}`,
             pay_period: `${months[filterMonth - 1]} ${filterYear}`, month: filterMonth, year: filterYear,
             basic_salary: basic, house_allowance: house, transport_allowance: transport, other_allowances: otherAllow,
             gross_pay: gross, paye, nhif, nssf, loan_deduction: loan, other_deductions: otherDed,
             total_deductions: totalDed, net_pay: net, payment_method: form.payment_method, status: 'Pending',
+            payroll_number,
         }]);
         if (error) {
             if (error.code === '23505') toast.error('Payroll already exists for this staff member this month');

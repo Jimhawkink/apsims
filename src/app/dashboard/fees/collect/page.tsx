@@ -928,7 +928,7 @@ export default function UltraCollectFeePage() {
           onClose={() => setShowPayModal(false)}
           student={selectedStudent}
           fees={fees}
-          receiptNo={genReceipt()}
+          receiptNo=""
           getFormName={safeGetFormName}
           getStreamName={safeGetStreamName}
           onSubmit={handleRecordPayment}

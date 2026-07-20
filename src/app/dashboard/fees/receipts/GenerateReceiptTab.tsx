@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getNextDocumentNumber } from '@/lib/receiptNumber';
 import toast from 'react-hot-toast';
 
 const fmtKES = (n: number) => `KES ${(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}`;
@@ -54,11 +55,8 @@ export default function GenerateReceiptTab({ students, payments, structures, ter
   const generateReceipt = useCallback(async (payment: any) => {
     setGenerating(true);
     try {
-      // Generate receipt number
-      const year = new Date().getFullYear();
-      const { count } = await supabase.from('school_fee_receipts').select('*', { count: 'exact', head: true });
-      const nextNum = String((count || 0) + 1).padStart(5, '0');
-      const receiptNumber = `RCT-${year}-${nextNum}`;
+      // Generate receipt number — atomic DB counter
+      const receiptNumber = await getNextDocumentNumber(supabase, 'RECEIPT');
       const amtWords = numberToWords(Math.floor(Number(payment.amount))) + ' Shillings Only';
 
       const { error } = await supabase.from('school_fee_receipts').insert({
