@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { autoDistributePayment } from '../../lib/feeDistribution';
+import { getNextReceiptNumber } from '../../lib/receiptNumber';
 import ScreenHeader from '../../components/ScreenHeader';
 
 const { width: W } = Dimensions.get('window');
@@ -205,7 +206,8 @@ export default function BursarFeesScreen() {
         if (!collectStudent || !collectAmount || Number(collectAmount) <= 0) { Alert.alert("Error", "Enter a valid amount"); return; }
         setSaving(true);
         try {
-            const receipt = `RCT${Date.now().toString().slice(-6)}`;
+            // ── Atomic receipt number from DB (same counter as web & parent portal) ──
+            const receipt = await getNextReceiptNumber(supabase);
             const { data: saved, error } = await supabase.from("school_fee_payments").insert([{ student_id: collectStudent.id, amount: Number(collectAmount), payment_date: new Date().toISOString().split("T")[0], payment_method: collectMethod, reference_number: collectRef || receipt, receipt_number: receipt, year: new Date().getFullYear() }]).select("id, term_id").single();
             if (error) { Alert.alert("Error", error.message); return; }
             if (saved?.id) {

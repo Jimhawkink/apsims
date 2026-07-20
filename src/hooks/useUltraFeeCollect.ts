@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { autoDistributePayment } from '@/lib/feeDistribution';
+import { getNextReceiptNumber } from '@/lib/receiptNumber';
 
 export const fmt = (n: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(n);
 
@@ -252,12 +253,6 @@ export function useUltraFeeCollect() {
       .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime());
   }, [payments]);
 
-  // Generate receipt number
-  const genReceipt = useCallback(() => {
-    const prefix = settings?.receipt_prefix || 'APSIMS';
-    return `${prefix}-${String(payments.length + 1).padStart(4, '0')}`;
-  }, [payments, settings]);
-
   // Record payment
   const recordPayment = useCallback(async (data: {
     studentId: number;
@@ -275,7 +270,8 @@ export function useUltraFeeCollect() {
     waiverType?: string;
     notes?: string;
   }) => {
-    const receiptNo = genReceipt();
+    // ── Get next receipt number atomically from DB ──────────────────
+    const receiptNo = await getNextReceiptNumber(supabase);
     const method = data.method === 'In-Kind' ? `In-Kind (${data.inKindItem || 'Other'})` : data.method;
     const ref = data.method === 'M-Pesa' ? data.mpesaCode : data.method === 'Bank Transfer' ? data.bankRef : data.method === 'Cheque' ? data.chequeNo : data.reference;
     const amount = data.method === 'In-Kind' ? (data.inKindValue || data.amount) : data.amount;
@@ -329,7 +325,7 @@ export function useUltraFeeCollect() {
     }
 
     return { ...payload, id: paymentId, receipt_number: receiptNo };
-  }, [genReceipt, currentTerm, currentYear]);
+  }, [currentTerm, currentYear]);
 
   // Update payment
   const updatePayment = useCallback(async (paymentId: number, updates: any) => {
@@ -426,7 +422,7 @@ export function useUltraFeeCollect() {
     currentTerm, currentYear,
     getFormName, getStreamName, searchStudent,
     getStudentFeeProfile, getStudentPayments, getStatement,
-    genReceipt, recordPayment, updatePayment, deletePayment,
+    recordPayment, updatePayment, deletePayment,
     sendSmsReceipt, fetchAll,
   };
 }

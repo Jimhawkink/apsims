@@ -8,11 +8,26 @@ import { counties, getSubCounties, nationalities } from '@/lib/kenyan-data';
 import RubricLevelBadge from '@/components/cbc/RubricLevelBadge';
 import PathwayBadge from '@/components/cbc/PathwayBadge';
 import { countElectivesForPathway } from '@/lib/cbc-utils';
+import ReceiptSettingsWidget from '@/components/settings/ReceiptSettingsWidget';
 
-type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'cbc-pathways' | 'cbc-grading' | 'sms' | 'mpesa' | 'whatsapp' | 'terms';
+type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'cbc-pathways' | 'cbc-grading' | 'sms' | 'mpesa' | 'whatsapp' | 'terms' | 'receipt-settings';
 
 export default function SettingsPage() {
     const [tab, setTab] = useState<Tab>('school-details');
+    const [userRole, setUserRole] = useState<string>('');
+
+    // Read role from localStorage (set by layout on login)
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem('school_user');
+            if (stored) {
+                const u = JSON.parse(stored);
+                setUserRole((u.role || '').toLowerCase());
+            }
+        } catch {}
+    }, []);
+
+    const isSuperAdmin = userRole === 'super-admin' || userRole === 'superadmin' || userRole === 'super_admin';
     const [forms, setForms] = useState<any[]>([]);
     const [streams, setStreams] = useState<any[]>([]);
     const [subjects, setSubjects] = useState<any[]>([]);
@@ -327,6 +342,8 @@ export default function SettingsPage() {
         { key: 'sms', label: 'SMS Config', icon: '💬', count: 0 },
         { key: 'mpesa', label: 'M-Pesa STK', icon: '📲', count: 0 },
         { key: 'whatsapp', label: 'WhatsApp', icon: '💚', count: 0 },
+        // Super-admin only — always listed but guarded in the panel
+        { key: 'receipt-settings', label: '🔐 Receipt Numbering', icon: '🧾', count: 0 },
     ];
 
     const openAdd = () => { if (tab === 'school-details') return; if (tab === 'forms') openAddForm(); else if (tab === 'streams') openAddStream(); else if (tab === 'subjects') openAddSubject(); else if (tab === 'classes') openAddClass(); else openAddSubjectTeacher(); };
@@ -1483,7 +1500,31 @@ export default function SettingsPage() {
                         </div>
                     )}
                 </div>
+
+            {/* ══ RECEIPT NUMBERING — SUPER ADMIN ONLY ══ */}
+            {tab === 'receipt-settings' && (
+                <div className="space-y-5">
+                    {isSuperAdmin ? (
+                        <ReceiptSettingsWidget />
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-24 gap-4">
+                            <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center">
+                                <span className="text-4xl">🔐</span>
+                            </div>
+                            <h2 className="text-xl font-black text-gray-800">Super Admin Only</h2>
+                            <p className="text-gray-500 text-sm text-center max-w-sm">
+                                Receipt numbering configuration is restricted to <strong>Super Admin</strong> users only.
+                                Contact your system administrator to change the receipt numbering.
+                            </p>
+                            <div className="px-4 py-2 bg-red-50 border border-red-200 rounded-xl">
+                                <p className="text-xs font-bold text-red-600">Your current role: <span className="uppercase">{userRole || 'unknown'}</span></p>
+                            </div>
+                        </div>
+                    )}
+                </div>
             )}
+
+            </div>
         </div>
     );
 }
