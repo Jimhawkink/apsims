@@ -309,6 +309,7 @@ export function useUltraFeeCollect() {
     const paymentId = saved?.id;
 
     // ── Auto-distribute payment across vote heads by priority ──────
+    let distributionAllocations: { head: string; amount: number }[] = [];
     if (paymentId) {
       try {
         const result = await autoDistributePayment(supabase, {
@@ -318,9 +319,13 @@ export function useUltraFeeCollect() {
           termId:     currentTerm?.id || null,
           year:       currentYear,
         });
+        distributionAllocations = (result.allocations || []).map((a: any) => ({
+          head: a.vote_head_name || a.vote_head_code || 'General',
+          amount: Number(a.allocated_amount),
+        }));
         console.log(
           `[recordPayment] Distributed KES ${amount}:`,
-          result.allocations.map((a: any) => `${a.vote_head_code}=KES${a.allocated_amount}`).join(', ')
+          distributionAllocations.map(a => `${a.head}=KES${a.amount}`).join(', ')
         );
       } catch (distErr) {
         // Distribution failure must NEVER block the payment itself
@@ -328,7 +333,7 @@ export function useUltraFeeCollect() {
       }
     }
 
-    return { ...payload, id: paymentId, receipt_number: receiptNo };
+    return { ...payload, id: paymentId, receipt_number: receiptNo, allocations: distributionAllocations };
   }, [currentTerm, currentYear]);
 
   // Update payment

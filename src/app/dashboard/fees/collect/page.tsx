@@ -644,9 +644,14 @@ export default function UltraCollectFeePage() {
           termBalance: Math.max(0, (fees.termBalance as number) - data.amount),
           annualFees: fees.annualTotal as number,
           annualBalance: Math.max(0, (fees.annualBalance as number) - data.amount),
-          allocations: data.allocationHead
-            ? [{ head: data.allocationHead, amount: data.amount }]
-            : undefined,
+          allocations: (() => {
+            // Prefer real auto-distribution allocations (shows arrears, tuition, activity breakdown)
+            const realAlloc = (result as any).allocations as { head: string; amount: number }[] | undefined;
+            if (realAlloc && realAlloc.length > 0) return realAlloc;
+            // Fallback: single manual head
+            if (data.allocationHead) return [{ head: data.allocationHead, amount: data.amount }];
+            return undefined;
+          })(),
           bursaryApplied: (fees.bursaryTotal as number) > 0 ? (fees.bursaryTotal as number) : undefined,
           capitationApplied: (fees.capitationTotal as number) > 0 ? (fees.capitationTotal as number) : undefined,
           schoolName: settings?.school_name as string | undefined,

@@ -152,6 +152,7 @@ const menuGroups = [
             { href: '/dashboard/fees', label: 'Fee Dashboard', icon: FiPieChart, perm: 'fees' },
             { href: '/dashboard/fees/collect', label: 'Collect Fee', icon: FiCreditCard, perm: 'fees' },
             { href: '/dashboard/fees/outstanding', label: 'Outstanding Fees', icon: FiUsers, perm: 'fees' },
+            { href: '/dashboard/fees/arrears', label: '⚠️ Arrears & Opening Balances', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/payments', label: 'Payment History', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/structure', label: 'Fee Structure', icon: FiGrid, perm: 'fees' },
             { href: '/dashboard/fees/vote-heads', label: '⚡ Vote Heads', icon: FiLayers, perm: 'fees' },
