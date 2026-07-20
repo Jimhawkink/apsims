@@ -305,7 +305,7 @@ export default function VoteHeadsPage() {
                 <div onClick={() => setShowModal(false)}
                     className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div onClick={e => e.stopPropagation()}
-                        className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl">
+                        className="bg-white w-full max-w-lg rounded-3xl shadow-2xl flex flex-col" style={{ maxHeight: '90vh' }}>
 
                         {/* Modal Header */}
                         <div className="p-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white">
@@ -325,26 +325,63 @@ export default function VoteHeadsPage() {
                             </div>
                         </div>
 
-                        {/* Modal Body */}
-                        <div className="p-6 space-y-5">
+                        {/* Modal Body — scrollable */}
+                        <div className="p-6 space-y-5 overflow-y-auto flex-1">
 
-                            {/* ⚡ Priority — most important field */}
+                            {/* ⚡ Priority — tap − / + to change */}
                             <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-50 to-orange-50 border-2 border-rose-200">
-                                <label className="text-xs font-black text-rose-700 uppercase tracking-wider block mb-3">
+                                <label className="text-xs font-black text-rose-700 uppercase tracking-wider block mb-1">
                                     ⚡ Auto-Distribution Priority
                                 </label>
-                                <div className="flex items-center gap-4">
+                                <p className="text-xs text-rose-500 mb-3">
+                                    Lower number = collected <strong>first</strong>. Tap − / + or type a number.
+                                </p>
+                                {/* Stepper */}
+                                <div className="flex items-center gap-3 mb-3">
+                                    <button type="button"
+                                        onClick={() => setForm(f => ({ ...f, priority: Math.max(1, f.priority - 1) }))}
+                                        className="w-12 h-12 rounded-xl bg-rose-500 text-white text-2xl font-black flex items-center justify-center hover:bg-rose-600 transition-all shadow-md">
+                                        −
+                                    </button>
                                     <input type="number" min={1} max={999}
                                         value={form.priority}
-                                        onChange={e => setForm(f => ({ ...f, priority: Number(e.target.value) }))}
-                                        className="w-24 text-center text-2xl font-black border-2 border-rose-400 rounded-xl py-3 outline-none focus:border-rose-600 bg-white text-rose-600" />
+                                        onChange={e => setForm(f => ({ ...f, priority: Math.max(1, Number(e.target.value) || 1) }))}
+                                        className="w-24 text-center text-3xl font-black border-2 border-rose-400 rounded-xl py-3 outline-none focus:border-rose-600 bg-white text-rose-600" />
+                                    <button type="button"
+                                        onClick={() => setForm(f => ({ ...f, priority: f.priority + 1 }))}
+                                        className="w-12 h-12 rounded-xl bg-rose-500 text-white text-2xl font-black flex items-center justify-center hover:bg-rose-600 transition-all shadow-md">
+                                        +
+                                    </button>
                                     <div className="flex-1 text-xs text-rose-700 leading-relaxed">
-                                        <strong>Priority 1</strong> = collected first (e.g. ARREARS)<br />
-                                        <strong>Priority 2</strong> = collected second (e.g. BES / Tuition)<br />
-                                        <strong>Priority 99</strong> = collected last / optional charges
+                                        <strong>Priority 1</strong> → paid first (e.g. ARREARS)<br />
+                                        <strong>Priority 2</strong> → paid second (e.g. Tuition/BES)<br />
+                                        <strong>Priority 99</strong> → paid last / optional
                                     </div>
                                 </div>
+                                {/* Quick presets */}
+                                <div className="flex gap-2 flex-wrap">
+                                    {[
+                                        { label: '1 — ARREARS', val: 1, color: '#dc2626' },
+                                        { label: '2 — Tuition', val: 2, color: '#6366f1' },
+                                        { label: '3 — Boarding', val: 3, color: '#0891b2' },
+                                        { label: '4 — Activity', val: 4, color: '#10b981' },
+                                        { label: '5 — Exam', val: 5, color: '#f59e0b' },
+                                        { label: '99 — Optional', val: 99, color: '#6b7280' },
+                                    ].map(p => (
+                                        <button key={p.val} type="button"
+                                            onClick={() => setForm(f => ({ ...f, priority: p.val }))}
+                                            className="px-2.5 py-1 rounded-lg text-xs font-bold border-2 transition-all"
+                                            style={{
+                                                borderColor: form.priority === p.val ? p.color : '#fecdd3',
+                                                background:  form.priority === p.val ? p.color : '#fff5f5',
+                                                color:       form.priority === p.val ? '#fff' : p.color,
+                                            }}>
+                                            {p.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
+
 
                             {/* Name + Code */}
                             <div className="grid grid-cols-2 gap-3">
