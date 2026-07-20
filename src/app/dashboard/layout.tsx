@@ -154,6 +154,8 @@ const menuGroups = [
             { href: '/dashboard/fees/outstanding', label: 'Outstanding Fees', icon: FiUsers, perm: 'fees' },
             { href: '/dashboard/fees/payments', label: 'Payment History', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/structure', label: 'Fee Structure', icon: FiGrid, perm: 'fees' },
+            { href: '/dashboard/fees/vote-heads', label: '⚡ Vote Heads', icon: FiLayers, perm: 'fees' },
+
             { href: '/dashboard/fees/statements', label: 'Fee Statements', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/payment-plans', label: '📅 Payment Plans & Pledges', icon: FiCalendar, perm: 'fees' },
             { href: '/dashboard/fees/demand-letters', label: '📨 Auto Demand Letters', icon: FiSend, perm: 'fees' },
