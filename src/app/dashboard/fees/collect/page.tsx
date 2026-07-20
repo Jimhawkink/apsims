@@ -472,7 +472,6 @@ export default function UltraCollectFeePage() {
     getStudentFeeProfile,
     getStudentPayments,
     getStatement,
-    genReceipt,
     recordPayment,
     deletePayment,
     sendSmsReceipt,
