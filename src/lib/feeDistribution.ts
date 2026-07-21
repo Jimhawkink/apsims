@@ -74,7 +74,7 @@ export async function autoDistributePayment(
 
             // All fee structures (all terms/years) for this student's form
             supabase.from('school_fee_structures')
-                .select('id, category, amount, form_id, term_id, year'),
+                .select('id, category, amount, form_id, term_id, year, vote_head_id, vote_head_name'),
 
             // Existing allocations for current term (what's already been paid per head this term)
             supabase.from('school_fee_payment_allocations')
@@ -141,11 +141,17 @@ export async function autoDistributePayment(
             String(s.term_id) === String(termId) && Number(s.year) === Number(year)
         );
 
-        // Build map: vote_head_name (lower) → expected amount for current term
-        const currentExpectedMap: Record<string, number> = {};
+        // Build map: vote_head_id → expected amount for current term
+        // Prefer vote_head_id match; fall back to category-name match for legacy rows
+        const currentExpectedById:   Record<number, number> = {}; // vote_head_id → amount
+        const currentExpectedByName: Record<string, number> = {}; // category name (lower) → amount
         for (const s of currentStructs) {
-            const cat = (s.category || '').toLowerCase();
-            currentExpectedMap[cat] = (currentExpectedMap[cat] || 0) + Number(s.amount || 0);
+            if (s.vote_head_id) {
+                currentExpectedById[s.vote_head_id] = (currentExpectedById[s.vote_head_id] || 0) + Number(s.amount || 0);
+            } else {
+                const cat = (s.category || s.vote_head_name || '').toLowerCase();
+                currentExpectedByName[cat] = (currentExpectedByName[cat] || 0) + Number(s.amount || 0);
+            }
         }
 
         // Already-paid per vote head this term (from existing allocations)
@@ -189,20 +195,24 @@ export async function autoDistributePayment(
             // Skip if this is the ARREARS head (already handled above)
             if (arrearsVH && vh.id === arrearsVH.id) continue;
 
-            // Match fee structure items to this vote head (by name or code)
-            const matchKey = Object.keys(currentExpectedMap).find(k =>
-                k === vh.name.toLowerCase() ||
-                k === vh.code.toLowerCase() ||
-                vh.name.toLowerCase().includes(k) ||
-                k.includes(vh.name.toLowerCase())
-            );
+            // Match fee structure items to this vote head:
+            //   1st choice: vote_head_id exact match (most reliable — new system)
+            //   2nd choice: fuzzy name/code match (legacy rows with no vote_head_id)
+            let expected = currentExpectedById[vh.id] ?? 0;
+            if (expected <= 0) {
+                const nameKey = Object.keys(currentExpectedByName).find(k =>
+                    k === vh.name.toLowerCase() ||
+                    k === vh.code.toLowerCase() ||
+                    vh.name.toLowerCase().includes(k) ||
+                    k.includes(vh.name.toLowerCase())
+                );
+                expected = nameKey ? currentExpectedByName[nameKey] : 0;
+            }
 
-            const expected  = matchKey ? currentExpectedMap[matchKey] : 0;
             const paidSoFar = alreadyPaidMap[vh.code] || 0;
             const balance   = Math.max(0, expected - paidSoFar);
 
-            // If there's a fee structure, only allocate up to the balance
-            // If no fee structure, skip (don't create phantom allocations)
+            // Only allocate if there is a fee structure for this head this term
             if (expected <= 0) continue;
             if (balance <= 0.01) continue;   // fully paid this head already
 
@@ -328,7 +338,7 @@ export async function getStudentVoteHeadSummary(
     const [studentRes, vhRes, allStructRes, allPayRes, allocRes, termsRes] = await Promise.all([
         supabase.from('school_students').select('form_id').eq('id', studentId).single(),
         supabase.from('school_vote_heads').select('id,code,name,priority,color').eq('is_active', true).order('priority'),
-        supabase.from('school_fee_structures').select('category,amount,form_id,term_id,year'),
+        supabase.from('school_fee_structures').select('category,amount,form_id,term_id,year,vote_head_id,vote_head_name'),
         supabase.from('school_fee_payments').select('amount,term_id,year').eq('student_id', studentId),
         supabase.from('school_fee_payment_allocations').select('vote_head_code,allocated_amount,term_id,year').eq('student_id', studentId),
         supabase.from('school_terms').select('id,year').order('year', { ascending: true }).order('id', { ascending: true }),
@@ -351,10 +361,16 @@ export async function getStudentVoteHeadSummary(
     const currentStructs = allStructs.filter(s =>
         String(s.term_id) === String(termId) && Number(s.year) === Number(year)
     );
-    const expectedMap: Record<string, number> = {};
+    // Current term expected per vote head — keyed by vote_head_id (preferred) or name (legacy)
+    const expectedById:   Record<number, number> = {};
+    const expectedByName: Record<string, number> = {};
     for (const s of currentStructs) {
-        const cat = (s.category || '').toLowerCase();
-        expectedMap[cat] = (expectedMap[cat] || 0) + Number(s.amount || 0);
+        if (s.vote_head_id) {
+            expectedById[s.vote_head_id] = (expectedById[s.vote_head_id] || 0) + Number(s.amount || 0);
+        } else {
+            const cat = (s.category || s.vote_head_name || '').toLowerCase();
+            expectedByName[cat] = (expectedByName[cat] || 0) + Number(s.amount || 0);
+        }
     }
 
     // Paid per vote head this term (from allocations)
@@ -409,12 +425,15 @@ export async function getStudentVoteHeadSummary(
 
     // Current term vote heads
     for (const vh of voteHeads) {
-        if (vh.code.toUpperCase().includes('ARREAR') || vh.name.toLowerCase().includes('arrear')) continue;
-        const matchKey = Object.keys(expectedMap).find(k =>
-            k === vh.name.toLowerCase() || k === vh.code.toLowerCase() ||
-            vh.name.toLowerCase().includes(k) || k.includes(vh.name.toLowerCase())
-        );
-        const expected = matchKey ? expectedMap[matchKey] : 0;
+        // Match by vote_head_id first, then fuzzy name fallback
+        let expected = expectedById[vh.id] ?? 0;
+        if (expected <= 0) {
+            const matchKey = Object.keys(expectedByName).find(k =>
+                k === vh.name.toLowerCase() || k === vh.code.toLowerCase() ||
+                vh.name.toLowerCase().includes(k) || k.includes(vh.name.toLowerCase())
+            );
+            expected = matchKey ? expectedByName[matchKey] : 0;
+        }
         if (expected <= 0) continue;
         const paid = paidMap[vh.code] || 0;
         result.push({
