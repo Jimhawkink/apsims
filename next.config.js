@@ -37,6 +37,20 @@ const nextConfig = {
             },
         ],
     },
+    async redirects() {
+        return [
+            // Parent portal common URL aliases
+            { source: '/parent/dashboard', destination: '/portal/parent', permanent: false },
+            { source: '/parent/login',     destination: '/portal/login',  permanent: false },
+            { source: '/parent',           destination: '/portal/parent', permanent: false },
+            { source: '/parent/:path*',    destination: '/portal/parent', permanent: false },
+            // Student portal aliases
+            { source: '/student/dashboard', destination: '/portal/student', permanent: false },
+            { source: '/student/login',     destination: '/portal/login',   permanent: false },
+            { source: '/student',           destination: '/portal/student', permanent: false },
+            { source: '/student/:path*',    destination: '/portal/student', permanent: false },
+        ];
+    },
     async headers() {
         // NOTE: CSP is defined ONLY in vercel.json (applied at Vercel edge).
         // Defining CSP here too would cause double-enforcement where browsers
