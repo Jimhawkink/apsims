@@ -11,7 +11,7 @@ import {
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
     FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive,
-    FiWifi, FiWifiOff, FiTruck, FiAward, FiFolder
+    FiWifi, FiWifiOff, FiTruck, FiAward, FiFolder, FiCpu, FiTarget, FiActivity, FiUser, FiFileText
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
 import CommandPalette from '@/components/CommandPalette';
@@ -113,6 +113,7 @@ const menuGroups = [
         name: 'cbc-hub',
         collapsible: true,
         items: [
+            { href: '/dashboard/cbc/command-centre',                      label: '⚙️ CBC Command Centre',         icon: FiCpu,        perm: 'curriculum' },
             { href: '/dashboard/cbc/portfolio',                          label: '🗂️ Student Portfolio',          icon: FiFolder,     perm: 'curriculum' },
             { href: '/dashboard/exams/sba-manager',                      label: '📋 SBA Manager',                 icon: FiAward,      perm: 'exams' },
             { href: '/dashboard/cbc/parent-portal',                      label: '👨‍👩‍👧 Parent Portal',             icon: FiUsers,      perm: 'curriculum' },
