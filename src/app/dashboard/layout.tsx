@@ -114,6 +114,7 @@ const menuGroups = [
         items: [
             { href: '/dashboard/cbc/portfolio',                          label: '🗂️ Student Portfolio',          icon: FiFolder,     perm: 'curriculum' },
             { href: '/dashboard/exams/sba-manager',                      label: '📋 SBA Manager',                 icon: FiAward,      perm: 'exams' },
+            { href: '/dashboard/cbc/parent-portal',                      label: '👨‍👩‍👧 Parent Portal',             icon: FiUsers,      perm: 'curriculum' },
             { href: '/dashboard/exams/cbc-marks',                        label: 'CBC Mark Entry',                icon: FiFileText,   perm: 'exams' },
             { href: '/dashboard/exams/cbc-marks/rubric-config',          label: 'Rubric Configuration',          icon: FiSettings,   perm: 'exams' },
             { href: '/dashboard/exams/cbc-marks/competency',             label: 'Competency Summary',            icon: FiLayers,     perm: 'exams' },
