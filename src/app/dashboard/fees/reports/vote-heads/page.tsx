@@ -279,31 +279,427 @@ export default function VoteHeadReportsPage() {
         return Object.values(map).sort((a, b) => b.arrears - a.arrears);
     }, [filteredAllocs]);
 
-    // ── CSV Export ────────────────────────────────────────────────────
-    const exportCSV = () => {
-        const vhCodes = [...new Set(filteredAllocs.map(a => a.vote_head_code))];
-        const headers = ['Receipt#', 'Date', 'Adm No', 'Student', 'Form', 'Term', 'Method', 'Total Paid', ...vhCodes];
-        const rows = gridRows.map(r => {
-            const vhCols = vhCodes.map(code => {
-                const a = r.allocs.find((al: any) => al.vote_head_code === code);
-                return a ? Number(a.allocated_amount).toFixed(2) : '0.00';
-            });
-            return [
-                r.receipt_number || r.id,
-                r.payment_date,
-                r.student?.admission_no || r.student?.admission_number || '',
-                r.student ? `${r.student.first_name} ${r.student.last_name}` : '',
-                r.formName, r.termName, r.payment_method,
-                Number(r.amount).toFixed(2), ...vhCols
-            ];
+    // ── Premium Excel Export ───────────────────────────────────────────
+    const exportExcel = async () => {
+        const XLSX = await import('xlsx');
+        const wb = XLSX.utils.book_new();
+
+        // ── Shared style helpers ──────────────────────────────────────────
+        const hdrFill   = { patternType: 'solid', fgColor: { rgb: '0F2044' } } as any;
+        const kpi1Fill  = { patternType: 'solid', fgColor: { rgb: 'F59E0B' } } as any;
+        const kpi2Fill  = { patternType: 'solid', fgColor: { rgb: 'EF4444' } } as any;
+        const kpi3Fill  = { patternType: 'solid', fgColor: { rgb: '6366F1' } } as any;
+        const kpi4Fill  = { patternType: 'solid', fgColor: { rgb: '10B981' } } as any;
+        const subHdrFill= { patternType: 'solid', fgColor: { rgb: '1E3A5F' } } as any;
+        const altFill   = { patternType: 'solid', fgColor: { rgb: 'F0F4FF' } } as any;
+        const totFill   = { patternType: 'solid', fgColor: { rgb: 'D97706' } } as any;
+        const grandFill = { patternType: 'solid', fgColor: { rgb: '0F2044' } } as any;
+        const paidFill  = { patternType: 'solid', fgColor: { rgb: 'D1FAE5' } } as any;
+        const pendFill  = { patternType: 'solid', fgColor: { rgb: 'FEF3C7' } } as any;
+        const clrFill   = { patternType: 'solid', fgColor: { rgb: 'DBEAFE' } } as any;
+        const sectionFill = { patternType: 'solid', fgColor: { rgb: 'FFF8E1' } } as any;
+
+        const whtBold   = { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 };
+        const whtBold14 = { bold: true, color: { rgb: 'FFFFFF' }, sz: 14 };
+        const whtBold18 = { bold: true, color: { rgb: 'FFFFFF' }, sz: 18 };
+        const whtSm     = { color: { rgb: 'FFFFFF' }, sz: 9 };
+        const darkBold  = { bold: true, color: { rgb: '0F2044' }, sz: 11 };
+        const grayItal  = { italic: true, color: { rgb: '64748B' }, sz: 9 };
+
+        const border = {
+            top:    { style: 'thin', color: { rgb: 'CBD5E1' } },
+            bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+            left:   { style: 'thin', color: { rgb: 'CBD5E1' } },
+            right:  { style: 'thin', color: { rgb: 'CBD5E1' } },
+        };
+        const thickBorder = {
+            top:    { style: 'medium', color: { rgb: '0F2044' } },
+            bottom: { style: 'medium', color: { rgb: '0F2044' } },
+            left:   { style: 'medium', color: { rgb: '0F2044' } },
+            right:  { style: 'medium', color: { rgb: '0F2044' } },
+        };
+
+        const cell = (v: any, font?: any, fill?: any, align?: any, fmt?: string, brd?: any): any => ({
+            v,
+            t: typeof v === 'number' ? 'n' : 's',
+            s: {
+                font: font || {},
+                fill: fill || { patternType: 'none' },
+                alignment: align || { vertical: 'center', wrapText: true },
+                border: brd || border,
+                ...(fmt ? { numFmt: fmt } : {}),
+            },
         });
-        const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
+        const numCell = (v: number, fill?: any, bold = false) => cell(
+            v, { bold, color: { rgb: bold ? 'FFFFFF' : '0F2044' }, sz: 11 },
+            fill || { patternType: 'none' },
+            { horizontal: 'right', vertical: 'center' },
+            '#,##0', border
+        );
+        const pctCell = (v: number, fill?: any) => cell(
+            v / 100, { bold: true, color: { rgb: '0F2044' }, sz: 10 },
+            fill || { patternType: 'none' },
+            { horizontal: 'center', vertical: 'center' },
+            '0.0%', border
+        );
+        const hdr = (v: string, fill?: any) => cell(
+            v, whtBold, fill || subHdrFill,
+            { horizontal: 'center', vertical: 'center', wrapText: true }, undefined, border
+        );
+        const empty = () => cell('', {}, { patternType: 'none' }, {}, undefined, {});
+
+        const today = new Date().toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' });
+        const period = `${dateFrom} to ${dateTo}`;
+        const nonArrears = grandTotal - arrearsTotal;
+        const arrearsPercent = grandTotal > 0 ? (arrearsTotal / grandTotal * 100).toFixed(1) : '0.0';
+        const avgArrears = arrearsRows.length > 0 ? arrearsTotal / arrearsRows.length : 0;
+
+        // ════════════════════════════════════════════════════════════════
+        // SHEET 1 — VOTE HEAD REPORT (main)
+        // ════════════════════════════════════════════════════════════════
+        const ws1Data: any[][] = [];
+
+        // Row 1 — Brand header
+        ws1Data.push([
+            cell('ALPHASCHOOL  •  APSIMS', whtBold14, hdrFill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            ...Array(9).fill(cell('', whtBold14, hdrFill, {}, undefined, thickBorder)),
+        ]);
+        // Row 2 — Title
+        ws1Data.push([
+            cell('FEE COLLECTION — VOTE HEAD REPORT', whtBold18, hdrFill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            ...Array(9).fill(cell('', {}, hdrFill, {}, undefined, thickBorder)),
+        ]);
+        // Row 3 — Meta
+        ws1Data.push([
+            cell(`Reporting Period: ${period}   |   Generated: ${today}   |   Alpha Premier School Information Management System`,
+                grayItal, { patternType: 'solid', fgColor: { rgb: 'E2E8F0' } },
+                { horizontal: 'center', vertical: 'center' }, undefined, border),
+            ...Array(9).fill(cell('', {}, { patternType: 'solid', fgColor: { rgb: 'E2E8F0' } }, {}, undefined, border)),
+        ]);
+        // Row 4 — spacer
+        ws1Data.push(Array(10).fill(empty()));
+
+        // Row 5-7 — KPI band (4 colored cards across 10 cols)
+        const kpiLabels = ['TOTAL COLLECTED', 'ARREARS CLEARED', 'VOTE HEADS ACTIVE', 'NON-ARREARS COLLECTED'];
+        const kpiValues = [grandTotal, arrearsTotal, vhSummary.length, nonArrears];
+        const kpiFills  = [kpi1Fill, kpi2Fill, kpi3Fill, kpi4Fill];
+        const kpiSubs   = [
+            `${filteredPayments.length} payments`,
+            `${arrearsRows.length} students paid arrears`,
+            `of ${voteHeads.length} total`,
+            'Current term fees',
+        ];
+        // Label row
+        ws1Data.push([
+            hdr(kpiLabels[0], kpi1Fill), hdr('', kpi1Fill),
+            hdr(kpiLabels[1], kpi2Fill), hdr('', kpi2Fill),
+            hdr('', kpi2Fill),
+            hdr(kpiLabels[2], kpi3Fill), hdr('', kpi3Fill),
+            hdr(kpiLabels[3], kpi4Fill), hdr('', kpi4Fill), hdr('', kpi4Fill),
+        ]);
+        // Value row
+        ws1Data.push([
+            cell(`KES ${kpiValues[0].toLocaleString()}`, { bold: true, color: { rgb: 'FFFFFF' }, sz: 20 }, kpi1Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi1Fill, {}, undefined, thickBorder),
+            cell(`KES ${kpiValues[1].toLocaleString()}`, { bold: true, color: { rgb: 'FFFFFF' }, sz: 20 }, kpi2Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi2Fill, {}, undefined, thickBorder),
+            cell('', {}, kpi2Fill, {}, undefined, thickBorder),
+            cell(String(kpiValues[2]), { bold: true, color: { rgb: 'FFFFFF' }, sz: 20 }, kpi3Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi3Fill, {}, undefined, thickBorder),
+            cell(`KES ${kpiValues[3].toLocaleString()}`, { bold: true, color: { rgb: 'FFFFFF' }, sz: 20 }, kpi4Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi4Fill, {}, undefined, thickBorder),
+            cell('', {}, kpi4Fill, {}, undefined, thickBorder),
+        ]);
+        // Sub row
+        ws1Data.push([
+            cell(kpiSubs[0], whtSm, kpi1Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi1Fill, {}, undefined, thickBorder),
+            cell(kpiSubs[1], whtSm, kpi2Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi2Fill, {}, undefined, thickBorder),
+            cell('', {}, kpi2Fill, {}, undefined, thickBorder),
+            cell(kpiSubs[2], whtSm, kpi3Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi3Fill, {}, undefined, thickBorder),
+            cell(kpiSubs[3], whtSm, kpi4Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi4Fill, {}, undefined, thickBorder),
+            cell('', {}, kpi4Fill, {}, undefined, thickBorder),
+        ]);
+        // Row 8 — spacer
+        ws1Data.push(Array(10).fill(empty()));
+
+        // Row 9 — Section label
+        ws1Data.push([
+            cell('PAYMENT DETAIL — ALL VOTE HEADS', { bold: true, color: { rgb: '0F2044' }, sz: 12 },
+                sectionFill, { vertical: 'center' }, undefined, {}),
+            ...Array(9).fill(cell('', {}, sectionFill, {}, undefined, {})),
+        ]);
+
+        // Row 10 — Table headers
+        const COL_HDRS = ['#', 'Student Name', 'Adm No.', 'Form / Grade', 'Vote Head', 'Amount Billed', 'Amount Paid', 'Arrears', 'Receipt No.', 'Status'];
+        ws1Data.push(COL_HDRS.map(h => hdr(h, subHdrFill)));
+
+        // Data rows — one row per allocation
+        let rowNum = 0;
+        let totalBilled = 0, totalPaid = 0, totalArrears = 0;
+        for (const p of gridRows) {
+            const admNo = p.student?.admission_no || p.student?.admission_number || '—';
+            const name  = p.student ? `${p.student.first_name} ${p.student.last_name}` : '—';
+            if (p.allocs.length === 0) {
+                rowNum++;
+                const paid = Number(p.amount || 0);
+                const rowFill = rowNum % 2 === 0 ? altFill : { patternType: 'none' };
+                ws1Data.push([
+                    cell(rowNum, darkBold, rowFill, { horizontal: 'center', vertical: 'center' }, undefined, border),
+                    cell(name, darkBold, rowFill, { vertical: 'center' }, undefined, border),
+                    cell(admNo, { color: { rgb: '2563EB' }, sz: 10 }, rowFill, { vertical: 'center' }, undefined, border),
+                    cell(p.formName, {}, rowFill, { vertical: 'center' }, undefined, border),
+                    cell('(No allocation)', { italic: true, color: { rgb: '94A3B8' } }, rowFill, { vertical: 'center' }, undefined, border),
+                    numCell(0, rowFill), numCell(paid, rowFill), numCell(0, rowFill),
+                    cell(p.receipt_number || '—', { color: { rgb: '6366F1' }, sz: 10 }, rowFill, { vertical: 'center' }, undefined, border),
+                    cell('Fully Paid', { color: { rgb: '059669' }, bold: true, sz: 10 }, paidFill, { horizontal: 'center', vertical: 'center' }, undefined, border),
+                ]);
+                totalPaid += paid;
+            } else {
+                for (const a of p.allocs) {
+                    rowNum++;
+                    const billed  = Number(a.allocated_amount || 0);
+                    const paid2   = Number(a.allocated_amount || 0);
+                    const arrear  = 0;
+                    const isArrear = (a.vote_head_code || '').includes('ARREAR');
+                    const rowFill = rowNum % 2 === 0 ? altFill : { patternType: 'none' };
+                    const statusText = isArrear ? 'Arrears Cleared' : arrear > 0 ? 'Balance Pending' : 'Fully Paid';
+                    const statusFill = isArrear ? clrFill : arrear > 0 ? pendFill : paidFill;
+                    const statusColor = isArrear ? '2563EB' : arrear > 0 ? 'D97706' : '059669';
+                    ws1Data.push([
+                        cell(rowNum, darkBold, rowFill, { horizontal: 'center', vertical: 'center' }, undefined, border),
+                        cell(name, darkBold, rowFill, { vertical: 'center' }, undefined, border),
+                        cell(admNo, { color: { rgb: '2563EB' }, sz: 10 }, rowFill, { vertical: 'center' }, undefined, border),
+                        cell(p.formName, {}, rowFill, { vertical: 'center' }, undefined, border),
+                        cell(a.vote_head_name || a.vote_head_code, {}, rowFill, { vertical: 'center' }, undefined, border),
+                        numCell(billed, rowFill), numCell(paid2, rowFill), numCell(arrear, rowFill),
+                        cell(p.receipt_number || '—', { color: { rgb: '6366F1' }, sz: 10 }, rowFill, { vertical: 'center' }, undefined, border),
+                        cell(statusText, { color: { rgb: statusColor }, bold: true, sz: 10 }, statusFill, { horizontal: 'center', vertical: 'center' }, undefined, border),
+                    ]);
+                    totalBilled  += billed;
+                    totalPaid    += paid2;
+                    totalArrears += arrear;
+                }
+            }
+        }
+
+        // Totals row
+        ws1Data.push([
+            cell('', {}, totFill, {}, undefined, border),
+            cell('', {}, totFill, {}, undefined, border),
+            cell('', {}, totFill, {}, undefined, border),
+            cell('', {}, totFill, {}, undefined, border),
+            cell('TOTALS', { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 }, totFill, { horizontal: 'right', vertical: 'center' }, undefined, border),
+            numCell(totalBilled, totFill, true),
+            numCell(totalPaid, totFill, true),
+            numCell(totalArrears, totFill, true),
+            cell('', {}, totFill, {}, undefined, border),
+            cell(`${rowNum} line items`, { bold: true, color: { rgb: 'FFFFFF' }, sz: 10 }, totFill, { horizontal: 'center', vertical: 'center' }, undefined, border),
+        ]);
+
+        ws1Data.push(Array(10).fill(empty()));
+
+        // ── SUMMARY BY VOTE HEAD section ──────────────────────────────
+        ws1Data.push([
+            cell('SUMMARY BY VOTE HEAD', { bold: true, color: { rgb: '0F2044' }, sz: 12 },
+                sectionFill, { vertical: 'center' }, undefined, {}),
+            ...Array(9).fill(cell('', {}, sectionFill, {}, undefined, {})),
+        ]);
+        ws1Data.push([
+            hdr('Vote Head', subHdrFill), hdr('Code', subHdrFill),
+            hdr('Total Collected', subHdrFill), hdr('# Payments', subHdrFill),
+            hdr('% of Grand Total', subHdrFill),
+            ...Array(5).fill(empty()),
+        ]);
+        for (let i = 0; i < vhSummary.length; i++) {
+            const v = vhSummary[i];
+            const pct = grandTotal > 0 ? v.total / grandTotal * 100 : 0;
+            const rowFill = i % 2 === 0 ? altFill : { patternType: 'none' };
+            ws1Data.push([
+                cell(v.name, darkBold, rowFill, { vertical: 'center' }, undefined, border),
+                cell(v.code, { color: { rgb: '6366F1' }, sz: 10 }, rowFill, { vertical: 'center' }, undefined, border),
+                numCell(v.total, rowFill),
+                cell(v.count, { color: { rgb: '0F2044' }, sz: 10 }, rowFill, { horizontal: 'center', vertical: 'center' }, undefined, border),
+                pctCell(pct, rowFill),
+                ...Array(5).fill(empty()),
+            ]);
+        }
+        // Grand total row
+        ws1Data.push([
+            cell('GRAND TOTAL', { bold: true, color: { rgb: 'FFFFFF' }, sz: 12 }, grandFill, { vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, grandFill, {}, undefined, thickBorder),
+            numCell(grandTotal, grandFill, true),
+            cell(filteredPayments.length, { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 }, grandFill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('100.0%', { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 }, grandFill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            ...Array(5).fill(cell('', {}, grandFill, {}, undefined, thickBorder)),
+        ]);
+
+        ws1Data.push(Array(10).fill(empty()));
+        ws1Data.push([
+            cell(
+                'Note: Report generated by APSIMS — Alpha Premier School Information Management System. All figures in Kenya Shillings (KES).',
+                { italic: true, color: { rgb: '94A3B8' }, sz: 8 },
+                { patternType: 'none' }, { vertical: 'center' }, undefined, {}
+            ),
+            ...Array(9).fill(empty()),
+        ]);
+
+        const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
+
+        // Merges
+        const merges: any[] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },  // Brand header
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },  // Title
+            { s: { r: 2, c: 0 }, e: { r: 2, c: 9 } },  // Meta
+            // KPI 1
+            { s: { r: 4, c: 0 }, e: { r: 4, c: 1 } },
+            { s: { r: 5, c: 0 }, e: { r: 5, c: 1 } },
+            { s: { r: 6, c: 0 }, e: { r: 6, c: 1 } },
+            // KPI 2
+            { s: { r: 4, c: 2 }, e: { r: 4, c: 4 } },
+            { s: { r: 5, c: 2 }, e: { r: 5, c: 4 } },
+            { s: { r: 6, c: 2 }, e: { r: 6, c: 4 } },
+            // KPI 3
+            { s: { r: 4, c: 5 }, e: { r: 4, c: 6 } },
+            { s: { r: 5, c: 5 }, e: { r: 5, c: 6 } },
+            { s: { r: 6, c: 5 }, e: { r: 6, c: 6 } },
+            // KPI 4
+            { s: { r: 4, c: 7 }, e: { r: 4, c: 9 } },
+            { s: { r: 5, c: 7 }, e: { r: 5, c: 9 } },
+            { s: { r: 6, c: 7 }, e: { r: 6, c: 9 } },
+        ];
+        ws1['!merges'] = merges;
+        ws1['!cols'] = [
+            { wch: 5 }, { wch: 26 }, { wch: 16 }, { wch: 14 },
+            { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
+            { wch: 14 }, { wch: 18 },
+        ];
+        ws1['!rows'] = [
+            { hpt: 28 }, { hpt: 36 }, { hpt: 20 }, { hpt: 8 },
+            { hpt: 22 }, { hpt: 40 }, { hpt: 20 },
+        ];
+        XLSX.utils.book_append_sheet(wb, ws1, 'Vote Head Report');
+
+        // ════════════════════════════════════════════════════════════════
+        // SHEET 2 — ARREARS ANALYSIS
+        // ════════════════════════════════════════════════════════════════
+        const ws2Data: any[][] = [];
+        ws2Data.push([cell('APSIMS — ARREARS ANALYSIS REPORT', whtBold14, hdrFill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder), ...Array(5).fill(cell('', {}, hdrFill, {}, undefined, thickBorder))]);
+        ws2Data.push([cell(`Period: ${period}   |   Generated: ${today}`, grayItal, { patternType: 'solid', fgColor: { rgb: 'E2E8F0' } }, { horizontal: 'center' }, undefined, border), ...Array(5).fill(cell('', {}, { patternType: 'solid', fgColor: { rgb: 'E2E8F0' } }, {}, undefined, border))]);
+        ws2Data.push(Array(6).fill(empty()));
+
+        // KPI mini-cards
+        ws2Data.push([
+            hdr('TOTAL ARREARS PAID', kpi2Fill), hdr('', kpi2Fill),
+            hdr('AVG ARREARS PER STUDENT', kpi1Fill), hdr('', kpi1Fill),
+            hdr('% OF TOTAL THAT WAS ARREARS', kpi3Fill), hdr('', kpi3Fill),
+        ]);
+        ws2Data.push([
+            cell(`KES ${arrearsTotal.toLocaleString()}`, { bold: true, color: { rgb: 'FFFFFF' }, sz: 16 }, kpi2Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi2Fill, {}, undefined, thickBorder),
+            cell(`KES ${Math.round(avgArrears).toLocaleString()}`, { bold: true, color: { rgb: 'FFFFFF' }, sz: 16 }, kpi1Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi1Fill, {}, undefined, thickBorder),
+            cell(`${arrearsPercent}%`, { bold: true, color: { rgb: 'FFFFFF' }, sz: 16 }, kpi3Fill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi3Fill, {}, undefined, thickBorder),
+        ]);
+        ws2Data.push([
+            cell(`${arrearsRows.length} students cleared arrears`, whtSm, kpi2Fill, { horizontal: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi2Fill, {}, undefined, thickBorder),
+            cell(`across ${arrearsRows.length} students`, whtSm, kpi1Fill, { horizontal: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi1Fill, {}, undefined, thickBorder),
+            cell(`of KES ${grandTotal.toLocaleString()} total`, whtSm, kpi3Fill, { horizontal: 'center' }, undefined, thickBorder),
+            cell('', {}, kpi3Fill, {}, undefined, thickBorder),
+        ]);
+        ws2Data.push(Array(6).fill(empty()));
+
+        ws2Data.push([cell('ARREARS DETAIL — STUDENTS WHO PAID ARREARS', { bold: true, color: { rgb: '0F2044' }, sz: 12 }, sectionFill, { vertical: 'center' }, undefined, {}), ...Array(5).fill(cell('', {}, sectionFill, {}, undefined, {}))]);
+        ws2Data.push([
+            hdr('#', subHdrFill), hdr('Student Name', subHdrFill),
+            hdr('Adm No.', subHdrFill), hdr('Form / Grade', subHdrFill),
+            hdr('Arrears Paid (KES)', subHdrFill), hdr('# Payments', subHdrFill),
+        ]);
+
+        arrearsRows.forEach((r, i) => {
+            const st = r.student;
+            const admNo = st?.admission_no || st?.admission_number || '—';
+            const formName = getFormName(st?.form_id);
+            const rowFill = i % 2 === 0 ? altFill : { patternType: 'none' };
+            ws2Data.push([
+                cell(i + 1, darkBold, rowFill, { horizontal: 'center', vertical: 'center' }, undefined, border),
+                cell(st ? `${st.first_name} ${st.last_name}` : '—', darkBold, rowFill, { vertical: 'center' }, undefined, border),
+                cell(admNo, { color: { rgb: '2563EB' }, sz: 10 }, rowFill, { vertical: 'center' }, undefined, border),
+                cell(formName, {}, rowFill, { vertical: 'center' }, undefined, border),
+                numCell(r.arrears, rowFill),
+                cell(r.payments, { color: { rgb: '0F2044' }, sz: 10 }, rowFill, { horizontal: 'center', vertical: 'center' }, undefined, border),
+            ]);
+        });
+
+        // Totals
+        ws2Data.push([
+            cell('', {}, grandFill, {}, undefined, thickBorder),
+            cell('', {}, grandFill, {}, undefined, thickBorder),
+            cell('', {}, grandFill, {}, undefined, thickBorder),
+            cell('TOTAL ARREARS PAID', { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 }, grandFill, { horizontal: 'right', vertical: 'center' }, undefined, thickBorder),
+            numCell(arrearsTotal, grandFill, true),
+            cell('', {}, grandFill, {}, undefined, thickBorder),
+        ]);
+
+        const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
+        ws2['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
+            { s: { r: 3, c: 0 }, e: { r: 3, c: 1 } }, { s: { r: 4, c: 0 }, e: { r: 4, c: 1 } }, { s: { r: 5, c: 0 }, e: { r: 5, c: 1 } },
+            { s: { r: 3, c: 2 }, e: { r: 3, c: 3 } }, { s: { r: 4, c: 2 }, e: { r: 4, c: 3 } }, { s: { r: 5, c: 2 }, e: { r: 5, c: 3 } },
+            { s: { r: 3, c: 4 }, e: { r: 3, c: 5 } }, { s: { r: 4, c: 4 }, e: { r: 4, c: 5 } }, { s: { r: 5, c: 4 }, e: { r: 5, c: 5 } },
+            { s: { r: 7, c: 0 }, e: { r: 7, c: 5 } },
+        ];
+        ws2['!cols'] = [{ wch: 5 }, { wch: 26 }, { wch: 16 }, { wch: 16 }, { wch: 20 }, { wch: 12 }];
+        ws2['!rows'] = [{ hpt: 28 }, { hpt: 18 }, { hpt: 8 }, { hpt: 20 }, { hpt: 36 }, { hpt: 18 }];
+        XLSX.utils.book_append_sheet(wb, ws2, 'Arrears Analysis');
+
+        // ════════════════════════════════════════════════════════════════
+        // SHEET 3 — DAILY TREND
+        // ════════════════════════════════════════════════════════════════
+        const ws3Data: any[][] = [];
+        ws3Data.push([cell('APSIMS — DAILY COLLECTION TREND', whtBold14, hdrFill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder), cell('', {}, hdrFill, {}, undefined, thickBorder), cell('', {}, hdrFill, {}, undefined, thickBorder)]);
+        ws3Data.push([cell(`Period: ${period}`, grayItal, { patternType: 'solid', fgColor: { rgb: 'E2E8F0' } }, { horizontal: 'center' }, undefined, border), cell('', {}, { patternType: 'solid', fgColor: { rgb: 'E2E8F0' } }, {}, undefined, border), cell('', {}, { patternType: 'solid', fgColor: { rgb: 'E2E8F0' } }, {}, undefined, border)]);
+        ws3Data.push(Array(3).fill(empty()));
+        ws3Data.push([hdr('Date', subHdrFill), hdr('Daily Collection (KES)', subHdrFill), hdr('Running Total (KES)', subHdrFill)]);
+        let running = 0;
+        dailyTrend.forEach((d, i) => {
+            running += d.amount;
+            const rowFill = i % 2 === 0 ? altFill : { patternType: 'none' };
+            ws3Data.push([
+                cell(d.date, { color: { rgb: '0F2044' }, sz: 10 }, rowFill, { horizontal: 'center', vertical: 'center' }, undefined, border),
+                numCell(d.amount, rowFill),
+                numCell(running, rowFill),
+            ]);
+        });
+        ws3Data.push([
+            cell('GRAND TOTAL', { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 }, grandFill, { horizontal: 'center', vertical: 'center' }, undefined, thickBorder),
+            numCell(grandTotal, grandFill, true),
+            numCell(running, grandFill, true),
+        ]);
+        const ws3 = XLSX.utils.aoa_to_sheet(ws3Data);
+        ws3['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+        ];
+        ws3['!cols'] = [{ wch: 18 }, { wch: 26 }, { wch: 26 }];
+        ws3['!rows'] = [{ hpt: 28 }, { hpt: 18 }, { hpt: 8 }, { hpt: 22 }];
+        XLSX.utils.book_append_sheet(wb, ws3, 'Daily Trend');
+
+        // ── Write and download ────────────────────────────────────────
+        const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
+        const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `vote_head_report_${dateFrom}_to_${dateTo}.csv`;
+        a.download = `APSIMS_VoteHead_Report_${dateFrom}_to_${dateTo}.xlsx`;
         a.click();
-        toast.success('CSV exported!');
+        toast.success('✅ Premium Excel report exported!');
     };
 
     const TABS = [
@@ -340,8 +736,8 @@ export default function VoteHeadReportsPage() {
                     <button onClick={fetchData} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-all">
                         <FiRefreshCw size={13} /> Refresh
                     </button>
-                    <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-bold shadow-md shadow-green-500/20 hover:shadow-green-500/30 transition-all">
-                        <FiDownload size={13} /> Export CSV
+                    <button onClick={exportExcel} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-bold shadow-md shadow-green-500/20 hover:shadow-green-500/30 transition-all">
+                        <FiDownload size={13} /> Export Excel
                     </button>
                 </div>
             </div>
