@@ -100,6 +100,7 @@ const menuGroups = [
         collapsible: true,
         items: [
             { href: '/dashboard/jss/setup',                              label: '🏫 JSS Setup & Config',         icon: FiGrid,       perm: 'curriculum' },
+            { href: '/dashboard/jss/pathways',                           label: '🛤️ Pathway Selection (G9)',     icon: FiTarget,     perm: 'curriculum' },
             { href: '/dashboard/jss/setup',                              label: 'Grades & Streams (7-9)',         icon: FiLayers,     perm: 'curriculum' },
             { href: '/dashboard/exams/sba-manager',                      label: '📋 SBA Manager',                 icon: FiAward,      perm: 'exams' },
             { href: '/dashboard/cbc/portfolio',                          label: '🗂️ Student Portfolio',          icon: FiFolder,     perm: 'curriculum' },
