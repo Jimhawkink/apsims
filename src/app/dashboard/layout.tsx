@@ -11,7 +11,7 @@ import {
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
     FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive,
-    FiWifi, FiWifiOff, FiTruck, FiAward
+    FiWifi, FiWifiOff, FiTruck, FiAward, FiFolder
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
 import CommandPalette from '@/components/CommandPalette';
@@ -91,6 +91,30 @@ const menuGroups = [
             { href: '/dashboard/students/subject-combinations', label: 'CBC Subject Combos', icon: FiGrid, perm: 'students' },
             { href: '/dashboard/remedial', label: 'Remedial Programs', icon: FiTrendingUp, perm: 'remedial' },
             { href: '/dashboard/exams/kcse-prediction', label: '🎯 KCSE/KCPE Prediction', icon: FiBarChart2, perm: 'exams' },
+        ]
+    },
+    {
+        label: "🎓 CBC Hub",
+        icon: FiAward,
+        name: 'cbc-hub',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/cbc/portfolio',                          label: '🗂️ Student Portfolio',          icon: FiFolder,     perm: 'curriculum' },
+            { href: '/dashboard/exams/cbc-marks',                        label: 'CBC Mark Entry',                icon: FiFileText,   perm: 'exams' },
+            { href: '/dashboard/exams/cbc-marks/rubric-config',          label: 'Rubric Configuration',          icon: FiSettings,   perm: 'exams' },
+            { href: '/dashboard/exams/cbc-marks/competency',             label: 'Competency Summary',            icon: FiLayers,     perm: 'exams' },
+            { href: '/dashboard/exams/cbc-marks/history',                label: 'CBC Marks History',             icon: FiClock,      perm: 'exams' },
+            { href: '/dashboard/exams/cbc-report-cards',                 label: 'CBC Report Cards',              icon: FiFileText,   perm: 'exams' },
+            { href: '/dashboard/exams/cbc-reports',                      label: '📊 CBC Reports Hub',             icon: FiBarChart2,  perm: 'exams' },
+            { href: '/dashboard/exams/cbc-reports/at-risk',              label: 'At-Risk Students',              icon: FiAlertCircle,perm: 'exams' },
+            { href: '/dashboard/exams/cbc-reports/sba-audit',            label: 'SBA Audit',                     icon: FiShield,     perm: 'exams' },
+            { href: '/dashboard/exams/cbc-reports/pathway-readiness',    label: 'Pathway Readiness',             icon: FiTrendingUp, perm: 'exams' },
+            { href: '/dashboard/exams/cbc-reports/intervention-tracker', label: 'Intervention Tracker',          icon: FiZap,        perm: 'exams' },
+            { href: '/dashboard/curriculum/cbc-tracking',                label: 'CBC Progress Tracking',         icon: FiTrendingUp, perm: 'curriculum' },
+            { href: '/dashboard/curriculum/cbc-assessment',              label: 'CBC Assessment Config',         icon: FiFileText,   perm: 'curriculum' },
+            { href: '/dashboard/curriculum/kicd-alignment',              label: '🏅 KICD Alignment & Badges',    icon: FiAward,      perm: 'curriculum' },
+            { href: '/dashboard/cbc-analytics',                          label: 'CBC Analytics Dashboard',       icon: FiPieChart,   perm: 'curriculum' },
+            { href: '/dashboard/students/subject-combinations',          label: 'CBC Subject Combinations',      icon: FiGrid,       perm: 'students' },
         ]
     },
     {
