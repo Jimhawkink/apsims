@@ -94,6 +94,19 @@ const menuGroups = [
         ]
     },
     {
+        label: "🏫 JSS Hub (Grade 7–9)",
+        icon: FiBookOpen,
+        name: 'jss-hub',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/jss/setup',                              label: '🏫 JSS Setup & Config',         icon: FiGrid,       perm: 'curriculum' },
+            { href: '/dashboard/jss/setup',                              label: 'Grades & Streams (7-9)',         icon: FiLayers,     perm: 'curriculum' },
+            { href: '/dashboard/exams/sba-manager',                      label: '📋 SBA Manager',                 icon: FiAward,      perm: 'exams' },
+            { href: '/dashboard/cbc/portfolio',                          label: '🗂️ Student Portfolio',          icon: FiFolder,     perm: 'curriculum' },
+            { href: '/dashboard/students/subject-combinations',          label: 'JSS Subject Combos',             icon: FiBookOpen,   perm: 'students' },
+        ]
+    },
+    {
         label: "🎓 CBC Hub",
         icon: FiAward,
         name: 'cbc-hub',
