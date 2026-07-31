@@ -1,14 +1,13 @@
 'use client';
-
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import toast, { Toaster } from 'react-hot-toast';
 import {
-    FiSettings, FiPlus, FiSearch, FiSave, FiTrash2, FiEdit2, FiX,
-    FiChevronRight, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownload,
-    FiUpload, FiCheck, FiLayers, FiBook, FiGrid, FiAward, FiStar,
-    FiCopy, FiZap, FiShield, FiAlertCircle, FiCheckCircle,
+    FiSettings, FiPlus, FiSearch, FiRefreshCw, FiX, FiSave, FiEdit2,
+    FiTrash2, FiArrowRight, FiAlertCircle, FiCheckCircle, FiChevronDown,
+    FiChevronUp, FiBook, FiLayers, FiGrid, FiToggleLeft, FiToggleRight,
+    FiFileText, FiAward, FiBarChart2, FiUsers, FiZap, FiTarget,
 } from 'react-icons/fi';
 
 const sb = createClient(
@@ -16,155 +15,23 @@ const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-type CompLevel = 'EE' | 'ME' | 'AE' | 'BE';
-type GradeLevel = 'PP1' | 'PP2' | 'Grade 1' | 'Grade 2' | 'Grade 3' | 'Grade 4' | 'Grade 5' | 'Grade 6' | 'Grade 7' | 'Grade 8' | 'Grade 9';
+interface LearningArea { id: string; name: string; code: string; grade_levels: string[]; active: boolean; color: string; strand_count?: number; }
+interface Strand { id: string; learning_area_id: string; name: string; code: string; order_no: number; active: boolean; sub_strand_count?: number; }
+interface SubStrand { id: string; strand_id: string; name: string; code: string; order_no: number; active: boolean; descriptor_ee?: string; descriptor_me?: string; descriptor_ae?: string; descriptor_be?: string; }
 
-interface LearningArea { id: string; name: string; code: string; grade_levels: GradeLevel[]; active: boolean; color: string; }
-interface Strand { id: string; learning_area_id: string; name: string; code: string; order_no: number; active: boolean; }
-interface SubStrand { id: string; strand_id: string; name: string; code: string; order_no: number; active: boolean; descriptors?: Record<CompLevel, string>; }
+const AREA_COLORS = ['#2563EB','#059669','#D97706','#7C3AED','#DC2626','#0891B2','#9333EA','#65A30D','#EA580C','#DB2777'];
+const GRADE_LEVELS = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10','Grade 11','Grade 12'];
 
-const COMP_COLORS: Record<CompLevel, { color: string; bg: string; label: string }> = {
-    EE: { color: '#059669', bg: '#ECFDF5', label: 'Exceeding Expectation' },
-    ME: { color: '#2563EB', bg: '#EFF6FF', label: 'Meeting Expectation' },
-    AE: { color: '#D97706', bg: '#FFFBEB', label: 'Approaching Expectation' },
-    BE: { color: '#DC2626', bg: '#FEF2F2', label: 'Below Expectation' },
-};
-
-const GRADE_LEVELS: GradeLevel[] = ['PP1','PP2','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'];
-
-const AREA_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#84cc16','#f97316','#ec4899','#14b8a6','#3b82f6','#a855f7','#eab308'];
-
-// ── KICD Official Learning Areas ────────────────────────────────────────────
-const KICD_AREAS: LearningArea[] = [
-    { id:'la1', name:'Literacy Activities', code:'LIT', grade_levels:['PP1','PP2','Grade 1','Grade 2'], active:true, color:'#6366f1' },
-    { id:'la2', name:'Kiswahili Language Activities', code:'KIS', grade_levels:['PP1','PP2','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6'], active:true, color:'#0ea5e9' },
-    { id:'la3', name:'English Language Activities', code:'ENG', grade_levels:['PP1','PP2','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6'], active:true, color:'#10b981' },
-    { id:'la4', name:'Mathematics Activities', code:'MAT', grade_levels:['PP1','PP2','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'], active:true, color:'#f59e0b' },
-    { id:'la5', name:'Environmental Activities', code:'ENV', grade_levels:['PP1','PP2','Grade 1','Grade 2','Grade 3'], active:true, color:'#22c55e' },
-    { id:'la6', name:'Hygiene & Nutrition', code:'HYG', grade_levels:['PP1','PP2','Grade 1','Grade 2','Grade 3'], active:true, color:'#ef4444' },
-    { id:'la7', name:'Religious Education', code:'CRE', grade_levels:['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'], active:true, color:'#8b5cf6' },
-    { id:'la8', name:'Creative Arts & Crafts', code:'CRT', grade_levels:['PP1','PP2','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'], active:true, color:'#ec4899' },
-    { id:'la9', name:'Physical & Health Education', code:'PHE', grade_levels:['PP1','PP2','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'], active:true, color:'#06b6d4' },
-    { id:'la10', name:'Pre-Technical Studies', code:'PTS', grade_levels:['Grade 7','Grade 8','Grade 9'], active:true, color:'#f97316' },
-    { id:'la11', name:'Agriculture', code:'AGR', grade_levels:['Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'], active:true, color:'#84cc16' },
-    { id:'la12', name:'Social Studies', code:'SST', grade_levels:['Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'], active:true, color:'#14b8a6' },
-    { id:'la13', name:'Business Studies', code:'BST', grade_levels:['Grade 7','Grade 8','Grade 9'], active:true, color:'#a855f7' },
-    { id:'la14', name:'ICT', code:'ICT', grade_levels:['Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'], active:true, color:'#3b82f6' },
-];
-
-const KICD_STRANDS: Record<string, string[]> = {
-    'Literacy Activities': ['Listening & Speaking','Phonological Awareness','Pre-Reading','Pre-Writing','Enjoying Literature'],
-    'English Language Activities': ['Listening & Speaking','Reading','Writing','Grammar & Vocabulary','Literature'],
-    'Kiswahili Language Activities': ['Kusikiliza na Kuzungumza','Kusoma','Kuandika','Sarufi na Msamiati','Fasihi'],
-    'Mathematics Activities': ['Numbers','Measurement','Geometry','Algebra','Data Handling & Probability'],
-    'Environmental Activities': ['Physical Environment','Living Things','Social Environment','Technology in Environment'],
-    'Hygiene & Nutrition': ['Personal Hygiene','Environmental Hygiene','Nutrition','Food Preparation'],
-    'Religious Education': ['Faith & Beliefs','Moral Values','Social Responsibility','Worship & Prayer'],
-    'Creative Arts & Crafts': ['Visual Arts','Performing Arts','Music','Craft & Design'],
-    'Physical & Health Education': ['Physical Fitness','Games & Sports','Gymnastics','Swimming & Aquatics','Health Education'],
-    'Pre-Technical Studies': ['Materials & Tools','Structures','Energy','Electronics & Electricity','Technical Drawing'],
-    'Agriculture': ['Crop Production','Animal Production','Farm Structures','Agribusiness','Natural Resources'],
-    'Social Studies': ['Geography','History','Civics','Human Rights','Global Citizenship'],
-    'Business Studies': ['Entrepreneurship','Book-keeping','Commerce','Office Practice'],
-    'ICT': ['Digital Citizenship','Hardware & Software','Programming & Coding','Internet & Online Safety','Data Management'],
-};
-
-const DEFAULT_DESCRIPTORS: Record<CompLevel, string> = {
-    EE: 'Student demonstrates knowledge and skills that significantly exceed the expected level for this grade. Shows exceptional understanding and can apply concepts independently in new situations.',
-    ME: 'Student demonstrates knowledge and skills at the expected level for this grade. Shows adequate understanding and can apply concepts with minimal support.',
-    AE: 'Student demonstrates some knowledge and skills but has not yet reached the expected level for this grade. Requires moderate support to apply concepts.',
-    BE: 'Student demonstrates limited knowledge and skills and is significantly below the expected level for this grade. Requires intensive support and intervention.',
-};
-
-export default function CBCConfigBuilderPage() {
-    const [areas, setAreas] = useState<LearningArea[]>(KICD_AREAS);
-    const [strands, setStrands] = useState<Strand[]>([]);
-    const [subStrands, setSubStrands] = useState<SubStrand[]>([]);
-    const [dbReady, setDbReady] = useState(false);
-    const [search, setSearch] = useState('');
-    const [expandedArea, setExpandedArea] = useState<string | null>(null);
-    const [expandedStrand, setExpandedStrand] = useState<string | null>(null);
-    const [activeGrade, setActiveGrade] = useState<GradeLevel | ''>('');
-    const [tab, setTab] = useState<'areas' | 'strands' | 'descriptors' | 'grades'>('areas');
-
-    // Modals
-    const [showAreaModal, setShowAreaModal] = useState(false);
-    const [showStrandModal, setShowStrandModal] = useState(false);
-    const [showSubStrandModal, setShowSubStrandModal] = useState(false);
-    const [editStrandParent, setEditStrandParent] = useState<string>('');
-    const [editSubStrandParent, setEditSubStrandParent] = useState<string>('');
-    const [saving, setSaving] = useState(false);
-
-    const [areaForm, setAreaForm] = useState({ name:'', code:'', grade_levels: [] as GradeLevel[], color: '#6366f1' });
-    const [strandForm, setStrandForm] = useState({ name:'', code:'', order_no: 1 });
-    const [subStrandForm, setSubStrandForm] = useState({ name:'', code:'', order_no: 1, descriptors: { ...DEFAULT_DESCRIPTORS } });
-
-    // Initialize strands from KICD data
-    useEffect(() => {
-        const initStrands: Strand[] = [];
-        const initSubs: SubStrand[] = [];
-        KICD_AREAS.forEach(area => {
-            const areaStrands = KICD_STRANDS[area.name] || [];
-            areaStrands.forEach((sName, i) => {
-                const sid = `str-${area.id}-${i}`;
-                initStrands.push({ id: sid, learning_area_id: area.id, name: sName, code: sName.slice(0,3).toUpperCase(), order_no: i+1, active: true });
-                // Add 2-3 sub-strands per strand
-                [' — Foundational Skills', ' — Intermediate Skills', ' — Advanced Application'].forEach((suffix, j) => {
-                    initSubs.push({ id: `sub-${sid}-${j}`, strand_id: sid, name: sName + suffix, code: `${sName.slice(0,2).toUpperCase()}${j+1}`, order_no: j+1, active: true, descriptors: { ...DEFAULT_DESCRIPTORS } });
-                });
-            });
-        });
-        setStrands(initStrands);
-        setSubStrands(initSubs);
-    }, []);
-
-    const filteredAreas = useMemo(() => areas.filter(a =>
-        (!search || a.name.toLowerCase().includes(search.toLowerCase()) || a.code.toLowerCase().includes(search.toLowerCase()))
-        && (!activeGrade || a.grade_levels.includes(activeGrade as GradeLevel))
-    ), [areas, search, activeGrade]);
-
-    const getAreaStrands = (areaId: string) => strands.filter(s => s.learning_area_id === areaId);
-    const getStrandSubs = (strandId: string) => subStrands.filter(s => s.strand_id === strandId);
-
-    function addStrand(areaId: string) {
-        if (!strandForm.name) { toast.error('Strand name required'); return; }
-        const newStrand: Strand = { id: `str-${Date.now()}`, learning_area_id: areaId, name: strandForm.name, code: strandForm.code || strandForm.name.slice(0,3).toUpperCase(), order_no: strandForm.order_no, active: true };
-        setStrands(p => [...p, newStrand]);
-        setStrandForm({ name:'', code:'', order_no: 1 });
-        setShowStrandModal(false);
-        toast.success('Strand added!');
-    }
-
-    function addSubStrand(strandId: string) {
-        if (!subStrandForm.name) { toast.error('Sub-strand name required'); return; }
-        const newSub: SubStrand = { id: `sub-${Date.now()}`, strand_id: strandId, name: subStrandForm.name, code: subStrandForm.code || subStrandForm.name.slice(0,3).toUpperCase(), order_no: subStrandForm.order_no, active: true, descriptors: { ...subStrandForm.descriptors } };
-        setSubStrands(p => [...p, newSub]);
-        setSubStrandForm({ name:'', code:'', order_no: 1, descriptors: { ...DEFAULT_DESCRIPTORS } });
-        setShowSubStrandModal(false);
-        toast.success('Sub-strand added!');
-    }
-
-    function toggleArea(id: string) { setAreas(p => p.map(a => a.id === id ? {...a, active: !a.active} : a)); }
-    function deleteStrand(id: string) { if (!confirm('Delete this strand and all its sub-strands?')) return; setStrands(p => p.filter(s => s.id !== id)); setSubStrands(p => p.filter(s => s.strand_id !== id)); toast.success('Deleted'); }
-    function deleteSubStrand(id: string) { if (!confirm('Delete this sub-strand?')) return; setSubStrands(p => p.filter(s => s.id !== id)); toast.success('Deleted'); }
-
-    function exportConfig() {
-        const config = { areas, strands, subStrands, exportedAt: new Date().toISOString(), version: '1.0' };
-        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(config, null, 2)], {type:'application/json'}));
-        a.download = `cbc-config-${new Date().toISOString().slice(0,10)}.json`; a.click();
-        toast.success('Config exported!');
-    }
-
-    const SQL = `-- CBC Config Tables (run in Supabase SQL Editor)
-CREATE TABLE IF NOT EXISTS school_cbc_learning_areas (
+const SQL = `CREATE TABLE IF NOT EXISTS school_cbc_learning_areas (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL, code text, grade_levels text[], active boolean DEFAULT true,
-  color text, created_at timestamptz DEFAULT now()
+  name text NOT NULL, code text, grade_levels text[],
+  active boolean DEFAULT true, color text, created_at timestamptz DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS school_cbc_strands (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   learning_area_id uuid REFERENCES school_cbc_learning_areas(id) ON DELETE CASCADE,
-  name text NOT NULL, code text, order_no int DEFAULT 1, active boolean DEFAULT true
+  name text NOT NULL, code text, order_no int DEFAULT 1,
+  active boolean DEFAULT true
 );
 CREATE TABLE IF NOT EXISTS school_cbc_sub_strands (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -179,366 +46,426 @@ CREATE POLICY "all" ON school_cbc_learning_areas FOR ALL USING (true) WITH CHECK
 CREATE POLICY "all" ON school_cbc_strands FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "all" ON school_cbc_sub_strands FOR ALL USING (true) WITH CHECK (true);`;
 
-    return (
-        <div className="min-h-screen pb-12" style={{ background: 'linear-gradient(135deg,#f0f9ff 0%,#fdf4ff 50%,#f0fdf4 100%)' }}>
-            <Toaster position="top-right" />
+const DEMO_AREAS: LearningArea[] = [
+    { id:'a1', name:'Mathematics Activities', code:'MA', grade_levels:['Grade 7','Grade 8','Grade 9'], active:true, color:'#2563EB', strand_count:4 },
+    { id:'a2', name:'English', code:'EN', grade_levels:['Grade 7','Grade 8','Grade 9'], active:true, color:'#059669', strand_count:5 },
+    { id:'a3', name:'Kiswahili', code:'KS', grade_levels:['Grade 7','Grade 8','Grade 9'], active:true, color:'#D97706', strand_count:4 },
+    { id:'a4', name:'Integrated Science', code:'IS', grade_levels:['Grade 7','Grade 8','Grade 9'], active:true, color:'#7C3AED', strand_count:6 },
+    { id:'a5', name:'Pre-Technical Studies', code:'PT', grade_levels:['Grade 7','Grade 8'], active:true, color:'#DC2626', strand_count:3 },
+    { id:'a6', name:'Social Studies', code:'SS', grade_levels:['Grade 7','Grade 8','Grade 9'], active:true, color:'#0891B2', strand_count:4 },
+    { id:'a7', name:'Business Studies', code:'BS', grade_levels:['Grade 7','Grade 8','Grade 9'], active:true, color:'#9333EA', strand_count:3 },
+    { id:'a8', name:'Agriculture', code:'AG', grade_levels:['Grade 7','Grade 8','Grade 9'], active:true, color:'#65A30D', strand_count:4 },
+    { id:'a9', name:'Creative Arts', code:'CA', grade_levels:['Grade 7','Grade 8','Grade 9'], active:true, color:'#EA580C', strand_count:3 },
+    { id:'a10', name:'ICT', code:'IC', grade_levels:['Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'], active:true, color:'#DB2777', strand_count:5 },
+];
+const DEMO_STRANDS: Strand[] = [
+    { id:'s1', learning_area_id:'a1', name:'Numbers', code:'NUM', order_no:1, active:true, sub_strand_count:5 },
+    { id:'s2', learning_area_id:'a1', name:'Algebra', code:'ALG', order_no:2, active:true, sub_strand_count:3 },
+    { id:'s3', learning_area_id:'a1', name:'Geometry', code:'GEO', order_no:3, active:true, sub_strand_count:4 },
+    { id:'s4', learning_area_id:'a1', name:'Measurement', code:'MEA', order_no:4, active:true, sub_strand_count:3 },
+    { id:'s5', learning_area_id:'a2', name:'Listening & Speaking', code:'LS', order_no:1, active:true, sub_strand_count:4 },
+    { id:'s6', learning_area_id:'a2', name:'Reading', code:'RD', order_no:2, active:true, sub_strand_count:5 },
+    { id:'s7', learning_area_id:'a2', name:'Writing', code:'WR', order_no:3, active:true, sub_strand_count:4 },
+];
 
-            {/* HERO */}
-            <div style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 40%,#064e3b 100%)' }} className="px-6 py-8">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex items-center gap-2 text-emerald-300 text-xs mb-4">
-                        <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-                        <FiChevronRight size={12} />
-                        <Link href="/dashboard/settings" className="hover:text-white transition-colors">Settings</Link>
-                        <FiChevronRight size={12} />
-                        <span className="text-white font-medium">⚙️ CBC Config Builder</span>
+export default function CBCConfigPage() {
+    const [areas, setAreas]       = useState<LearningArea[]>([]);
+    const [strands, setStrands]   = useState<Strand[]>([]);
+    const [subStrands, setSubStrands] = useState<SubStrand[]>([]);
+    const [loading, setLoading]   = useState(true);
+    const [dbReady, setDbReady]   = useState(false);
+    const [tab, setTab]           = useState<'areas'|'strands'|'substrands'>('areas');
+    const [selArea, setSelArea]   = useState<LearningArea|null>(null);
+    const [selStrand, setSelStrand] = useState<Strand|null>(null);
+    const [search, setSearch]     = useState('');
+    const [showModal, setShowModal] = useState(false);
+    const [modalType, setModalType] = useState<'area'|'strand'|'substrand'>('area');
+    const [editItem, setEditItem]  = useState<any>(null);
+    const [saving, setSaving]      = useState(false);
+
+    const emptyArea = { name:'', code:'', grade_levels:[] as string[], active:true, color:AREA_COLORS[0] };
+    const emptyStrand = { name:'', code:'', order_no:1, active:true };
+    const emptySubStrand = { name:'', code:'', order_no:1, active:true, descriptor_ee:'', descriptor_me:'', descriptor_ae:'', descriptor_be:'' };
+    const [aForm, setAForm] = useState(emptyArea);
+    const [sForm, setSForm] = useState(emptyStrand);
+    const [ssForm, setSSForm] = useState(emptySubStrand);
+
+    useEffect(() => { load(); }, []);
+
+    async function load() {
+        setLoading(true);
+        try {
+            const { error } = await sb.from('school_cbc_learning_areas').select('id').limit(1);
+            const ready = !error || error.code !== '42P01';
+            setDbReady(ready);
+            if (ready) {
+                const [aR, sR, ssR] = await Promise.all([
+                    sb.from('school_cbc_learning_areas').select('*').order('name'),
+                    sb.from('school_cbc_strands').select('*').order('order_no'),
+                    sb.from('school_cbc_sub_strands').select('*').order('order_no'),
+                ]);
+                const areasData = (aR.data || []).map((a:any) => ({
+                    ...a,
+                    strand_count: (sR.data || []).filter((s:any) => s.learning_area_id === a.id).length,
+                }));
+                setAreas(areasData);
+                const strandsData = (sR.data || []).map((s:any) => ({
+                    ...s,
+                    sub_strand_count: (ssR.data || []).filter((ss:any) => ss.strand_id === s.id).length,
+                }));
+                setStrands(strandsData);
+                setSubStrands(ssR.data || []);
+            } else {
+                setAreas(DEMO_AREAS);
+                setStrands(DEMO_STRANDS);
+            }
+        } catch { setAreas(DEMO_AREAS); setStrands(DEMO_STRANDS); }
+        setLoading(false);
+    }
+
+    const filteredAreas   = useMemo(() => areas.filter(a => !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.code.toLowerCase().includes(search.toLowerCase())), [areas, search]);
+    const areaStrands     = useMemo(() => strands.filter(s => s.learning_area_id === selArea?.id), [strands, selArea]);
+    const strandSubStrands= useMemo(() => subStrands.filter(ss => ss.strand_id === selStrand?.id), [subStrands, selStrand]);
+    const filteredStrands = useMemo(() => strands.filter(s => (!selArea || s.learning_area_id === selArea.id) && (!search || s.name.toLowerCase().includes(search.toLowerCase()))), [strands, selArea, search]);
+    const filteredSubStrands = useMemo(() => subStrands.filter(ss => (!selStrand || ss.strand_id === selStrand.id) && (!search || ss.name.toLowerCase().includes(search.toLowerCase()))), [subStrands, selStrand, search]);
+
+    const stats = { areas: areas.length, activeAreas: areas.filter(a=>a.active).length, strands: strands.length, subStrands: subStrands.length };
+
+    function openModal(type: 'area'|'strand'|'substrand', edit?: any) {
+        setModalType(type); setEditItem(edit||null);
+        if (type==='area') setAForm(edit ? { name:edit.name, code:edit.code||'', grade_levels:edit.grade_levels||[], active:edit.active, color:edit.color||AREA_COLORS[0] } : emptyArea);
+        if (type==='strand') setSForm(edit ? { name:edit.name, code:edit.code||'', order_no:edit.order_no||1, active:edit.active } : emptyStrand);
+        if (type==='substrand') setSSForm(edit ? { name:edit.name, code:edit.code||'', order_no:edit.order_no||1, active:edit.active, descriptor_ee:edit.descriptor_ee||'', descriptor_me:edit.descriptor_me||'', descriptor_ae:edit.descriptor_ae||'', descriptor_be:edit.descriptor_be||'' } : emptySubStrand);
+        setShowModal(true);
+    }
+
+    async function saveArea() {
+        if (!aForm.name) { toast.error('Learning area name required'); return; }
+        setSaving(true);
+        try {
+            const payload = { name:aForm.name, code:aForm.code||null, grade_levels:aForm.grade_levels, active:aForm.active, color:aForm.color };
+            if (dbReady) {
+                if (editItem) { const {error}=await sb.from('school_cbc_learning_areas').update(payload).eq('id',editItem.id); if(error)throw error; setAreas(p=>p.map(a=>a.id===editItem.id?{...a,...payload}:a)); }
+                else { const {data,error}=await sb.from('school_cbc_learning_areas').insert(payload).select().single(); if(error)throw error; setAreas(p=>[{...data,strand_count:0},...p]); }
+            } else {
+                if (editItem) setAreas(p=>p.map(a=>a.id===editItem.id?{...a,...payload}:a));
+                else setAreas(p=>[{...payload,id:`demo-${Date.now()}`,strand_count:0},...p]);
+            }
+            toast.success(editItem?'Updated!':'Learning area created!');
+            setShowModal(false); setEditItem(null);
+        } catch(e:any){toast.error(e.message);}
+        setSaving(false);
+    }
+
+    async function saveStrand() {
+        if (!sForm.name || !selArea) { toast.error('Strand name and parent learning area required'); return; }
+        setSaving(true);
+        try {
+            const payload = { name:sForm.name, code:sForm.code||null, order_no:sForm.order_no, active:sForm.active, learning_area_id:selArea.id };
+            if (dbReady) {
+                if (editItem) { const {error}=await sb.from('school_cbc_strands').update(payload).eq('id',editItem.id); if(error)throw error; setStrands(p=>p.map(s=>s.id===editItem.id?{...s,...payload}:s)); }
+                else { const {data,error}=await sb.from('school_cbc_strands').insert(payload).select().single(); if(error)throw error; setStrands(p=>[...p,{...data,sub_strand_count:0}]); }
+            } else {
+                if (editItem) setStrands(p=>p.map(s=>s.id===editItem.id?{...s,...payload}:s));
+                else setStrands(p=>[...p,{...payload,id:`demo-${Date.now()}`,sub_strand_count:0}]);
+            }
+            toast.success(editItem?'Updated!':'Strand created!');
+            setShowModal(false); setEditItem(null);
+        } catch(e:any){toast.error(e.message);}
+        setSaving(false);
+    }
+
+    async function saveSubStrand() {
+        if (!ssForm.name || !selStrand) { toast.error('Sub-strand name and parent strand required'); return; }
+        setSaving(true);
+        try {
+            const payload = { name:ssForm.name, code:ssForm.code||null, order_no:ssForm.order_no, active:ssForm.active, strand_id:selStrand.id, descriptor_ee:ssForm.descriptor_ee||null, descriptor_me:ssForm.descriptor_me||null, descriptor_ae:ssForm.descriptor_ae||null, descriptor_be:ssForm.descriptor_be||null };
+            if (dbReady) {
+                if (editItem) { const {error}=await sb.from('school_cbc_sub_strands').update(payload).eq('id',editItem.id); if(error)throw error; setSubStrands(p=>p.map(ss=>ss.id===editItem.id?{...ss,...payload}:ss)); }
+                else { const {data,error}=await sb.from('school_cbc_sub_strands').insert(payload).select().single(); if(error)throw error; setSubStrands(p=>[...p,data]); }
+            } else {
+                if (editItem) setSubStrands(p=>p.map(ss=>ss.id===editItem.id?{...ss,...payload}:ss));
+                else setSubStrands(p=>[...p,{...payload,id:`demo-${Date.now()}`}]);
+            }
+            toast.success(editItem?'Updated!':'Sub-strand created!');
+            setShowModal(false); setEditItem(null);
+        } catch(e:any){toast.error(e.message);}
+        setSaving(false);
+    }
+
+    async function del(table:string, id:string, setter:Function) {
+        if (!confirm('Delete? This will also remove all child records.')) return;
+        if (dbReady) { const {error}=await sb.from(table).delete().eq('id',id); if(error){toast.error(error.message);return;} }
+        setter((p:any[])=>p.filter(x=>x.id!==id));
+        toast.success('Deleted');
+    }
+
+    if (loading) return (
+        <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl animate-pulse" style={{background:'linear-gradient(135deg,#0F2044,#1E3A5F)'}}>
+                    <FiSettings size={30} color="#F59E0B"/>
+                </div>
+                <p className="text-xl font-black text-gray-800">Loading CBC Config…</p>
+                <p className="text-sm text-gray-500 mt-1">KICD CBC Curriculum Framework Builder</p>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="min-h-screen pb-10" style={{background:'linear-gradient(135deg,#f0f4ff 0%,#fff7ed 60%,#f0fdf4 100%)'}}>
+            <Toaster position="top-right"/>
+
+            {/* ── HEADER ── */}
+            <div className="rounded-2xl overflow-hidden mb-6 shadow-2xl" style={{background:'linear-gradient(135deg,#0F2044 0%,#1E3A5F 50%,#0F2044 100%)'}}>
+                <div className="px-6 py-5">
+                    <div className="flex items-center gap-2 text-blue-300 text-xs mb-3">
+                        <Link href="/dashboard" className="hover:text-white">Dashboard</Link><FiArrowRight size={10}/>
+                        <Link href="/dashboard/settings" className="hover:text-white">Settings</Link><FiArrowRight size={10}/>
+                        <span className="text-amber-400 font-semibold">⚙️ CBC Config Builder</span>
                     </div>
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                        <div>
-                            <h1 className="text-3xl font-bold text-white mb-1 flex items-center gap-3">
-                                <span className="text-4xl">⚙️</span> CBC Subject & Strand Config Builder
-                            </h1>
-                            <p className="text-emerald-200 text-sm">Configure all Learning Areas, Strands, Sub-Strands & Competency Descriptors per KICD framework</p>
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg" style={{background:'linear-gradient(135deg,#7C3AED,#9333EA)'}}>
+                                <FiSettings size={28} color="#fff"/>
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h1 className="text-2xl font-black text-white">CBC Subject / Strand Config Builder</h1>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-400 text-purple-900">KICD</span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-900">CBC 2024</span>
+                                    {!dbReady && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white">DEMO MODE</span>}
+                                </div>
+                                <p className="text-blue-200 text-sm mt-0.5">Configure Learning Areas · Strands · Sub-Strands · Competency Descriptors per KICD framework</p>
+                            </div>
                         </div>
-                        <div className="flex gap-3">
-                            <button onClick={exportConfig} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all">
-                                <FiDownload size={15} /> Export JSON
+                        <div className="flex flex-wrap items-center gap-2">
+                            {[{href:'/dashboard/exams/cbc-marks/rubric-config',l:'Rubric Config',ic:FiTarget},{href:'/dashboard/exams/cbc-reports',l:'CBC Reports',ic:FiBarChart2},{href:'/dashboard/exams/sba-manager',l:'SBA Manager',ic:FiAward}].map(x=>(
+                                <Link key={x.href} href={x.href} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-blue-200 hover:text-white hover:bg-white/10 border border-white/10 transition-all"><x.ic size={12}/>{x.l}</Link>
+                            ))}
+                            <button onClick={()=>openModal('area')} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white shadow-lg" style={{background:'linear-gradient(135deg,#F59E0B,#D97706)'}}>
+                                <FiPlus size={15}/>Add Learning Area
                             </button>
                         </div>
                     </div>
-                    {/* Stats */}
-                    <div className="grid grid-cols-4 gap-3 mt-6">
-                        {[
-                            { label: 'Learning Areas', value: areas.length, icon: '📚', sub: `${areas.filter(a=>a.active).length} active` },
-                            { label: 'Total Strands', value: strands.length, icon: '🧩', sub: 'KICD aligned' },
-                            { label: 'Sub-Strands', value: subStrands.length, icon: '📌', sub: 'with descriptors' },
-                            { label: 'Grade Levels', value: 11, icon: '🎓', sub: 'PP1 — Grade 9' },
-                        ].map(k => (
-                            <div key={k.label} className="bg-white/10 backdrop-blur rounded-xl p-3 text-center border border-white/10">
-                                <div className="text-2xl mb-0.5">{k.icon}</div>
-                                <div className="text-2xl font-bold text-white">{k.value}</div>
-                                <div className="text-emerald-200 text-[10px]">{k.label}</div>
-                                <div className="text-white/40 text-[9px]">{k.sub}</div>
+                    <div className="flex flex-wrap gap-2 mt-4 text-xs">
+                        {[['Framework','KICD CBC 2024'],['Levels','EE · ME · AE · BE'],['Hierarchy','Areas → Strands → Sub-Strands'],['Authority','Kenya Institute of Curriculum Dev.']].map(([k,v])=>(
+                            <div key={k} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{background:'rgba(255,255,255,0.08)'}}>
+                                <span className="text-amber-400 font-bold">{k}:</span><span className="text-blue-200">{v}</span>
                             </div>
                         ))}
                     </div>
                 </div>
-            </div>
-
-            <div className="max-w-7xl mx-auto px-4 lg:px-6 mt-6 space-y-5">
-                {/* Tabs */}
-                <div className="flex gap-2 bg-white rounded-xl p-1 shadow-sm border border-gray-200 w-fit flex-wrap">
-                    {[
-                        { key:'areas', label:'📚 Learning Areas' },
-                        { key:'strands', label:'🧩 Strands & Sub-Strands' },
-                        { key:'descriptors', label:'📋 Competency Descriptors' },
-                        { key:'grades', label:'🎓 Grade Level Map' },
-                    ].map(t => (
-                        <button key={t.key} onClick={() => setTab(t.key as any)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === t.key ? 'bg-emerald-600 text-white shadow' : 'text-gray-600 hover:bg-gray-50'}`}>
-                            {t.label}
-                        </button>
+                <div className="grid grid-cols-2 lg:grid-cols-4 border-t border-white/10">
+                    {[{l:'Learning Areas',v:stats.areas,ic:FiBook,c:'#F59E0B'},{l:'Active Areas',v:stats.activeAreas,ic:FiCheckCircle,c:'#34D399'},{l:'Strands',v:stats.strands,ic:FiLayers,c:'#60A5FA'},{l:'Sub-Strands',v:stats.subStrands,ic:FiGrid,c:'#A78BFA'}].map((s,i)=>(
+                        <div key={i} className="px-4 py-3 flex items-center gap-3 border-r border-white/10 last:border-0">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{background:s.c+'22'}}><s.ic size={14} style={{color:s.c}}/></div>
+                            <div><div className="text-xl font-black" style={{color:s.c}}>{s.v}</div><div className="text-[10px] text-blue-300">{s.l}</div></div>
+                        </div>
                     ))}
                 </div>
+            </div>
 
-                {/* LEARNING AREAS TAB */}
-                {tab === 'areas' && (
-                    <div className="space-y-4">
-                        <div className="flex gap-3 flex-wrap">
-                            <div className="relative flex-1 min-w-48">
-                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search learning areas..." className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none bg-white" />
-                            </div>
-                            <select value={activeGrade} onChange={e => setActiveGrade(e.target.value as any)} className="border border-gray-200 rounded-lg text-sm px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
-                                <option value="">All Grades</option>
-                                {GRADE_LEVELS.map(g => <option key={g}>{g}</option>)}
-                            </select>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {filteredAreas.map(area => {
-                                const areaStrands = getAreaStrands(area.id);
-                                const expanded = expandedArea === area.id;
-                                return (
-                                    <div key={area.id} className={`bg-white rounded-xl shadow-sm border transition-all duration-200 ${area.active ? 'border-gray-200' : 'border-dashed border-gray-300 opacity-60'}`}>
-                                        <div className="flex items-center gap-3 p-4">
-                                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow flex-shrink-0" style={{ background: area.color }}>
-                                                {area.code.slice(0,2)}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-semibold text-gray-900 text-sm">{area.name}</h3>
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                    {area.grade_levels.slice(0,4).map(g => (
-                                                        <span key={g} className="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">{g}</span>
-                                                    ))}
-                                                    {area.grade_levels.length > 4 && <span className="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">+{area.grade_levels.length-4} more</span>}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-[10px] px-2 py-1 rounded-full font-medium ${area.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                    {area.active ? 'Active' : 'Inactive'}
-                                                </span>
-                                                <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full">{areaStrands.length} strands</span>
-                                                <button onClick={() => toggleArea(area.id)} className={`p-1.5 rounded-lg transition-colors ${area.active ? 'text-emerald-600 hover:bg-emerald-50' : 'text-gray-400 hover:bg-gray-50'}`}>
-                                                    <FiCheck size={13} />
-                                                </button>
-                                                <button onClick={() => setExpandedArea(expanded ? null : area.id)} className="p-1.5 text-gray-400 hover:bg-gray-50 rounded-lg">
-                                                    {expanded ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {expanded && (
-                                            <div className="border-t border-gray-100 p-3">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-xs font-semibold text-gray-600">Strands ({areaStrands.length})</span>
-                                                    <button onClick={() => { setEditStrandParent(area.id); setShowStrandModal(true); }} className="flex items-center gap-1 text-[11px] text-emerald-600 hover:text-emerald-800 font-medium bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg transition-colors">
-                                                        <FiPlus size={11} /> Add Strand
-                                                    </button>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    {areaStrands.map(s => {
-                                                        const subs = getStrandSubs(s.id);
-                                                        const strExpanded = expandedStrand === s.id;
-                                                        return (
-                                                            <div key={s.id} className="bg-gray-50 rounded-lg overflow-hidden">
-                                                                <div className="flex items-center gap-2 px-3 py-2">
-                                                                    <div className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold text-white" style={{ background: area.color }}>{s.code.slice(0,2)}</div>
-                                                                    <span className="text-xs font-medium text-gray-700 flex-1">{s.name}</span>
-                                                                    <span className="text-[9px] text-gray-400">{subs.length} sub-strands</span>
-                                                                    <button onClick={() => { setEditSubStrandParent(s.id); setShowSubStrandModal(true); }} className="text-[9px] text-blue-600 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors font-medium">+Sub</button>
-                                                                    <button onClick={() => deleteStrand(s.id)} className="text-[9px] text-red-400 hover:text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded transition-colors">Del</button>
-                                                                    <button onClick={() => setExpandedStrand(strExpanded ? null : s.id)} className="text-gray-400 hover:text-gray-600">
-                                                                        {strExpanded ? <FiChevronUp size={11} /> : <FiChevronDown size={11} />}
-                                                                    </button>
-                                                                </div>
-                                                                {strExpanded && subs.length > 0 && (
-                                                                    <div className="border-t border-gray-200 px-3 pb-2">
-                                                                        {subs.map(sub => (
-                                                                            <div key={sub.id} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
-                                                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
-                                                                                <span className="text-[11px] text-gray-600 flex-1">{sub.name}</span>
-                                                                                <button onClick={() => deleteSubStrand(sub.id)} className="text-[9px] text-red-400 hover:text-red-600 transition-colors">✕</button>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+            {!dbReady && (
+                <div className="mb-5 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 flex items-start gap-3">
+                    <FiAlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5"/>
+                    <div className="flex-1">
+                        <p className="font-bold text-amber-800">Demo Mode — CBC config tables not yet created</p>
+                        <p className="text-xs text-amber-700 mt-1">Run the SQL below in Supabase SQL Editor to enable live saving.</p>
+                        <details className="mt-2"><summary className="cursor-pointer text-xs font-bold text-amber-800 hover:underline">▶ Show Setup SQL</summary>
+                            <pre className="mt-2 bg-gray-900 text-green-400 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap">{SQL}</pre>
+                        </details>
                     </div>
-                )}
+                    <button onClick={load} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-200 text-amber-800 text-xs font-bold hover:bg-amber-300"><FiRefreshCw size={12}/>Retry</button>
+                </div>
+            )}
 
-                {/* STRANDS TAB */}
-                {tab === 'strands' && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div className="p-4 border-b border-gray-100">
-                            <h2 className="font-bold text-gray-800 flex items-center gap-2"><FiLayers className="text-emerald-600" /> All Strands & Sub-Strands ({strands.length} strands, {subStrands.length} sub-strands)</h2>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-50 border-b border-gray-200">
-                                    <tr>
-                                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">Learning Area</th>
-                                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">Strand</th>
-                                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">Code</th>
-                                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">Sub-Strands</th>
-                                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">Status</th>
-                                        <th className="px-4 py-3" />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {strands.map(s => {
-                                        const area = areas.find(a => a.id === s.learning_area_id);
-                                        const subs = getStrandSubs(s.id);
-                                        return (
-                                            <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: area?.color || '#6366f1' }} />
-                                                        <span className="text-xs text-gray-600 truncate max-w-[140px]">{area?.name}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 font-medium text-gray-800">{s.name}</td>
-                                                <td className="px-4 py-3"><span className="font-mono text-[11px] bg-gray-100 px-2 py-0.5 rounded">{s.code}</span></td>
-                                                <td className="px-4 py-3 text-gray-500 text-xs">{subs.length} sub-strands</td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${s.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{s.active ? 'Active' : 'Inactive'}</span>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <button onClick={() => deleteStrand(s.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1"><FiTrash2 size={12} /></button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
+            {/* Tabs */}
+            <div className="flex items-center gap-1 mb-5 bg-white rounded-xl p-1 shadow-sm border border-gray-100 w-fit">
+                {([['areas','📚 Learning Areas',FiBook],['strands','🔀 Strands',FiLayers],['substrands','🔽 Sub-Strands',FiGrid]] as const).map(([k,l,Ic])=>(
+                    <button key={k} onClick={()=>{setTab(k as any);setSearch('');}} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab===k?'text-white shadow-md':'text-gray-500 hover:text-gray-800'}`} style={tab===k?{background:'linear-gradient(135deg,#0F2044,#1E3A5F)'}:{}}>
+                        <Ic size={13}/>{l}
+                    </button>
+                ))}
+            </div>
 
-                {/* DESCRIPTORS TAB */}
-                {tab === 'descriptors' && (
-                    <div className="space-y-4">
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                            <p className="text-sm text-blue-800 font-medium flex items-center gap-2">
-                                <FiAlertCircle size={15} /> Competency Descriptors define exactly what EE, ME, AE and BE mean for each sub-strand. These print on CBC report cards.
-                            </p>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {(Object.keys(COMP_COLORS) as CompLevel[]).map(k => {
-                                const c = COMP_COLORS[k];
-                                return (
-                                    <div key={k} className="rounded-xl border-2 p-4" style={{ background: c.bg, borderColor: c.color + '40' }}>
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow" style={{ background: c.color }}>{k}</div>
-                                            <div>
-                                                <p className="font-bold text-sm" style={{ color: c.color }}>{k} — {c.label}</p>
-                                            </div>
-                                        </div>
-                                        <textarea
-                                            defaultValue={DEFAULT_DESCRIPTORS[k]}
-                                            rows={4}
-                                            className="w-full bg-white/70 border rounded-lg px-3 py-2 text-xs outline-none resize-none focus:ring-2"
-                                            style={{ borderColor: c.color + '40' }}
-                                            placeholder={`Default ${k} descriptor...`}
-                                        />
-                                        <p className="text-[10px] mt-1" style={{ color: c.color + 'aa' }}>This is the default descriptor used when no sub-strand specific descriptor is set.</p>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        <button className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all">
-                            <FiSave size={14} /> Save Default Descriptors
-                        </button>
-                    </div>
-                )}
-
-                {/* GRADE MAP TAB */}
-                {tab === 'grades' && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="p-4 border-b border-gray-100">
-                            <h2 className="font-bold text-gray-800 flex items-center gap-2"><FiGrid className="text-purple-600" /> Grade Level — Learning Area Matrix</h2>
-                            <p className="text-xs text-gray-500 mt-0.5">✅ = This learning area is taught at this grade level per KICD CBC framework</p>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200">
-                                        <th className="text-left px-4 py-3 font-semibold text-gray-700 min-w-[180px]">Learning Area</th>
-                                        {GRADE_LEVELS.map(g => (
-                                            <th key={g} className="text-center px-2 py-3 font-semibold text-gray-600 min-w-[60px]">{g}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {areas.map((area, i) => (
-                                        <tr key={area.id} className={`border-b border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-blue-50/30 transition-colors`}>
-                                            <td className="px-4 py-2.5">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-2 h-2 rounded-full" style={{ background: area.color }} />
-                                                    <span className="font-medium text-gray-800">{area.name}</span>
-                                                </div>
-                                            </td>
-                                            {GRADE_LEVELS.map(g => (
-                                                <td key={g} className="text-center px-2 py-2.5">
-                                                    {area.grade_levels.includes(g) ? (
-                                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-white" style={{ background: area.color }}>
-                                                            <FiCheck size={10} />
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-200">—</span>
-                                                    )}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                {/* DB Setup */}
-                <div className="bg-slate-900 rounded-xl p-4 border border-slate-700">
-                    <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-semibold text-white flex items-center gap-2"><FiZap className="text-yellow-400" /> Database Setup SQL — Run in Supabase SQL Editor</p>
-                        <button onClick={() => { navigator.clipboard.writeText(SQL); toast.success('Copied!'); }} className="flex items-center gap-1 text-xs bg-white/10 hover:bg-white/20 text-gray-300 px-2 py-1 rounded transition-colors">
-                            <FiCopy size={11} /> Copy
-                        </button>
-                    </div>
-                    <pre className="text-[10px] text-emerald-300 overflow-x-auto whitespace-pre-wrap">{SQL}</pre>
+            {/* Search */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-5">
+                <div className="flex flex-col lg:flex-row gap-3 items-center">
+                    <div className="relative flex-1"><FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200" placeholder={`Search ${tab}…`} value={search} onChange={e=>setSearch(e.target.value)}/></div>
+                    {tab==='strands'&&<select className="px-3 py-2 rounded-lg border border-gray-200 text-xs bg-white focus:outline-none" value={selArea?.id||''} onChange={e=>setSelArea(areas.find(a=>a.id===e.target.value)||null)}>
+                        <option value="">All Learning Areas</option>{areas.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>}
+                    {tab==='substrands'&&<>
+                        <select className="px-3 py-2 rounded-lg border border-gray-200 text-xs bg-white focus:outline-none" value={selArea?.id||''} onChange={e=>{setSelArea(areas.find(a=>a.id===e.target.value)||null);setSelStrand(null);}}>
+                            <option value="">All Areas</option>{areas.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                        <select className="px-3 py-2 rounded-lg border border-gray-200 text-xs bg-white focus:outline-none" value={selStrand?.id||''} onChange={e=>setSelStrand(strands.find(s=>s.id===e.target.value)||null)}>
+                            <option value="">All Strands</option>{(selArea?strands.filter(s=>s.learning_area_id===selArea.id):strands).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                    </>}
+                    {tab==='strands'&&<button onClick={()=>{ if(!selArea){toast.error('Select a learning area first');return;} openModal('strand'); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white" style={{background:'linear-gradient(135deg,#7C3AED,#9333EA)'}}><FiPlus size={14}/>Add Strand</button>}
+                    {tab==='substrands'&&<button onClick={()=>{ if(!selStrand){toast.error('Select a strand first');return;} openModal('substrand'); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white" style={{background:'linear-gradient(135deg,#059669,#10B981)'}}><FiPlus size={14}/>Add Sub-Strand</button>}
                 </div>
             </div>
 
-            {/* ADD STRAND MODAL */}
-            {showStrandModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && setShowStrandModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-                        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-                            <h2 className="font-bold text-gray-900">Add New Strand</h2>
-                            <button onClick={() => setShowStrandModal(false)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">Strand Name *</label>
-                                <input value={strandForm.name} onChange={e => setStrandForm(p => ({...p, name: e.target.value}))} placeholder="e.g. Reading & Comprehension" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" />
+            {/* ── LEARNING AREAS ── */}
+            {tab==='areas' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredAreas.map(a=>(
+                        <div key={a.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">
+                            <div className="h-2" style={{background:a.color}}/>
+                            <div className="p-4">
+                                <div className="flex items-start justify-between gap-2 mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-sm" style={{background:a.color}}>{a.code||a.name.slice(0,2).toUpperCase()}</div>
+                                        <div>
+                                            <h3 className="font-black text-gray-900 text-sm leading-tight">{a.name}</h3>
+                                            <p className="text-[10px] text-gray-400 font-mono">{a.code}</p>
+                                        </div>
+                                    </div>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${a.active?'bg-emerald-100 text-emerald-700':'bg-gray-100 text-gray-500'}`}>{a.active?'Active':'Inactive'}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1 mb-3">
+                                    {(a.grade_levels||[]).map(g=><span key={g} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">{g}</span>)}
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{a.strand_count||0} strands</span>
+                                    <div className="flex gap-1">
+                                        <button onClick={()=>{setSelArea(a);setTab('strands');}} className="text-[10px] px-2 py-1 rounded-lg bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition-colors">View Strands →</button>
+                                        <button onClick={()=>openModal('area',a)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg"><FiEdit2 size={12}/></button>
+                                        <button onClick={()=>del('school_cbc_learning_areas',a.id,setAreas)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><FiTrash2 size={12}/></button>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">Code (short)</label>
-                                <input value={strandForm.code} onChange={e => setStrandForm(p => ({...p, code: e.target.value.toUpperCase()}))} placeholder="e.g. REA" maxLength={5} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-emerald-500 outline-none" />
-                            </div>
                         </div>
-                        <div className="flex gap-3 p-5 border-t border-gray-100">
-                            <button onClick={() => setShowStrandModal(false)} className="flex-1 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button onClick={() => addStrand(editStrandParent)} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors">Add Strand</button>
-                        </div>
+                    ))}
+                    <button onClick={()=>openModal('area')} className="bg-white rounded-2xl shadow-sm border-2 border-dashed border-gray-200 p-8 flex flex-col items-center justify-center gap-2 hover:border-purple-400 hover:bg-purple-50 transition-all group">
+                        <FiPlus size={24} className="text-gray-300 group-hover:text-purple-500 transition-colors"/>
+                        <span className="text-sm font-semibold text-gray-400 group-hover:text-purple-600">Add Learning Area</span>
+                    </button>
+                </div>
+            )}
+
+            {/* ── STRANDS ── */}
+            {tab==='strands' && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead><tr style={{background:'linear-gradient(135deg,#0F2044,#1E3A5F)'}} className="text-white">
+                                {['#','Strand Name','Code','Learning Area','Sub-Strands','Status',''].map(h=><th key={h} className="text-left px-4 py-3 text-xs font-semibold">{h}</th>)}
+                            </tr></thead>
+                            <tbody>
+                                {filteredStrands.length===0?<tr><td colSpan={7} className="text-center py-16 text-gray-400"><FiLayers size={36} className="mx-auto mb-2 opacity-30"/><p>No strands found</p></td></tr>
+                                :filteredStrands.map((s,i)=>{
+                                    const area=areas.find(a=>a.id===s.learning_area_id);
+                                    return <tr key={s.id} className={`border-b border-gray-100 hover:bg-purple-50/30 ${i%2===0?'bg-white':'bg-slate-50/50'}`}>
+                                        <td className="px-4 py-3 text-xs font-bold text-gray-400">{s.order_no}</td>
+                                        <td className="px-4 py-3 font-bold text-gray-900 text-xs">{s.name}</td>
+                                        <td className="px-4 py-3 text-[10px] font-mono text-purple-700 bg-purple-50 rounded w-fit">{s.code||'—'}</td>
+                                        <td className="px-4 py-3"><span className="text-[10px] px-2 py-0.5 rounded-full font-medium text-white" style={{background:area?.color||'#6B7280'}}>{area?.name||'—'}</span></td>
+                                        <td className="px-4 py-3 text-xs text-center font-bold text-indigo-700">{s.sub_strand_count||0}</td>
+                                        <td className="px-4 py-3"><span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${s.active?'bg-emerald-100 text-emerald-700':'bg-gray-100 text-gray-500'}`}>{s.active?'Active':'Inactive'}</span></td>
+                                        <td className="px-4 py-3"><div className="flex gap-1">
+                                            <button onClick={()=>{setSelArea(areas.find(a=>a.id===s.learning_area_id)||null);setSelStrand(s);setTab('substrands');}} className="text-[10px] px-2 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold">Sub-Strands →</button>
+                                            <button onClick={()=>{setSelArea(areas.find(a=>a.id===s.learning_area_id)||null);openModal('strand',s);}} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg"><FiEdit2 size={12}/></button>
+                                            <button onClick={()=>del('school_cbc_strands',s.id,setStrands)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><FiTrash2 size={12}/></button>
+                                        </div></td>
+                                    </tr>;
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
 
-            {/* ADD SUB-STRAND MODAL */}
-            {showSubStrandModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && setShowSubStrandModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
-                            <h2 className="font-bold text-gray-900">Add New Sub-Strand with Descriptors</h2>
-                            <button onClick={() => setShowSubStrandModal(false)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Sub-Strand Name *</label>
-                                    <input value={subStrandForm.name} onChange={e => setSubStrandForm(p => ({...p, name: e.target.value}))} placeholder="e.g. Reading Fluency" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Code</label>
-                                    <input value={subStrandForm.code} onChange={e => setSubStrandForm(p => ({...p, code: e.target.value.toUpperCase()}))} placeholder="e.g. RF1" maxLength={6} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-emerald-500 outline-none" />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-2">Competency Descriptors</label>
-                                {(Object.keys(COMP_COLORS) as CompLevel[]).map(k => {
-                                    const c = COMP_COLORS[k];
-                                    return (
-                                        <div key={k} className="mb-2">
-                                            <label className="block text-[11px] font-semibold mb-1" style={{ color: c.color }}>{k} — {c.label}</label>
-                                            <textarea value={subStrandForm.descriptors[k]} onChange={e => setSubStrandForm(p => ({...p, descriptors: {...p.descriptors, [k]: e.target.value}}))} rows={2} className="w-full border rounded-lg px-3 py-2 text-xs outline-none resize-none focus:ring-2" style={{ borderColor: c.color + '40' }} placeholder={`What does ${k} look like for this sub-strand?`} />
-                                        </div>
-                                    );
+            {/* ── SUB-STRANDS ── */}
+            {tab==='substrands' && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead><tr style={{background:'linear-gradient(135deg,#0F2044,#1E3A5F)'}} className="text-white">
+                                {['#','Sub-Strand','Code','Strand','EE Descriptor','ME Descriptor','Status',''].map(h=><th key={h} className="text-left px-4 py-3 text-xs font-semibold">{h}</th>)}
+                            </tr></thead>
+                            <tbody>
+                                {filteredSubStrands.length===0?<tr><td colSpan={8} className="text-center py-16 text-gray-400"><FiGrid size={36} className="mx-auto mb-2 opacity-30"/><p>No sub-strands found. Select a strand and click "Add Sub-Strand".</p></td></tr>
+                                :filteredSubStrands.map((ss,i)=>{
+                                    const strand=strands.find(s=>s.id===ss.strand_id);
+                                    return <tr key={ss.id} className={`border-b border-gray-100 hover:bg-indigo-50/30 ${i%2===0?'bg-white':'bg-slate-50/50'}`}>
+                                        <td className="px-4 py-3 text-xs font-bold text-gray-400">{ss.order_no}</td>
+                                        <td className="px-4 py-3 font-bold text-gray-900 text-xs">{ss.name}</td>
+                                        <td className="px-4 py-3 text-[10px] font-mono text-indigo-700">{ss.code||'—'}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{strand?.name||'—'}</td>
+                                        <td className="px-4 py-3 text-[10px] text-emerald-700 max-w-[160px]"><span className="line-clamp-2">{ss.descriptor_ee||'—'}</span></td>
+                                        <td className="px-4 py-3 text-[10px] text-blue-700 max-w-[160px]"><span className="line-clamp-2">{ss.descriptor_me||'—'}</span></td>
+                                        <td className="px-4 py-3"><span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${ss.active?'bg-emerald-100 text-emerald-700':'bg-gray-100 text-gray-500'}`}>{ss.active?'Active':'Inactive'}</span></td>
+                                        <td className="px-4 py-3"><div className="flex gap-1">
+                                            <button onClick={()=>{setSelStrand(strands.find(s=>s.id===ss.strand_id)||null);openModal('substrand',ss);}} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg"><FiEdit2 size={12}/></button>
+                                            <button onClick={()=>del('school_cbc_sub_strands',ss.id,setSubStrands)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><FiTrash2 size={12}/></button>
+                                        </div></td>
+                                    </tr>;
                                 })}
-                            </div>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* ── MODAL ── */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
+                            <h2 className="font-black text-gray-900 flex items-center gap-2"><FiSettings className="text-purple-600"/>
+                                {editItem?'Edit':'Add'} {modalType==='area'?'Learning Area':modalType==='strand'?'Strand':'Sub-Strand'}
+                            </h2>
+                            <button onClick={()=>{setShowModal(false);setEditItem(null);}} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg"><FiX size={16}/></button>
                         </div>
-                        <div className="flex gap-3 p-5 border-t border-gray-100">
-                            <button onClick={() => setShowSubStrandModal(false)} className="flex-1 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button onClick={() => addSubStrand(editSubStrandParent)} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors">Add Sub-Strand</button>
+                        <div className="p-5 space-y-3">
+                            {modalType==='area'&&(<>
+                                <div><label className="block text-xs font-bold text-gray-700 mb-1">Name *</label><input value={aForm.name} onChange={e=>setAForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Mathematics Activities" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 outline-none"/></div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div><label className="block text-xs font-bold text-gray-700 mb-1">Code</label><input value={aForm.code} onChange={e=>setAForm(p=>({...p,code:e.target.value}))} placeholder="e.g. MA" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-purple-400 outline-none"/></div>
+                                    <div><label className="block text-xs font-bold text-gray-700 mb-1">Color</label>
+                                        <div className="flex gap-1 flex-wrap">{AREA_COLORS.map(c=><button key={c} type="button" onClick={()=>setAForm(p=>({...p,color:c}))} className={`w-7 h-7 rounded-lg transition-all ${aForm.color===c?'ring-2 ring-offset-1 ring-gray-600 scale-110':''}`} style={{background:c}}/>)}</div>
+                                    </div>
+                                </div>
+                                <div><label className="block text-xs font-bold text-gray-700 mb-1">Grade Levels</label>
+                                    <div className="flex flex-wrap gap-2">{GRADE_LEVELS.map(g=><button key={g} type="button" onClick={()=>setAForm(p=>({...p,grade_levels:p.grade_levels.includes(g)?p.grade_levels.filter(x=>x!==g):[...p.grade_levels,g]}))} className={`text-xs px-2.5 py-1 rounded-lg border transition-all font-medium ${aForm.grade_levels.includes(g)?'bg-blue-600 text-white border-blue-600':'bg-white text-gray-600 border-gray-200 hover:border-blue-400'}`}>{g}</button>)}</div>
+                                </div>
+                                <div className="flex items-center gap-2"><input type="checkbox" id="active-a" checked={aForm.active} onChange={e=>setAForm(p=>({...p,active:e.target.checked}))} className="rounded"/><label htmlFor="active-a" className="text-sm text-gray-700">Active (visible in mark entry)</label></div>
+                                <button onClick={saveArea} disabled={saving} className="w-full flex items-center justify-center gap-2 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg" style={{background:'linear-gradient(135deg,#7C3AED,#9333EA)'}}>
+                                    {saving?<FiRefreshCw size={14} className="animate-spin"/>:<FiSave size={14}/>}{editItem?'Update':'Create'} Learning Area
+                                </button>
+                            </>)}
+                            {modalType==='strand'&&(<>
+                                {selArea&&<div className="p-2.5 rounded-lg text-xs font-medium border" style={{background:selArea.color+'15',borderColor:selArea.color+'40',color:selArea.color}}>Adding to: {selArea.name}</div>}
+                                <div><label className="block text-xs font-bold text-gray-700 mb-1">Strand Name *</label><input value={sForm.name} onChange={e=>setSForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Numbers" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 outline-none"/></div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div><label className="block text-xs font-bold text-gray-700 mb-1">Code</label><input value={sForm.code} onChange={e=>setSForm(p=>({...p,code:e.target.value}))} placeholder="e.g. NUM" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-purple-400 outline-none"/></div>
+                                    <div><label className="block text-xs font-bold text-gray-700 mb-1">Order No.</label><input type="number" min={1} value={sForm.order_no} onChange={e=>setSForm(p=>({...p,order_no:Number(e.target.value)}))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 outline-none"/></div>
+                                </div>
+                                <div className="flex items-center gap-2"><input type="checkbox" id="active-s" checked={sForm.active} onChange={e=>setSForm(p=>({...p,active:e.target.checked}))} className="rounded"/><label htmlFor="active-s" className="text-sm text-gray-700">Active</label></div>
+                                <button onClick={saveStrand} disabled={saving} className="w-full flex items-center justify-center gap-2 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg" style={{background:'linear-gradient(135deg,#7C3AED,#9333EA)'}}>
+                                    {saving?<FiRefreshCw size={14} className="animate-spin"/>:<FiSave size={14}/>}{editItem?'Update':'Create'} Strand
+                                </button>
+                            </>)}
+                            {modalType==='substrand'&&(<>
+                                {selStrand&&<div className="p-2.5 rounded-lg text-xs font-medium bg-indigo-50 border border-indigo-200 text-indigo-700">Adding to strand: {selStrand.name}</div>}
+                                <div><label className="block text-xs font-bold text-gray-700 mb-1">Sub-Strand Name *</label><input value={ssForm.name} onChange={e=>setSSForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Fractions" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none"/></div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div><label className="block text-xs font-bold text-gray-700 mb-1">Code</label><input value={ssForm.code} onChange={e=>setSSForm(p=>({...p,code:e.target.value}))} placeholder="e.g. NUM-FR" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-indigo-400 outline-none"/></div>
+                                    <div><label className="block text-xs font-bold text-gray-700 mb-1">Order No.</label><input type="number" min={1} value={ssForm.order_no} onChange={e=>setSSForm(p=>({...p,order_no:Number(e.target.value)}))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none"/></div>
+                                </div>
+                                <div><label className="block text-xs font-bold text-gray-700 mb-1">🌟 EE Descriptor (Exceeding Expectation)</label><textarea value={ssForm.descriptor_ee} onChange={e=>setSSForm(p=>({...p,descriptor_ee:e.target.value}))} rows={2} placeholder="What does a student doing EE look like for this sub-strand?" className="w-full border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-400 outline-none resize-none"/></div>
+                                <div><label className="block text-xs font-bold text-gray-700 mb-1">✅ ME Descriptor (Meeting Expectation)</label><textarea value={ssForm.descriptor_me} onChange={e=>setSSForm(p=>({...p,descriptor_me:e.target.value}))} rows={2} placeholder="What does a student doing ME look like?" className="w-full border border-blue-200 bg-blue-50 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-400 outline-none resize-none"/></div>
+                                <div><label className="block text-xs font-bold text-gray-700 mb-1">⚡ AE Descriptor (Approaching Expectation)</label><textarea value={ssForm.descriptor_ae} onChange={e=>setSSForm(p=>({...p,descriptor_ae:e.target.value}))} rows={2} placeholder="What does AE look like?" className="w-full border border-amber-200 bg-amber-50 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-amber-400 outline-none resize-none"/></div>
+                                <div><label className="block text-xs font-bold text-gray-700 mb-1">🔴 BE Descriptor (Below Expectation)</label><textarea value={ssForm.descriptor_be} onChange={e=>setSSForm(p=>({...p,descriptor_be:e.target.value}))} rows={2} placeholder="What does BE look like? What support is needed?" className="w-full border border-red-200 bg-red-50 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-red-400 outline-none resize-none"/></div>
+                                <div className="flex items-center gap-2"><input type="checkbox" id="active-ss" checked={ssForm.active} onChange={e=>setSSForm(p=>({...p,active:e.target.checked}))} className="rounded"/><label htmlFor="active-ss" className="text-sm text-gray-700">Active</label></div>
+                                <button onClick={saveSubStrand} disabled={saving} className="w-full flex items-center justify-center gap-2 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg" style={{background:'linear-gradient(135deg,#6366F1,#4F46E5)'}}>
+                                    {saving?<FiRefreshCw size={14} className="animate-spin"/>:<FiSave size={14}/>}{editItem?'Update':'Create'} Sub-Strand
+                                </button>
+                            </>)}
                         </div>
                     </div>
                 </div>
