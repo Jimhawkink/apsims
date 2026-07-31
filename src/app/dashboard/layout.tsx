@@ -116,6 +116,8 @@ const menuGroups = [
             { href: '/dashboard/cbc/command-centre',                      label: '⚙️ CBC Command Centre',         icon: FiCpu,        perm: 'curriculum' },
             { href: '/dashboard/cbc/portfolio',                          label: '🗂️ Student Portfolio',          icon: FiFolder,     perm: 'curriculum' },
             { href: '/dashboard/exams/sba-manager',                      label: '📋 SBA Manager',                 icon: FiAward,      perm: 'exams' },
+            { href: '/dashboard/exams/cbc-formative',                    label: '🔥 Formative Daily Tracker',     icon: FiActivity,   perm: 'exams' },
+            { href: '/dashboard/settings/cbc-config',                    label: '🔧 CBC Config Builder',          icon: FiSettings,   perm: 'settings' },
             { href: '/dashboard/cbc/parent-portal',                      label: '👨‍👩‍👧 Parent Portal',             icon: FiUsers,      perm: 'curriculum' },
             { href: '/dashboard/exams/cbc-marks',                        label: 'CBC Mark Entry',                icon: FiFileText,   perm: 'exams' },
             { href: '/dashboard/exams/cbc-marks/rubric-config',          label: 'Rubric Configuration',          icon: FiSettings,   perm: 'exams' },
@@ -182,6 +184,8 @@ const menuGroups = [
             { href: '/dashboard/hr-payroll/staff', label: 'Staff Directory', icon: FiUserCheck, perm: 'staff' },
             { href: '/dashboard/hr-payroll/payroll', label: 'Run Payroll', icon: FiCreditCard, perm: 'payroll' },
             { href: '/dashboard/staff/salary-slips', label: '💰 Salary Slips / Payslips', icon: FiCreditCard, perm: 'payroll' },
+            { href: '/dashboard/staff/cbc-observation-log', label: '👁️ Teacher Observation Log', icon: FiActivity, perm: 'staff' },
+            { href: '/dashboard/staff/cbc-professional-dev', label: '📈 CBC Prof Dev Log', icon: FiTrendingUp, perm: 'staff' },
         ]
     },
     {
@@ -274,6 +278,7 @@ const menuGroups = [
         items: [
             { href: '/dashboard/communication', label: '📡 SMS & Broadcasting', icon: FiMessageSquare, perm: 'fees' },
             { href: '/dashboard/communication/whatsapp-reports', label: '💬 WhatsApp Reports', icon: FiSend, perm: 'fees' },
+            { href: '/dashboard/communication/cbc-templates', label: '📲 CBC SMS & WA Templates', icon: FiMessageSquare, perm: 'fees' },
             { href: '/dashboard/portals', label: 'Parent & Student Portal', icon: FiUsers, perm: 'students' },
         ]
     },
@@ -288,6 +293,7 @@ const menuGroups = [
             { href: '/dashboard/students/nemis-export', label: '📋 NEMIS Data Export', icon: FiFileText, perm: 'reports' },
             { href: '/dashboard/users', label: 'User Roles', icon: FiKey, perm: 'users' },
             { href: '/dashboard/settings', label: 'System Settings', icon: FiSettings, perm: 'settings' },
+            { href: '/dashboard/settings/cbc-config', label: '🔧 CBC Subject/Strand Config', icon: FiSettings, perm: 'settings' },
             { href: '/dashboard/website-builder', label: '🌐 School Website Builder', icon: FiGlobe, perm: 'settings' },
             { href: '/dashboard/super-admin', label: 'Multi-School / Super Admin', icon: FiGlobe, perm: 'super-admin' },
             { href: '/dashboard/cbc-analytics', label: 'CBC Analytics', icon: FiBarChart2, perm: 'exams' },
