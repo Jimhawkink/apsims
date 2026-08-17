@@ -11,7 +11,7 @@ import {
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
     FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive,
-    FiWifi, FiWifiOff, FiTruck, FiAward, FiFolder, FiCpu, FiTarget, FiActivity
+    FiWifi, FiWifiOff, FiTruck, FiAward, FiFolder, FiCpu, FiTarget, FiActivity, FiBook
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
 import CommandPalette from '@/components/CommandPalette';
@@ -99,12 +99,16 @@ const menuGroups = [
         name: 'jss-hub',
         collapsible: true,
         items: [
-            { href: '/dashboard/jss/setup',                              label: '🏫 JSS Setup & Config',         icon: FiGrid,       perm: 'curriculum' },
-            { href: '/dashboard/jss/pathways',                           label: '🛤️ Pathway Selection (G9)',     icon: FiTarget,     perm: 'curriculum' },
-            { href: '/dashboard/jss/setup',                              label: 'Grades & Streams (7-9)',         icon: FiLayers,     perm: 'curriculum' },
-            { href: '/dashboard/exams/sba-manager',                      label: '📋 SBA Manager',                 icon: FiAward,      perm: 'exams' },
-            { href: '/dashboard/cbc/portfolio',                          label: '🗂️ Student Portfolio',          icon: FiFolder,     perm: 'curriculum' },
-            { href: '/dashboard/students/subject-combinations',          label: 'JSS Subject Combos',             icon: FiBookOpen,   perm: 'students' },
+            { href: '/dashboard/jss/setup',              label: '⚙️ JSS Setup & Config',          icon: FiGrid,       perm: 'curriculum' },
+            { href: '/dashboard/jss/marks',              label: '✏️ JSS Marks Entry',              icon: FiFileText,   perm: 'exams' },
+            { href: '/dashboard/jss/broadsheet',         label: '📊 JSS Broadsheet',               icon: FiGrid,       perm: 'exams' },
+            { href: '/dashboard/jss/report-cards',       label: '🎓 JSS Report Cards',             icon: FiFileText,   perm: 'exams' },
+            { href: '/dashboard/jss/sat-manager',        label: '📋 JSS SAT Manager',              icon: FiAward,      perm: 'exams' },
+            { href: '/dashboard/jss/transition',         label: '🛤️ JSS Transition (G9→10)',       icon: FiTarget,     perm: 'curriculum' },
+            { href: '/dashboard/jss/learner-profiles',   label: '🗂️ Learner Profiles',            icon: FiFolder,     perm: 'curriculum' },
+            { href: '/dashboard/jss/pathways',           label: '🛤️ Pathway Selection',           icon: FiLayers,     perm: 'curriculum' },
+            { href: '/dashboard/exams/sba-manager',      label: '📋 SBA Manager',                  icon: FiAward,      perm: 'exams' },
+            { href: '/dashboard/cbc/portfolio',          label: '🗂️ Student Portfolio',           icon: FiFolder,     perm: 'curriculum' },
         ]
     },
     {
@@ -114,6 +118,8 @@ const menuGroups = [
         collapsible: true,
         items: [
             { href: '/dashboard/cbc/command-centre',                      label: '⚙️ CBC Command Centre',         icon: FiCpu,        perm: 'curriculum' },
+            { href: '/dashboard/curriculum/schemes',                      label: '📗 KICD Schemes of Work',        icon: FiBook,       perm: 'curriculum' },
+            { href: '/dashboard/curriculum/lesson-plans',                 label: '📝 KICD Lesson Plans',           icon: FiFileText,   perm: 'curriculum' },
             { href: '/dashboard/cbc/portfolio',                          label: '🗂️ Student Portfolio',          icon: FiFolder,     perm: 'curriculum' },
             { href: '/dashboard/exams/sba-manager',                      label: '📋 SBA Manager',                 icon: FiAward,      perm: 'exams' },
             { href: '/dashboard/exams/cbc-formative',                    label: '🔥 Formative Daily Tracker',     icon: FiActivity,   perm: 'exams' },
@@ -186,6 +192,7 @@ const menuGroups = [
             { href: '/dashboard/hr-payroll', label: 'Overview', icon: FiBriefcase, perm: 'payroll' },
             { href: '/dashboard/hr-payroll/staff', label: 'Staff Directory', icon: FiUserCheck, perm: 'staff' },
             { href: '/dashboard/hr-payroll/payroll', label: 'Run Payroll', icon: FiCreditCard, perm: 'payroll' },
+            { href: '/dashboard/teacher-subjects', label: '📚 Teacher Subject Assignment', icon: FiLayers, perm: 'staff' },
             { href: '/dashboard/staff/salary-slips', label: '💰 Salary Slips / Payslips', icon: FiCreditCard, perm: 'payroll' },
             { href: '/dashboard/staff/cbc-observation-log', label: '👁️ Teacher Observation Log', icon: FiActivity, perm: 'staff' },
             { href: '/dashboard/staff/cbc-professional-dev', label: '📈 CBC Prof Dev Log', icon: FiTrendingUp, perm: 'staff' },
