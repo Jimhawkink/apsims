@@ -725,9 +725,9 @@ export function useUltraCBCMarks() {
       }
     };
 
-
-    if (selAssessmentType === 'Summative' && !force) {
-      const existingSummative = assessments.find(a => a.assessment_type === 'Summative');
+    // Only show "Overwrite?" dialog on MANUAL save (force=true), never on auto-save
+    if (selAssessmentType === 'Summative' && force) {
+      const existingSummative = assessments.find((a: any) => a.assessment_type === 'Summative');
       if (existingSummative) {
         setPendingSave(() => doSave);
         setShowConfirm(true);
