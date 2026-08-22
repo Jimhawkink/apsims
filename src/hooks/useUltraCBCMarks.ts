@@ -266,7 +266,7 @@ export function useUltraCBCMarks() {
       // Only query cbc_assessments — the ONLY CBC marks table that exists in DB
       const { data: asmtData, error } = await supabase
         .from('cbc_assessments')
-        .select('id, student_id, subject_id, term_id, assessment_type, task_name, rubric_level, notes, assessed_at')
+        .select('id, student_id, subject_id, term_id, assessment_type, task_name, rubric_level, raw_score, notes, assessed_at')
         .in('student_id', currentStudentIds)
         .eq('subject_id', Number(selSubject))
         .eq('term_id', Number(selTerm));
