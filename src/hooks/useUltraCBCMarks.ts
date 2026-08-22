@@ -609,121 +609,107 @@ export function useUltraCBCMarks() {
     const doSave = async () => {
       setSaving(true);
       try {
-        // Resolve teacher_id from school_teachers (matches by email)
-        const user = JSON.parse(localStorage.getItem('school_user') || '{}');
-        let teacherId: number | null = null;
-        if (user?.email) {
-          const { data: t } = await supabase.from('school_teachers').select('id').eq('email', user.email).maybeSingle();
-          if (t) teacherId = t.id;
+        // Step 1: verify table exists
+        const { error: tableCheck } = await supabase.from('cbc_assessments').select('id').limit(1);
+        if (tableCheck && tableCheck.code === '42P01') {
+          toast.error('❌ Table missing! Run the CBC migration SQL in Supabase first.', { duration: 6000 });
+          setSaving(false);
+          return;
         }
 
-        let savedCount = 0;
+        const tName = selAssessmentType === 'Summative' ? 'Summative' : (taskName || 'Formative Task');
 
+        // Step 2: build rows for all students with marks
+        const rows: any[] = [];
         for (const student of currentStudents) {
           const level = currentLevels[student.id];
           if (!level) continue;
-          const rawScore = currentScores[student.id] ? parseFloat(currentScores[student.id]) : null;
-          const noteText = currentNotes[student.id] || '';
+          rows.push({
+            student_id: student.id,
+            subject_id: Number(selSubject),
+            term_id: Number(selTerm),
+            assessment_type: selAssessmentType,
+            task_name: tName,
+            rubric_level: level,
+            raw_score: currentScores[student.id] ? parseFloat(currentScores[student.id]) : null,
+            notes: currentNotes[student.id] || null,
+            assessed_at: new Date().toISOString(),
+          });
+        }
 
-          // ── Primary: cbc_assessments ──────────────────────────────
-          if (selAssessmentType === 'Summative') {
-            const { data: existing } = await supabase
-              .from('cbc_assessments').select('id')
-              .eq('student_id', student.id).eq('subject_id', Number(selSubject))
-              .eq('term_id', Number(selTerm)).eq('assessment_type', 'Summative')
-              .maybeSingle();
-            if (existing) {
-              const { error: ue } = await supabase.from('cbc_assessments').update({
-                rubric_level: level, raw_score: rawScore, notes: noteText || null,
-                assessed_at: new Date().toISOString(),
-              }).eq('id', existing.id);
-              if (ue) console.error('assessment update err:', ue);
-            } else {
-              const { error: ie } = await supabase.from('cbc_assessments').insert({
-                student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
-                assessment_type: 'Summative', task_name: 'Summative', rubric_level: level,
-                raw_score: rawScore, notes: noteText || null, teacher_id: teacherId,
-                assessed_at: new Date().toISOString(),
-              });
-              if (ie) { console.error('assessment insert err:', ie); continue; }
-            }
-          } else {
-            const tName = taskName || 'Formative Task';
-            const { data: existing } = await supabase
-              .from('cbc_assessments').select('id')
-              .eq('student_id', student.id).eq('subject_id', Number(selSubject))
-              .eq('term_id', Number(selTerm)).eq('assessment_type', 'Formative')
-              .eq('task_name', tName).maybeSingle();
-            if (existing) {
-              const { error: ue } = await supabase.from('cbc_assessments').update({
-                rubric_level: level, raw_score: rawScore, notes: noteText || null,
-                assessed_at: new Date().toISOString(),
-              }).eq('id', existing.id);
-              if (ue) console.error('assessment update err:', ue);
-            } else {
-              const { error: ie } = await supabase.from('cbc_assessments').insert({
-                student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
-                assessment_type: 'Formative', task_name: tName, rubric_level: level,
-                raw_score: rawScore, notes: noteText || null, teacher_id: teacherId,
-                assessed_at: new Date().toISOString(),
-              });
-              if (ie) { console.error('assessment insert err:', ie); continue; }
-            }
-          }
+        if (rows.length === 0) {
+          if (force) toast.error('No marks entered yet');
+          setSaving(false);
+          return;
+        }
 
-          // ── cbc_mark_scores (numeric score store) ─────────────────
-          if (rawScore !== null) {
-            try {
-              await supabase.from('cbc_mark_scores').upsert({
-                student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
-                assessment_type: selAssessmentType,
-                task_name: selAssessmentType === 'Summative' ? 'Summative' : (taskName || 'Formative Task'),
-                raw_score: rawScore, rubric_level: level, teacher_id: teacherId,
-                assessed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-              }, { onConflict: 'student_id,subject_id,term_id,assessment_type,task_name' });
-            } catch (_) { /* table may not exist yet — run migration */ }
-          }
+        // Step 3: delete existing then insert fresh (avoids partial-index conflict issues)
+        const studentIds = rows.map(r => r.student_id);
 
-          // ── cbc_teacher_notes ─────────────────────────────────────
-          if (noteText.trim()) {
-            try {
-              await supabase.from('cbc_teacher_notes').upsert({
-                student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
-                teacher_id: teacherId, note_text: noteText, updated_at: new Date().toISOString(),
-              }, { onConflict: 'student_id,subject_id,term_id' });
-            } catch (_) { /* table may not exist yet */ }
-          }
+        if (selAssessmentType === 'Summative') {
+          // Delete existing summative rows for these students
+          const { error: de } = await supabase.from('cbc_assessments')
+            .delete()
+            .in('student_id', studentIds)
+            .eq('subject_id', Number(selSubject))
+            .eq('term_id', Number(selTerm))
+            .eq('assessment_type', 'Summative');
+          if (de) { toast.error('Save error: ' + de.message); setSaving(false); return; }
+        } else {
+          // Delete existing formative rows for this task
+          const { error: de } = await supabase.from('cbc_assessments')
+            .delete()
+            .in('student_id', studentIds)
+            .eq('subject_id', Number(selSubject))
+            .eq('term_id', Number(selTerm))
+            .eq('assessment_type', 'Formative')
+            .eq('task_name', tName);
+          if (de) { toast.error('Save error: ' + de.message); setSaving(false); return; }
+        }
 
-          // ── cbc_intervention_flags (BE students) ──────────────────
-          if (level === 'BE') {
-            try {
-              await supabase.from('cbc_intervention_flags').upsert({
-                student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
-                flagged_by: teacherId, rubric_level_at_flag: 'BE', raw_score_at_flag: rawScore,
-                status: 'open', updated_at: new Date().toISOString(),
-              }, { onConflict: 'student_id,subject_id,term_id' });
-            } catch (_) { /* table may not exist yet */ }
-          }
+        // Step 4: bulk insert
+        const { error: ie } = await supabase.from('cbc_assessments').insert(rows);
+        if (ie) {
+          toast.error('Save failed: ' + ie.message, { duration: 6000 });
+          console.error('cbc_assessments insert error:', ie);
+          setSaving(false);
+          return;
+        }
 
-          // ── cbc_competency_summaries ──────────────────────────────
-          try { await recomputeSummary(student.id, Number(selSubject), Number(selTerm)); }
-          catch (_) { /* table may not exist yet */ }
+        // Step 5: save to cbc_mark_scores if table exists
+        const scoreRows = rows.filter(r => r.raw_score !== null).map(r => ({
+          ...r, updated_at: new Date().toISOString(),
+        }));
+        if (scoreRows.length > 0) {
+          const { error: se } = await supabase.from('cbc_mark_scores').upsert(scoreRows,
+            { onConflict: 'student_id,subject_id,term_id,assessment_type,task_name' });
+          if (se && se.code !== '42P01') console.warn('cbc_mark_scores:', se.message);
+        }
 
-          savedCount++;
+        // Step 6: save notes
+        const noteRows = rows.filter(r => r.notes).map(r => ({
+          student_id: r.student_id, subject_id: r.subject_id, term_id: r.term_id,
+          note_text: r.notes, updated_at: new Date().toISOString(),
+        }));
+        if (noteRows.length > 0) {
+          const { error: ne } = await supabase.from('cbc_teacher_notes').upsert(noteRows,
+            { onConflict: 'student_id,subject_id,term_id' });
+          if (ne && ne.code !== '42P01') console.warn('cbc_teacher_notes:', ne.message);
         }
 
         if (force) {
-          toast.success(`✅ Saved ${savedCount} students!`);
+          toast.success(`✅ Saved ${rows.length} student marks!`);
         } else {
           toast.success('💾 Auto-saved', { duration: 1500 });
         }
       } catch (err: any) {
-        toast.error('Save failed: ' + (err?.message || String(err)));
-        console.error('CBC save error:', err);
+        toast.error('Save error: ' + (err?.message || String(err)), { duration: 6000 });
+        console.error('doSave exception:', err);
       } finally {
         setSaving(false);
       }
     };
+
 
     // Only show "Overwrite?" dialog on MANUAL save (force=true), never on auto-save
     if (selAssessmentType === 'Summative' && force) {
