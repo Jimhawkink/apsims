@@ -300,7 +300,7 @@ const menuGroups = [
         items: [
             { href: '/dashboard/multi-campus', label: '🏫 Multi-Campus Dashboard', icon: FiGlobe, perm: 'reports' },
             { href: '/dashboard/reports', label: 'Reports & NEMIS Export', icon: FiPieChart, perm: 'reports' },
-            { href: '/dashboard/students/nemis-export', label: '📋 NEMIS Data Export', icon: FiFileText, perm: 'reports' },
+            { href: '/dashboard/nemis', label: '🛡️ NEMIS Validation Engine', icon: FiShield, perm: 'reports' },
             { href: '/dashboard/users', label: 'User Roles', icon: FiKey, perm: 'users' },
             { href: '/dashboard/settings', label: 'System Settings', icon: FiSettings, perm: 'settings' },
             { href: '/dashboard/settings/cbc-config', label: '🔧 CBC Subject/Strand Config', icon: FiSettings, perm: 'settings' },

@@ -42,6 +42,23 @@ interface AssignmentRow extends Assignment {
   stream?: Stream;
 }
 
+// Hardcoded KICD Learning Areas — fallback when DB table not yet created
+const KICD_LAS_FALLBACK: LearningArea[] = [
+  { id: 1,  code: 'ENG', name: 'English',                icon: '📖', color: '#2563EB' },
+  { id: 2,  code: 'KSW', name: 'Kiswahili',              icon: '🗣️', color: '#059669' },
+  { id: 3,  code: 'MAT', name: 'Mathematics',            icon: '🔢', color: '#DC2626' },
+  { id: 4,  code: 'ISC', name: 'Integrated Science',     icon: '⚗️', color: '#7C3AED' },
+  { id: 5,  code: 'SST', name: 'Social Studies',         icon: '🌍', color: '#D97706' },
+  { id: 6,  code: 'AGR', name: 'Agriculture',            icon: '🌱', color: '#16A34A' },
+  { id: 7,  code: 'PTS', name: 'Pre-Technical Studies',  icon: '🔧', color: '#0891B2' },
+  { id: 8,  code: 'BUS', name: 'Business Studies',       icon: '💼', color: '#9333EA' },
+  { id: 9,  code: 'CAS', name: 'Creative Arts & Sports', icon: '🎨', color: '#EC4899' },
+  { id: 10, code: 'LSE', name: 'Life Skills Education',  icon: '💡', color: '#06B6D4' },
+  { id: 11, code: 'CRE', name: 'Religious Education',    icon: '✝️', color: '#6366F1' },
+];
+
+
+
 type Tab = 'grid' | 'list' | 'teacher-view';
 
 export default function TeacherSubjectsPage() {
@@ -80,7 +97,8 @@ export default function TeacherSubjectsPage() {
       ]);
       setTeachers(tR.data || []);
       setSubjects(sR.data || []);
-      setLearningAreas(laR.data || []);
+      // Use DB data if available, otherwise fall back to hardcoded KICD list
+      setLearningAreas((laR.data && laR.data.length > 0) ? laR.data : KICD_LAS_FALLBACK);
       setForms(fR.data || []);
       setStreams(stR.data || []);
       setTerms(trR.data || []);

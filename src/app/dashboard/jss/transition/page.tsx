@@ -7,7 +7,7 @@ import {
   FiTrendingUp, FiUsers, FiCheck, FiX, FiDownload, FiPrinter,
   FiRefreshCw, FiSearch, FiFilter, FiEdit2, FiSave, FiSend,
   FiAward, FiAlertCircle, FiCheckCircle, FiFileText, FiShield,
-  FiChevronRight, FiArrowRight, FiTarget, FiCalendar, FiGrid,
+  FiChevronRight, FiArrowRight, FiTarget, FiCalendar, FiGrid, FiZap,
 } from 'react-icons/fi';
 
 const sb = createClient(
@@ -19,10 +19,10 @@ type CompLevel = 'EE' | 'ME' | 'AE' | 'BE';
 type TransitionStatus = 'pending' | 'confirmed' | 'transferred';
 
 const PATHWAYS = [
-  { id: 'STEM', label: 'STEM', desc: 'Science, Technology, Engineering & Mathematics', color: '#2563EB', bg: '#DBEAFE', icon: 'ðŸ”¬' },
-  { id: 'SOCIAL', label: 'Social Sciences', desc: 'Social Sciences, Languages & Humanities', color: '#059669', bg: '#D1FAE5', icon: 'ðŸ“š' },
-  { id: 'ARTS', label: 'Arts & Sports', desc: 'Creative Arts, Music, Drama & Physical Education', color: '#EC4899', bg: '#FCE7F3', icon: 'ðŸŽ¨' },
-  { id: 'TVET', label: 'TVET', desc: 'Technical & Vocational Education & Training', color: '#D97706', bg: '#FEF3C7', icon: 'ðŸ”§' },
+  { id: 'STEM', label: 'STEM', desc: 'Science, Technology, Engineering & Mathematics', color: '#2563EB', bg: '#DBEAFE', icon: 'LAB' },
+  { id: 'SOCIAL', label: 'Social Sciences', desc: 'Social Sciences, Languages & Humanities', color: '#059669', bg: '#D1FAE5', icon: 'EDU' },
+  { id: 'ARTS', label: 'Arts & Sports', desc: 'Creative Arts, Music, Drama & Physical Education', color: '#EC4899', bg: '#FCE7F3', icon: 'ART' },
+  { id: 'TVET', label: 'TVET', desc: 'Technical & Vocational Education & Training', color: '#D97706', bg: '#FEF3C7', icon: 'TEC' },
 ];
 
 const COMP_COLORS: Record<CompLevel, string> = {
@@ -198,9 +198,9 @@ export default function JSSTransitionPage() {
     const headers = ['Adm No', 'Name', 'Gender', 'Overall', 'Pathway', 'Status', 'Parent Consent', 'KNEC Submitted', 'Target School'];
     const rows = students.map(s => [
       s.admission_number, `${s.first_name} ${s.last_name}`, s.gender || '',
-      s.overallComp || 'â€”', s.transition?.recommended_pathway || 'â€”',
+      s.overallComp || '--', s.transition?.recommended_pathway || '--',
       s.transition?.status || 'pending', s.transition?.parent_consent ? 'Yes' : 'No',
-      s.transition?.knec_submitted ? 'Yes' : 'No', s.transition?.target_school || 'â€”',
+      s.transition?.knec_submitted ? 'Yes' : 'No', s.transition?.target_school || '--',
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -235,12 +235,12 @@ export default function JSSTransitionPage() {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-800">JSS Transition Report</h1>
-                <p className="text-xs text-gray-400">Grade 9 â†’ Grade 10 Pathway Confirmation Â· {selYear}</p>
+                <p className="text-xs text-gray-400">Grade 9 to Grade 10 - Pathway Confirmation - {selYear}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {viewMode === 'single' && (
-                <button onClick={() => setViewMode('list')} className="px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl">â† Back</button>
+                <button onClick={() => setViewMode('list')} className="px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl">Back</button>
               )}
               <button onClick={exportCSV} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl">
                 <FiDownload size={14} /> CSV
@@ -271,7 +271,7 @@ export default function JSSTransitionPage() {
           </div>
         </div>
         <div className="px-6 flex gap-1 border-t border-gray-100">
-          {[['list','ðŸ“‹ Student List'],['bulk','âš¡ Bulk Assign'],] .map(([v,l]) => (
+          {[['list','Student List'],['bulk','Bulk Assign'],] .map(([v,l]) => (
             <button key={v} onClick={() => setViewMode(v as ViewMode)} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${viewMode===v?'border-green-500 text-green-600':'border-transparent text-gray-500 hover:text-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -304,17 +304,7 @@ export default function JSSTransitionPage() {
               <span className="text-2xl">{p.icon}</span>
               <div>
                 <p className="text-xs font-bold" style={{ color: p.color }}>{p.label}</p>
-                <p className="text-[10px] text-gray-400 leading-tight">{p.desc.substring(0, 40)}â€¦</p>
-                <p className="text-xs font-black mt-0.5" style={{ color: p.color }}>
-                  {students.filter(s => s.transition?.recommended_pathway === p.id).length} students
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* LIST VIEW */}
-        {viewMode === 'list' && (
+                <p className="text-[10px] text-gray-400 leading-tight">{p.desc.substring(0, 40)}--'list' && (
           !selForm ? (
             <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl border border-gray-200 shadow-sm">
               <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mb-4"><FiFilter size={28} className="text-green-400" /></div>
@@ -326,28 +316,7 @@ export default function JSSTransitionPage() {
           ) : (
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="font-bold text-gray-800 text-sm">{form?.form_name} â€” Transition Tracker {selYear}</h3>
-                <p className="text-xs text-gray-400">{filtered.length} students</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="text-left py-3 px-4 min-w-[220px] text-xs font-bold text-gray-600 uppercase">Student</th>
-                      <th className="text-center py-3 px-3 min-w-[80px] text-xs font-bold text-gray-600 uppercase">Overall</th>
-                      <th className="text-center py-3 px-3 min-w-[140px] text-xs font-bold text-gray-600 uppercase">Recommended Pathway</th>
-                      <th className="text-center py-3 px-3 min-w-[100px] text-xs font-bold text-gray-600 uppercase">Status</th>
-                      <th className="text-center py-3 px-3 min-w-[100px] text-xs font-bold text-gray-600 uppercase">Parent Consent</th>
-                      <th className="text-center py-3 px-3 min-w-[80px] text-xs font-bold text-gray-600 uppercase">KNEC</th>
-                      <th className="text-center py-3 px-3 min-w-[80px] text-xs font-bold text-gray-600 uppercase">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((s, idx) => {
-                      const p = PATHWAYS.find(p => p.id === s.transition?.recommended_pathway);
-                      const comp = s.overallComp;
-                      return (
-                        <tr key={s.id} className={`border-b border-gray-100 hover:bg-green-50/30 transition ${idx%2===0?'bg-white':'bg-gray-50/20'}`}>
+                <h3 className="font-bold text-gray-800 text-sm">{form?.form_name} --'bg-white':'bg-gray-50/20'}`}>
                           <td className="px-4 py-2.5 min-w-[220px]">
                             <div className="flex items-center gap-2.5">
                               <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ background:`hsl(${(s.id*47)%360},60%,50%)` }}>
@@ -362,17 +331,7 @@ export default function JSSTransitionPage() {
                           <td className="text-center px-3 py-2.5">
                             {comp ? (
                               <span className="text-xs font-black px-2 py-1 rounded-lg" style={{ background: COMP_BG[comp], color: COMP_COLORS[comp] }}>{comp}</span>
-                            ) : <span className="text-gray-300 text-xs">â€”</span>}
-                          </td>
-                          <td className="text-center px-3 py-2.5">
-                            {p ? (
-                              <span className="text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 justify-center w-fit mx-auto" style={{ background: p.bg, color: p.color }}>
-                                {p.icon} {p.label}
-                              </span>
-                            ) : <span className="text-gray-300 text-xs">Not assigned</span>}
-                          </td>
-                          <td className="text-center px-3 py-2.5">
-                            {s.transition?.status === 'confirmed' ? (
+                            ) : <span className="text-gray-300 text-xs">--'confirmed' ? (
                               <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-lg font-bold">âœ“ Confirmed</span>
                             ) : s.transition?.status === 'transferred' ? (
                               <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-lg font-bold">Transferred</span>
@@ -390,25 +349,7 @@ export default function JSSTransitionPage() {
                           <td className="text-center px-3 py-2.5">
                             {s.transition?.knec_submitted ? (
                               <span className="text-xs text-purple-600 font-bold">âœ“</span>
-                            ) : <span className="text-gray-300 text-xs">â€”</span>}
-                          </td>
-                          <td className="text-center px-3 py-2.5">
-                            <button onClick={() => openSingle(s)} className="px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-1 mx-auto">
-                              <FiEdit2 size={10} /> Edit
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )
-        )}
-
-        {/* SINGLE EDIT VIEW */}
-        {viewMode === 'single' && selectedStudent && (
+                            ) : <span className="text-gray-300 text-xs">--'single' && selectedStudent && (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm max-w-2xl mx-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -546,4 +487,5 @@ export default function JSSTransitionPage() {
     </div>
   );
 }
+
 
