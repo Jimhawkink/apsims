@@ -80,6 +80,12 @@ export function useUltraCBCMarks() {
   const [markScores, setMarkScores] = useState<Record<number, string>>({});
   const [markNotes, setMarkNotes] = useState<Record<number, string>>({});
 
+  // ── Live refs so save always reads current data (not stale closures) ──
+  const markLevelsRef = useRef<Record<number, RubricLevel | null>>({});
+  const markScoresRef = useRef<Record<number, string>>({});
+  const markNotesRef  = useRef<Record<number, string>>({});
+  const enrolledStudentsRef = useRef<any[]>([]);
+
   // ── Bulk mode ──
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -332,6 +338,12 @@ export function useUltraCBCMarks() {
   const enrolledStudents = enrolledStudentIds.length > 0
     ? students.filter(s => enrolledStudentIds.includes(s.id))
     : students;
+
+  // ── Keep live refs in sync (always current, never stale in save fn) ──
+  markLevelsRef.current = markLevels;
+  markScoresRef.current = markScores;
+  markNotesRef.current  = markNotes;
+  enrolledStudentsRef.current = enrolledStudents;
 
   // ── CBC Senior: Available subjects ──
   // If cbc_student_subjects is empty (enrollment not configured yet),
@@ -593,7 +605,27 @@ export function useUltraCBCMarks() {
 
   // ── CBC Senior Save ──
   const triggerSave = async (force: boolean) => {
-    if (!selSubject || !selTerm || !selAssessmentType) return;
+    if (!selSubject || !selTerm || !selAssessmentType) {
+      toast.error('Please select Form, Subject, Term and Assessment Type first');
+      return;
+    }
+
+    // Always read from refs — never stale closure values
+    const currentStudents = enrolledStudentsRef.current;
+    const currentLevels   = markLevelsRef.current;
+    const currentScores   = markScoresRef.current;
+    const currentNotes    = markNotesRef.current;
+
+    if (currentStudents.length === 0) {
+      toast.error('No students loaded — select a Form first');
+      return;
+    }
+
+    const studentsWithMarks = currentStudents.filter(s => currentLevels[s.id]);
+    if (studentsWithMarks.length === 0) {
+      toast.error('No marks entered yet — enter at least one mark');
+      return;
+    }
 
     const doSave = async () => {
       setSaving(true);
@@ -601,11 +633,11 @@ export function useUltraCBCMarks() {
         const user = JSON.parse(localStorage.getItem('school_user') || '{}');
         const teacherId = user?.id || null;
 
-        for (const student of enrolledStudents) {
-          const level = markLevels[student.id];
+        for (const student of currentStudents) {
+          const level = currentLevels[student.id];
           if (!level) continue;
-          const rawScore = markScores[student.id] ? parseFloat(markScores[student.id]) : null;
-          const noteText = markNotes[student.id] || '';
+          const rawScore = currentScores[student.id] ? parseFloat(currentScores[student.id]) : null;
+          const noteText = currentNotes[student.id] || '';
 
           if (selAssessmentType === 'Summative') {
             await supabase.from('cbc_assessments').upsert({
@@ -614,9 +646,11 @@ export function useUltraCBCMarks() {
               raw_score: rawScore, teacher_id: teacherId, assessed_at: new Date().toISOString(),
             }, { onConflict: 'student_id,subject_id,term_id,assessment_type,task_name' });
           } else {
+            const tName = taskName || 'Formative Task';
             const { data: existing } = await supabase.from('cbc_assessments').select('id')
-              .eq('student_id', student.id).eq('subject_id', Number(selSubject)).eq('term_id', Number(selTerm))
-              .eq('assessment_type', 'Formative').eq('task_name', taskName || 'Formative Task').maybeSingle();
+              .eq('student_id', student.id).eq('subject_id', Number(selSubject))
+              .eq('term_id', Number(selTerm)).eq('assessment_type', 'Formative')
+              .eq('task_name', tName).maybeSingle();
 
             if (existing) {
               await supabase.from('cbc_assessments').update({
@@ -625,7 +659,7 @@ export function useUltraCBCMarks() {
             } else {
               await supabase.from('cbc_assessments').insert({
                 student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
-                assessment_type: 'Formative', task_name: taskName || 'Formative Task', rubric_level: level,
+                assessment_type: 'Formative', task_name: tName, rubric_level: level,
                 raw_score: rawScore, teacher_id: teacherId, assessed_at: new Date().toISOString(),
               });
             }
@@ -634,8 +668,10 @@ export function useUltraCBCMarks() {
           if (rawScore !== null) {
             await supabase.from('cbc_mark_scores').upsert({
               student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
-              assessment_type: selAssessmentType, task_name: selAssessmentType === 'Summative' ? 'Summative' : (taskName || 'Formative Task'),
-              raw_score: rawScore, rubric_level: level, teacher_id: teacherId, assessed_at: new Date().toISOString(),
+              assessment_type: selAssessmentType,
+              task_name: selAssessmentType === 'Summative' ? 'Summative' : (taskName || 'Formative Task'),
+              raw_score: rawScore, rubric_level: level, teacher_id: teacherId,
+              assessed_at: new Date().toISOString(),
             }, { onConflict: 'student_id,subject_id,term_id,assessment_type,task_name' });
           }
 
@@ -657,10 +693,10 @@ export function useUltraCBCMarks() {
           await recomputeSummary(student.id, Number(selSubject), Number(selTerm));
         }
 
-        toast.success('✅ Marks saved successfully');
-      } catch (err) {
-        toast.error('Failed to save marks');
-        console.error(err);
+        toast.success(`✅ Saved marks for ${studentsWithMarks.length} students!`);
+      } catch (err: any) {
+        toast.error('Save failed: ' + (err?.message || String(err)));
+        console.error('CBC save error:', err);
       } finally {
         setSaving(false);
       }
