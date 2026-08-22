@@ -10,6 +10,7 @@ import {
   FiClipboard, FiBarChart2, FiAward, FiClock, FiEdit3, FiBook, FiUsers,
   FiUpload, FiPrinter, FiCpu, FiList, FiStar, FiLayers, FiRefreshCw,
   FiAlertCircle, FiInfo, FiSearch, FiGrid, FiZap,
+  FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight,
 } from 'react-icons/fi';
 import { useMemo, useState } from 'react';
 
@@ -307,6 +308,191 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── CBC Senior Sidebar — Collapsible + Paginated ────────────────────────────
+const SUBJECTS_PER_PAGE = 8;
+
+function SeniorSidebar({ hook }: { hook: any }) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [subjectPage, setSubjectPage] = useState(0);
+
+  const toggle = (key: string) =>
+    setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const subjects: any[] = hook.availableSubjects || [];
+  const totalPages = Math.ceil(subjects.length / SUBJECTS_PER_PAGE);
+  const pagedSubjects = subjects.slice(
+    subjectPage * SUBJECTS_PER_PAGE,
+    subjectPage * SUBJECTS_PER_PAGE + SUBJECTS_PER_PAGE
+  );
+
+  const formativeCount = (hook.assessments || []).filter((a: any) => a.assessment_type === 'Formative').length;
+  const summativeCount = (hook.assessments || []).filter((a: any) => a.assessment_type === 'Summative').length;
+
+  const SectionHeader = ({ label, skey }: { label: string; skey: string }) => (
+    <button
+      onClick={() => toggle(skey)}
+      className="w-full flex items-center justify-between px-2 pt-3 pb-1 text-[10px] font-black text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors cursor-pointer"
+    >
+      <span>{label}</span>
+      {collapsed[skey]
+        ? <FiChevronRight size={11} />
+        : <FiChevronDown size={11} />}
+    </button>
+  );
+
+  return (
+    <div className="w-[210px] flex-shrink-0 bg-white border-r border-gray-200 flex flex-col overflow-y-auto">
+      <div className="py-4 px-3 flex flex-col gap-0.5">
+
+        {/* ── Top nav ── */}
+        <div className={`flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 cursor-default`}>
+          <FiEdit3 size={14} /> Mark Entry
+        </div>
+        <div className="flex items-center gap-2 py-2 px-2 rounded-lg text-xs text-gray-500 hover:bg-gray-50 transition-colors">
+          <FiUsers size={14} />
+          Students
+          <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] text-white font-bold" style={{ background: '#6C63FF' }}>
+            {hook.totalStudents || 0}
+          </span>
+        </div>
+
+        {/* ── Subjects (collapsible + paginated) ── */}
+        <SectionHeader label="Subjects" skey="subjects" />
+        {!collapsed['subjects'] && (
+          <>
+            {/* Subject list */}
+            <div className="space-y-0.5">
+              {pagedSubjects.map((sub: any) => {
+                const isActive = String(hook.selSubject) === String(sub.id);
+                return (
+                  <button key={sub.id}
+                    onClick={() => hook.setSelSubject(String(sub.id))}
+                    className={`w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs transition-all cursor-pointer text-left ${
+                      isActive
+                        ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                    }`}>
+                    <FiBook size={13} className={isActive ? 'text-white' : 'text-gray-400'} />
+                    <span className="flex-1 truncate">{sub.subject_name}</span>
+                    {isActive && hook.assessedCount > 0 && (
+                      <span className="text-[10px] bg-white/25 text-white px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">
+                        {hook.assessedCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Premium pagination */}
+            {totalPages > 1 && (
+              <div className="mt-2 flex flex-col gap-1.5">
+                {/* Page number pills */}
+                <div className="flex items-center justify-center gap-1 flex-wrap">
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <button key={i} onClick={() => setSubjectPage(i)}
+                      className={`w-6 h-6 rounded-full text-[10px] font-black transition-all cursor-pointer ${
+                        i === subjectPage
+                          ? 'text-white shadow-md'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                      style={i === subjectPage ? { background: 'linear-gradient(135deg,#6C63FF,#00D9A6)' } : {}}>
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+                {/* Prev / Next */}
+                <div className="flex items-center justify-between gap-1">
+                  <button
+                    onClick={() => setSubjectPage(p => Math.max(0, p - 1))}
+                    disabled={subjectPage === 0}
+                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-white border-gray-200 text-gray-600 hover:bg-gray-50">
+                    <FiChevronLeft size={11} /> Prev
+                  </button>
+                  <span className="text-[10px] text-gray-400 font-medium">
+                    {subjectPage + 1} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setSubjectPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={subjectPage === totalPages - 1}
+                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-white border-gray-200 text-gray-600 hover:bg-gray-50">
+                    Next <FiChevronRight size={11} />
+                  </button>
+                </div>
+                <p className="text-[10px] text-gray-400 text-center">
+                  {subjects.length} subjects total
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Assessments (collapsible) ── */}
+        <SectionHeader label="Assessments" skey="assessments" />
+        {!collapsed['assessments'] && (
+          <div className="space-y-0.5">
+            {[
+              { label: 'Formative', type: 'Formative', count: formativeCount, bg: '#EFF6FF', color: '#2563EB' },
+              { label: 'Summative', type: 'Summative', count: summativeCount, bg: '#F0FDF4', color: '#16A34A' },
+            ].map(item => {
+              const isActive = hook.selAssessmentType === item.type;
+              return (
+                <button key={item.type}
+                  onClick={() => hook.setSelAssessmentType(item.type)}
+                  className={`w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs transition-all cursor-pointer ${
+                    isActive ? 'font-semibold shadow-sm' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                  style={isActive ? { background: item.bg, color: item.color } : {}}>
+                  <FiClipboard size={13} className={isActive ? '' : 'text-gray-400'} />
+                  {item.label}
+                  <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: isActive ? item.color : '#E5E7EB', color: isActive ? '#fff' : '#6B7280' }}>
+                    {item.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Tools (collapsible) ── */}
+        <SectionHeader label="Tools" skey="tools" />
+        {!collapsed['tools'] && (
+          <div className="space-y-0.5">
+            {[
+              { icon: FiCheckCircle, label: 'Bulk Select', onClick: hook.toggleBulk, active: hook.bulkMode },
+              { icon: FiDownload,    label: 'Export CSV',  onClick: hook.exportCSV,  active: false },
+              { icon: FiPrinter,     label: 'Print',       onClick: () => window.print(), active: false },
+            ].map((item, i) => (
+              <button key={i} onClick={item.onClick}
+                className={`w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs transition-all cursor-pointer ${
+                  item.active ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                }`}>
+                <item.icon size={13} className="opacity-70" /> {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Completion mini-bar ── */}
+        {hook.totalStudents > 0 && (
+          <div className="mt-3 p-3 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+            <div className="flex justify-between text-[10px] font-bold text-indigo-600 mb-1.5">
+              <span>Completion</span>
+              <span>{hook.completionPct}%</span>
+            </div>
+            <div className="h-2 bg-indigo-100 rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${hook.completionPct}%`, background: 'linear-gradient(90deg,#6C63FF,#00D9A6)' }} />
+            </div>
+            <p className="text-[10px] text-indigo-400 mt-1">{hook.assessedCount}/{hook.totalStudents} assessed</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -662,63 +848,8 @@ export default function CBCMarksPage() {
       {isSenior && (
         <div className="flex" style={{ minHeight: 'calc(100vh - 57px)' }}>
 
-          {/* Left Sidebar */}
-          <div className="w-[200px] flex-shrink-0 bg-white border-r border-gray-200 py-4 px-3 flex flex-col gap-1">
-            {[
-              { icon: FiEdit3, label: 'Mark Entry', active: true },
-              { icon: FiUsers, label: 'Students', badge: String(hook.totalStudents || 0) },
-            ].map((item, i) => (
-              <div key={i} className={`flex items-center gap-2 py-2 px-2 rounded-md text-xs cursor-pointer transition-all ${
-                item.active ? 'bg-gray-100 text-gray-800 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-              }`}>
-                <item.icon size={14} className="opacity-70" />
-                {item.label}
-                {item.badge && (
-                  <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] text-white font-medium" style={{ background: '#6C63FF' }}>
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-            ))}
-
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-1">Subjects</div>
-            {[
-              { icon: FiBook, label: 'English' },
-              { icon: FiLayers, label: 'Mathematics' },
-              { icon: FiCpu, label: 'Science' },
-              { icon: FiList, label: 'Social Studies' },
-              { icon: FiStar, label: 'Creative Arts' },
-            ].map((item, i) => (
-              <div key={i} className={`flex items-center gap-2 py-2 px-2 rounded-md text-xs cursor-pointer transition-all ${
-                i === 0 ? 'bg-gray-100 text-gray-800 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-              }`}>
-                <item.icon size={14} className="opacity-70" />{item.label}
-              </div>
-            ))}
-
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-1">Assessments</div>
-            {[
-              { icon: FiClipboard, label: 'Formative', badge: '3', badgeBg: '#E6F1FB', badgeColor: '#185FA5' },
-              { icon: FiCheckCircle, label: 'Summative', badge: '1', badgeBg: '#E1F5EE', badgeColor: '#0F6E56' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-2 py-2 px-2 rounded-md text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 cursor-pointer transition-all">
-                <item.icon size={14} className="opacity-70" />{item.label}
-                <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                  style={{ background: item.badgeBg, color: item.badgeColor }}>{item.badge}</span>
-              </div>
-            ))}
-
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-1">Tools</div>
-            {[
-              { icon: FiUpload, label: 'Bulk Import' },
-              { icon: FiPrinter, label: 'Print Report' },
-              { icon: FiCpu, label: 'AI Insights' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-2 py-2 px-2 rounded-md text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 cursor-pointer transition-all">
-                <item.icon size={14} className="opacity-70" />{item.label}
-              </div>
-            ))}
-          </div>
+          {/* Left Sidebar — Collapsible + Paginated */}
+          <SeniorSidebar hook={hook} />
 
           {/* Main Content */}
           <div className="flex-1 overflow-hidden flex flex-col">
