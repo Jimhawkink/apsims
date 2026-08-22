@@ -334,10 +334,14 @@ export function useUltraCBCMarks() {
     : students;
 
   // ── CBC Senior: Available subjects ──
+  // If cbc_student_subjects is empty (enrollment not configured yet),
+  // fall back to showing ALL active subjects so the dropdown is never empty.
   const availableSubjectIds = new Set(
     studentSubjects.filter(ss => students.some(s => s.id === ss.student_id)).map(ss => ss.subject_id)
   );
-  const availableSubjects = subjects.filter(s => availableSubjectIds.has(s.id));
+  const availableSubjects = availableSubjectIds.size > 0
+    ? subjects.filter(s => availableSubjectIds.has(s.id))
+    : subjects; // fallback: show all subjects when no enrollment data exists
 
   // ── CBC Senior: Previous term levels ──
   const prevTermLevels = useMemo(() => {
