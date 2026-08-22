@@ -604,26 +604,22 @@ export function useUltraCBCMarks() {
   };
 
   // ── CBC Senior Save ──
+  // force=false  → called by auto-save timer (silent, no confirm dialog)
+  // force=true   → called by "Save All" button (shows confirm for existing Summative)
   const triggerSave = async (force: boolean) => {
-    if (!selSubject || !selTerm || !selAssessmentType) {
-      toast.error('Please select Form, Subject, Term and Assessment Type first');
-      return;
-    }
+    if (!selSubject || !selTerm || !selAssessmentType) return; // silent — filters not ready yet
 
-    // Always read from refs — never stale closure values
     const currentStudents = enrolledStudentsRef.current;
     const currentLevels   = markLevelsRef.current;
     const currentScores   = markScoresRef.current;
     const currentNotes    = markNotesRef.current;
 
-    if (currentStudents.length === 0) {
-      toast.error('No students loaded — select a Form first');
-      return;
-    }
+    if (currentStudents.length === 0) return; // silent — students not loaded yet
 
     const studentsWithMarks = currentStudents.filter(s => currentLevels[s.id]);
     if (studentsWithMarks.length === 0) {
-      toast.error('No marks entered yet — enter at least one mark');
+      // Only show error on explicit manual save, not on auto-save keypress
+      if (force) toast.error('No marks entered yet');
       return;
     }
 
@@ -693,7 +689,12 @@ export function useUltraCBCMarks() {
           await recomputeSummary(student.id, Number(selSubject), Number(selTerm));
         }
 
-        toast.success(`✅ Saved marks for ${studentsWithMarks.length} students!`);
+        // Show toast — subtle for auto-save, full for manual save
+        if (force) {
+          toast.success(`✅ Saved ${studentsWithMarks.length} students!`);
+        } else {
+          toast.success('✅ Auto-saved', { duration: 1500, icon: '💾' });
+        }
       } catch (err: any) {
         toast.error('Save failed: ' + (err?.message || String(err)));
         console.error('CBC save error:', err);
