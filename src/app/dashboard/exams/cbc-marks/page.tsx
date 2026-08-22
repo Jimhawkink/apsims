@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useUltraCBCMarks, JSS_LEARNING_AREAS, scoreToLevel } from '@/hooks/useUltraCBCMarks';
 import UltraCBCAnalyticsPanel from '@/components/cbc/UltraCBCAnalyticsPanel';
 import UltraCBCStudentRow from '@/components/cbc/UltraCBCStudentRow';
@@ -502,11 +503,24 @@ function SeniorSidebar({ hook }: { hook: any }) {
 // ═════════════════════════════════════════════════════════════════════════════
 export default function CBCMarksPage() {
   const hook = useUltraCBCMarks();
+  const router = useRouter();
   const [jssTab, setJssTab] = useState<'grid' | 'analytics'>('grid');
   const [showRubricGuide, setShowRubricGuide] = useState(false);
   const [studentPage, setStudentPage] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const STUDENTS_PER_PAGE = 15;
+
+  const handleViewProfile = (studentId: number) => {
+    router.push(`/dashboard/students/${studentId}`);
+  };
+
+  const handleCompetencyDetail = (studentId: number) => {
+    const params = new URLSearchParams();
+    params.set('studentId', String(studentId));
+    if (hook.selSubject) params.set('subjectId', hook.selSubject);
+    if (hook.selTerm) params.set('termId', hook.selTerm);
+    router.push(`/dashboard/exams/cbc-marks/competency?${params.toString()}`);
+  };
 
   if (hook.loading) {
     return (
@@ -1001,6 +1015,8 @@ export default function CBCMarksPage() {
                           onClear={hook.handleClear}
                           onNoteChange={hook.handleNoteChange}
                           onCheckChange={hook.handleCheckChange}
+                          onViewProfile={handleViewProfile}
+                          onCompetencyDetail={handleCompetencyDetail}
                         />
                       ))}
                   </tbody>

@@ -55,6 +55,10 @@ export interface StudentRowProps {
   onNoteChange: (studentId: number, value: string) => void;
   /** Callback when bulk checkbox toggled */
   onCheckChange: (studentId: number, checked: boolean) => void;
+  /** Navigate to student profile */
+  onViewProfile: (studentId: number) => void;
+  /** Navigate to competency detail */
+  onCompetencyDetail: (studentId: number) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +198,8 @@ function UltraCBCStudentRow({
   onClear,
   onNoteChange,
   onCheckChange,
+  onViewProfile,
+  onCompetencyDetail,
 }: StudentRowProps) {
   const avatarColor = getAvatarColor(index - 1);
   const initials = getInitials(student.firstName, student.lastName);
@@ -359,14 +365,16 @@ function UltraCBCStudentRow({
       <td className="px-3 py-1.5">
         <div className="flex gap-1 items-center">
           <button
-            className="w-7 h-7 rounded-md border border-gray-200 bg-transparent flex items-center justify-center text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition-all cursor-pointer"
-            title="View profile"
+            onClick={() => onViewProfile(student.id)}
+            className="w-7 h-7 rounded-md border border-gray-200 bg-transparent flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all cursor-pointer"
+            title="View student profile"
           >
             <FiUser size={13} />
           </button>
           <button
-            className="w-7 h-7 rounded-md border border-gray-200 bg-transparent flex items-center justify-center text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition-all cursor-pointer"
-            title="Competency detail"
+            onClick={() => onCompetencyDetail(student.id)}
+            className="w-7 h-7 rounded-md border border-gray-200 bg-transparent flex items-center justify-center text-gray-400 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-300 transition-all cursor-pointer"
+            title="View competency detail"
           >
             <FiActivity size={13} />
           </button>
