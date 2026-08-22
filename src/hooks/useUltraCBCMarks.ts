@@ -631,7 +631,6 @@ export function useUltraCBCMarks() {
             assessment_type: selAssessmentType,
             task_name: tName,
             rubric_level: level,
-            raw_score: currentScores[student.id] ? parseFloat(currentScores[student.id]) : null,
             notes: currentNotes[student.id] || null,
             assessed_at: new Date().toISOString(),
           });
