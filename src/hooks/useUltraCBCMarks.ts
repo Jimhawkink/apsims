@@ -106,37 +106,44 @@ export function useUltraCBCMarks() {
   // ── Initial data fetch ──
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [formsRes, streamsRes, subjectsRes, termsRes, ssRes, rubricRes, laRes] = await Promise.all([
-      supabase.from('school_forms').select('*').order('form_level'),
-      supabase.from('school_streams').select('*').order('stream_name'),
-      supabase.from('school_subjects').select('*').eq('is_active', true).order('subject_name'),
-      supabase.from('school_terms').select('*').order('id', { ascending: false }),
-      supabase.from('cbc_student_subjects').select('*'),
-      supabase.from('cbc_rubric_config').select('*').order('sort_order'),
-      supabase.from('jss_learning_areas').select('id,code,name,color,icon').eq('is_active', true).order('sort_order'),
-    ]);
+    try {
+      const [formsRes, streamsRes, subjectsRes, termsRes, laRes] = await Promise.all([
+        supabase.from('school_forms').select('*').order('form_level'),
+        supabase.from('school_streams').select('*').order('stream_name'),
+        supabase.from('school_subjects').select('*').eq('is_active', true).order('subject_name'),
+        supabase.from('school_terms').select('*').order('id', { ascending: false }),
+        supabase.from('jss_learning_areas').select('id,code,name,color,icon').eq('is_active', true).order('sort_order'),
+      ]);
 
-    const rawForms = formsRes.data || [];
-    const cbcForms = rawForms.filter(f => getEducationSystem(f.id, rawForms) === 'CBC_Senior_School');
-    const jssForms = rawForms.filter(f => f.form_level >= 7 && f.form_level <= 9);
+      const rawForms = formsRes.data || [];
+      const cbcForms = rawForms.filter((f: any) => getEducationSystem(f.id, rawForms) === 'CBC_Senior_School');
 
-    setAllForms(rawForms);
-    setForms(cbcForms);            // used by CBC Senior mode
-    setStreams(streamsRes.data || []);
-    setSubjects(subjectsRes.data || []);
-    setTerms(termsRes.data || []);
-    setStudentSubjects(ssRes.data || []);
-    setRubricConfig(rubricRes.data || []);
+      setAllForms(rawForms);
+      setForms(cbcForms);
+      setStreams(streamsRes.data || []);
+      setSubjects(subjectsRes.data || []);
+      setTerms(termsRes.data || []);
+      setStudentSubjects([]); // cbc_student_subjects not in DB — always show all subjects
 
-    // JSS learning areas from DB
-    if (laRes.data && laRes.data.length > 0) {
-      setDbLearningAreas(laRes.data.map((la: any) => ({ ...la, maxMark: 100 })));
+      // Hardcoded KICD rubric config — cbc_rubric_config table not in DB
+      setRubricConfig([
+        { level_code: 'EE', level_label: 'Exceeds Expectation',    color_hex: '#15803d', bg_hex: '#f0fdf4', sort_order: 1 },
+        { level_code: 'ME', level_label: 'Meets Expectation',      color_hex: '#1d4ed8', bg_hex: '#eff6ff', sort_order: 2 },
+        { level_code: 'AE', level_label: 'Approaches Expectation', color_hex: '#b45309', bg_hex: '#fffbeb', sort_order: 3 },
+        { level_code: 'BE', level_label: 'Below Expectation',      color_hex: '#b91c1c', bg_hex: '#fef2f2', sort_order: 4 },
+      ]);
+
+      if (laRes.data && laRes.data.length > 0) {
+        setDbLearningAreas(laRes.data.map((la: any) => ({ ...la, maxMark: 100 })));
+      }
+
+      const cur = (termsRes.data || []).find((t: any) => t.is_current);
+      if (cur) setSelTerm(String(cur.id));
+    } catch (err) {
+      console.error('fetchAll error:', err);
+    } finally {
+      setLoading(false);
     }
-
-    const cur = (termsRes.data || []).find((t: any) => t.is_current);
-    if (cur) setSelTerm(String(cur.id));
-
-    setLoading(false);
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -689,29 +696,10 @@ export function useUltraCBCMarks() {
 
   triggerSaveRef.current = triggerSave;
 
-  const recomputeSummary = async (studentId: number, subjectId: number, termId: number) => {
-    const { data: allAsmts } = await supabase.from('cbc_assessments').select('*')
-      .eq('student_id', studentId).eq('subject_id', subjectId).eq('term_id', termId);
-    if (!allAsmts) return;
-
-    const formativeEntries = allAsmts.filter(a => a.assessment_type === 'Formative');
-    const summativeEntry = allAsmts.find(a => a.assessment_type === 'Summative');
-    const formativeLevels = formativeEntries.map(a => a.rubric_level as RubricLevel).filter(Boolean);
-
-    const formativeLevel = formativeLevels.length > 0 ? computeCompetencySummary(formativeLevels) : null;
-    const summativeLevel = summativeEntry?.rubric_level as RubricLevel | null || null;
-
-    let overallLevel: RubricLevel | null = null;
-    if (formativeLevel && summativeLevel) overallLevel = computeWeightedSummary(formativeLevel, summativeLevel);
-    else if (formativeLevel) overallLevel = formativeLevel;
-    else if (summativeLevel) overallLevel = summativeLevel;
-
-    await supabase.from('cbc_competency_summaries').upsert({
-      student_id: studentId, subject_id: subjectId, term_id: termId,
-      formative_level: formativeLevel, summative_level: summativeLevel,
-      overall_level: overallLevel, formative_count: formativeLevels.length,
-      last_computed_at: new Date().toISOString(),
-    }, { onConflict: 'student_id,subject_id,term_id' });
+  // recomputeSummary: no-op until cbc_competency_summaries migration is run
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const recomputeSummary = async (_studentId: number, _subjectId: number, _termId: number) => {
+    // cbc_competency_summaries table not yet created — skip silently
   };
 
   // ── Export CSV ──
