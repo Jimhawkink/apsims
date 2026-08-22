@@ -444,14 +444,9 @@ export function useUltraCBCMarks() {
     const lvl = scoreToLevel(value);
     if (lvl) {
       setMarkLevels(prev => ({ ...prev, [studentId]: lvl }));
-      setMarkNotes(prev => {
-        const existingNote = prev[studentId] || '';
-        if (!existingNote.trim()) {
-          const autoNote = getAutoNote(lvl);
-          if (autoNote) return { ...prev, [studentId]: autoNote };
-        }
-        return prev;
-      });
+      // Always set auto-note when score derives a level
+      const autoNote = getAutoNote(lvl);
+      if (autoNote) setMarkNotes(prev => ({ ...prev, [studentId]: autoNote }));
     }
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => { triggerSaveRef.current(false); }, 3000);
@@ -459,14 +454,9 @@ export function useUltraCBCMarks() {
 
   const handleLevelChange = useCallback((studentId: number, level: string) => {
     setMarkLevels(prev => ({ ...prev, [studentId]: level as RubricLevel }));
-    setMarkNotes(prev => {
-      const existingNote = prev[studentId] || '';
-      if (!existingNote.trim()) {
-        const autoNote = getAutoNote(level as RubricLevel);
-        if (autoNote) return { ...prev, [studentId]: autoNote };
-      }
-      return prev;
-    });
+    // Always overwrite note with the correct auto-note for this level
+    const autoNote = getAutoNote(level as RubricLevel);
+    if (autoNote) setMarkNotes(prev => ({ ...prev, [studentId]: autoNote }));
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => { triggerSaveRef.current(false); }, 3000);
   }, [getAutoNote]);
@@ -631,6 +621,7 @@ export function useUltraCBCMarks() {
             assessment_type: selAssessmentType,
             task_name: tName,
             rubric_level: level,
+            raw_score: currentScores[student.id] ? parseFloat(currentScores[student.id]) : null,
             notes: currentNotes[student.id] || null,
             assessed_at: new Date().toISOString(),
           });
