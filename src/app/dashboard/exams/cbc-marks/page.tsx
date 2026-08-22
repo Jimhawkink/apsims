@@ -504,6 +504,9 @@ export default function CBCMarksPage() {
   const hook = useUltraCBCMarks();
   const [jssTab, setJssTab] = useState<'grid' | 'analytics'>('grid');
   const [showRubricGuide, setShowRubricGuide] = useState(false);
+  const [studentPage, setStudentPage] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const STUDENTS_PER_PAGE = 15;
 
   if (hook.loading) {
     return (
@@ -849,7 +852,17 @@ export default function CBCMarksPage() {
         <div className="flex" style={{ minHeight: 'calc(100vh - 57px)' }}>
 
           {/* Left Sidebar — Collapsible + Paginated */}
-          <SeniorSidebar hook={hook} />
+          {sidebarOpen && <SeniorSidebar hook={hook} />}
+
+          {/* Sidebar collapse toggle tab */}
+          <div className="relative flex-shrink-0">
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+              className="absolute top-4 -right-3 z-30 w-6 h-10 flex items-center justify-center bg-white border border-gray-200 rounded-r-xl shadow-sm text-gray-400 hover:text-indigo-600 hover:border-indigo-200 transition-all cursor-pointer">
+              {sidebarOpen ? <FiChevronLeft size={13} /> : <FiChevronRight size={13} />}
+            </button>
+          </div>
 
           {/* Main Content */}
           <div className="flex-1 overflow-hidden flex flex-col">
@@ -939,7 +952,8 @@ export default function CBCMarksPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-auto flex flex-col">
+                {/* Paginated student table */}
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 z-10 bg-gray-50">
                     <tr>
@@ -959,36 +973,110 @@ export default function CBCMarksPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {hook.filteredStudents.map((student: any, idx: number) => (
-                      <UltraCBCStudentRow
-                        key={student.id}
-                        student={{
-                          id: student.id,
-                          admNo: student.admission_no || student.admission_number || '—',
-                          firstName: student.first_name,
-                          lastName: student.last_name,
-                          gender: student.gender || '',
-                          stream: String(student.stream_id || ''),
-                          streamName: '',
-                        }}
-                        index={idx + 1}
-                        score={hook.markScores[student.id] || ''}
-                        level={hook.markLevels[student.id] || null}
-                        prevLevel={hook.prevTermLevels[student.id] || null}
-                        formativeAvgLevel={hook.formativeAvgLevels[student.id] || null}
-                        note={hook.markNotes[student.id] || ''}
-                        rubricConfig={hook.rubricConfig}
-                        bulkMode={hook.bulkMode}
-                        isSelected={hook.selected.has(student.id)}
-                        onScoreChange={hook.handleScoreChange}
-                        onLevelChange={hook.handleLevelChange}
-                        onClear={hook.handleClear}
-                        onNoteChange={hook.handleNoteChange}
-                        onCheckChange={hook.handleCheckChange}
-                      />
-                    ))}
+                    {hook.filteredStudents
+                      .slice(studentPage * STUDENTS_PER_PAGE, (studentPage + 1) * STUDENTS_PER_PAGE)
+                      .map((student: any, idx: number) => (
+                        <UltraCBCStudentRow
+                          key={student.id}
+                          student={{
+                            id: student.id,
+                            admNo: student.admission_no || student.admission_number || '—',
+                            firstName: student.first_name,
+                            lastName: student.last_name,
+                            gender: student.gender || '',
+                            stream: String(student.stream_id || ''),
+                            streamName: '',
+                          }}
+                          index={studentPage * STUDENTS_PER_PAGE + idx + 1}
+                          score={hook.markScores[student.id] || ''}
+                          level={hook.markLevels[student.id] || null}
+                          prevLevel={hook.prevTermLevels[student.id] || null}
+                          formativeAvgLevel={hook.formativeAvgLevels[student.id] || null}
+                          note={hook.markNotes[student.id] || ''}
+                          rubricConfig={hook.rubricConfig}
+                          bulkMode={hook.bulkMode}
+                          isSelected={hook.selected.has(student.id)}
+                          onScoreChange={hook.handleScoreChange}
+                          onLevelChange={hook.handleLevelChange}
+                          onClear={hook.handleClear}
+                          onNoteChange={hook.handleNoteChange}
+                          onCheckChange={hook.handleCheckChange}
+                        />
+                      ))}
                   </tbody>
                 </table>
+
+                {/* ── Premium Pagination Bar ── */}
+                {hook.filteredStudents.length > STUDENTS_PER_PAGE && (() => {
+                  const totalPages = Math.ceil(hook.filteredStudents.length / STUDENTS_PER_PAGE);
+                  const start = studentPage * STUDENTS_PER_PAGE + 1;
+                  const end = Math.min((studentPage + 1) * STUDENTS_PER_PAGE, hook.filteredStudents.length);
+                  return (
+                    <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 bg-white border-t border-gray-200 gap-3 flex-wrap">
+                      {/* Left: info */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 font-medium">
+                          Showing <span className="font-bold text-gray-700">{start}–{end}</span> of <span className="font-bold text-gray-700">{hook.filteredStudents.length}</span> students
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold border border-indigo-100">
+                          Page {studentPage + 1} / {totalPages}
+                        </span>
+                      </div>
+
+                      {/* Center: pill page numbers */}
+                      <div className="flex items-center gap-1">
+                        {/* Prev */}
+                        <button onClick={() => setStudentPage(p => Math.max(0, p - 1))} disabled={studentPage === 0}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer">
+                          <FiChevronLeft size={13} /> Prev
+                        </button>
+
+                        {/* Page pills — show max 7, with ellipsis */}
+                        {Array.from({ length: totalPages }).map((_, i) => {
+                          const showPill = i === 0 || i === totalPages - 1 || Math.abs(i - studentPage) <= 2;
+                          const showEllipsis = !showPill && (i === 1 || i === totalPages - 2);
+                          if (showEllipsis) return <span key={i} className="text-gray-400 text-xs px-1">…</span>;
+                          if (!showPill) return null;
+                          return (
+                            <button key={i} onClick={() => setStudentPage(i)}
+                              className={`w-8 h-8 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                                i === studentPage ? 'text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                              }`}
+                              style={i === studentPage ? { background: 'linear-gradient(135deg,#6C63FF,#00D9A6)' } : {}}>
+                              {i + 1}
+                            </button>
+                          );
+                        })}
+
+                        {/* Next */}
+                        <button onClick={() => setStudentPage(p => Math.min(totalPages - 1, p + 1))} disabled={studentPage === totalPages - 1}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer">
+                          Next <FiChevronRight size={13} />
+                        </button>
+                      </div>
+
+                      {/* Right: jump to page */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">Go to</span>
+                        <input type="number" min={1} max={totalPages}
+                          defaultValue={studentPage + 1}
+                          onBlur={e => {
+                            const v = parseInt(e.target.value, 10);
+                            if (!isNaN(v) && v >= 1 && v <= totalPages) setStudentPage(v - 1);
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              const v = parseInt((e.target as HTMLInputElement).value, 10);
+                              if (!isNaN(v) && v >= 1 && v <= totalPages) setStudentPage(v - 1);
+                            }
+                          }}
+                          className="w-14 border border-gray-200 rounded-xl px-2 py-1.5 text-xs text-center focus:ring-2 focus:ring-indigo-300 outline-none font-bold"
+                        />
+                        <span className="text-xs text-gray-400">of {totalPages}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

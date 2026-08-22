@@ -612,7 +612,7 @@ export function useUltraCBCMarks() {
               student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
               assessment_type: 'Summative', task_name: 'Summative', rubric_level: level,
               raw_score: rawScore, teacher_id: teacherId, assessed_at: new Date().toISOString(),
-            }, { onConflict: 'student_id,subject_id,term_id' });
+            }, { onConflict: 'student_id,subject_id,term_id,assessment_type,task_name' });
           } else {
             const { data: existing } = await supabase.from('cbc_assessments').select('id')
               .eq('student_id', student.id).eq('subject_id', Number(selSubject)).eq('term_id', Number(selTerm))
