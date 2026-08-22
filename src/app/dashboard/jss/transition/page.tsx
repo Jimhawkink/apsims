@@ -304,7 +304,14 @@ export default function JSSTransitionPage() {
               <span className="text-2xl">{p.icon}</span>
               <div>
                 <p className="text-xs font-bold" style={{ color: p.color }}>{p.label}</p>
-                <p className="text-[10px] text-gray-400 leading-tight">{p.desc.substring(0, 40)}--'list' && (
+                <p className="text-[10px] text-gray-400 leading-tight">{p.desc.substring(0, 40)}...</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* LIST VIEW */}
+        {viewMode === 'list' && (
           !selForm ? (
             <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl border border-gray-200 shadow-sm">
               <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mb-4"><FiFilter size={28} className="text-green-400" /></div>
@@ -316,10 +323,30 @@ export default function JSSTransitionPage() {
           ) : (
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="font-bold text-gray-800 text-sm">{form?.form_name} --'bg-white':'bg-gray-50/20'}`}>
+                <h3 className="font-bold text-gray-800 text-sm">{form?.form_name} &mdash; Transition Report {selYear}</h3>
+                <span className="text-xs text-gray-400">{filtered.length} students</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-wider min-w-[200px]">Student</th>
+                      <th className="text-center px-3 py-3 text-[10px] font-black text-gray-500 uppercase tracking-wider">Overall</th>
+                      <th className="text-center px-3 py-3 text-[10px] font-black text-gray-500 uppercase tracking-wider">Pathway</th>
+                      <th className="text-center px-3 py-3 text-[10px] font-black text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="text-center px-3 py-3 text-[10px] font-black text-gray-500 uppercase tracking-wider">Consent</th>
+                      <th className="text-center px-3 py-3 text-[10px] font-black text-gray-500 uppercase tracking-wider">KNEC</th>
+                      <th className="text-center px-3 py-3 text-[10px] font-black text-gray-500 uppercase tracking-wider">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((s, idx) => {
+                      const comp = s.overallComp;
+                      return (
+                        <tr key={s.id} className={`border-b border-gray-100 hover:bg-green-50/20 transition ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/20'}`}>
                           <td className="px-4 py-2.5 min-w-[220px]">
                             <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ background:`hsl(${(s.id*47)%360},60%,50%)` }}>
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ background: `hsl(${(s.id * 47) % 360},60%,50%)` }}>
                                 {s.first_name[0]}{s.last_name[0]}
                               </div>
                               <div>
@@ -331,8 +358,16 @@ export default function JSSTransitionPage() {
                           <td className="text-center px-3 py-2.5">
                             {comp ? (
                               <span className="text-xs font-black px-2 py-1 rounded-lg" style={{ background: COMP_BG[comp], color: COMP_COLORS[comp] }}>{comp}</span>
-                            ) : <span className="text-gray-300 text-xs">--'confirmed' ? (
-                              <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-lg font-bold">âœ“ Confirmed</span>
+                            ) : <span className="text-gray-300 text-xs">—</span>}
+                          </td>
+                          <td className="text-center px-3 py-2.5">
+                            {s.transition?.recommended_pathway ? (
+                              <span className="text-xs font-bold px-2 py-1 rounded-lg bg-blue-50 text-blue-700">{s.transition.recommended_pathway}</span>
+                            ) : <span className="text-gray-300 text-xs">—</span>}
+                          </td>
+                          <td className="text-center px-3 py-2.5">
+                            {s.transition?.status === 'confirmed' ? (
+                              <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-lg font-bold">&#10003; Confirmed</span>
                             ) : s.transition?.status === 'transferred' ? (
                               <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-lg font-bold">Transferred</span>
                             ) : (
@@ -348,8 +383,27 @@ export default function JSSTransitionPage() {
                           </td>
                           <td className="text-center px-3 py-2.5">
                             {s.transition?.knec_submitted ? (
-                              <span className="text-xs text-purple-600 font-bold">âœ“</span>
-                            ) : <span className="text-gray-300 text-xs">--'single' && selectedStudent && (
+                              <span className="text-xs text-purple-600 font-bold">&#10003;</span>
+                            ) : <span className="text-gray-300 text-xs">—</span>}
+                          </td>
+                          <td className="text-center px-3 py-2.5">
+                            <button onClick={() => openSingle(s)}
+                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 mx-auto">
+                              <FiEdit2 size={10} /> Edit
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        )}
+
+        {/* SINGLE STUDENT VIEW */}
+        {viewMode === 'single' && selectedStudent && (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm max-w-2xl mx-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center gap-3">
