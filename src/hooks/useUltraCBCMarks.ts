@@ -277,8 +277,8 @@ export function useUltraCBCMarks() {
       const data = asmtData || [];
       setAssessments(data);
 
-      // Build levels and notes maps filtered to current assessment type / task
       const newLevels: Record<number, RubricLevel | null> = {};
+      const newScores: Record<number, string> = {};
       const newNotes: Record<number, string> = {};
 
       data.forEach((a: any) => {
@@ -286,12 +286,13 @@ export function useUltraCBCMarks() {
         const matchesTask = selAssessmentType === 'Summative' || !taskName || a.task_name === taskName;
         if (matchesType && matchesTask) {
           if (a.rubric_level) newLevels[a.student_id] = a.rubric_level as RubricLevel;
+          if (a.raw_score != null) newScores[a.student_id] = String(a.raw_score);
           if (a.notes) newNotes[a.student_id] = a.notes;
         }
       });
 
       setMarkLevels(newLevels);
-      setMarkScores({}); // scores live in rubric_level only in base table — no raw_score column
+      setMarkScores(newScores);
       setMarkNotes(newNotes);
     };
 
