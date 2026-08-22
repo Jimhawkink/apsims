@@ -594,8 +594,6 @@ export function useUltraCBCMarks() {
     const doSave = async () => {
       setSaving(true);
       try {
-        const user = JSON.parse(localStorage.getItem('school_user') || '{}');
-        const teacherId = user?.id || null;
         let savedCount = 0;
 
         for (const student of currentStudents) {
@@ -604,9 +602,6 @@ export function useUltraCBCMarks() {
           const noteText = currentNotes[student.id] || '';
 
           if (selAssessmentType === 'Summative') {
-            // cbc_assessments has a PARTIAL unique index on (student_id, subject_id, term_id)
-            // WHERE assessment_type = 'Summative'
-            // So we must check-then-upsert manually
             const { data: existing } = await supabase
               .from('cbc_assessments').select('id')
               .eq('student_id', student.id)
@@ -616,13 +611,14 @@ export function useUltraCBCMarks() {
               .maybeSingle();
 
             if (existing) {
-              await supabase.from('cbc_assessments').update({
+              const { error: ue } = await supabase.from('cbc_assessments').update({
                 rubric_level: level,
                 notes: noteText || null,
                 assessed_at: new Date().toISOString(),
               }).eq('id', existing.id);
+              if (ue) console.error('update err:', ue);
             } else {
-              await supabase.from('cbc_assessments').insert({
+              const { error: ie } = await supabase.from('cbc_assessments').insert({
                 student_id: student.id,
                 subject_id: Number(selSubject),
                 term_id: Number(selTerm),
@@ -630,12 +626,12 @@ export function useUltraCBCMarks() {
                 task_name: 'Summative',
                 rubric_level: level,
                 notes: noteText || null,
-                teacher_id: teacherId,
                 assessed_at: new Date().toISOString(),
+                // teacher_id intentionally omitted
               });
+              if (ie) { console.error('insert err:', ie); continue; }
             }
           } else {
-            // Formative — unique by task_name
             const tName = taskName || 'Formative Task';
             const { data: existing } = await supabase
               .from('cbc_assessments').select('id')
@@ -647,13 +643,14 @@ export function useUltraCBCMarks() {
               .maybeSingle();
 
             if (existing) {
-              await supabase.from('cbc_assessments').update({
+              const { error: ue } = await supabase.from('cbc_assessments').update({
                 rubric_level: level,
                 notes: noteText || null,
                 assessed_at: new Date().toISOString(),
               }).eq('id', existing.id);
+              if (ue) console.error('update err:', ue);
             } else {
-              await supabase.from('cbc_assessments').insert({
+              const { error: ie } = await supabase.from('cbc_assessments').insert({
                 student_id: student.id,
                 subject_id: Number(selSubject),
                 term_id: Number(selTerm),
@@ -661,9 +658,10 @@ export function useUltraCBCMarks() {
                 task_name: tName,
                 rubric_level: level,
                 notes: noteText || null,
-                teacher_id: teacherId,
                 assessed_at: new Date().toISOString(),
+                // teacher_id intentionally omitted
               });
+              if (ie) { console.error('insert err:', ie); continue; }
             }
           }
 
