@@ -107,51 +107,56 @@ export function useUltraCBCMarks() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [formsRes, streamsRes, subjectsRes, termsRes, ssRes, rubricRes, laRes] = await Promise.all([
+      // Core tables — always exist
+      const [formsRes, streamsRes, subjectsRes, termsRes] = await Promise.all([
         supabase.from('school_forms').select('*').order('form_level'),
         supabase.from('school_streams').select('*').order('stream_name'),
         supabase.from('school_subjects').select('*').eq('is_active', true).order('subject_name'),
         supabase.from('school_terms').select('*').order('id', { ascending: false }),
-        supabase.from('cbc_student_subjects').select('*').catch(() => ({ data: [] })),
-        supabase.from('cbc_rubric_config').select('*').order('sort_order').catch(() => ({ data: [] })),
-        supabase.from('jss_learning_areas').select('id,code,name,color,icon').eq('is_active', true).order('sort_order').catch(() => ({ data: [] })),
       ]);
 
       const rawForms = formsRes.data || [];
       const cbcForms = rawForms.filter((f: any) => getEducationSystem(f.id, rawForms) === 'CBC_Senior_School');
-
       setAllForms(rawForms);
       setForms(cbcForms);
       setStreams(streamsRes.data || []);
       setSubjects(subjectsRes.data || []);
       setTerms(termsRes.data || []);
-      setStudentSubjects((ssRes as any).data || []);
-
-      // Use DB rubric config if available, else hardcoded fallback
-      const rubricData = (rubricRes as any).data;
-      if (rubricData && rubricData.length > 0) {
-        setRubricConfig(rubricData);
-      } else {
-        setRubricConfig([
-          { level_code: 'EE', level_label: 'Exceeds Expectation',    color_hex: '#15803d', bg_hex: '#f0fdf4', sort_order: 1 },
-          { level_code: 'ME', level_label: 'Meets Expectation',      color_hex: '#1d4ed8', bg_hex: '#eff6ff', sort_order: 2 },
-          { level_code: 'AE', level_label: 'Approaches Expectation', color_hex: '#b45309', bg_hex: '#fffbeb', sort_order: 3 },
-          { level_code: 'BE', level_label: 'Below Expectation',      color_hex: '#b91c1c', bg_hex: '#fef2f2', sort_order: 4 },
-        ]);
-      }
-
-      const laData = (laRes as any).data;
-      if (laData && laData.length > 0) {
-        setDbLearningAreas(laData.map((la: any) => ({ ...la, maxMark: 100 })));
-      }
 
       const cur = (termsRes.data || []).find((t: any) => t.is_current);
       if (cur) setSelTerm(String(cur.id));
     } catch (err) {
-      console.error('fetchAll error:', err);
-    } finally {
-      setLoading(false);
+      console.error('fetchAll core error:', err);
     }
+
+    // Optional tables — may not exist yet, never crash if missing
+    try {
+      const { data } = await supabase.from('cbc_student_subjects').select('*');
+      setStudentSubjects(data || []);
+    } catch (_) { setStudentSubjects([]); }
+
+    try {
+      const { data } = await supabase.from('cbc_rubric_config').select('*').order('sort_order');
+      if (data && data.length > 0) {
+        setRubricConfig(data);
+      } else {
+        throw new Error('empty');
+      }
+    } catch (_) {
+      setRubricConfig([
+        { level_code: 'EE', level_label: 'Exceeds Expectation',    color_hex: '#15803d', bg_hex: '#f0fdf4', sort_order: 1 },
+        { level_code: 'ME', level_label: 'Meets Expectation',      color_hex: '#1d4ed8', bg_hex: '#eff6ff', sort_order: 2 },
+        { level_code: 'AE', level_label: 'Approaches Expectation', color_hex: '#b45309', bg_hex: '#fffbeb', sort_order: 3 },
+        { level_code: 'BE', level_label: 'Below Expectation',      color_hex: '#b91c1c', bg_hex: '#fef2f2', sort_order: 4 },
+      ]);
+    }
+
+    try {
+      const { data } = await supabase.from('jss_learning_areas').select('id,code,name,color,icon').eq('is_active', true).order('sort_order');
+      if (data && data.length > 0) setDbLearningAreas(data.map((la: any) => ({ ...la, maxMark: 100 })));
+    } catch (_) { /* no JSS learning areas */ }
+
+    setLoading(false);
   }, []);
 
 
