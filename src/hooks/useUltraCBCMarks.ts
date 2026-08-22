@@ -107,12 +107,14 @@ export function useUltraCBCMarks() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [formsRes, streamsRes, subjectsRes, termsRes, laRes] = await Promise.all([
+      const [formsRes, streamsRes, subjectsRes, termsRes, ssRes, rubricRes, laRes] = await Promise.all([
         supabase.from('school_forms').select('*').order('form_level'),
         supabase.from('school_streams').select('*').order('stream_name'),
         supabase.from('school_subjects').select('*').eq('is_active', true).order('subject_name'),
         supabase.from('school_terms').select('*').order('id', { ascending: false }),
-        supabase.from('jss_learning_areas').select('id,code,name,color,icon').eq('is_active', true).order('sort_order'),
+        supabase.from('cbc_student_subjects').select('*').catch(() => ({ data: [] })),
+        supabase.from('cbc_rubric_config').select('*').order('sort_order').catch(() => ({ data: [] })),
+        supabase.from('jss_learning_areas').select('id,code,name,color,icon').eq('is_active', true).order('sort_order').catch(() => ({ data: [] })),
       ]);
 
       const rawForms = formsRes.data || [];
@@ -123,18 +125,24 @@ export function useUltraCBCMarks() {
       setStreams(streamsRes.data || []);
       setSubjects(subjectsRes.data || []);
       setTerms(termsRes.data || []);
-      setStudentSubjects([]); // cbc_student_subjects not in DB — always show all subjects
+      setStudentSubjects((ssRes as any).data || []);
 
-      // Hardcoded KICD rubric config — cbc_rubric_config table not in DB
-      setRubricConfig([
-        { level_code: 'EE', level_label: 'Exceeds Expectation',    color_hex: '#15803d', bg_hex: '#f0fdf4', sort_order: 1 },
-        { level_code: 'ME', level_label: 'Meets Expectation',      color_hex: '#1d4ed8', bg_hex: '#eff6ff', sort_order: 2 },
-        { level_code: 'AE', level_label: 'Approaches Expectation', color_hex: '#b45309', bg_hex: '#fffbeb', sort_order: 3 },
-        { level_code: 'BE', level_label: 'Below Expectation',      color_hex: '#b91c1c', bg_hex: '#fef2f2', sort_order: 4 },
-      ]);
+      // Use DB rubric config if available, else hardcoded fallback
+      const rubricData = (rubricRes as any).data;
+      if (rubricData && rubricData.length > 0) {
+        setRubricConfig(rubricData);
+      } else {
+        setRubricConfig([
+          { level_code: 'EE', level_label: 'Exceeds Expectation',    color_hex: '#15803d', bg_hex: '#f0fdf4', sort_order: 1 },
+          { level_code: 'ME', level_label: 'Meets Expectation',      color_hex: '#1d4ed8', bg_hex: '#eff6ff', sort_order: 2 },
+          { level_code: 'AE', level_label: 'Approaches Expectation', color_hex: '#b45309', bg_hex: '#fffbeb', sort_order: 3 },
+          { level_code: 'BE', level_label: 'Below Expectation',      color_hex: '#b91c1c', bg_hex: '#fef2f2', sort_order: 4 },
+        ]);
+      }
 
-      if (laRes.data && laRes.data.length > 0) {
-        setDbLearningAreas(laRes.data.map((la: any) => ({ ...la, maxMark: 100 })));
+      const laData = (laRes as any).data;
+      if (laData && laData.length > 0) {
+        setDbLearningAreas(laData.map((la: any) => ({ ...la, maxMark: 100 })));
       }
 
       const cur = (termsRes.data || []).find((t: any) => t.is_current);
@@ -145,6 +153,7 @@ export function useUltraCBCMarks() {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -594,76 +603,105 @@ export function useUltraCBCMarks() {
     const doSave = async () => {
       setSaving(true);
       try {
+        // Resolve teacher_id from school_teachers (matches by email)
+        const user = JSON.parse(localStorage.getItem('school_user') || '{}');
+        let teacherId: number | null = null;
+        if (user?.email) {
+          const { data: t } = await supabase.from('school_teachers').select('id').eq('email', user.email).maybeSingle();
+          if (t) teacherId = t.id;
+        }
+
         let savedCount = 0;
 
         for (const student of currentStudents) {
           const level = currentLevels[student.id];
           if (!level) continue;
+          const rawScore = currentScores[student.id] ? parseFloat(currentScores[student.id]) : null;
           const noteText = currentNotes[student.id] || '';
 
+          // ── Primary: cbc_assessments ──────────────────────────────
           if (selAssessmentType === 'Summative') {
             const { data: existing } = await supabase
               .from('cbc_assessments').select('id')
-              .eq('student_id', student.id)
-              .eq('subject_id', Number(selSubject))
-              .eq('term_id', Number(selTerm))
-              .eq('assessment_type', 'Summative')
+              .eq('student_id', student.id).eq('subject_id', Number(selSubject))
+              .eq('term_id', Number(selTerm)).eq('assessment_type', 'Summative')
               .maybeSingle();
-
             if (existing) {
               const { error: ue } = await supabase.from('cbc_assessments').update({
-                rubric_level: level,
-                notes: noteText || null,
+                rubric_level: level, raw_score: rawScore, notes: noteText || null,
                 assessed_at: new Date().toISOString(),
               }).eq('id', existing.id);
-              if (ue) console.error('update err:', ue);
+              if (ue) console.error('assessment update err:', ue);
             } else {
               const { error: ie } = await supabase.from('cbc_assessments').insert({
-                student_id: student.id,
-                subject_id: Number(selSubject),
-                term_id: Number(selTerm),
-                assessment_type: 'Summative',
-                task_name: 'Summative',
-                rubric_level: level,
-                notes: noteText || null,
+                student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
+                assessment_type: 'Summative', task_name: 'Summative', rubric_level: level,
+                raw_score: rawScore, notes: noteText || null, teacher_id: teacherId,
                 assessed_at: new Date().toISOString(),
-                // teacher_id intentionally omitted
               });
-              if (ie) { console.error('insert err:', ie); continue; }
+              if (ie) { console.error('assessment insert err:', ie); continue; }
             }
           } else {
             const tName = taskName || 'Formative Task';
             const { data: existing } = await supabase
               .from('cbc_assessments').select('id')
-              .eq('student_id', student.id)
-              .eq('subject_id', Number(selSubject))
-              .eq('term_id', Number(selTerm))
-              .eq('assessment_type', 'Formative')
-              .eq('task_name', tName)
-              .maybeSingle();
-
+              .eq('student_id', student.id).eq('subject_id', Number(selSubject))
+              .eq('term_id', Number(selTerm)).eq('assessment_type', 'Formative')
+              .eq('task_name', tName).maybeSingle();
             if (existing) {
               const { error: ue } = await supabase.from('cbc_assessments').update({
-                rubric_level: level,
-                notes: noteText || null,
+                rubric_level: level, raw_score: rawScore, notes: noteText || null,
                 assessed_at: new Date().toISOString(),
               }).eq('id', existing.id);
-              if (ue) console.error('update err:', ue);
+              if (ue) console.error('assessment update err:', ue);
             } else {
               const { error: ie } = await supabase.from('cbc_assessments').insert({
-                student_id: student.id,
-                subject_id: Number(selSubject),
-                term_id: Number(selTerm),
-                assessment_type: 'Formative',
-                task_name: tName,
-                rubric_level: level,
-                notes: noteText || null,
+                student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
+                assessment_type: 'Formative', task_name: tName, rubric_level: level,
+                raw_score: rawScore, notes: noteText || null, teacher_id: teacherId,
                 assessed_at: new Date().toISOString(),
-                // teacher_id intentionally omitted
               });
-              if (ie) { console.error('insert err:', ie); continue; }
+              if (ie) { console.error('assessment insert err:', ie); continue; }
             }
           }
+
+          // ── cbc_mark_scores (numeric score store) ─────────────────
+          if (rawScore !== null) {
+            try {
+              await supabase.from('cbc_mark_scores').upsert({
+                student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
+                assessment_type: selAssessmentType,
+                task_name: selAssessmentType === 'Summative' ? 'Summative' : (taskName || 'Formative Task'),
+                raw_score: rawScore, rubric_level: level, teacher_id: teacherId,
+                assessed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+              }, { onConflict: 'student_id,subject_id,term_id,assessment_type,task_name' });
+            } catch (_) { /* table may not exist yet — run migration */ }
+          }
+
+          // ── cbc_teacher_notes ─────────────────────────────────────
+          if (noteText.trim()) {
+            try {
+              await supabase.from('cbc_teacher_notes').upsert({
+                student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
+                teacher_id: teacherId, note_text: noteText, updated_at: new Date().toISOString(),
+              }, { onConflict: 'student_id,subject_id,term_id' });
+            } catch (_) { /* table may not exist yet */ }
+          }
+
+          // ── cbc_intervention_flags (BE students) ──────────────────
+          if (level === 'BE') {
+            try {
+              await supabase.from('cbc_intervention_flags').upsert({
+                student_id: student.id, subject_id: Number(selSubject), term_id: Number(selTerm),
+                flagged_by: teacherId, rubric_level_at_flag: 'BE', raw_score_at_flag: rawScore,
+                status: 'open', updated_at: new Date().toISOString(),
+              }, { onConflict: 'student_id,subject_id,term_id' });
+            } catch (_) { /* table may not exist yet */ }
+          }
+
+          // ── cbc_competency_summaries ──────────────────────────────
+          try { await recomputeSummary(student.id, Number(selSubject), Number(selTerm)); }
+          catch (_) { /* table may not exist yet */ }
 
           savedCount++;
         }
@@ -681,6 +719,7 @@ export function useUltraCBCMarks() {
       }
     };
 
+
     if (selAssessmentType === 'Summative' && !force) {
       const existingSummative = assessments.find(a => a.assessment_type === 'Summative');
       if (existingSummative) {
@@ -694,11 +733,31 @@ export function useUltraCBCMarks() {
 
   triggerSaveRef.current = triggerSave;
 
-  // recomputeSummary: no-op until cbc_competency_summaries migration is run
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const recomputeSummary = async (_studentId: number, _subjectId: number, _termId: number) => {
-    // cbc_competency_summaries table not yet created — skip silently
+  const recomputeSummary = async (studentId: number, subjectId: number, termId: number) => {
+    const { data: allAsmts } = await supabase.from('cbc_assessments').select('*')
+      .eq('student_id', studentId).eq('subject_id', subjectId).eq('term_id', termId);
+    if (!allAsmts) return;
+
+    const formativeEntries = allAsmts.filter((a: any) => a.assessment_type === 'Formative');
+    const summativeEntry = allAsmts.find((a: any) => a.assessment_type === 'Summative');
+    const formativeLevels = formativeEntries.map((a: any) => a.rubric_level as RubricLevel).filter(Boolean);
+
+    const formativeLevel = formativeLevels.length > 0 ? computeCompetencySummary(formativeLevels) : null;
+    const summativeLevel = (summativeEntry?.rubric_level as RubricLevel) || null;
+
+    let overallLevel: RubricLevel | null = null;
+    if (formativeLevel && summativeLevel) overallLevel = computeWeightedSummary(formativeLevel, summativeLevel);
+    else if (formativeLevel) overallLevel = formativeLevel;
+    else if (summativeLevel) overallLevel = summativeLevel;
+
+    await supabase.from('cbc_competency_summaries').upsert({
+      student_id: studentId, subject_id: subjectId, term_id: termId,
+      formative_level: formativeLevel, summative_level: summativeLevel,
+      overall_level: overallLevel, formative_count: formativeLevels.length,
+      last_computed_at: new Date().toISOString(),
+    }, { onConflict: 'student_id,subject_id,term_id' });
   };
+
 
   // ── Export CSV ──
   const exportCSV = () => {
