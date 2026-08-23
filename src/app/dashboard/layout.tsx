@@ -11,7 +11,8 @@ import {
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
     FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive,
-    FiWifi, FiWifiOff, FiTruck, FiAward, FiFolder, FiCpu, FiTarget, FiActivity, FiBook
+    FiWifi, FiWifiOff, FiTruck, FiAward, FiFolder, FiCpu, FiTarget, FiActivity, FiBook, FiDownload
+
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
 import CommandPalette from '@/components/CommandPalette';
@@ -118,10 +119,13 @@ const menuGroups = [
         collapsible: true,
         items: [
             { href: '/dashboard/cbc/command-centre',                      label: '⚙️ CBC Command Centre',         icon: FiCpu,        perm: 'curriculum' },
-            { href: '/dashboard/curriculum/schemes',                      label: '📗 KICD Schemes of Work',        icon: FiBook,       perm: 'curriculum' },
-            { href: '/dashboard/curriculum/lesson-plans',                 label: '📝 KICD Lesson Plans',           icon: FiFileText,   perm: 'curriculum' },
+            { href: '/dashboard/curriculum/schemes',                      label: '📗 KICD Schemes (8-4-4)',        icon: FiBook,       perm: 'curriculum' },
+            { href: '/dashboard/curriculum/cbc-schemes',                  label: '🟢 CBC Schemes of Work',         icon: FiLayers,     perm: 'curriculum' },
+            { href: '/dashboard/curriculum/kicd-lesson-plans',            label: '📝 KICD Lesson Plans (CBC)',     icon: FiFileText,   perm: 'curriculum' },
+            { href: '/dashboard/curriculum/lesson-plans',                 label: '📝 Lesson Plans (8-4-4)',        icon: FiFileText,   perm: 'curriculum' },
             { href: '/dashboard/cbc/portfolio',                          label: '🗂️ Student Portfolio',          icon: FiFolder,     perm: 'curriculum' },
             { href: '/dashboard/exams/sba-manager',                      label: '📋 SBA Manager',                 icon: FiAward,      perm: 'exams' },
+            { href: '/dashboard/exams/sba-evidence',                     label: '📎 SBA Evidence Upload',         icon: FiFolder,     perm: 'exams' },
             { href: '/dashboard/exams/cbc-formative',                    label: '🔥 Formative Daily Tracker',     icon: FiActivity,   perm: 'exams' },
             { href: '/dashboard/settings/cbc-config',                    label: '🔧 CBC Config Builder',          icon: FiSettings,   perm: 'settings' },
             { href: '/dashboard/communication/cbc-templates',            label: '📲 CBC SMS & WA Templates',      icon: FiMessageSquare, perm: 'fees' },
@@ -143,8 +147,11 @@ const menuGroups = [
             { href: '/dashboard/curriculum/kicd-alignment',              label: '🏅 KICD Alignment & Badges',    icon: FiAward,      perm: 'curriculum' },
             { href: '/dashboard/cbc-analytics',                          label: 'CBC Analytics Dashboard',       icon: FiPieChart,   perm: 'curriculum' },
             { href: '/dashboard/students/subject-combinations',          label: 'CBC Subject Combinations',      icon: FiGrid,       perm: 'students' },
+            { href: '/dashboard/knec-compliance',                        label: '🛡️ KNEC Compliance',            icon: FiShield,     perm: 'reports' },
+            { href: '/dashboard/knec-compliance/cba-export',             label: '📥 KNEC CBA Official Export',   icon: FiDownload,   perm: 'reports' },
         ]
     },
+
     {
         label: "🏆 Exam Analytics",
         icon: FiBarChart2,
@@ -194,10 +201,15 @@ const menuGroups = [
             { href: '/dashboard/hr-payroll/payroll', label: 'Run Payroll', icon: FiCreditCard, perm: 'payroll' },
             { href: '/dashboard/teacher-subjects', label: '📚 Teacher Subject Assignment', icon: FiLayers, perm: 'staff' },
             { href: '/dashboard/staff/salary-slips', label: '💰 Salary Slips / Payslips', icon: FiCreditCard, perm: 'payroll' },
+            { href: '/dashboard/teachers/leave', label: '🏖️ Teacher Leave Management', icon: FiCalendar, perm: 'staff' },
+            { href: '/dashboard/teachers/appraisal', label: '📋 TSC Appraisal (P1/P2)', icon: FiAward, perm: 'staff' },
+            { href: '/dashboard/teachers/cpd', label: '📈 CPD Tracker (40h TSC)', icon: FiTrendingUp, perm: 'staff' },
+            { href: '/dashboard/teachers/performance', label: '🏆 Teacher Performance', icon: FiBarChart2, perm: 'staff' },
             { href: '/dashboard/staff/cbc-observation-log', label: '👁️ Teacher Observation Log', icon: FiActivity, perm: 'staff' },
             { href: '/dashboard/staff/cbc-professional-dev', label: '📈 CBC Prof Dev Log', icon: FiTrendingUp, perm: 'staff' },
         ]
     },
+
     {
         label: "Finance",
         icon: FiDollarSign,
@@ -230,6 +242,8 @@ const menuGroups = [
             { href: '/dashboard/fees/reports/vote-heads', label: '⚡ Vote Head Reports', icon: FiLayers, perm: 'fees' },
             { href: '/dashboard/payments/integration', label: 'Payment Integration', icon: FiSmartphone, perm: 'fees' },
             { href: '/dashboard/fees/analytics', label: '📊 Financial Analytics', icon: FiBarChart2, perm: 'fees' },
+            { href: '/dashboard/finance/analytics', label: '💹 Finance Deep Analytics', icon: FiPieChart, perm: 'fees' },
+
             { href: '/dashboard/fees/mpesa-reconciliation', label: '💳 M-Pesa Reconciliation', icon: FiCreditCard, perm: 'fees' },
             { href: '/dashboard/fees/receipt', label: '🧾 Pro Receipts & PDF', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/plans-scholarships', label: '💰 Plans & Scholarships', icon: FiCalendar, perm: 'fees' },
@@ -287,6 +301,7 @@ const menuGroups = [
         collapsible: true,
         items: [
             { href: '/dashboard/communication', label: '📡 SMS & Broadcasting', icon: FiMessageSquare, perm: 'fees' },
+            { href: '/dashboard/communication/hub', label: '📬 Communication Hub', icon: FiSend, perm: 'fees' },
             { href: '/dashboard/communication/whatsapp-reports', label: '💬 WhatsApp Reports', icon: FiSend, perm: 'fees' },
             { href: '/dashboard/communication/cbc-templates', label: '📲 CBC SMS & WA Templates', icon: FiMessageSquare, perm: 'fees' },
             { href: '/dashboard/portals', label: 'Parent & Student Portal', icon: FiUsers, perm: 'students' },
@@ -300,7 +315,9 @@ const menuGroups = [
         items: [
             { href: '/dashboard/multi-campus', label: '🏫 Multi-Campus Dashboard', icon: FiGlobe, perm: 'reports' },
             { href: '/dashboard/reports', label: 'Reports & NEMIS Export', icon: FiPieChart, perm: 'reports' },
-            { href: '/dashboard/nemis', label: '🛡️ NEMIS Validation Engine', icon: FiShield, perm: 'reports' },
+            { href: '/dashboard/reports/government', label: '🏛️ Government Returns', icon: FiFileText, perm: 'reports' },
+            { href: '/dashboard/nemis', label: '🛡️ NEMIS Overview', icon: FiShield, perm: 'reports' },
+            { href: '/dashboard/nemis/validation', label: '✅ NEMIS Validation Engine', icon: FiShield, perm: 'reports' },
             { href: '/dashboard/users', label: 'User Roles', icon: FiKey, perm: 'users' },
             { href: '/dashboard/settings', label: 'System Settings', icon: FiSettings, perm: 'settings' },
             { href: '/dashboard/settings/cbc-config', label: '🔧 CBC Subject/Strand Config', icon: FiSettings, perm: 'settings' },
