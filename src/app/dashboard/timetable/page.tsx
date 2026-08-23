@@ -19,6 +19,8 @@ import { VerifyTab, StatsTab, PrintTab } from './ToolsTabs1';
 import { SetupTab, AvailabilityTab } from './SetupAvailTab';
 import { ClassroomsTab, SubstitutionsTab } from './SubsClassroomTab';
 import { SnapshotsTab, DistributeTab } from './SnapshotsDistributeTab';
+import CBCTimetableTab from './CBCTimetableTab';
+
 
 // ═══════════════════════════════════════════════════════════════════
 // ═══  APSIMS ULTRA TIMETABLE — MAIN PAGE  ════════════════════════
@@ -55,7 +57,9 @@ function TimetableShell() {
     { label: 'NEW ✨', items: [
       { key: 'snapshots' as TTab, label: 'Snapshots', icon: FiCamera, emoji: '📸' },
       { key: 'distribute' as TTab, label: 'Distribute', icon: FiSend, emoji: '📱' },
+      { key: 'cbc' as TTab, label: 'CBC Mode', icon: FiGrid, emoji: '🟢' },
     ]},
+
   ];
 
   if (loading) return (
@@ -170,10 +174,12 @@ function TimetableShell() {
         {tab === 'setup' && <SetupTab />}
         {tab === 'snapshots' && <SnapshotsTab />}
         {tab === 'distribute' && <DistributeTab />}
+        {tab === 'cbc' && <CBCTimetableTab />}
       </main>
     </div>
   );
 }
+
 
 export default function TimetablePage() {
   return (

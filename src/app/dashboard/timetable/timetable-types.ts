@@ -6,7 +6,8 @@ export type TTab =
   | 'generate' | 'editor'
   | 'class' | 'teacher' | 'room' | 'master'
   | 'verify' | 'substitutions' | 'stats' | 'print' | 'setup'
-  | 'snapshots' | 'distribute';
+  | 'snapshots' | 'distribute' | 'cbc';
+
 
 export interface Period {
   id: number; period_number: number; period_name: string;
