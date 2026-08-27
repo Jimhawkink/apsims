@@ -160,7 +160,9 @@ export async function POST(req: NextRequest) {
         const rawDesc    = result?.header?.statusDescription
                         || result?.message
                         || result?.description
-                        || 'Unknown KCB error';
+                        || result?.error_description
+                        || result?.error
+                        || (result ? `KCB raw: ${JSON.stringify(result).slice(0, 200)}` : 'Unknown KCB error');
         const isSuccess  = httpStatus === 200 && (statusCode === '0' || statusCode === 0);
 
         // Use the real KCB CheckoutRequestID so callback can match it
