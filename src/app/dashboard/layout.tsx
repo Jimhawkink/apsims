@@ -267,6 +267,9 @@ const menuGroups = [
             { href: '/dashboard/stores', label: 'Store Items', icon: FiCopy, perm: 'stores' },
             { href: '/dashboard/stores/ultra', label: '📦 Ultra Stores & Kitchen', icon: FiBox, perm: 'stores' },
             { href: '/dashboard/procurement', label: '🏢 Procurement & Suppliers', icon: FiTruck, perm: 'expenses' },
+            { href: '/dashboard/stores/vouchers', label: '💳 Payment Vouchers', icon: FiFileText, perm: 'stores' },
+            { href: '/dashboard/stores/income', label: '💰 Income Tracking', icon: FiTrendingUp, perm: 'stores' },
+            { href: '/dashboard/stores/reports', label: '📊 Stores Reports', icon: FiBarChart2, perm: 'stores' },
             { href: '/dashboard/rim-paper', label: 'Rim Paper', icon: FiCopy, perm: 'rim-paper' },
         ]
     },
