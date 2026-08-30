@@ -188,6 +188,7 @@ const menuGroups = [
             { href: '/dashboard/attendance', label: 'Student Attendance', icon: FiCalendar, perm: 'attendance' },
             { href: '/dashboard/attendance/staff', label: 'Staff Attendance', icon: FiUserCheck, perm: 'attendance' },
             { href: '/dashboard/attendance/biometric', label: '🔬 Biometric Attendance', icon: FiShield, perm: 'attendance' },
+            { href: '/dashboard/teachers/leave', label: '🏖️ Teacher Leave Management', icon: FiCalendar, perm: 'attendance' },
         ]
     },
     {
