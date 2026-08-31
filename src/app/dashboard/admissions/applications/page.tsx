@@ -6,7 +6,7 @@ import {
     FiUser, FiSearch, FiRefreshCw, FiEye, FiCheckCircle, FiXCircle,
     FiClock, FiAlertCircle, FiFilter, FiDownload, FiUserPlus,
     FiPrinter, FiX, FiChevronDown, FiChevronUp, FiPhone, FiMail,
-    FiCalendar, FiFileText, FiFolder, FiExternalLink,
+    FiCalendar, FiFileText, FiFolder, FiExternalLink, FiMessageSquare,
 } from 'react-icons/fi';
 
 // Form / Grade display helper
@@ -195,11 +195,18 @@ function ConvertModal({ app, onClose, onSaved }: { app: Application; onClose: ()
 
 // ── Application Detail Drawer ─────────────────────────────────────────────────
 function DetailDrawer({ app, onClose, onRefresh }: { app: Application; onClose: () => void; onRefresh: () => void }) {
-    const [showStatus, setShowStatus]   = useState(false);
-    const [showConvert, setShowConvert] = useState(false);
-    const [documents, setDocuments]     = useState<any[]>([]);
-    const [docsLoading, setDocsLoading] = useState(false);
-    const [docsLoaded, setDocsLoaded]   = useState(false);
+    const [showStatus, setShowStatus]     = useState(false);
+    const [showConvert, setShowConvert]   = useState(false);
+    const [documents, setDocuments]       = useState<any[]>([]);
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [docsLoading, setDocsLoading]   = useState(false);
+    const [docsLoaded, setDocsLoaded]     = useState(false);
+    const [drawerTab, setDrawerTab]       = useState<'details' | 'docs' | 'messages'>('details');
+    const [acknowledging, setAcknowledging] = useState(false);
+    const [requestingDocs, setRequestingDocs] = useState(false);
+    const [missingDocs, setMissingDocs]   = useState('');
+    const [showRequestForm, setShowRequestForm] = useState(false);
+    const unreadNotifs = notifications.filter(n => n.sender_type === 'applicant' && !n.is_read_by_admin).length;
 
     const loadDocuments = useCallback(async () => {
         if (docsLoaded) return;
@@ -207,13 +214,55 @@ function DetailDrawer({ app, onClose, onRefresh }: { app: Application; onClose: 
         try {
             const res = await fetch(`/api/admissions/applications/${app.id}/documents`);
             const r   = await res.json();
-            if (res.ok) setDocuments(r.data || []);
+            if (res.ok) {
+                setDocuments(r.documents || r.data || []);
+                setNotifications(r.notifications || []);
+            }
         } catch { /* silent */ }
         finally { setDocsLoading(false); setDocsLoaded(true); }
     }, [app.id, docsLoaded]);
 
-    // Load docs when drawer opens
-    useEffect(() => { loadDocuments(); }, [loadDocuments]);
+    const refreshDocs = useCallback(() => {
+        setDocsLoaded(false);
+    }, []);
+
+    useEffect(() => { if (!docsLoaded) loadDocuments(); }, [docsLoaded, loadDocuments]);
+
+    // Acknowledge receipt of documents
+    const handleAcknowledge = async () => {
+        setAcknowledging(true);
+        try {
+            const res = await fetch(`/api/admissions/applications/${app.id}/documents`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'acknowledge', app_ref: app.reference_number, acknowledged_by: 'Admissions Office' }),
+            });
+            if (res.ok) {
+                toast.success('✅ Acknowledgment sent to applicant!');
+                setDocsLoaded(false);
+                onRefresh();
+            } else { toast.error('Failed to acknowledge'); }
+        } catch { toast.error('Network error'); }
+        setAcknowledging(false);
+    };
+
+    // Request more documents
+    const handleRequestDocs = async () => {
+        if (!missingDocs.trim()) { toast.error('Specify which documents are needed'); return; }
+        setRequestingDocs(true);
+        try {
+            const res = await fetch(`/api/admissions/applications/${app.id}/documents`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'request_docs', app_ref: app.reference_number, missing_docs: missingDocs, admin_name: 'Admissions Office' }),
+            });
+            if (res.ok) {
+                toast.success('📋 Document request sent to applicant!');
+                setMissingDocs(''); setShowRequestForm(false); setDocsLoaded(false);
+            } else { toast.error('Failed to send request'); }
+        } catch { toast.error('Network error'); }
+        setRequestingDocs(false);
+    };
 
     const printLetter = () => {
         const w = window.open('', '_blank');
@@ -289,8 +338,28 @@ ${app.kcpe_total_marks ? `<div class="row"><span>KCPE Marks</span><span>${app.kc
                         </div>
                     </div>
 
+                    {/* ── Drawer Tabs ── */}
+                    <div className="flex gap-1 px-4 py-2.5 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
+                        {([
+                            ['details', '👤 Details'],
+                            ['docs', `📁 Docs${documents.length > 0 ? ` (${documents.length})` : ''}`],
+                            ['messages', `📬 Messages${unreadNotifs > 0 ? ` 🔴` : notifications.length > 0 ? ` (${notifications.length})` : ''}`],
+                        ] as const).map(([t, l]) => (
+                            <button key={t} onClick={() => setDrawerTab(t as any)}
+                                className="px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all flex-1"
+                                style={drawerTab === t
+                                    ? { background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', color: '#fff' }
+                                    : { background: 'transparent', color: '#6b7280' }}>
+                                {l}
+                            </button>
+                        ))}
+                    </div>
+
                     {/* Body */}
                     <div className="flex-1 p-5 space-y-5 overflow-y-auto">
+
+                    {/* ════ DETAILS TAB ════ */}
+                    {drawerTab === 'details' && <>
                         {/* Student */}
                         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                             <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
@@ -358,57 +427,138 @@ ${app.kcpe_total_marks ? `<div class="row"><span>KCPE Marks</span><span>${app.kc
                                 )}
                             </div>
                         </div>
+                    </>}
 
-                        {/* ── Submitted Documents ── */}
-                        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                                    <FiFolder size={11} className="text-violet-500" /> Submitted Documents
-                                </p>
-                                <button onClick={() => { setDocsLoaded(false); loadDocuments(); }}
-                                    className="text-[10px] text-violet-600 flex items-center gap-1 hover:underline">
-                                    <FiRefreshCw size={10} /> Refresh
+                    {/* ════ DOCUMENTS TAB ════ */}
+                    {drawerTab === 'docs' && (
+                        <div className="space-y-4">
+                            {/* Actions */}
+                            <div className="flex gap-2 flex-wrap">
+                                {documents.length > 0 && (
+                                    <button onClick={handleAcknowledge} disabled={acknowledging}
+                                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white rounded-xl transition-all disabled:opacity-60"
+                                        style={{ background: 'linear-gradient(135deg,#059669,#10b981)' }}>
+                                        {acknowledging ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiCheckCircle size={12} />}
+                                        Send Acknowledgment to Applicant
+                                    </button>
+                                )}
+                                <button onClick={() => setShowRequestForm(f => !f)}
+                                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-amber-700 bg-amber-50 rounded-xl hover:bg-amber-100 transition">
+                                    <FiFileText size={12} /> Request More Documents
+                                </button>
+                                <button onClick={() => { setDocsLoaded(false); }} className="flex items-center gap-1 px-2.5 py-2 text-xs text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200">
+                                    <FiRefreshCw size={11} /> Refresh
                                 </button>
                             </div>
-                            <div className="p-4">
-                                {docsLoading ? (
-                                    <div className="flex justify-center py-6">
-                                        <div className="w-5 h-5 border-2 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
+
+                            {/* Request docs form */}
+                            {showRequestForm && (
+                                <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-2xl space-y-3">
+                                    <p className="text-xs font-bold text-amber-800">📋 Specify Missing Documents</p>
+                                    <textarea value={missingDocs} onChange={e => setMissingDocs(e.target.value)} rows={3}
+                                        placeholder="e.g.&#10;- Original Birth Certificate&#10;- Medical Examination Form&#10;- 2 Passport Photos"
+                                        className="w-full px-3 py-2 border border-amber-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white resize-none" />
+                                    <div className="flex gap-2">
+                                        <button onClick={handleRequestDocs} disabled={requestingDocs}
+                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white rounded-xl disabled:opacity-60"
+                                            style={{ background: 'linear-gradient(135deg,#d97706,#f59e0b)' }}>
+                                            {requestingDocs ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
+                                            Send Request
+                                        </button>
+                                        <button onClick={() => setShowRequestForm(false)} className="px-3 py-1.5 text-xs text-gray-500 bg-gray-100 rounded-xl">Cancel</button>
                                     </div>
-                                ) : documents.length === 0 ? (
-                                    <div className="text-center py-6">
-                                        <p className="text-3xl mb-2">📂</p>
-                                        <p className="text-xs font-medium text-gray-400">No documents uploaded yet</p>
-                                        <p className="text-[11px] text-gray-300 mt-1">Applicant can upload via the admissions portal</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {documents.map((doc: any) => (
-                                            <div key={doc.id} className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-xl border border-gray-100 hover:border-violet-200 transition-colors">
-                                                <span className="text-xl flex-shrink-0">{docIcon(doc.document_type)}</span>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-semibold text-gray-800 truncate">{doc.file_name || doc.document_type}</p>
-                                                    <p className="text-[10px] text-gray-400">{doc.document_type} · {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-KE') : '—'}</p>
-                                                </div>
-                                                {doc.file_url && (
-                                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                                                            className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold bg-violet-50 text-violet-700 rounded-lg hover:bg-violet-100 transition">
-                                                            <FiExternalLink size={10} /> View
-                                                        </a>
-                                                        <a href={doc.file_url} download
-                                                            className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition">
-                                                            <FiDownload size={10} /> Save
-                                                        </a>
+                                </div>
+                            )}
+
+                            {/* Documents list */}
+                            <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                                <div className="px-4 py-2.5 bg-gray-50 border-b flex items-center justify-between">
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                        <FiFolder size={11} className="text-violet-500" /> Submitted Documents ({documents.length})
+                                    </p>
+                                </div>
+                                <div className="p-4">
+                                    {docsLoading ? (
+                                        <div className="flex justify-center py-6"><div className="w-5 h-5 border-2 border-violet-200 border-t-violet-600 rounded-full animate-spin" /></div>
+                                    ) : documents.length === 0 ? (
+                                        <div className="text-center py-6">
+                                            <p className="text-3xl mb-2">📂</p>
+                                            <p className="text-xs font-medium text-gray-400">No documents uploaded yet</p>
+                                            <p className="text-[11px] text-gray-300 mt-1">Applicant can upload via the admissions status portal</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {documents.map((doc: any) => (
+                                                <div key={doc.id} className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-xl border border-gray-100 hover:border-violet-200 transition-colors">
+                                                    <span className="text-xl flex-shrink-0">{docIcon(doc.document_type)}</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-semibold text-gray-800 truncate">{doc.document_name || doc.document_type}</p>
+                                                        <p className="text-[10px] text-gray-400">{doc.document_type} · {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-KE') : '—'}</p>
                                                     </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                        <p className="text-[10px] text-gray-400 text-center pt-1">{documents.length} document(s) submitted</p>
-                                    </div>
-                                )}
+                                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                                        {doc.verified ? (
+                                                            <span className="text-[9px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">✅ Verified</span>
+                                                        ) : (
+                                                            <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">Pending</span>
+                                                        )}
+                                                        {doc.file_url && (
+                                                            <>
+                                                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                                                                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold bg-violet-50 text-violet-700 rounded-lg hover:bg-violet-100 transition">
+                                                                    <FiExternalLink size={10} /> View
+                                                                </a>
+                                                                <a href={doc.file_url} download
+                                                                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition">
+                                                                    <FiDownload size={10} /> Save
+                                                                </a>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* ════ MESSAGES TAB ════ */}
+                    {drawerTab === 'messages' && (
+                        <div className="space-y-3">
+                            {notifications.length === 0 ? (
+                                <div className="text-center py-10">
+                                    <p className="text-3xl mb-2">📬</p>
+                                    <p className="text-sm font-medium text-gray-400">No messages yet</p>
+                                    <p className="text-xs text-gray-300 mt-1">Messages appear when applicant uploads documents or school sends updates</p>
+                                </div>
+                            ) : (
+                                notifications.map((n: any) => {
+                                    const isFromApplicant = n.sender_type === 'applicant';
+                                    const isUnread = isFromApplicant && !n.is_read_by_admin;
+                                    const bg = isFromApplicant ? '#eff6ff' : '#f0fdf4';
+                                    const border = isFromApplicant ? '#bfdbfe' : '#bbf7d0';
+                                    const color = isFromApplicant ? '#1d4ed8' : '#059669';
+                                    return (
+                                        <div key={n.id} className="rounded-2xl border-2 overflow-hidden"
+                                            style={{ borderColor: isUnread ? '#dc2626' : border }}>
+                                            <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: bg, borderBottom: `1px solid ${border}` }}>
+                                                <div>
+                                                    <p className="text-xs font-black" style={{ color }}>{n.title}</p>
+                                                    <p className="text-[9px] text-gray-400">{new Date(n.created_at).toLocaleString('en-KE')} · {isFromApplicant ? 'From: Applicant' : 'From: Admissions Office'}</p>
+                                                </div>
+                                                {isUnread && <span className="text-[9px] font-black text-white bg-red-500 px-2 py-0.5 rounded-full animate-pulse">NEW</span>}
+                                            </div>
+                                            <div className="px-4 py-3 bg-white">
+                                                <p className="text-xs text-gray-700 whitespace-pre-line leading-relaxed">{n.message}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )}
+
                     </div>
                 </div>
             </div>
@@ -663,7 +813,16 @@ export default function AdminAdmissionsPage() {
                                         <td className="px-3 py-2.5 text-xs text-gray-500 whitespace-nowrap">
                                             <FiCalendar className="inline mr-1 text-gray-300" size={10} />{fmtDate(app.submitted_at)}
                                         </td>
-                                        <td className="px-3 py-2.5"><StatusBadge status={app.status} /></td>
+                                        <td className="px-3 py-2.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <StatusBadge status={app.status} />
+                                                {(app as any).document_count > 0 && (
+                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-teal-100 text-teal-700">
+                                                        📁{(app as any).document_count}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                                             <div className="flex items-center gap-1">
                                                 <button onClick={() => setSelectedApp(app)}

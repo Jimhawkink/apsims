@@ -1,101 +1,78 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 
-function getServiceClient() {
+function svc() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 }
 
-// ─── PATCH /api/admissions/applications/[id]/status ───
-// Restricted to Admin/Principal
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const allowedRoles = ['Admin', 'Principal'];
-  if (!allowedRoles.map((r) => r.toLowerCase()).includes(session.role?.toLowerCase())) {
-    return NextResponse.json({ error: 'Forbidden: Admin or Principal role required' }, { status: 403 });
-  }
-
-  const id = Number(params.id);
-  if (isNaN(id)) return NextResponse.json({ error: 'Invalid application ID' }, { status: 400 });
+// ── PATCH /api/admissions/applications/[id]/status ────────────────────────────
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const appId = Number(params.id);
+  if (isNaN(appId)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
 
   let body: any;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
 
-  const { status, review_notes } = body;
-
+  const { status, review_notes, updated_by } = body;
   const validStatuses = ['Submitted', 'Under Review', 'Approved', 'Rejected', 'Waitlisted'];
-  if (!status || !validStatuses.includes(status)) {
-    return NextResponse.json(
-      { error: `status must be one of: ${validStatuses.join(', ')}` },
-      { status: 400 }
-    );
+  if (!validStatuses.includes(status)) {
+    return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
   }
 
-  const supabase = getServiceClient();
+  const supabase = svc();
 
-  // Fetch application for SMS
-  const { data: application, error: fetchError } = await supabase
+  const { data: app, error: fetchErr } = await supabase
     .from('school_admission_applications')
-    .select('id, guardian_full_name, guardian_phone, student_first_name, student_last_name, reference_number')
-    .eq('id', id)
+    .select('reference_number, student_first_name, student_last_name, status')
+    .eq('id', appId)
     .maybeSingle();
 
-  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
-  if (!application) return NextResponse.json({ error: 'Application not found' }, { status: 404 });
+  if (fetchErr || !app) return NextResponse.json({ error: 'Application not found' }, { status: 404 });
 
   // Update status
-  const { data, error } = await supabase
-    .from('school_admission_applications')
-    .update({
-      status,
-      review_notes: review_notes || null,
-      reviewed_by: session.id,
-      reviewed_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .select()
-    .single();
+  const { error } = await supabase.from('school_admission_applications')
+    .update({ status, review_notes, updated_at: new Date().toISOString() })
+    .eq('id', appId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // ─── Send status-specific SMS (best-effort) ───
-  try {
-    const studentName = `${application.student_first_name} ${application.student_last_name}`;
-    const guardian = application.guardian_full_name;
-    const ref = application.reference_number;
+  // Create status-change notification for applicant
+  const statusMessages: Record<string, string> = {
+    'Under Review': `Your application (Ref: ${app.reference_number}) for ${app.student_first_name} ${app.student_last_name} is now under review by our admissions team. This typically takes 3–5 working days. You will be notified of the outcome.`,
+    'Approved': `🎉 Congratulations! The application for ${app.student_first_name} ${app.student_last_name} (Ref: ${app.reference_number}) has been APPROVED. Please contact the school admissions office to confirm the place and receive reporting instructions.`,
+    'Rejected': `We regret to inform you that the application for ${app.student_first_name} ${app.student_last_name} (Ref: ${app.reference_number}) was not successful at this time.${review_notes ? ` Reason: ${review_notes}` : ''} Please contact our admissions office for more information.`,
+    'Waitlisted': `The application for ${app.student_first_name} ${app.student_last_name} (Ref: ${app.reference_number}) has been placed on our waitlist. We will contact you immediately if a place becomes available. Please keep your phone reachable.`,
+  };
 
-    let smsMessage = '';
-    if (status === 'Approved') {
-      smsMessage = `Dear ${guardian}, ${studentName}'s application has been APPROVED. Please report to school on the agreed date. Ref: ${ref}. - APSIMS`;
-    } else if (status === 'Rejected') {
-      smsMessage = `Dear ${guardian}, ${studentName}'s application has been REJECTED. Ref: ${ref}. Contact school for details. - APSIMS`;
-    } else if (status === 'Waitlisted') {
-      smsMessage = `Dear ${guardian}, ${studentName}'s application is WAITLISTED. Ref: ${ref}. We will contact you. - APSIMS`;
-    }
+  const statusTitles: Record<string, string> = {
+    'Under Review': '🔍 Application Now Under Review',
+    'Approved': '🎉 Application Approved!',
+    'Rejected': '😔 Application Decision — Unsuccessful',
+    'Waitlisted': '⏳ Application Waitlisted',
+  };
 
-    if (smsMessage && application.guardian_phone) {
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/send-sms`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: application.guardian_phone, message: smsMessage }),
-      });
-    }
-  } catch {
-    // SMS failure should not block the response
+  if (statusMessages[status]) {
+    await supabase.from('school_admission_notifications').insert({
+      application_id: appId,
+      reference_number: app.reference_number,
+      sender_type: 'school',
+      message_type: 'status_update',
+      title: statusTitles[status],
+      message: statusMessages[status] + (review_notes && status !== 'Rejected' ? `\n\nNote from admissions: ${review_notes}` : ''),
+      is_read_by_admin: true,
+    });
   }
 
-  return NextResponse.json({ data });
+  return NextResponse.json({ success: true });
+}
+
+// ── POST for backward compat ──────────────────────────────────────────────────
+export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
+  return PATCH(req, ctx);
 }
