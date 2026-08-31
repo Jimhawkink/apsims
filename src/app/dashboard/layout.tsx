@@ -188,6 +188,7 @@ const menuGroups = [
             { href: '/dashboard/attendance', label: 'Student Attendance', icon: FiCalendar, perm: 'attendance' },
             { href: '/dashboard/attendance/staff', label: 'Staff Attendance', icon: FiUserCheck, perm: 'attendance' },
             { href: '/dashboard/attendance/biometric', label: '🔬 Biometric Attendance', icon: FiShield, perm: 'attendance' },
+            { href: '/dashboard/attendance/zkteco', label: '🔴 ZKTeco Control Panel', icon: FiCpu, perm: 'attendance', superAdminOnly: true },
             { href: '/dashboard/teachers/leave', label: '🏖️ Teacher Leave Management', icon: FiCalendar, perm: 'attendance' },
         ]
     },
@@ -333,9 +334,10 @@ const menuGroups = [
     }
 ];
 
-const filterMenuGroups = (groups: typeof menuGroups, isAdmin: boolean, permissions: Record<string, boolean>) => {
+const filterMenuGroups = (groups: typeof menuGroups, isAdmin: boolean, permissions: Record<string, boolean>, isSuperAdmin?: boolean) => {
     return groups.map(group => {
-        const filteredItems = group.items.filter(item => {
+        const filteredItems = group.items.filter((item: any) => {
+            if (item.superAdminOnly && !isSuperAdmin) return false; // ZKTeco etc — ONLY super admin
             if (isAdmin) return true;  // admin, principal, super-admin see everything
             if (item.perm === 'dashboard') return true;
             return permissions[item.perm] === true;
@@ -449,7 +451,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const isAdmin = isSuperAdmin || userRole === 'admin' || userRole === 'principal';
     // Super-admin gets ALL permissions — no page or function is ever blocked
     const effectivePermissions = isSuperAdmin ? ALL_PERMISSIONS : userPermissions;
-    const filteredGroups = filterMenuGroups(menuGroups, isAdmin, effectivePermissions);
+    const filteredGroups = filterMenuGroups(menuGroups, isAdmin, effectivePermissions, isSuperAdmin);
 
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' });

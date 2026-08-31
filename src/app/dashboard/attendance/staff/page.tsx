@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
@@ -8,7 +8,7 @@ import { Bar, Doughnut } from 'react-chartjs-2';
 import {
     FiUserCheck, FiSave, FiDownload, FiCalendar, FiCheckCircle,
     FiXCircle, FiClock, FiSearch, FiRefreshCw, FiFilter,
-    FiUsers, FiAlertCircle, FiTrendingUp
+    FiUsers, FiAlertCircle, FiTrendingUp, FiZap, FiShield, FiX,
 } from 'react-icons/fi';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
@@ -50,6 +50,12 @@ export default function StaffAttendancePage() {
     const [attendance, setAttendance] = useState<Record<string, { status: StaffAttStatus; time_in?: string; time_out?: string; notes?: string }>>({});
     const [savedAttendance, setSavedAttendance] = useState<Record<string, StaffAttStatus>>({});
 
+    // Biometric mode (RFID / barcode scanner)
+    const [mode, setMode] = useState<'manual' | 'biometric'>('manual');
+    const [bioScanned, setBioScanned] = useState<Set<string>>(new Set());
+    const bioBuffer = useRef('');
+    const bioTimer = useRef<any>(null);
+
     // Report state
     const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1);
     const [reportYear, setReportYear] = useState(new Date().getFullYear());
@@ -74,6 +80,41 @@ export default function StaffAttendancePage() {
     }, []);
 
     useEffect(() => { fetchStaff(); }, [fetchStaff]);
+
+    // ── Biometric Scanner (RFID/Barcode keyboard mode) ────────────────────────
+    useEffect(() => {
+        if (mode !== 'biometric') return;
+        const handleKey = (e: KeyboardEvent) => {
+            const tag = (e.target as HTMLElement)?.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            clearTimeout(bioTimer.current);
+            if (e.key === 'Enter') {
+                const staffNo = bioBuffer.current.trim();
+                bioBuffer.current = '';
+                if (!staffNo) return;
+                const member = allStaff.find(s =>
+                    (s.staff_no || '').toLowerCase() === staffNo.toLowerCase() ||
+                    String(s.id) === staffNo
+                );
+                if (member) {
+                    const key = `${member._type}-${member.id}`;
+                    const now = new Date();
+                    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                    setAttendance(prev => ({ ...prev, [key]: { status: 'Present', time_in: prev[key]?.time_in || timeStr } }));
+                    setBioScanned(prev => new Set([...prev, key]));
+                    toast.success(`✅ ${member.first_name} ${member.last_name} — Present`, { duration: 2000 });
+                } else {
+                    toast.error(`❌ Staff No not found: ${staffNo}`, { duration: 2000 });
+                }
+            } else if (e.key.length === 1) {
+                bioBuffer.current += e.key;
+                bioTimer.current = setTimeout(() => { bioBuffer.current = ''; }, 3000);
+            }
+        };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode, allStaff]);
 
     // Load existing attendance for selected date
     useEffect(() => {
@@ -252,7 +293,15 @@ export default function StaffAttendancePage() {
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">Daily clock-in/out tracking for all staff members</p>
                 </div>
-                <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+                    {/* Biometric Toggle */}
+                    <button onClick={() => { setMode(m => m === 'manual' ? 'biometric' : 'manual'); setBioScanned(new Set()); }}
+                        className="px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-2 transition-all"
+                        style={mode === 'biometric'
+                            ? { background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', color: '#fff', boxShadow: '0 4px 15px -3px rgba(124,58,237,0.5)', animation: 'pulse 2s infinite' }
+                            : { background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe' }}>
+                        <FiShield size={14} />{mode === 'biometric' ? '🟢 Biometric LIVE' : 'Biometric Mode'}
+                    </button>
                     <button onClick={exportCSV} className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg flex items-center gap-2"><FiDownload size={14} /> Export</button>
                     <button onClick={handleSaveAll} disabled={saving || totalMarked === 0}
                         className="px-6 py-2 text-sm font-bold text-white rounded-lg flex items-center gap-2 shadow-lg disabled:opacity-50"

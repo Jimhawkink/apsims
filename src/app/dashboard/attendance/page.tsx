@@ -116,10 +116,10 @@ export default function AttendancePage() {
   const [lateTimes, setLateTimes]           = useState<Record<string, string>>({});
   const [lateTimeOpen, setLateTimeOpen]     = useState<string | null>(null);
 
-  // Biometric scanner ref
+  // Biometric scanner ref — use ref for buffer (NOT state) so keydown handler stays stable
   const bioInput = useRef<HTMLInputElement>(null);
-  const [bioScanned, setBioScanned]         = useState<Set<string>>(new Set());
-  const [bioScanBuffer, setBioScanBuffer]   = useState('');
+  const [bioScanned, setBioScanned]   = useState<Set<string>>(new Set());
+  const bioScanBuffer = useRef('');   // ← ref avoids handler teardown on every keystroke
   const bioTimer = useRef<any>(null);
 
   // Reports
@@ -205,9 +205,14 @@ export default function AttendancePage() {
   useEffect(() => {
     if (mode !== 'biometric') return;
     const handleKey = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
       clearTimeout(bioTimer.current);
       if (e.key === 'Enter') {
-        const admNo = bioScanBuffer.trim();
+        const admNo = bioScanBuffer.current.trim();
+        bioScanBuffer.current = '';
         if (admNo) {
           const student = classStudents.find(s =>
             (s.admission_no || s.admission_number || '').toLowerCase() === admNo.toLowerCase() ||
@@ -221,15 +226,16 @@ export default function AttendancePage() {
             toast.error(`❌ Unknown ID: ${admNo}`, { duration: 1500 });
           }
         }
-        setBioScanBuffer('');
       } else if (e.key.length === 1) {
-        setBioScanBuffer(prev => prev + e.key);
-        bioTimer.current = setTimeout(() => setBioScanBuffer(''), 2000);
+        bioScanBuffer.current += e.key;
+        bioTimer.current = setTimeout(() => { bioScanBuffer.current = ''; }, 3000);
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [mode, bioScanBuffer, classStudents]);
+  // Only re-run when mode or classStudents changes — NOT on every keystroke
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, classStudents]);
 
   // ── Status change ────────────────────────────────────────────────────────────
   const setStatus = (studentId: number, status: AttendanceStatus) => {
