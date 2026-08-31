@@ -38,7 +38,7 @@ interface Application {
   form_applied_for: number;
   status: string;
   review_notes?: string;
-  submitted_at: string;
+  created_at: string;
   updated_at?: string;
   converted_student_id?: number;
 }
@@ -97,7 +97,7 @@ export default function OnlineAdmissionsAdminPage() {
     const { data, error } = await supabase
       .from('school_admission_applications')
       .select('*')
-      .order('submitted_at', { ascending: false });
+      .order('created_at', { ascending: false });
     if (!error) setApplications(data || []);
     else toast.error('Failed to load applications: ' + error.message);
 
@@ -117,8 +117,8 @@ export default function OnlineAdmissionsAdminPage() {
     let list = [...applications];
     if (statusFilter !== 'All') list = list.filter(a => a.status === statusFilter);
     if (formFilter) list = list.filter(a => String(a.form_applied_for) === formFilter);
-    if (dateFrom) list = list.filter(a => a.submitted_at >= dateFrom);
-    if (dateTo)   list = list.filter(a => a.submitted_at <= dateTo + 'T23:59:59');
+    if (dateFrom) list = list.filter(a => a.created_at >= dateFrom);
+    if (dateTo)   list = list.filter(a => a.created_at <= dateTo + 'T23:59:59');
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(a =>
@@ -222,7 +222,7 @@ export default function OnlineAdmissionsAdminPage() {
       a.kcpe_index_number || '', a.kcpe_total_marks || '',
       formLabel(a.form_applied_for),
       a.guardian_full_name, a.guardian_phone, a.guardian_email || '',
-      a.status, new Date(a.submitted_at).toLocaleDateString('en-KE'),
+      a.status, new Date(a.created_at).toLocaleDateString('en-KE'),
       a.converted_student_id ? 'Yes' : 'No',
     ]);
     const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
@@ -383,7 +383,7 @@ export default function OnlineAdmissionsAdminPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
-                      {new Date(a.submitted_at).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {new Date(a.created_at).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
@@ -551,7 +551,7 @@ export default function OnlineAdmissionsAdminPage() {
               <div className="grid grid-cols-2 gap-3 text-xs text-gray-400">
                 <div className="bg-gray-50 rounded-xl p-3">
                   <p className="font-bold text-gray-500">Submitted</p>
-                  <p>{new Date(selected.submitted_at).toLocaleString('en-KE')}</p>
+                  <p>{new Date(selected.created_at).toLocaleString('en-KE')}</p>
                 </div>
                 {selected.updated_at && (
                   <div className="bg-gray-50 rounded-xl p-3">
