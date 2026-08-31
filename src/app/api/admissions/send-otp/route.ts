@@ -16,18 +16,33 @@ function generateOTP(phone: string): string {
   return String(num % 1000000).padStart(6, '0');
 }
 
-// Read SMTP config from school_details table (set via Super Admin panel)
+// Read SMTP config — env vars first (most reliable), then DB
 async function getSmtpConfig() {
+  // PRIMARY: Vercel environment variables (always works)
+  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    return {
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: Number(process.env.SMTP_PORT) || 587,
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+      fromName: process.env.SMTP_FROM_NAME || 'APSIMS Admissions',
+      fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
+    };
+  }
+
+  // FALLBACK: Read from school_details table in DB
   try {
     const sb = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
-    const { data } = await sb
+    const { data, error } = await sb
       .from('school_details')
       .select('smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from_name, smtp_from_email, smtp_enabled')
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    if (error) console.log('[OTP] DB SMTP read error:', error.message);
 
     if (data?.smtp_user && data?.smtp_pass && data?.smtp_enabled !== false) {
       return {
@@ -39,19 +54,8 @@ async function getSmtpConfig() {
         fromEmail: data.smtp_from_email || data.smtp_user,
       };
     }
-  } catch (e) {
-    console.log('[OTP] Could not read SMTP config from DB');
-  }
-  // Fallback to environment variables
-  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-    return {
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: Number(process.env.SMTP_PORT) || 587,
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-      fromName: process.env.SMTP_FROM_NAME || 'APSIMS Admissions',
-      fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
-    };
+  } catch (e: any) {
+    console.log('[OTP] Could not read SMTP from DB:', e?.message);
   }
   return null;
 }
