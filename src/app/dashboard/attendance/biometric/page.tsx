@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
 import { FiCpu, FiUsers, FiList, FiRefreshCw } from 'react-icons/fi';
 import { BiometricDevice, BiometricEnrollment } from '@/lib/biometric-types';
 import DevicesTab from './DevicesTab';
@@ -14,6 +15,7 @@ interface Student {
   first_name: string;
   last_name: string;
   admission_number: string;
+  admission_no?: string;
   form_id: number;
   biometric_enrolled: boolean;
   biometric_device_user_id: string | null;
@@ -27,7 +29,7 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
 ];
 
 export default function BiometricPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('devices');
+  const [activeTab, setActiveTab] = useState<Tab>('enrollment');
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [enrollments, setEnrollments] = useState<BiometricEnrollment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -36,18 +38,29 @@ export default function BiometricPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [devRes, enrollRes, studRes] = await Promise.all([
-        fetch('/api/biometric/devices'),
-        fetch('/api/biometric/enrollments'),
-        fetch('/api/students?limit=2000'),
+      // Load students DIRECTLY from Supabase (no broken /api/students route)
+      const { data: studData } = await supabase
+        .from('school_students')
+        .select('id, first_name, last_name, admission_number, admission_no, form_id, biometric_enrolled, biometric_device_user_id')
+        .eq('status', 'Active')
+        .order('first_name')
+        .limit(2000);
+
+      setStudents((studData || []).map((s: any) => ({
+        ...s,
+        admission_number: s.admission_number || s.admission_no || '',
+        biometric_enrolled: s.biometric_enrolled || false,
+        biometric_device_user_id: s.biometric_device_user_id || null,
+      })));
+
+      // Load devices + enrollments (these APIs exist)
+      const [devRes, enrollRes] = await Promise.all([
+        fetch('/api/biometric/devices').catch(() => null),
+        fetch('/api/biometric/enrollments').catch(() => null),
       ]);
-      const [devData, enrollData, studData] = await Promise.all([
-        devRes.json(), enrollRes.json(), studRes.json(),
-      ]);
-      if (devData.devices) setDevices(devData.devices);
-      if (enrollData.enrollments) setEnrollments(enrollData.enrollments);
-      if (studData.students) setStudents(studData.students);
-    } catch { /* ignore */ } finally { setLoading(false); }
+      if (devRes?.ok) { const d = await devRes.json(); if (d.devices) setDevices(d.devices); }
+      if (enrollRes?.ok) { const e = await enrollRes.json(); if (e.enrollments) setEnrollments(e.enrollments); }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);

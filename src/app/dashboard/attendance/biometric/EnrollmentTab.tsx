@@ -1,7 +1,11 @@
 'use client';
 import { useState, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { FiSearch, FiUserCheck, FiUserX, FiUpload, FiDownload, FiUsers } from 'react-icons/fi';
+import { supabase } from '@/lib/supabase';
+import {
+  FiSearch, FiUserCheck, FiUserX, FiUpload, FiDownload,
+  FiUsers, FiZap, FiCheckCircle, FiX, FiSave, FiInfo,
+} from 'react-icons/fi';
 import { BiometricDevice, BiometricEnrollment } from '@/lib/biometric-types';
 
 interface Student {
@@ -21,12 +25,17 @@ interface Props {
   onRefresh: () => void;
 }
 
+const ENROLL_TYPES = ['fingerprint', 'face', 'card', 'pin'];
+
 export default function EnrollmentTab({ devices, enrollments, students, onRefresh }: Props) {
   const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'enrolled' | 'not_enrolled'>('all');
   const [showModal, setShowModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [enrollForm, setEnrollForm] = useState({ device_id: '', enrollment_type: 'fingerprint', device_user_id: '' });
+  const [enrollForm, setEnrollForm] = useState({ device_user_id: '', enrollment_type: 'fingerprint', device_id: '' });
   const [saving, setSaving] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [csvErrors, setCsvErrors] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -35,217 +44,420 @@ export default function EnrollmentTab({ devices, enrollments, students, onRefres
   const pct = students.length > 0 ? Math.round((enrolled / students.length) * 100) : 0;
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return students;
+    let list = students;
+    if (filterStatus === 'enrolled') list = list.filter(s => s.biometric_enrolled);
+    if (filterStatus === 'not_enrolled') list = list.filter(s => !s.biometric_enrolled);
+    if (!search.trim()) return list;
     const q = search.toLowerCase();
-    return students.filter(s =>
+    return list.filter(s =>
       `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
-      s.admission_number.toLowerCase().includes(q)
+      (s.admission_number || '').toLowerCase().includes(q)
     );
-  }, [students, search]);
+  }, [students, search, filterStatus]);
 
+  // ── Open enroll modal (pre-fills PIN = admission_no) ──────────────────────
   const openEnroll = (s: Student) => {
     setSelectedStudent(s);
-    setEnrollForm({ device_id: devices[0]?.id?.toString() || '', enrollment_type: 'fingerprint', device_user_id: '' });
+    setEnrollForm({
+      device_user_id: s.admission_number || '',
+      enrollment_type: 'fingerprint',
+      device_id: devices[0]?.id?.toString() || '',
+    });
     setShowModal(true);
   };
 
+  // ── Save enrollment to school_biometric_registrations ─────────────────────
   const handleEnroll = async () => {
-    if (!selectedStudent || !enrollForm.device_id || !enrollForm.device_user_id) {
-      toast.error('All fields are required'); return;
+    if (!selectedStudent || !enrollForm.device_user_id.trim()) {
+      toast.error('PIN / Device User ID is required'); return;
     }
     setSaving(true);
     try {
-      const res = await fetch('/api/biometric/enrollments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ student_id: selectedStudent.id, device_id: parseInt(enrollForm.device_id), enrollment_type: enrollForm.enrollment_type, device_user_id: enrollForm.device_user_id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      toast.success(`${selectedStudent.first_name} enrolled successfully`);
+      // Save to our biometric_registrations table
+      const { error: regErr } = await supabase.from('school_biometric_registrations').upsert({
+        person_type: 'student',
+        person_id: selectedStudent.id,
+        person_name: `${selectedStudent.first_name} ${selectedStudent.last_name}`,
+        biometric_pin: enrollForm.device_user_id.trim(),
+        device_sn: enrollForm.device_id || null,
+        enroll_method: enrollForm.enrollment_type,
+        registered_by: JSON.parse(localStorage.getItem('school_user') || '{}').full_name || 'Admin',
+        is_active: true,
+      }, { onConflict: 'biometric_pin' });
+
+      if (regErr) throw new Error(regErr.message);
+
+      // Also update school_students biometric fields
+      await supabase.from('school_students')
+        .update({ biometric_enrolled: true, biometric_device_user_id: enrollForm.device_user_id.trim() })
+        .eq('id', selectedStudent.id);
+
+      // Also call old API as backup (ignoring auth errors)
+      if (enrollForm.device_id) {
+        fetch('/api/biometric/enrollments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            student_id: selectedStudent.id,
+            device_id: parseInt(enrollForm.device_id),
+            enrollment_type: enrollForm.enrollment_type,
+            device_user_id: enrollForm.device_user_id.trim(),
+          }),
+        }).catch(() => {});
+      }
+
+      toast.success(`✅ ${selectedStudent.first_name} ${selectedStudent.last_name} enrolled! PIN: ${enrollForm.device_user_id}`);
       setShowModal(false);
       onRefresh();
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Enrollment failed');
+    } catch (e: any) {
+      toast.error(e.message || 'Enrollment failed');
     } finally { setSaving(false); }
   };
 
-  const handleDeactivate = async (enrollmentId: number, studentName: string) => {
-    if (!confirm(`Deactivate biometric enrollment for ${studentName}?`)) return;
-    const res = await fetch('/api/biometric/enrollments', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: enrollmentId, is_active: false }),
-    });
-    if (res.ok) { toast.success('Enrollment deactivated'); onRefresh(); }
-    else toast.error('Failed to deactivate');
+  // ── Auto-Enroll ALL students (PIN = admission_number) ─────────────────────
+  const autoEnrollAll = async () => {
+    setBulkLoading(true);
+    const notEnrolled = students.filter(s => !s.biometric_enrolled && s.admission_number);
+    if (notEnrolled.length === 0) { toast('All students already enrolled!'); setBulkLoading(false); return; }
+
+    let success = 0;
+    const rows = notEnrolled.map(s => ({
+      person_type: 'student',
+      person_id: s.id,
+      person_name: `${s.first_name} ${s.last_name}`,
+      biometric_pin: s.admission_number,
+      enroll_method: 'fingerprint',
+      is_active: true,
+    }));
+
+    const { error } = await supabase.from('school_biometric_registrations')
+      .upsert(rows, { onConflict: 'biometric_pin' });
+
+    if (!error) {
+      // Bulk update students
+      for (const s of notEnrolled) {
+        await supabase.from('school_students')
+          .update({ biometric_enrolled: true, biometric_device_user_id: s.admission_number })
+          .eq('id', s.id);
+        success++;
+      }
+      toast.success(`✅ Auto-enrolled ${success} students! PIN = Admission Number`);
+    } else {
+      toast.error('Bulk enroll failed: ' + error.message);
+    }
+    setBulkLoading(false);
+    onRefresh();
   };
 
+  // ── Deactivate enrollment ──────────────────────────────────────────────────
+  const handleDeactivate = async (student: Student) => {
+    if (!confirm(`Remove biometric enrollment for ${student.first_name} ${student.last_name}?`)) return;
+    await supabase.from('school_biometric_registrations')
+      .update({ is_active: false })
+      .eq('person_type', 'student').eq('person_id', student.id);
+    await supabase.from('school_students')
+      .update({ biometric_enrolled: false, biometric_device_user_id: null })
+      .eq('id', student.id);
+    toast.success('Enrollment removed');
+    onRefresh();
+  };
+
+  // ── Download CSV template ──────────────────────────────────────────────────
+  const downloadTemplate = () => {
+    const headers = 'admission_number,device_user_id,device_id,enrollment_type\n';
+    const example = students.slice(0, 3).map(s =>
+      `${s.admission_number},${s.admission_number},1,fingerprint`
+    ).join('\n');
+    const fallback = 'ADM001,ADM001,1,fingerprint\nADM002,ADM002,1,face\nADM003,ADM003,1,card';
+    const csv = '\uFEFF' + headers + (example || fallback);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'biometric_enrollment_template.csv'; a.click();
+    toast.success('Template downloaded!');
+  };
+
+  // ── Bulk CSV upload ────────────────────────────────────────────────────────
   const handleCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = e.target.files?.[0]; if (!file) return;
     const text = await file.text();
-    const lines = text.split('\n').filter(l => l.trim());
-    const errors: string[] = [];
-    let success = 0;
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const errors: string[] = []; let success = 0;
 
     for (let i = 1; i < lines.length; i++) {
-      const [admission_number, device_user_id, device_id, enrollment_type] = lines[i].split(',').map(s => s.trim());
+      const cols = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+      const [admission_number, device_user_id, device_id, enrollment_type = 'fingerprint'] = cols;
+      if (!admission_number || !device_user_id) { errors.push(`Row ${i + 1}: missing admission_number or device_user_id`); continue; }
       const student = students.find(s => s.admission_number === admission_number);
-      if (!student) { errors.push(`Row ${i + 1}: Student "${admission_number}" not found`); continue; }
-      const res = await fetch('/api/biometric/enrollments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ student_id: student.id, device_id: parseInt(device_id), enrollment_type: enrollment_type || 'fingerprint', device_user_id }),
-      });
-      if (res.ok) success++; else errors.push(`Row ${i + 1}: Failed to enroll ${admission_number}`);
+      if (!student) { errors.push(`Row ${i + 1}: student "${admission_number}" not found`); continue; }
+
+      const { error } = await supabase.from('school_biometric_registrations').upsert({
+        person_type: 'student', person_id: student.id,
+        person_name: `${student.first_name} ${student.last_name}`,
+        biometric_pin: device_user_id, enroll_method: enrollment_type, is_active: true,
+      }, { onConflict: 'biometric_pin' });
+
+      if (!error) {
+        await supabase.from('school_students')
+          .update({ biometric_enrolled: true, biometric_device_user_id: device_user_id })
+          .eq('id', student.id);
+        success++;
+      } else { errors.push(`Row ${i + 1}: ${error.message}`); }
     }
 
     setCsvErrors(errors);
-    toast.success(`Bulk enrollment: ${success} enrolled, ${errors.length} errors`);
+    toast.success(`Bulk enrolled: ${success} success, ${errors.length} errors`);
     if (fileRef.current) fileRef.current.value = '';
     onRefresh();
   };
 
   const downloadErrors = () => {
-    const blob = new Blob([csvErrors.join('\n')], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'enrollment_errors.txt'; a.click();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csvErrors.join('\n')], { type: 'text/plain' }));
+    a.download = 'enrollment_errors.txt'; a.click();
   };
 
-  const getStudentEnrollments = (studentId: number) =>
-    enrollments.filter(e => e.student_id === studentId && e.is_active);
-
   return (
-    <div>
-      {/* Stats strip */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-green-50 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-green-700">{enrolled}</div>
-          <div className="text-xs text-green-600 mt-0.5">Enrolled</div>
-        </div>
-        <div className="bg-amber-50 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-amber-700">{unenrolled}</div>
-          <div className="text-xs text-amber-600 mt-0.5">Not Enrolled</div>
-        </div>
-        <div className="bg-indigo-50 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-indigo-700">{pct}%</div>
-          <div className="text-xs text-indigo-600 mt-0.5">Coverage</div>
-        </div>
-      </div>
+    <div className="space-y-5">
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-48">
-          <FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..."
-            className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-        </div>
-        <label className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
-          <FiUpload size={14} /> Bulk CSV
-          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSV} />
-        </label>
-        {csvErrors.length > 0 && (
-          <button onClick={downloadErrors} className="flex items-center gap-1.5 text-sm text-red-600 px-3 py-2 rounded-lg border border-red-200 hover:bg-red-50">
-            <FiDownload size={14} /> {csvErrors.length} errors
+      {/* ── HOW IT WORKS BANNER ── */}
+      <div className="rounded-2xl p-4 border-2 border-indigo-200 bg-indigo-50">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl flex-shrink-0">ℹ️</span>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-indigo-800 mb-1">How Biometric Attendance Works</p>
+            <ol className="text-xs text-indigo-700 space-y-0.5 list-decimal list-inside">
+              <li>Enroll student here (PIN = their Admission Number)</li>
+              <li>On ZKTeco device: Menu → User Mgmt → New User → PIN = Admission No → Scan finger 3x</li>
+              <li>Student places finger on device → device pushes to APSIMS</li>
+              <li>APSIMS matches PIN to student → <strong>automatically marks attendance ✅</strong></li>
+            </ol>
+            <p className="text-[10px] text-indigo-500 mt-1">ADMS Push URL: <strong>{typeof window !== 'undefined' ? window.location.origin : 'https://apsims.vercel.app'}/api/biometric/zkteco</strong> (configure on device)</p>
+          </div>
+          <button onClick={() => setShowInfoModal(true)} className="flex-shrink-0 text-indigo-600 hover:text-indigo-800">
+            <FiInfo size={16} />
           </button>
-        )}
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Student</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Adm No.</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Device ID</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Devices</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {filtered.map(s => {
-              const studentEnrollments = getStudentEnrollments(s.id);
-              return (
-                <tr key={s.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{s.first_name} {s.last_name}</td>
-                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">{s.admission_number}</td>
+      {/* ── STATS ── */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
+          <p className="text-3xl font-black text-green-700">{enrolled}</p>
+          <p className="text-xs text-green-600 mt-1 font-semibold">✅ Enrolled</p>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
+          <p className="text-3xl font-black text-amber-700">{unenrolled}</p>
+          <p className="text-xs text-amber-600 mt-1 font-semibold">⚠️ Not Enrolled</p>
+        </div>
+        <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 text-center">
+          <p className="text-3xl font-black text-indigo-700">{pct}%</p>
+          <p className="text-xs text-indigo-600 mt-1 font-semibold">📊 Coverage</p>
+        </div>
+      </div>
+
+      {/* ── TOOLBAR ── */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-4">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <div className="relative flex-1">
+            <FiSearch size={13} className="absolute left-3 top-3 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students by name or admission no…"
+              className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-200 outline-none" />
+          </div>
+          <div className="flex gap-1.5">
+            {(['all', 'enrolled', 'not_enrolled'] as const).map(f => (
+              <button key={f} onClick={() => setFilterStatus(f)}
+                className="px-3 py-2 rounded-xl text-[11px] font-bold transition-all capitalize"
+                style={filterStatus === f ? { background: '#4f46e5', color: '#fff' } : { background: '#f3f4f6', color: '#6b7280' }}>
+                {f === 'all' ? 'All' : f === 'enrolled' ? '✅ Enrolled' : '⚠️ Not Yet'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
+          {/* Auto-Enroll All */}
+          <button onClick={autoEnrollAll} disabled={bulkLoading}
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white rounded-xl disabled:opacity-60"
+            style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
+            {bulkLoading ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiZap size={11} />}
+            Auto-Enroll All (PIN = Admission No)
+          </button>
+          {/* CSV Template */}
+          <button onClick={downloadTemplate}
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100">
+            <FiDownload size={11} />Download CSV Template
+          </button>
+          {/* Bulk Upload */}
+          <label className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 cursor-pointer">
+            <FiUpload size={11} />Bulk Upload CSV
+            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSV} />
+          </label>
+          {csvErrors.length > 0 && (
+            <button onClick={downloadErrors} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl">
+              <FiDownload size={11} />{csvErrors.length} errors
+            </button>
+          )}
+          <span className="ml-auto text-xs text-gray-400 self-center">Showing {filtered.length} of {students.length} students</span>
+        </div>
+      </div>
+
+      {/* ── TABLE ── */}
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                {['#', 'Student', 'Admission No', 'Status', 'PIN on Device', 'Method', 'Action'].map(h => (
+                  <th key={h} className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((s, i) => (
+                <tr key={s.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${s.biometric_enrolled ? '' : 'bg-amber-50/30'}`}>
+                  <td className="px-4 py-3 text-xs text-gray-400">{i + 1}</td>
                   <td className="px-4 py-3">
-                    {s.biometric_enrolled
-                      ? <span className="flex items-center gap-1 text-green-700 bg-green-50 px-2 py-0.5 rounded-full text-xs font-medium w-fit"><FiUserCheck size={11} />Enrolled</span>
-                      : <span className="flex items-center gap-1 text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full text-xs font-medium w-fit"><FiUserX size={11} />Not enrolled</span>
-                    }
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">{s.biometric_device_user_id || '—'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {studentEnrollments.map(e => (
-                        <span key={e.id} className="text-xs bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">
-                          {(e.device as { device_name?: string })?.device_name || `Device ${e.device_id}`}
-                        </span>
-                      ))}
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                        style={{ background: s.biometric_enrolled ? 'linear-gradient(135deg,#059669,#047857)' : 'linear-gradient(135deg,#94a3b8,#64748b)' }}>
+                        {s.first_name?.charAt(0)}{s.last_name?.charAt(0)}
+                      </div>
+                      <p className="text-sm font-semibold text-gray-800">{s.first_name} {s.last_name}</p>
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-xs font-mono font-bold text-gray-600">{s.admission_number || '—'}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-1 justify-end">
-                      <button onClick={() => openEnroll(s)} className="text-xs bg-indigo-600 text-white px-2.5 py-1 rounded-lg hover:bg-indigo-700">Enroll</button>
-                      {studentEnrollments.map(e => (
-                        <button key={e.id} onClick={() => handleDeactivate(e.id, `${s.first_name} ${s.last_name}`)}
-                          className="text-xs bg-red-50 text-red-600 px-2.5 py-1 rounded-lg hover:bg-red-100">Deactivate</button>
-                      ))}
+                    {s.biometric_enrolled
+                      ? <span className="flex items-center gap-1 text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full text-[10px] font-bold w-fit">
+                          <FiCheckCircle size={9} />Enrolled
+                        </span>
+                      : <span className="flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-bold w-fit animate-pulse">
+                          <FiUserX size={9} />Not Enrolled
+                        </span>}
+                  </td>
+                  <td className="px-4 py-3 text-xs font-mono text-gray-600">{s.biometric_device_user_id || '—'}</td>
+                  <td className="px-4 py-3">
+                    {s.biometric_enrolled && <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">☝️ Fingerprint</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-1.5">
+                      <button onClick={() => openEnroll(s)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-bold text-indigo-700 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition whitespace-nowrap">
+                        <FiUserCheck size={10} />{s.biometric_enrolled ? 'Update' : 'Enroll'}
+                      </button>
+                      {s.biometric_enrolled && (
+                        <button onClick={() => handleDeactivate(s)}
+                          className="flex items-center gap-1 px-2 py-1.5 text-[10px] font-bold text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition">
+                          <FiX size={10} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {filtered.length === 0 && (
-          <div className="text-center py-10 text-gray-400">
-            <FiUsers size={32} className="mx-auto mb-2 opacity-30" />
-            <p>No students found</p>
-          </div>
-        )}
+              ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={7} className="text-center py-16 text-gray-400">
+                  <FiUsers size={32} className="mx-auto mb-2 opacity-20" />
+                  <p className="text-sm font-medium">No students found</p>
+                  <p className="text-xs mt-1 text-gray-300">Students load from school_students table</p>
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Enroll Modal */}
+      {/* ── ENROLL MODAL ── */}
       {showModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" style={{ backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
             <div className="p-6 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">Enroll Student</h2>
-              <p className="text-sm text-gray-500 mt-0.5">{selectedStudent.first_name} {selectedStudent.last_name}</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-black text-gray-900">Enroll Student</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">{selectedStudent.first_name} {selectedStudent.last_name}</p>
+                </div>
+                <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center"><FiX size={14} /></button>
+              </div>
             </div>
             <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Device *</label>
-                <select value={enrollForm.device_id} onChange={e => setEnrollForm(f => ({ ...f, device_id: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                  {devices.map(d => <option key={d.id} value={d.id}>{d.device_name} ({d.brand})</option>)}
-                </select>
+              <div className="p-3 bg-blue-50 rounded-2xl text-xs text-blue-700">
+                <p className="font-bold mb-1">📌 Important:</p>
+                <p>The <strong>Device User ID / PIN</strong> below must match exactly what you program on the ZKTeco device for this student. We recommend using their Admission Number.</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Enrollment Type</label>
-                <select value={enrollForm.enrollment_type} onChange={e => setEnrollForm(f => ({ ...f, enrollment_type: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                  {['fingerprint', 'face', 'card'].map(t => <option key={t} className="capitalize">{t}</option>)}
-                </select>
+                <label className="block text-xs font-bold text-gray-600 mb-1.5">Device User ID / PIN *</label>
+                <input value={enrollForm.device_user_id}
+                  onChange={e => setEnrollForm(f => ({ ...f, device_user_id: e.target.value }))}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm font-mono font-bold tracking-wider focus:border-indigo-400 outline-none"
+                  placeholder={`e.g. ${selectedStudent.admission_number || '12345'}`} />
+                <p className="text-[10px] text-gray-400 mt-1">Default = Admission Number. Must match exactly what's on the ZKTeco device.</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Device User ID *</label>
-                <input value={enrollForm.device_user_id} onChange={e => setEnrollForm(f => ({ ...f, device_user_id: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="ID assigned on the device (e.g. 1001)" />
+                <label className="block text-xs font-bold text-gray-600 mb-1.5">Enrollment Method</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ENROLL_TYPES.map(t => (
+                    <button key={t} onClick={() => setEnrollForm(f => ({ ...f, enrollment_type: t }))}
+                      className="p-2.5 rounded-xl text-xs font-bold capitalize border-2 transition-all"
+                      style={enrollForm.enrollment_type === t
+                        ? { borderColor: '#4f46e5', background: '#eef2ff', color: '#4f46e5' }
+                        : { borderColor: '#e5e7eb', color: '#6b7280' }}>
+                      {t === 'fingerprint' ? '☝️' : t === 'face' ? '😊' : t === 'card' ? '💳' : '🔢'} {t}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {devices.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1.5">Device (optional)</label>
+                  <select value={enrollForm.device_id} onChange={e => setEnrollForm(f => ({ ...f, device_id: e.target.value }))}
+                    className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3 text-sm focus:border-indigo-400 outline-none">
+                    <option value="">— Select Device —</option>
+                    {devices.map((d: any) => <option key={d.id} value={d.id}>{d.device_name} ({d.brand})</option>)}
+                  </select>
+                </div>
+              )}
             </div>
-            <div className="p-6 border-t border-gray-100 flex gap-3 justify-end">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+            <div className="p-6 border-t border-gray-100 flex gap-3">
               <button onClick={handleEnroll} disabled={saving}
-                className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                {saving ? 'Enrolling...' : 'Enroll Student'}
+                className="flex-1 py-3 text-sm font-bold text-white rounded-2xl flex items-center justify-center gap-2 disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
+                {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSave size={14} />}
+                {saving ? 'Enrolling…' : 'Save Enrollment'}
               </button>
+              <button onClick={() => setShowModal(false)} className="px-5 py-3 text-sm text-gray-500 bg-gray-100 rounded-2xl">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── HOW IT WORKS DETAILED MODAL ── */}
+      {showInfoModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" style={{ backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            <div className="p-5 border-b bg-indigo-600 rounded-t-3xl flex items-center justify-between">
+              <h3 className="font-black text-white">How Biometric Attendance Works</h3>
+              <button onClick={() => setShowInfoModal(false)} className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center text-white"><FiX size={12} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              {[
+                { step: 1, icon: '📋', title: 'Enroll Student Here', body: 'Click "Enroll" next to student. Set PIN = their Admission Number. Or click "Auto-Enroll All" to do everyone at once.' },
+                { step: 2, icon: '🖥️', title: 'Configure ZKTeco Device (ADMS)', body: `On device: Menu → Comm → Cloud/ADMS → Enable → Server: ${typeof window !== 'undefined' ? window.location.origin : 'https://apsims.vercel.app'}/api/biometric/zkteco → Port: 443` },
+                { step: 3, icon: '☝️', title: 'Register Fingerprint on Physical Device', body: 'On ZKTeco device: Menu → User Management → New User → User ID = Admission Number → Enroll Fingerprint (place finger 3 times)' },
+                { step: 4, icon: '🎯', title: 'Student Scans Finger', body: 'Student places finger on device. Device matches fingerprint to User ID. Sends data to APSIMS within 30 seconds.' },
+                { step: 5, icon: '✅', title: 'Attendance Auto-Marked', body: 'APSIMS receives the PIN, looks up student by admission number, marks "Present" in school_attendance table for the correct session (Morning/Afternoon/Evening based on time).' },
+                { step: 6, icon: '📊', title: 'See in Attendance Page', body: 'Go to Student Attendance → Select Class → You will see the student already marked Present with a note "Biometric (Fingerprint)"' },
+              ].map(s => (
+                <div key={s.step} className="flex gap-3 p-3 bg-gray-50 rounded-2xl">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0">{s.step}</div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">{s.icon} {s.title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{s.body}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="p-3 bg-green-50 rounded-2xl text-xs text-green-700 font-medium">
+                ✅ Once configured, attendance is <strong>fully automatic</strong> — no teacher action needed!
+              </div>
             </div>
           </div>
         </div>
