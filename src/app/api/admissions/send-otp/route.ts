@@ -1,19 +1,59 @@
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
-import { Resend } from 'resend';
+import { createClient } from '@supabase/supabase-js';
+import nodemailer from 'nodemailer';
 
 const SECRET = process.env.OTP_SECRET || 'apsims-otp-2026-xK9mP3qR';
-const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'admissions@apsims.vercel.app';
 
-// TOTP-style: OTP changes every 5 minutes, stateless — no DB needed
 function generateOTP(phone: string): string {
   const window = Math.floor(Date.now() / (5 * 60 * 1000));
   const h = createHmac('sha256', SECRET);
   h.update(`${phone}:${window}`);
   const num = parseInt(h.digest('hex').substring(0, 8), 16);
   return String(num % 1000000).padStart(6, '0');
+}
+
+// Read SMTP config from school_details table (set via Super Admin panel)
+async function getSmtpConfig() {
+  try {
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const { data } = await sb
+      .from('school_details')
+      .select('smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from_name, smtp_from_email, smtp_enabled')
+      .limit(1)
+      .single();
+
+    if (data?.smtp_user && data?.smtp_pass && data?.smtp_enabled !== false) {
+      return {
+        host: data.smtp_host || 'smtp.gmail.com',
+        port: Number(data.smtp_port) || 587,
+        user: data.smtp_user,
+        pass: data.smtp_pass,
+        fromName: data.smtp_from_name || 'APSIMS Admissions',
+        fromEmail: data.smtp_from_email || data.smtp_user,
+      };
+    }
+  } catch (e) {
+    console.log('[OTP] Could not read SMTP config from DB');
+  }
+  // Fallback to environment variables
+  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    return {
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: Number(process.env.SMTP_PORT) || 587,
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+      fromName: process.env.SMTP_FROM_NAME || 'APSIMS Admissions',
+      fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
+    };
+  }
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -23,80 +63,88 @@ export async function POST(req: NextRequest) {
   const phone = (body.phone || '').replace(/\s+/g, '').trim();
   const email = (body.email || '').trim();
 
-  if (!phone) {
-    return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
-  }
-  if (!email) {
-    return NextResponse.json({ error: 'Guardian email address is required to send the verification code' }, { status: 400 });
-  }
-  // Basic email validation
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: 'Enter a valid email address' }, { status: 400 });
-  }
+  if (!phone) return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
+  if (!email) return NextResponse.json({ error: 'Guardian email is required — the verification code will be sent there' }, { status: 400 });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'Enter a valid email address' }, { status: 400 });
 
   const otp = generateOTP(phone);
+  const smtpConfig = await getSmtpConfig();
 
-  // Send via Resend email
-  if (!RESEND_API_KEY) {
-    console.log(`[OTP] No RESEND_API_KEY — OTP for ${phone}: ${otp}`);
-    // Still return success so form works; admin can check Vercel logs
-    return NextResponse.json({ success: true, note: 'Email not configured — check Vercel logs' });
+  if (!smtpConfig) {
+    // No SMTP configured at all — admin must set it up
+    return NextResponse.json({
+      error: 'Email not configured. Please ask the school admin to set up SMTP email settings in the Super Admin panel.',
+    }, { status: 503 });
   }
 
+  // Send via Nodemailer (Gmail SMTP or any SMTP)
   try {
-    const resend = new Resend(RESEND_API_KEY);
-    await resend.emails.send({
-      from: FROM_EMAIL,
+    const transporter = nodemailer.createTransport({
+      host: smtpConfig.host,
+      port: smtpConfig.port,
+      secure: smtpConfig.port === 465,
+      auth: {
+        user: smtpConfig.user,
+        pass: smtpConfig.pass,
+      },
+      tls: { rejectUnauthorized: false },
+    });
+
+    await transporter.sendMail({
+      from: `"${smtpConfig.fromName}" <${smtpConfig.fromEmail}>`,
       to: email,
-      subject: `Your APSIMS Admissions Verification Code: ${otp}`,
+      subject: `APSIMS Admissions — Verification Code: ${otp}`,
       html: `
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="utf-8"></head>
-        <body style="margin:0;padding:0;background:#f0f4f8;font-family:system-ui,-apple-system,sans-serif;">
-          <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-            <!-- Header -->
-            <div style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8);padding:32px 32px 24px;text-align:center;">
-              <p style="margin:0;font-size:32px;">🎓</p>
-              <h1 style="margin:8px 0 4px;color:#fff;font-size:20px;font-weight:900;">APSIMS School</h1>
-              <p style="margin:0;color:#93c5fd;font-size:13px;">Online Admissions Portal</p>
+        <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:16px;
+          overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);font-family:Arial,sans-serif;">
+          <!-- Header -->
+          <div style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8);padding:28px 32px;text-align:center;">
+            <p style="margin:0;font-size:36px;">🎓</p>
+            <h1 style="margin:8px 0 4px;color:#ffffff;font-size:22px;font-weight:900;letter-spacing:-0.5px;">APSIMS School</h1>
+            <p style="margin:0;color:#93c5fd;font-size:13px;">Online Admissions Portal</p>
+          </div>
+          <!-- Body -->
+          <div style="padding:32px;">
+            <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hello,</p>
+            <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.7;">
+              Your <strong>6-digit verification code</strong> for the online admissions application is:
+            </p>
+            <!-- OTP Box -->
+            <div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:14px;
+              padding:28px 24px;text-align:center;margin:0 0 24px;">
+              <p style="margin:0 0 6px;font-size:11px;color:#6b7280;font-weight:700;
+                letter-spacing:0.12em;text-transform:uppercase;">Your Verification Code</p>
+              <p style="margin:0;font-size:48px;font-weight:900;color:#1d4ed8;
+                letter-spacing:0.3em;font-family:Courier New,monospace;">${otp}</p>
+              <p style="margin:10px 0 0;font-size:12px;color:#9ca3af;">⏱ Valid for 5 minutes only</p>
             </div>
-            <!-- Body -->
-            <div style="padding:32px;">
-              <p style="margin:0 0 8px;font-size:15px;color:#374151;font-weight:600;">Hello,</p>
-              <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">
-                Your verification code for the online admissions application is:
+            <p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.7;">
+              Enter this code on the admissions form to verify your contact and submit the application.
+            </p>
+            <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;
+              padding:12px 16px;">
+              <p style="margin:0;font-size:12px;color:#92400e;line-height:1.6;">
+                ⚠️ <strong>Do NOT share</strong> this code with anyone.
+                APSIMS staff will <strong>never</strong> ask for your code.
               </p>
-              <!-- OTP Box -->
-              <div style="background:#f0f9ff;border:2px solid #bfdbfe;border-radius:12px;padding:24px;text-align:center;margin:0 0 24px;">
-                <p style="margin:0 0 4px;font-size:12px;color:#6b7280;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">Verification Code</p>
-                <p style="margin:0;font-size:40px;font-weight:900;color:#1d4ed8;letter-spacing:0.25em;font-family:monospace;">${otp}</p>
-                <p style="margin:8px 0 0;font-size:12px;color:#9ca3af;">Valid for 5 minutes only</p>
-              </div>
-              <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6;">
-                Enter this code on the admissions form to verify your phone number and continue with the application.
-              </p>
-              <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin:16px 0 0;">
-                <p style="margin:0;font-size:12px;color:#92400e;">
-                  ⚠️ <strong>Do NOT share this code</strong> with anyone. APSIMS staff will never ask for your verification code.
-                </p>
-              </div>
-            </div>
-            <!-- Footer -->
-            <div style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;text-align:center;">
-              <p style="margin:0;font-size:11px;color:#9ca3af;">APSIMS School Management System · Online Admissions</p>
-              <p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">apsims.vercel.app/admissions</p>
             </div>
           </div>
-        </body>
-        </html>
+          <!-- Footer -->
+          <div style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;text-align:center;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;">APSIMS School Management System</p>
+            <p style="margin:3px 0 0;font-size:11px;color:#9ca3af;">apsims.vercel.app/admissions</p>
+          </div>
+        </div>
       `,
     });
-    console.log(`[OTP] Email sent to ${email} for phone ${phone}`);
-  } catch (err: any) {
-    console.error('[OTP] Resend error:', err?.message || err);
-    return NextResponse.json({ error: 'Failed to send verification email. Please check your email address and try again.' }, { status: 500 });
-  }
 
-  return NextResponse.json({ success: true });
+    console.log(`[OTP] ✅ Email sent to ${email} via ${smtpConfig.host}`);
+    return NextResponse.json({ success: true });
+
+  } catch (err: any) {
+    console.error('[OTP] Gmail SMTP error:', err?.message || err);
+    return NextResponse.json({
+      error: `Failed to send email: ${err?.message || 'SMTP error'}. Check SMTP settings in Super Admin panel.`,
+    }, { status: 500 });
+  }
 }

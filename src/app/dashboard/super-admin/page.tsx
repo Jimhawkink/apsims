@@ -47,5 +47,180 @@ export default function SuperAdminPage() {
 
     {/* Campus Modal */}
     {showModal==='campus'&&<div className="modal-overlay" onClick={()=>setShowModal('')}><div className="modal-content" style={{maxWidth:500}} onClick={e=>e.stopPropagation()}><div className="px-6 py-5 flex items-center justify-between relative overflow-hidden" style={{background:G.green}}><div className="absolute right-0 top-0 w-32 h-32 rounded-full -translate-y-10 translate-x-10 opacity-10 bg-white"/><h2 className="text-lg font-bold text-white">🏢 Add Campus</h2><button onClick={()=>setShowModal('')} className="p-2 rounded-xl bg-white/20 text-white hover:bg-white/30"><FiX size={18}/></button></div><div className="p-6 space-y-4"><div><label className="text-xs font-bold text-gray-600 mb-1 block uppercase">School *</label><select value={cForm.tenant_id} onChange={e=>setCForm({...cForm,tenant_id:Number(e.target.value)})} className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-green-400"><option value={0}>Select School</option>{tenants.map(t=><option key={t.id} value={t.id}>{t.tenant_name}</option>)}</select></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-gray-600 mb-1 block uppercase">Campus Name *</label><input value={cForm.campus_name} onChange={e=>setCForm({...cForm,campus_name:e.target.value})} className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-green-400"/></div><div><label className="text-xs font-bold text-gray-600 mb-1 block uppercase">Campus Code</label><input value={cForm.campus_code} onChange={e=>setCForm({...cForm,campus_code:e.target.value})} className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-green-400"/></div></div><div><label className="text-xs font-bold text-gray-600 mb-1 block uppercase">Address</label><input value={cForm.address} onChange={e=>setCForm({...cForm,address:e.target.value})} className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-green-400"/></div><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={cForm.is_main} onChange={e=>setCForm({...cForm,is_main:e.target.checked})} className="w-4 h-4 rounded"/><span className="text-sm text-gray-700">Main Campus</span></label></div><div className="p-6 border-t border-gray-100 flex gap-3 justify-end bg-gray-50/50"><button onClick={()=>setShowModal('')} className="btn-outline flex items-center gap-2 text-sm"><FiX size={14}/> Cancel</button><button onClick={saveCampus} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-md" style={{background:G.green}}>{saving?<div className="spinner" style={{width:14,height:14}}/>:<FiSave size={14}/>} Save</button></div></div></div>}
+    <SmtpSettingsPanel />
   </div>);
+}
+
+// ── SMTP Settings Panel ────────────────────────────────────────────────────────
+function SmtpSettingsPanel() {
+  const [smtp, setSmtp] = useState({
+    smtp_host: 'smtp.gmail.com', smtp_port: '587',
+    smtp_user: '', smtp_pass: '', smtp_from_name: 'APSIMS Admissions',
+    smtp_from_email: '', smtp_enabled: true, test_to: '',
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/admin/smtp-settings').then(r => r.json()).then(r => {
+      if (r.data) setSmtp(p => ({
+        ...p,
+        smtp_host: r.data.smtp_host || 'smtp.gmail.com',
+        smtp_port: String(r.data.smtp_port || 587),
+        smtp_user: r.data.smtp_user || '',
+        smtp_from_name: r.data.smtp_from_name || 'APSIMS Admissions',
+        smtp_from_email: r.data.smtp_from_email || '',
+        smtp_enabled: r.data.smtp_enabled !== false,
+      }));
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const save = async () => {
+    if (!smtp.smtp_user || !smtp.smtp_pass) return toast.error('Gmail address and App Password are required');
+    setSaving(true);
+    const res = await fetch('/api/admin/smtp-settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...smtp, smtp_port: Number(smtp.smtp_port) }),
+    });
+    const r = await res.json();
+    if (r.success) toast.success('✅ SMTP settings saved!');
+    else toast.error(r.error || 'Failed to save');
+    setSaving(false);
+  };
+
+  const testEmail = async () => {
+    if (!smtp.test_to) return toast.error('Enter an email address to send the test to');
+    if (!smtp.smtp_user || !smtp.smtp_pass) return toast.error('Fill in Gmail and App Password first');
+    setTesting(true);
+    const res = await fetch('/api/admin/smtp-settings', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...smtp, smtp_port: Number(smtp.smtp_port) }),
+    });
+    const r = await res.json();
+    if (r.success) toast.success(`✅ Test email sent to ${smtp.test_to}! Check your inbox.`);
+    else toast.error(r.error || 'Test failed');
+    setTesting(false);
+  };
+
+  const F = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-400 bg-white';
+  const L = 'block text-xs font-black text-gray-600 uppercase tracking-wider mb-1.5';
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="p-5 flex items-center gap-3" style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)' }}>
+        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl">✉️</div>
+        <div>
+          <p className="text-white font-black text-base">Email / SMTP Settings</p>
+          <p className="text-blue-200 text-xs">Configure Gmail to send OTP verification codes for online admissions</p>
+        </div>
+        <label className="ml-auto flex items-center gap-2 cursor-pointer">
+          <span className="text-xs text-blue-200 font-bold">Enabled</span>
+          <div onClick={() => setSmtp(p => ({ ...p, smtp_enabled: !p.smtp_enabled }))}
+            className={`w-10 h-5 rounded-full transition-all cursor-pointer relative ${smtp.smtp_enabled ? 'bg-green-400' : 'bg-gray-500'}`}>
+            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all shadow ${smtp.smtp_enabled ? 'left-5' : 'left-0.5'}`} />
+          </div>
+        </label>
+      </div>
+
+      <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left — Settings Form */}
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+            <p className="text-xs font-black text-blue-800 mb-2">📋 How to get Gmail App Password (3 steps):</p>
+            <ol className="text-xs text-blue-700 space-y-1 list-decimal ml-4 leading-relaxed">
+              <li>Go to <strong>myaccount.google.com</strong> → Security</li>
+              <li>Turn on <strong>2-Step Verification</strong> (if not already on)</li>
+              <li>Go to Security → <strong>App Passwords</strong> → Select app: <em>Mail</em> → Generate</li>
+            </ol>
+            <p className="text-[10px] text-blue-600 mt-2 font-semibold">Copy the 16-character password shown and paste it below ↓</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className={L}>Gmail Address *</label>
+              <input value={smtp.smtp_user} onChange={e => setSmtp(p => ({ ...p, smtp_user: e.target.value, smtp_from_email: e.target.value }))}
+                className={F} type="email" placeholder="yourschool@gmail.com" />
+            </div>
+            <div className="col-span-2">
+              <label className={L}>Gmail App Password * <span className="text-gray-400 font-normal normal-case">(16-character, no spaces)</span></label>
+              <div className="relative">
+                <input value={smtp.smtp_pass} onChange={e => setSmtp(p => ({ ...p, smtp_pass: e.target.value }))}
+                  className={F + ' pr-10 font-mono'} type={showPass ? 'text' : 'password'} placeholder="xxxx xxxx xxxx xxxx" />
+                <button type="button" onClick={() => setShowPass(s => !s)}
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-700 text-xs font-bold">
+                  {showPass ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className={L}>Sender Name</label>
+              <input value={smtp.smtp_from_name} onChange={e => setSmtp(p => ({ ...p, smtp_from_name: e.target.value }))}
+                className={F} placeholder="APSIMS Admissions" />
+            </div>
+            <div>
+              <label className={L}>SMTP Host</label>
+              <input value={smtp.smtp_host} onChange={e => setSmtp(p => ({ ...p, smtp_host: e.target.value }))}
+                className={F} placeholder="smtp.gmail.com" />
+            </div>
+            <div>
+              <label className={L}>SMTP Port</label>
+              <select value={smtp.smtp_port} onChange={e => setSmtp(p => ({ ...p, smtp_port: e.target.value }))} className={F}>
+                <option value="587">587 (TLS — Recommended)</option>
+                <option value="465">465 (SSL)</option>
+                <option value="25">25</option>
+              </select>
+            </div>
+          </div>
+
+          <button onClick={save} disabled={saving}
+            className="w-full py-3 text-white font-black rounded-2xl flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{ background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)' }}>
+            {saving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</> : <>💾 Save SMTP Settings</>}
+          </button>
+        </div>
+
+        {/* Right — Test Email */}
+        <div className="space-y-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
+            <p className="text-sm font-black text-emerald-800 mb-1">🧪 Test Your Email Settings</p>
+            <p className="text-xs text-emerald-700 mb-4">Send a test email to verify Gmail SMTP is working before parents use the admissions form.</p>
+            <label className={L + ' text-emerald-700'}>Send Test Email To</label>
+            <input value={smtp.test_to} onChange={e => setSmtp(p => ({ ...p, test_to: e.target.value }))}
+              className={F + ' mb-3'} type="email" placeholder="your@email.com" />
+            <button onClick={testEmail} disabled={testing}
+              className="w-full py-3 text-white font-black rounded-2xl flex items-center justify-center gap-2 disabled:opacity-60"
+              style={{ background: 'linear-gradient(135deg,#059669,#0d9488)' }}>
+              {testing ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Sending…</> : <>✉️ Send Test Email</>}
+            </button>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-2">
+            <p className="text-xs font-black text-gray-700 mb-2">📊 Current Configuration</p>
+            {[
+              ['Provider', 'Gmail SMTP'],
+              ['Host', smtp.smtp_host || '—'],
+              ['Port', smtp.smtp_port || '—'],
+              ['Gmail Account', smtp.smtp_user || '⚠️ Not set'],
+              ['App Password', smtp.smtp_pass ? '●●●●●●●●●●●●●●●●' : '⚠️ Not set'],
+              ['Status', smtp.smtp_enabled ? '✅ Enabled' : '❌ Disabled'],
+            ].map(([l, v]) => (
+              <div key={l} className="flex items-center justify-between text-xs">
+                <span className="text-gray-500 font-semibold">{l}</span>
+                <span className="font-bold text-gray-800">{v}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+            <p className="text-xs text-amber-800 font-bold">⚠️ Important:</p>
+            <p className="text-xs text-amber-700 mt-1">Use your school Gmail account. Regular Gmail password won&apos;t work — you must use a <strong>Gmail App Password</strong>. It&apos;s free and takes 1 minute to generate.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
