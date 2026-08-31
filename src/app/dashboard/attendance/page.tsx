@@ -44,7 +44,7 @@ function HistoryModal({ student, onClose }: { student: any; onClose: () => void 
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('school_daily_attendance')
+      const { data } = await supabase.from('school_attendance')
         .select('*').eq('student_id', student.id)
         .order('attendance_date', { ascending: false }).limit(60);
       setRecords(data || []);
@@ -176,14 +176,14 @@ export default function AttendancePage() {
     (async () => {
       const ids = classStudents.map(s => s.id);
       if (ids.length === 0) return;
-      const { data } = await supabase.from('school_daily_attendance')
+      const { data } = await supabase.from('school_attendance')
         .select('*').in('student_id', ids).eq('attendance_date', selDate).eq('session', session);
       const map: Record<string, AttendanceStatus> = {};
       const remarksMap: Record<string, string> = {};
       const lateMap: Record<string, string> = {};
       (data || []).forEach((r: any) => {
         map[String(r.student_id)] = r.status;
-        if (r.remarks) remarksMap[String(r.student_id)] = r.remarks;
+        if (r.notes) remarksMap[String(r.student_id)] = r.notes;       // DB column = notes
         if (r.late_time) lateMap[String(r.student_id)] = r.late_time;
       });
       // ── AUTO-FILL: Absent with Permission for students on active leave ────────
@@ -276,26 +276,26 @@ export default function AttendancePage() {
       attendance_date: selDate,
       session,
       status: attendance[String(s.id)] || 'Present',
-      remarks: remarks[String(s.id)] || null,
+      notes: remarks[String(s.id)] || null,       // DB column = notes
       late_time: lateTimes[String(s.id)] || null,
       form_id: s.form_id,
       stream_id: s.stream_id,
     }));
     try {
       // Try bulk upsert first
-      const { error } = await (supabase.from('school_daily_attendance') as any)
+      const { error } = await (supabase.from('school_attendance') as any)
         .upsert(records, { onConflict: 'student_id,attendance_date,session' });
       if (error) {
         // Fallback: individual upsert
         let saved = 0;
         for (const rec of records) {
-          const { data: existing } = await supabase.from('school_daily_attendance')
+          const { data: existing } = await supabase.from('school_attendance')
             .select('id').eq('student_id', rec.student_id).eq('attendance_date', rec.attendance_date)
             .eq('session', rec.session).maybeSingle();
           if (existing) {
-            await (supabase.from('school_daily_attendance') as any).update({ status: rec.status, remarks: rec.remarks, late_time: rec.late_time }).eq('id', (existing as any).id);
+            await (supabase.from('school_attendance') as any).update({ status: rec.status, notes: rec.notes, late_time: rec.late_time }).eq('id', (existing as any).id);
           } else {
-            await (supabase.from('school_daily_attendance') as any).insert([rec]);
+            await (supabase.from('school_attendance') as any).insert([rec]);
           }
           saved++;
         }
@@ -455,7 +455,7 @@ export default function AttendancePage() {
     if (!ids.length) { setReportLoading(false); return; }
     // Last 30 days
     const from = new Date(); from.setDate(from.getDate() - 30);
-    const { data } = await supabase.from('school_daily_attendance')
+    const { data } = await supabase.from('school_attendance')
       .select('*').in('student_id', ids)
       .gte('attendance_date', from.toISOString().split('T')[0])
       .order('attendance_date');
