@@ -11,13 +11,13 @@
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { FiRefreshCw, FiDownload, FiPrinter, FiTrendingUp, FiUsers, FiAward, FiBarChart2, FiBook, FiStar } from 'react-icons/fi';
-import { Bar, Radar, Doughnut } from 'react-chartjs-2';
+import { FiRefreshCw, FiPrinter } from 'react-icons/fi';
+import { Bar, Doughnut } from 'react-chartjs-2';
 import {
-  Chart as ChartJS, CategoryScale, LinearScale, BarElement, RadialLinearScale,
-  PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler,
+  Chart as ChartJS, CategoryScale, LinearScale, BarElement,
+  ArcElement, Title, Tooltip, Legend,
 } from 'chart.js';
-ChartJS.register(CategoryScale, LinearScale, BarElement, RadialLinearScale, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 // ── Kenya MoE CBC Competency Levels ──────────────────────────────────────────
 const COMPETENCY_LEVELS = [
@@ -369,14 +369,18 @@ export default function CBCAnalyticsPage() {
                   <div>
                     <p className="text-sm font-black text-gray-800">{c.name}</p>
                     <div className="mt-2 space-y-1">
-                      {COMPETENCY_LEVELS.map(l => (
-                        <div key={l.code} className="flex items-center gap-2">
-                          <span className="text-[9px] font-black w-4" style={{ color: l.color }}>{l.code}</span>
-                          <div className="flex-1 bg-gray-100 rounded-full h-1.5">
-                            <div className="h-1.5 rounded-full" style={{ width: `${Math.random() * 60 + 20}%`, background: l.color }} />
+                      {COMPETENCY_LEVELS.map((l, li) => {
+                          // Static sample widths — no Math.random() (hydration safe)
+                          const sampleWidths = [65, 55, 30, 15];
+                          return (
+                          <div key={l.code} className="flex items-center gap-2">
+                            <span className="text-[9px] font-black w-4" style={{ color: l.color }}>{l.code}</span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                              <div className="h-1.5 rounded-full" style={{ width: `${sampleWidths[li]}%`, background: l.color }} />
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                          );
+                        })}
                     </div>
                   </div>
                 </div>

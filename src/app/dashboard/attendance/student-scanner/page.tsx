@@ -11,8 +11,7 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import {
   FiUsers, FiWifi, FiWifiOff, FiSearch, FiDownload,
-  FiRefreshCw, FiAlertCircle, FiZap, FiCheckCircle,
-  FiFingerprint, FiChevronRight,
+  FiRefreshCw, FiAlertCircle, FiCheckCircle, FiChevronRight,
 } from 'react-icons/fi';
 
 interface Student {
@@ -157,6 +156,7 @@ export default function StudentScannerPage() {
   // Reset page when search/class/stream changes
   useEffect(() => { setPage(1); }, [search, selForm, selStream]);
 
+  const formStreams = streams.filter(s => String(s.form_id) === selForm);
   const filtered = students.filter(s =>
     !search || `${s.first_name} ${s.last_name} ${s.admission_number}`.toLowerCase().includes(search.toLowerCase())
   );
