@@ -433,16 +433,21 @@ export default function AdmissionsPage() {
     // ── Send OTP ──────────────────────────────────────────────────────────────
     const sendOTP = async () => {
         const phone = form.guardian_phone.replace(/\s+/g, '');
+        const email = form.guardian_email.trim();
+        if (!email) {
+            toast.error('Please enter the guardian email address first — the verification code will be sent there.');
+            return;
+        }
         setSendingOtp(true);
         try {
             const res = await fetch('/api/admissions/send-otp', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone }),
+                body: JSON.stringify({ phone, email }),
             });
             const r = await res.json();
-            if (!res.ok) { toast.error(r.error || 'Failed to send OTP'); return; }
+            if (!res.ok) { toast.error(r.error || 'Failed to send code'); return; }
             setOtpSent(true); setOtpCode(''); setCountdown(60);
-            toast.success(`✅ Code sent to ${phone}`);
+            toast.success(`✅ Verification code sent to ${email}`);
         } catch { toast.error('Network error. Please try again.'); }
         finally { setSendingOtp(false); }
     };
@@ -686,7 +691,7 @@ export default function AdmissionsPage() {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className={lbl}>Email Address <span className="text-gray-300">(optional)</span></label>
+                                    <label className={lbl}>Email Address <span className="text-red-400">*</span> <span className="text-gray-400 text-xs font-normal">(verification code will be sent here)</span></label>
                                     <div className="relative">
                                         <FiMail className="absolute left-4 top-3.5 text-gray-400" size={14} />
                                         <input type="email" value={form.guardian_email} onChange={e => setField('guardian_email', e.target.value)} placeholder="parent@gmail.com" className={`${inp} pl-10`} autoComplete="email" />
@@ -742,26 +747,32 @@ export default function AdmissionsPage() {
                                     </div>
                                 ) : (
                                     <>
-                                        {/* Phone display */}
+                                        {/* Email display */}
                                         <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4 text-center">
                                             <p className="text-xs text-gray-500 mb-1">Verification code will be sent to</p>
-                                            <p className="text-xl font-black text-sky-700 font-mono">{form.guardian_phone.replace(/\s+/g, '')}</p>
-                                            <button onClick={prevStep} className="text-xs text-sky-500 underline mt-1 hover:text-sky-700">Wrong number? Go back</button>
+                                            <p className="text-base font-black text-sky-700">{form.guardian_email || '—'}</p>
+                                            <button onClick={prevStep} className="text-xs text-sky-500 underline mt-1 hover:text-sky-700">Wrong email? Go back</button>
                                         </div>
+
+                                        {!form.guardian_email.trim() && (
+                                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                                                <p className="text-xs text-amber-700 font-semibold">⚠️ Please go back and enter the guardian email address first.</p>
+                                            </div>
+                                        )}
 
                                         {!otpSent ? (
                                             /* Send button */
-                                            <button onClick={sendOTP} disabled={sendingOtp}
+                                            <button onClick={sendOTP} disabled={sendingOtp || !form.guardian_email.trim()}
                                                 className="w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-3 text-base disabled:opacity-60 shadow-lg hover:opacity-90 transition-all"
                                                 style={{ background: 'linear-gradient(135deg,#0f766e,#0891b2)' }}>
-                                                {sendingOtp ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sending…</> : <><FiPhone size={18} /> Send Verification Code</>}
+                                                {sendingOtp ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sending…</> : <>✉️ Send Verification Code to Email</>}
                                             </button>
                                         ) : (
                                             /* OTP entry */
                                             <div className="space-y-4">
                                                 <div>
-                                                    <p className="text-center text-sm font-semibold text-gray-700 mb-1">Enter the 6-digit code sent via SMS</p>
-                                                    <p className="text-center text-xs text-gray-400 mb-4">Check your messages. The code expires in 5 minutes.</p>
+                                                    <p className="text-center text-sm font-semibold text-gray-700 mb-1">Enter the 6-digit code sent to your email</p>
+                                                    <p className="text-center text-xs text-gray-400 mb-4">Check your inbox (and spam/junk folder). Code expires in 5 minutes.</p>
                                                     <OtpInput value={otpCode} onChange={setOtpCode} disabled={verifyingOtp} />
                                                 </div>
 
@@ -786,7 +797,7 @@ export default function AdmissionsPage() {
                                                     ) : (
                                                         <button onClick={sendOTP} disabled={sendingOtp}
                                                             className="text-xs text-teal-600 font-bold underline hover:text-teal-800 flex items-center gap-1 mx-auto disabled:opacity-50">
-                                                            <FiRefreshCw size={11} /> {sendingOtp ? 'Sending…' : 'Resend Code'}
+                                                            <FiRefreshCw size={11} /> {sendingOtp ? 'Sending…' : 'Resend Code to Email'}
                                                         </button>
                                                     )}
                                                 </div>
