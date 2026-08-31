@@ -214,31 +214,36 @@ export default function OnlineAdmissionsAdminPage() {
     <div className="space-y-5 animate-fadeIn">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl p-6 text-white" style={{background:G.dark}}>
-        <div className="absolute inset-0 opacity-5" style={{backgroundImage:'radial-gradient(circle at 1px 1px,#fff 1px,transparent 0)',backgroundSize:'24px 24px'}}/>
-        <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full opacity-10 bg-white"/>
-        <div className="relative flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-xl" style={{background:'rgba(255,255,255,0.1)'}}>📋</div>
-            <div>
-              <h1 className="text-2xl font-black" style={{fontFamily:'Outfit,sans-serif',letterSpacing:'-0.03em'}}>Online Admissions</h1>
-              <p className="text-slate-400 text-sm mt-0.5">Admin Panel · Review · Approve · Admit Students</p>
+      <div className="relative overflow-hidden rounded-3xl border border-sky-100 shadow-sm" style={{background:'linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 45%,#f0fdf4 100%)'}}>
+        <div className="absolute -right-12 -top-12 w-56 h-56 rounded-full opacity-[0.15]" style={{background:'radial-gradient(circle,#0891b2,transparent)'}}/>
+        <div className="absolute -left-6 -bottom-6 w-36 h-36 rounded-full opacity-[0.08]" style={{background:'radial-gradient(circle,#0f766e,transparent)'}}/>
+        <div className="relative p-6">
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-5">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg text-2xl" style={{background:'linear-gradient(135deg,#0891b2,#0f766e)'}}>
+                📋
+              </div>
+              <div>
+                <h1 className="text-2xl font-black text-gray-900" style={{fontFamily:'Outfit,sans-serif',letterSpacing:'-0.03em'}}>Online Admissions</h1>
+                <p className="text-sm text-gray-500 mt-0.5">Admin Panel · Review · Approve · Admit Students</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button onClick={load} className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition shadow-sm" title="Refresh"><FiRefreshCw size={15}/></button>
+              <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition shadow-sm"><FiDownload size={14}/> Export CSV</button>
+              <button onClick={()=>window.print()} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition shadow-sm"><FiPrinter size={14}/> Print</button>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={load} className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition" title="Refresh"><FiRefreshCw size={15}/></button>
-            <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-white/10 hover:bg-white/20 transition"><FiDownload size={14}/> Export CSV</button>
-            <button onClick={()=>window.print()} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-white/10 hover:bg-white/20 transition"><FiPrinter size={14}/> Print</button>
+          {/* KPI cards */}
+          <div className="grid grid-cols-4 lg:grid-cols-7 gap-3">
+            {KPIs.map(k=>(
+              <div key={k.l} className="bg-white rounded-2xl p-3 text-center shadow-sm hover:shadow-md transition-all"
+                style={{borderLeft:`3px solid ${k.c}`}}>
+                <p className="text-xl font-black text-gray-900">{k.v}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide mt-0.5" style={{color:k.c}}>{k.e} {k.l}</p>
+              </div>
+            ))}
           </div>
-        </div>
-        {/* KPI row */}
-        <div className="relative grid grid-cols-4 lg:grid-cols-7 gap-3 mt-5">
-          {KPIs.map(k=>(
-            <div key={k.l} className="rounded-2xl p-3 text-center" style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.08)'}}>
-              <p className="text-lg font-black text-white">{k.v}</p>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{k.e} {k.l}</p>
-            </div>
-          ))}
         </div>
       </div>
 
