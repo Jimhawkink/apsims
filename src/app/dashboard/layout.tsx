@@ -5,7 +5,7 @@ import { usePageIcon } from '@/lib/usePageIcon';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-    FiHome, FiUsers, FiDollarSign, FiFileText, FiUserCheck, FiCreditCard,
+    FiHome, FiUsers, FiDollarSign, FiFileText, FiUserCheck, FiUserPlus, FiCreditCard,
     FiTrendingDown, FiTrendingUp, FiBox, FiLogOut, FiMenu, FiX,
     FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, 
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
@@ -51,6 +51,7 @@ const menuGroups = [
             { href: '/dashboard/students', label: 'Students List', icon: FiUsers, perm: 'students' },
             { href: '/dashboard/students/profile', label: 'Student Profiles', icon: FiFileText, perm: 'students' },
             { href: '/dashboard/students/admissions', label: 'Admissions', icon: FiUserCheck, perm: 'students' },
+            { href: '/dashboard/admissions', label: '📋 Online Applications', icon: FiUserPlus, perm: 'students' },
             { href: '/dashboard/students/promotion', label: 'Promotion', icon: FiTrendingUp, perm: 'students' },
             { href: '/dashboard/students/id-cards', label: 'ID Cards', icon: FiCreditCard, perm: 'students' },
             { href: '/dashboard/discipline', label: 'Discipline', icon: FiShield, perm: 'discipline' },
