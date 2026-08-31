@@ -38,29 +38,42 @@ export default function BiometricPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Load students DIRECTLY from Supabase (no broken /api/students route)
-      const { data: studData } = await supabase
+      // Load students with SAFE columns only (no biometric_enrolled — may not exist)
+      const { data: studData, error: studErr } = await supabase
         .from('school_students')
-        .select('id, first_name, last_name, admission_number, admission_no, form_id, biometric_enrolled, biometric_device_user_id')
-        .eq('status', 'Active')
+        .select('id, first_name, last_name, admission_number, admission_no, form_id')
         .order('first_name')
         .limit(2000);
 
-      setStudents((studData || []).map((s: any) => ({
-        ...s,
-        admission_number: s.admission_number || s.admission_no || '',
-        biometric_enrolled: s.biometric_enrolled || false,
-        biometric_device_user_id: s.biometric_device_user_id || null,
-      })));
+      if (studErr) console.error('Students error:', studErr.message);
 
-      // Load devices + enrollments (these APIs exist)
+      // Load registrations from our new table to determine enrollment status
+      const { data: regData } = await supabase
+        .from('school_biometric_registrations')
+        .select('person_id, biometric_pin, enroll_method')
+        .eq('person_type', 'student')
+        .eq('is_active', true);
+
+      const regMap = new Map((regData || []).map((r: any) => [r.person_id, r]));
+
+      setStudents((studData || []).map((s: any) => {
+        const reg = regMap.get(s.id);
+        return {
+          ...s,
+          admission_number: s.admission_number || s.admission_no || '',
+          biometric_enrolled: !!reg,
+          biometric_device_user_id: reg?.biometric_pin || null,
+        };
+      }));
+
+      // Load devices + enrollments (best-effort, ignore auth failures)
       const [devRes, enrollRes] = await Promise.all([
         fetch('/api/biometric/devices').catch(() => null),
         fetch('/api/biometric/enrollments').catch(() => null),
       ]);
       if (devRes?.ok) { const d = await devRes.json(); if (d.devices) setDevices(d.devices); }
       if (enrollRes?.ok) { const e = await enrollRes.json(); if (e.enrollments) setEnrollments(e.enrollments); }
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+    } catch (e) { console.error('fetchData error:', e); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);

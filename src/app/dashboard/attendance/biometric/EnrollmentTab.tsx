@@ -73,7 +73,6 @@ export default function EnrollmentTab({ devices, enrollments, students, onRefres
     }
     setSaving(true);
     try {
-      // Save to our biometric_registrations table
       const { error: regErr } = await supabase.from('school_biometric_registrations').upsert({
         person_type: 'student',
         person_id: selectedStudent.id,
@@ -81,30 +80,11 @@ export default function EnrollmentTab({ devices, enrollments, students, onRefres
         biometric_pin: enrollForm.device_user_id.trim(),
         device_sn: enrollForm.device_id || null,
         enroll_method: enrollForm.enrollment_type,
-        registered_by: JSON.parse(localStorage.getItem('school_user') || '{}').full_name || 'Admin',
+        registered_by: (() => { try { return JSON.parse(localStorage.getItem('school_user') || '{}').full_name || 'Admin'; } catch { return 'Admin'; } })(),
         is_active: true,
       }, { onConflict: 'biometric_pin' });
 
       if (regErr) throw new Error(regErr.message);
-
-      // Also update school_students biometric fields
-      await supabase.from('school_students')
-        .update({ biometric_enrolled: true, biometric_device_user_id: enrollForm.device_user_id.trim() })
-        .eq('id', selectedStudent.id);
-
-      // Also call old API as backup (ignoring auth errors)
-      if (enrollForm.device_id) {
-        fetch('/api/biometric/enrollments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            student_id: selectedStudent.id,
-            device_id: parseInt(enrollForm.device_id),
-            enrollment_type: enrollForm.enrollment_type,
-            device_user_id: enrollForm.device_user_id.trim(),
-          }),
-        }).catch(() => {});
-      }
 
       toast.success(`✅ ${selectedStudent.first_name} ${selectedStudent.last_name} enrolled! PIN: ${enrollForm.device_user_id}`);
       setShowModal(false);
@@ -118,9 +98,8 @@ export default function EnrollmentTab({ devices, enrollments, students, onRefres
   const autoEnrollAll = async () => {
     setBulkLoading(true);
     const notEnrolled = students.filter(s => !s.biometric_enrolled && s.admission_number);
-    if (notEnrolled.length === 0) { toast('All students already enrolled!'); setBulkLoading(false); return; }
+    if (notEnrolled.length === 0) { toast('All students already enrolled! 🎉'); setBulkLoading(false); return; }
 
-    let success = 0;
     const rows = notEnrolled.map(s => ({
       person_type: 'student',
       person_id: s.id,
@@ -130,20 +109,21 @@ export default function EnrollmentTab({ devices, enrollments, students, onRefres
       is_active: true,
     }));
 
-    const { error } = await supabase.from('school_biometric_registrations')
-      .upsert(rows, { onConflict: 'biometric_pin' });
+    // Save in batches of 50
+    let success = 0;
+    for (let i = 0; i < rows.length; i += 50) {
+      const batch = rows.slice(i, i + 50);
+      const { error } = await supabase
+        .from('school_biometric_registrations')
+        .upsert(batch, { onConflict: 'biometric_pin' });
+      if (!error) success += batch.length;
+      else console.error('Batch error:', error.message);
+    }
 
-    if (!error) {
-      // Bulk update students
-      for (const s of notEnrolled) {
-        await supabase.from('school_students')
-          .update({ biometric_enrolled: true, biometric_device_user_id: s.admission_number })
-          .eq('id', s.id);
-        success++;
-      }
+    if (success > 0) {
       toast.success(`✅ Auto-enrolled ${success} students! PIN = Admission Number`);
     } else {
-      toast.error('Bulk enroll failed: ' + error.message);
+      toast.error('Auto-enroll failed — check console for details');
     }
     setBulkLoading(false);
     onRefresh();
@@ -155,20 +135,17 @@ export default function EnrollmentTab({ devices, enrollments, students, onRefres
     await supabase.from('school_biometric_registrations')
       .update({ is_active: false })
       .eq('person_type', 'student').eq('person_id', student.id);
-    await supabase.from('school_students')
-      .update({ biometric_enrolled: false, biometric_device_user_id: null })
-      .eq('id', student.id);
     toast.success('Enrollment removed');
     onRefresh();
   };
 
   // ── Download CSV template ──────────────────────────────────────────────────
   const downloadTemplate = () => {
-    const headers = 'admission_number,device_user_id,device_id,enrollment_type\n';
+    const headers = 'admission_number,device_user_id,enrollment_type\n';
     const example = students.slice(0, 3).map(s =>
-      `${s.admission_number},${s.admission_number},1,fingerprint`
+      `${s.admission_number},${s.admission_number},fingerprint`
     ).join('\n');
-    const fallback = 'ADM001,ADM001,1,fingerprint\nADM002,ADM002,1,face\nADM003,ADM003,1,card';
+    const fallback = 'ADM001,ADM001,fingerprint\nADM002,ADM002,face\nADM003,ADM003,card';
     const csv = '\uFEFF' + headers + (example || fallback);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -185,7 +162,7 @@ export default function EnrollmentTab({ devices, enrollments, students, onRefres
 
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
-      const [admission_number, device_user_id, device_id, enrollment_type = 'fingerprint'] = cols;
+      const [admission_number, device_user_id, enrollment_type = 'fingerprint'] = cols;
       if (!admission_number || !device_user_id) { errors.push(`Row ${i + 1}: missing admission_number or device_user_id`); continue; }
       const student = students.find(s => s.admission_number === admission_number);
       if (!student) { errors.push(`Row ${i + 1}: student "${admission_number}" not found`); continue; }
@@ -196,12 +173,8 @@ export default function EnrollmentTab({ devices, enrollments, students, onRefres
         biometric_pin: device_user_id, enroll_method: enrollment_type, is_active: true,
       }, { onConflict: 'biometric_pin' });
 
-      if (!error) {
-        await supabase.from('school_students')
-          .update({ biometric_enrolled: true, biometric_device_user_id: device_user_id })
-          .eq('id', student.id);
-        success++;
-      } else { errors.push(`Row ${i + 1}: ${error.message}`); }
+      if (!error) success++;
+      else errors.push(`Row ${i + 1}: ${error.message}`);
     }
 
     setCsvErrors(errors);
