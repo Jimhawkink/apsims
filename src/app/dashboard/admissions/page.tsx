@@ -520,8 +520,11 @@ export default function OnlineAdmissionsAdminPage() {
                 <select value={convertForm.stream_id} onChange={e=>setConvertForm(p=>({...p,stream_id:e.target.value}))}
                   className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400">
                   <option value="">— Select Stream —</option>
-                  {streams.filter(s=>{ const f=forms.find(f=>f.form_level===convertModal.form_applied_for); return f?s.form_id===f.id:true; })
-                    .map(s=><option key={s.id} value={s.id}>{s.stream_name}</option>)}
+                  {(()=>{
+                    const matchForm = forms.find(f=>Number(f.form_level)===Number(convertModal?.form_applied_for));
+                    const filtered = matchForm ? streams.filter(s=>Number(s.form_id)===Number(matchForm.id)) : streams;
+                    return (filtered.length>0?filtered:streams).map(s=><option key={s.id} value={s.id}>{s.stream_name}</option>);
+                  })()}
                 </select>
               </div>
               <div>
