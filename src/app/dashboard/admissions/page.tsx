@@ -200,6 +200,10 @@ export default function OnlineAdmissionsAdminPage() {
     if(!convertModal||!convertForm.admission_number.trim()){ toast.error('Admission number required'); return; }
     setSaving(true);
     try {
+      // Look up the form_id from school_forms by matching form_level to form_applied_for
+      const matchedForm = forms.find((f:any) => String(f.form_level) === String(convertModal.form_applied_for));
+      const formId = matchedForm ? Number(matchedForm.id) : null;
+
       const { data: stu, error: e1 } = await supabase.from('school_students').insert([{
         admission_number: convertForm.admission_number.trim(),
         first_name:       convertModal.student_first_name,
@@ -207,6 +211,7 @@ export default function OnlineAdmissionsAdminPage() {
         last_name:        convertModal.student_last_name,
         date_of_birth:    convertModal.date_of_birth||null,
         gender:           convertModal.gender||null,
+        form_id:          formId,                                          // ← CRITICAL: sets the CLASS
         stream_id:        convertForm.stream_id ? Number(convertForm.stream_id) : null,
         admission_date:   convertForm.reporting_date || new Date().toISOString().split('T')[0],
         status:           'Active',
@@ -223,7 +228,7 @@ export default function OnlineAdmissionsAdminPage() {
       await supabase.from('school_admission_applications').update({
         converted_student_id: stu.id, status:'Approved', updated_at:new Date().toISOString()
       }).eq('id',convertModal.id);
-      toast.success(`🎓 ${convertModal.student_first_name} admitted to student list!`);
+      toast.success(`🎓 ${convertModal.student_first_name} admitted to student list! Form: ${matchedForm?.form_name||convertModal.form_applied_for}`);
       // Email parent that they are now admitted
       sendNotification({...convertModal, status:'Approved'}, 'Approved', 'Your child has been successfully admitted. Please report to school with all original documents.');
       if(convertModal.guardian_email) toast.success(`📧 Admission confirmation sent to ${convertModal.guardian_email}`);
