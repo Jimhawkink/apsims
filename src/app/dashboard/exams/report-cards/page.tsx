@@ -316,11 +316,24 @@ export default function ReportCardsPage() {
 
             if (!hasAny) return;
 
-            // Equal-weight average across selected exams that have data
-            const validScores = activeTypes.map(et => examScores[et]).filter((s): s is number => s !== null);
-            const combined = validScores.length > 0
-                ? validScores.reduce((a, b) => a + b, 0) / validScores.length
-                : 0;
+            // Weighted combined: missing exams contribute 0 (not excluded).
+            // e.g. CAT1=30% CAT2=30% EndTerm=40%; student sat only EndTerm(100)
+            // → combined = 100×40/100 = 40, NOT 100.
+            const totalWeight = activeTypes.reduce((sum: number, et: string) => {
+                const etObj = dbExamTypes.find((d: any) => d.exam_name === et);
+                return sum + (Number(etObj?.weight) || 0);
+            }, 0);
+            const combined = totalWeight > 0
+                ? activeTypes.reduce((sum: number, et: string) => {
+                    const score = examScores[et];
+                    if (score === null) return sum;
+                    const etObj = dbExamTypes.find((d: any) => d.exam_name === et);
+                    return sum + (score * (Number(etObj?.weight) || 0) / totalWeight);
+                }, 0)
+                : (() => {
+                    const valid = activeTypes.map(et => examScores[et]).filter((s): s is number => s !== null);
+                    return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
+                })();
 
             // If End-Term is selected and has a db combined_score, prefer it
             const etMark = (allExamMarks['End-Term'] || []).find((m: any) => m.student_id === studentId && m.subject_id === sub.id);
@@ -1093,35 +1106,182 @@ export default function ReportCardsPage() {
                             </div>
                         </div>
 
-                        {/* ── Subject Performance Mini Bar Chart ── */}
-                        {selectedStudentData.subjectResults.length > 0 && (
-                            <div className="px-4 pb-4">
-                                <p className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1">
-                                    <FiStar size={11} /> Subject Performance Profile
-                                </p>
-                                <div className="rounded-xl border border-gray-200 p-3 bg-gray-50">
-                                    <div className="space-y-1.5">
-                                        {selectedStudentData.subjectResults
-                                            .sort((a, b) => b.combined - a.combined)
-                                            .map(r => (
-                                                <div key={r.subId} className="flex items-center gap-2 text-[10px]">
-                                                    <span className="w-28 font-semibold text-gray-600 truncate shrink-0">{r.subName}</span>
-                                                    <div className="flex-1 bg-gray-200 rounded-full h-3.5 overflow-hidden">
-                                                        <div className="h-full rounded-full transition-all flex items-center justify-end pr-1"
+                        {/* ── Subject Performance Profile + Micro Analytics Charts ── */}
+                        {selectedStudentData.subjectResults.length > 0 && (() => {
+                            const sorted = [...selectedStudentData.subjectResults].sort((a, b) => b.combined - a.combined);
+                            const classAvg = selectedStudentData.avgCombined;
+                            // Build per-subject class means from allStudentData
+                            const subjectClassMeans: Record<number, number> = {};
+                            allStudentData.forEach(sd => {
+                                sd.subjectResults.forEach(r => {
+                                    if (!subjectClassMeans[r.subId]) subjectClassMeans[r.subId] = 0;
+                                    subjectClassMeans[r.subId] += r.combined;
+                                });
+                            });
+                            Object.keys(subjectClassMeans).forEach(k => {
+                                subjectClassMeans[Number(k)] = subjectClassMeans[Number(k)] / allStudentData.length;
+                            });
+                            // Historical trend from historicalMarks (all terms, End-Term)
+                            const trendPoints = historicalMarks.length > 0
+                                ? historicalMarks.map((hm: any) => ({ label: hm.term_name || `T${hm.term_id}`, score: Number(hm.score) || 0 }))
+                                : [];
+                            // Sparkline helper
+                            const mkSparkline = (pts: number[], w: number, h: number, color: string) => {
+                                if (pts.length < 2) return null;
+                                const mn = Math.min(...pts), mx = Math.max(...pts), rng = mx - mn || 1;
+                                const points = pts.map((v, i) => {
+                                    const x = 3 + (i / (pts.length - 1)) * (w - 6);
+                                    const y = h - 3 - ((v - mn) / rng) * (h - 6);
+                                    return `${x},${y}`;
+                                }).join(' ');
+                                return (
+                                    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible">
+                                        <defs>
+                                            <linearGradient id="spFill" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+                                                <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+                                            </linearGradient>
+                                        </defs>
+                                        <polygon points={`3,${h} ${points} ${w - 3},${h}`} fill="url(#spFill)" />
+                                        <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+                                        {pts.map((v, i) => {
+                                            const x = 3 + (i / (pts.length - 1)) * (w - 6);
+                                            const y = h - 3 - ((v - mn) / rng) * (h - 6);
+                                            return <circle key={i} cx={x} cy={y} r="2" fill={color} stroke="#fff" strokeWidth="1" />;
+                                        })}
+                                    </svg>
+                                );
+                            };
+                            return (
+                                <div className="px-4 pb-4">
+                                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1">
+                                        <FiStar size={11} /> Subject Performance Profile &amp; Analytics
+                                    </p>
+
+                                    {/* ── Compact Bars ── */}
+                                    <div className="rounded-xl border border-gray-200 p-2.5 bg-gray-50 mb-3">
+                                        <div className="space-y-1">
+                                            {sorted.map(r => (
+                                                <div key={r.subId} className="flex items-center gap-2 text-[9px]">
+                                                    <span className="w-24 font-semibold text-gray-600 truncate shrink-0">{r.subName}</span>
+                                                    <div className="flex-1 bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                                        <div className="h-full rounded-full transition-all"
                                                             style={{
                                                                 width: `${Math.min(100, r.combined)}%`,
-                                                                background: `linear-gradient(90deg, ${GRADE_COLORS[r.combinedGrade] || '#64748b'}88, ${GRADE_COLORS[r.combinedGrade] || '#64748b'})`
-                                                            }}>
-                                                        </div>
+                                                                background: `linear-gradient(90deg, ${GRADE_COLORS[r.combinedGrade] || '#64748b'}99, ${GRADE_COLORS[r.combinedGrade] || '#64748b'})`
+                                                            }} />
                                                     </div>
-                                                    <span className="w-10 text-right font-black" style={{ color: GRADE_COLORS[r.combinedGrade] || '#64748b' }}>{r.combined.toFixed(0)}%</span>
+                                                    <span className="w-9 text-right font-black" style={{ color: GRADE_COLORS[r.combinedGrade] || '#64748b' }}>{r.combined.toFixed(0)}%</span>
                                                     <GradeBadge grade={r.combinedGrade} size="xs" />
                                                 </div>
                                             ))}
+                                        </div>
                                     </div>
+
+                                    {/* ── 3 Micro Charts Row ── */}
+                                    <div className="grid grid-cols-3 gap-2">
+
+                                        {/* Chart 1: SVG Histogram — Score Distribution per Subject */}
+                                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-2">
+                                            <p className="text-[8px] font-extrabold uppercase tracking-widest text-blue-600 mb-1.5 flex items-center gap-0.5">
+                                                <FiBarChart2 size={9} /> Score Histogram
+                                            </p>
+                                            <svg width="100%" viewBox={`0 0 ${sorted.length * 18 + 4} 44`} className="overflow-visible">
+                                                {sorted.map((r, i) => {
+                                                    const barH = Math.max(2, (r.combined / 100) * 36);
+                                                    const x = 2 + i * 18;
+                                                    const color = GRADE_COLORS[r.combinedGrade] || '#64748b';
+                                                    return (
+                                                        <g key={r.subId}>
+                                                            <rect x={x} y={40 - barH} width={13} height={barH} rx="2" fill={color} fillOpacity="0.85" />
+                                                            <text x={x + 6.5} y={43} textAnchor="middle" fontSize="5" fill="#94a3b8">{r.subName.slice(0, 3)}</text>
+                                                        </g>
+                                                    );
+                                                })}
+                                                {/* Class mean line */}
+                                                {(() => {
+                                                    const lineY = 40 - (classAvg / 100) * 36;
+                                                    return <line x1={2} y1={lineY} x2={2 + sorted.length * 18} y2={lineY} stroke="#f59e0b" strokeWidth="0.8" strokeDasharray="2,1.5" />;
+                                                })()}
+                                            </svg>
+                                            <p className="text-[7px] text-blue-400 text-center mt-0.5">— class mean {classAvg.toFixed(0)}%</p>
+                                        </div>
+
+                                        {/* Chart 2: Deviation from Class Mean per Subject */}
+                                        <div className="rounded-xl border border-purple-200 bg-purple-50 p-2">
+                                            <p className="text-[8px] font-extrabold uppercase tracking-widest text-purple-600 mb-1.5 flex items-center gap-0.5">
+                                                <FiTrendingUp size={9} /> vs Class Mean
+                                            </p>
+                                            <svg width="100%" viewBox={`0 0 100 ${sorted.length * 9 + 4}`} className="overflow-visible">
+                                                {sorted.map((r, i) => {
+                                                    const classMean = subjectClassMeans[r.subId] ?? classAvg;
+                                                    const dev = r.combined - classMean;
+                                                    const pct = Math.abs(dev) / 100;
+                                                    const barW = Math.min(40, pct * 60);
+                                                    const y = 2 + i * 9;
+                                                    const isPos = dev >= 0;
+                                                    return (
+                                                        <g key={r.subId}>
+                                                            <text x="0" y={y + 6} fontSize="5" fill="#94a3b8">{r.subName.slice(0, 4)}</text>
+                                                            {/* Center line at x=52 */}
+                                                            {isPos
+                                                                ? <rect x={52} y={y + 1} width={barW} height={5.5} rx="1" fill="#10b981" fillOpacity="0.8" />
+                                                                : <rect x={52 - barW} y={y + 1} width={barW} height={5.5} rx="1" fill="#ef4444" fillOpacity="0.8" />
+                                                            }
+                                                            <text x={isPos ? 52 + barW + 1 : 52 - barW - 1} y={y + 6} textAnchor={isPos ? 'start' : 'end'} fontSize="4.5" fill={isPos ? '#10b981' : '#ef4444'}>
+                                                                {isPos ? '+' : ''}{dev.toFixed(0)}
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                })}
+                                                <line x1={52} y1={0} x2={52} y2={sorted.length * 9 + 2} stroke="#cbd5e1" strokeWidth="0.6" />
+                                            </svg>
+                                            <p className="text-[7px] text-purple-400 text-center mt-0.5">deviation from subject class avg</p>
+                                        </div>
+
+                                        {/* Chart 3: Term Trend Sparkline OR Exam Breakdown Line */}
+                                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2">
+                                            <p className="text-[8px] font-extrabold uppercase tracking-widest text-emerald-600 mb-1.5 flex items-center gap-0.5">
+                                                <FiTrendingUp size={9} /> Trend
+                                            </p>
+                                            {trendPoints.length >= 2 ? (
+                                                <>
+                                                    {mkSparkline(trendPoints.map(t => t.score), 90, 40, '#10b981')}
+                                                    <div className="flex justify-between mt-0.5">
+                                                        {trendPoints.map((t, i) => (
+                                                            <span key={i} className="text-[6px] text-emerald-500">{t.label}</span>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            ) : selectedExamTypes.length >= 2 ? (
+                                                // Fallback: show per-exam-type average for this student as a line
+                                                (() => {
+                                                    const pts = selectedExamTypes.map(et => {
+                                                        const marks = (allExamMarks[et] || []).filter((m: any) => m.student_id === selectedStudentData.student.id);
+                                                        const avg = marks.length > 0 ? marks.reduce((s: number, m: any) => s + Number(m.score), 0) / marks.length : 0;
+                                                        return { label: et, score: avg };
+                                                    }).filter(p => p.score > 0);
+                                                    return pts.length >= 2 ? (
+                                                        <>
+                                                            {mkSparkline(pts.map(p => p.score), 90, 38, '#3b82f6')}
+                                                            <div className="flex justify-between mt-0.5">
+                                                                {pts.map((p, i) => (
+                                                                    <span key={i} className="text-[6px] text-blue-400 truncate">{p.label.slice(0, 5)}</span>
+                                                                ))}
+                                                            </div>
+                                                        </>
+                                                    ) : <p className="text-[7px] text-emerald-400 text-center mt-4">Select more exams for trend</p>;
+                                                })()
+                                            ) : (
+                                                <p className="text-[7px] text-emerald-400 text-center mt-4">Not enough data for trend</p>
+                                            )}
+                                        </div>
+
+                                    </div>{/* end 3 charts grid */}
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
+
 
                         {/* ── Bottom Sections: Discipline | Fees ── */}
                         <div className="px-4 pb-4 grid grid-cols-2 gap-4">
