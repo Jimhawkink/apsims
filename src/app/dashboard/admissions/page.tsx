@@ -84,16 +84,22 @@ export default function OnlineAdmissionsAdminPage() {
   const [convertForm, setConvertForm] = useState({stream_id:'',admission_number:'',reporting_date:''});
   const [streams, setStreams]         = useState<any[]>([]);
   const [forms,   setForms]           = useState<any[]>([]);
+  const [streamCounts, setStreamCounts] = useState<Record<string,number>>({});
   const PAGE = 20;
 
   /* ── Load ─────────────────────────────────────────────────────────────────── */
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data }, { data: st }, { data: fm }] = await Promise.all([
+    const [{ data }, { data: st }, { data: fm }, { data: stuStreams }] = await Promise.all([
       supabase.from('school_admission_applications').select('*').order('created_at',{ascending:false}),
-      supabase.from('school_streams').select('id,stream_name,form_id').order('stream_name'),
-      supabase.from('school_forms').select('id,form_level,form_name').order('form_level'),
+      supabase.from('school_streams').select('*').order('stream_name'),
+      supabase.from('school_forms').select('*').order('form_level'),
+      supabase.from('school_students').select('stream_id').eq('status','Active'),
     ]);
+    // Build stream→count map
+    const countMap: Record<string,number> = {};
+    (stuStreams||[]).forEach((s:any)=>{ if(s.stream_id){ countMap[String(s.stream_id)]=(countMap[String(s.stream_id)]||0)+1; } });
+    setStreamCounts(countMap);
     setApps(data||[]); setStreams(st||[]); setForms(fm||[]); setLoading(false);
   },[]);
   useEffect(()=>{ load(); },[load]);
@@ -516,16 +522,39 @@ export default function OnlineAdmissionsAdminPage() {
                   className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400 font-mono font-black" placeholder="e.g. ADM2026-001"/>
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-600 mb-1">Stream / Class (optional)</label>
+                <label className="block text-xs font-black text-gray-600 mb-1">Stream / Class
+                  <span className="ml-1 text-gray-400 font-normal normal-case">(numbers show current students)</span>
+                </label>
                 <select value={convertForm.stream_id} onChange={e=>setConvertForm(p=>({...p,stream_id:e.target.value}))}
                   className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400">
-                  <option value="">— Select Stream —</option>
+                  <option value="">— Select Stream / Class —</option>
                   {(()=>{
-                    const matchForm = forms.find(f=>Number(f.form_level)===Number(convertModal?.form_applied_for));
-                    const filtered = matchForm ? streams.filter(s=>Number(s.form_id)===Number(matchForm.id)) : streams;
-                    return (filtered.length>0?filtered:streams).map(s=><option key={s.id} value={s.id}>{s.stream_name}</option>);
+                    // Match form by form_level using String() comparison — same as attendance page
+                    const matchForm = forms.find((f:any)=>String(f.form_level)===String(convertModal?.form_applied_for));
+                    // Filter streams by form_id using String() comparison
+                    const byForm = matchForm
+                      ? streams.filter((s:any)=>String(s.form_id)===String(matchForm.id))
+                      : streams;
+                    // Show matched streams, fall back to ALL streams if none matched
+                    const toShow = byForm.length > 0 ? byForm : streams;
+                    if(toShow.length===0) return <option disabled value="">No streams found in database</option>;
+                    return toShow.map((s:any)=>{
+                      const cnt = streamCounts[String(s.id)]||0;
+                      return(
+                        <option key={s.id} value={s.id}>
+                          {s.stream_name} — {cnt} student{cnt!==1?'s':''}
+                        </option>
+                      );
+                    });
                   })()}
                 </select>
+                {convertForm.stream_id&&(()=>{
+                  const cnt=streamCounts[String(convertForm.stream_id)]||0;
+                  const clr=cnt>=40?'text-red-600 bg-red-50 border-red-200':cnt>=30?'text-amber-600 bg-amber-50 border-amber-200':'text-green-700 bg-green-50 border-green-200';
+                  return<p className={`text-[11px] font-bold mt-1.5 px-2.5 py-1 rounded-lg border ${clr}`}>
+                    {cnt>=40?'⚠️ Class full (40+)':cnt>=30?`⚡ ${cnt} students — getting full`:`✅ ${cnt} student${cnt!==1?'s':''} — space available`}
+                  </p>;
+                })()}
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-600 mb-1">Reporting Date</label>
