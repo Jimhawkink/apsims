@@ -127,6 +127,25 @@ export default function OnlineAdmissionsAdminPage() {
   const paged = filtered.slice((page-1)*PAGE, page*PAGE);
   const tp = Math.max(1,Math.ceil(filtered.length/PAGE));
 
+  /* ── Send Email Notification ─────────────────────────────────────────────── */
+  const sendNotification = async (app: Application, status: string, notes?: string) => {
+    if(!app.guardian_email) return; // no email = silent
+    try {
+      await fetch('/api/admissions/notify', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          to_email:        app.guardian_email,
+          to_name:         app.guardian_full_name||'Guardian',
+          student_name:    [app.student_first_name,app.student_middle_name,app.student_last_name].filter(Boolean).join(' '),
+          reference_number:app.reference_number,
+          status,
+          notes:           notes||undefined,
+          school_name:     'APSIMS School',
+        }),
+      });
+    } catch { /* notification failure is non-blocking */ }
+  };
+
   /* ── Update Status ────────────────────────────────────────────────────────── */
   const updateStatus = async () => {
     if(!actionModal) return;
@@ -136,9 +155,38 @@ export default function OnlineAdmissionsAdminPage() {
       status:actionModal.action, review_notes:reviewNotes.trim()||null,
       reviewed_at:new Date().toISOString(), updated_at:new Date().toISOString(),
     }).eq('id',actionModal.app.id);
-    if(error) toast.error(error.message);
-    else{ toast.success(`✅ Application ${actionModal.action}`); setActionModal(null); setReviewNotes(''); load(); }
+    if(error){ toast.error(error.message); }
+    else{
+      toast.success(`✅ Application ${actionModal.action}`);
+      // Send email notification to parent (non-blocking)
+      sendNotification(actionModal.app, actionModal.action, reviewNotes.trim()||undefined);
+      if(actionModal.app.guardian_email) toast.success(`📧 Notification sent to ${actionModal.app.guardian_email}`);
+      setActionModal(null); setReviewNotes(''); load();
+    }
     setSaving(false);
+  };
+
+  /* ── Auto-generate next Admission Number from DB ─────────────────────────── */
+  const fetchNextAdmNo = async (): Promise<string> => {
+    const year = new Date().getFullYear();
+    try {
+      // Get all admission numbers for current year to find the max sequence
+      const { data } = await supabase
+        .from('school_students')
+        .select('admission_number')
+        .ilike('admission_number', `ADM/${year}/%`)
+        .order('admission_number', { ascending: false })
+        .limit(1);
+      if(data && data.length > 0) {
+        const last = data[0].admission_number; // e.g. ADM/2026/1015
+        const parts = last.split('/');
+        const seq = parseInt(parts[parts.length-1]||'0',10);
+        return `ADM/${year}/${String(seq+1).padStart(4,'0')}`;
+      }
+    } catch {}
+    // Fallback: count all students
+    const { count } = await supabase.from('school_students').select('id',{count:'exact',head:true});
+    return `ADM/${year}/${String((count||0)+1).padStart(4,'0')}`;
   };
 
   /* ── Convert to Student ───────────────────────────────────────────────────── */
@@ -146,7 +194,6 @@ export default function OnlineAdmissionsAdminPage() {
     if(!convertModal||!convertForm.admission_number.trim()){ toast.error('Admission number required'); return; }
     setSaving(true);
     try {
-      const dob = convertModal.date_of_birth ? new Date(convertModal.date_of_birth) : null;
       const { data: stu, error: e1 } = await supabase.from('school_students').insert([{
         admission_number: convertForm.admission_number.trim(),
         first_name:       convertModal.student_first_name,
@@ -162,12 +209,18 @@ export default function OnlineAdmissionsAdminPage() {
         guardian_email:   convertModal.guardian_email||null,
         county:           convertModal.county||null,
         blood_group:      convertModal.blood_group||null,
+        kcpe_marks:       convertModal.kcpe_total_marks||null,
+        previous_school:  convertModal.previous_school||null,
+        nationality:      convertModal.nationality||null,
       }]).select().single();
       if(e1) throw e1;
       await supabase.from('school_admission_applications').update({
         converted_student_id: stu.id, status:'Approved', updated_at:new Date().toISOString()
       }).eq('id',convertModal.id);
-      toast.success(`🎓 ${convertModal.student_first_name} admitted successfully!`);
+      toast.success(`🎓 ${convertModal.student_first_name} admitted to student list!`);
+      // Email parent that they are now admitted
+      sendNotification({...convertModal, status:'Approved'}, 'Approved', 'Your child has been successfully admitted. Please report to school with all original documents.');
+      if(convertModal.guardian_email) toast.success(`📧 Admission confirmation sent to ${convertModal.guardian_email}`);
       setConvertModal(null); load();
     } catch(e:any){ toast.error(e.message); }
     setSaving(false);
@@ -353,7 +406,7 @@ export default function OnlineAdmissionsAdminPage() {
                           <button onClick={()=>{setActionModal({app:a,action:'Rejected'});setReviewNotes('');}} title="Reject"
                             className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition"><FiX size={12}/></button>
                           {a.status==='Approved'&&(
-                            <button onClick={()=>{setConvertModal(a);setConvertForm({stream_id:'',admission_number:`ADM${new Date().getFullYear()}-${a.id}`,reporting_date:''}); }} title="Admit Student"
+                            <button onClick={async()=>{const no=await fetchNextAdmNo();setConvertModal(a);setConvertForm({stream_id:'',admission_number:no,reporting_date:''}); }} title="Admit Student"
                               className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition"><FiStar size={12}/></button>
                           )}
                         </>}
@@ -384,7 +437,7 @@ export default function OnlineAdmissionsAdminPage() {
       ══════════════════════════════════════════════════ */}
       {selected&&<DetailModal app={selected} onClose={()=>setSelected(null)}
         onAction={(app,action)=>{setActionModal({app,action});setReviewNotes('');setSelected(null);}}
-        onConvert={(app)=>{setConvertModal(app);setConvertForm({stream_id:'',admission_number:`ADM${new Date().getFullYear()}-${app.id}`,reporting_date:''});setSelected(null);}}
+        onConvert={async(app)=>{const no=await fetchNextAdmNo();setConvertModal(app);setConvertForm({stream_id:'',admission_number:no,reporting_date:''});setSelected(null);}}
       />}
 
       {/* ══════════════════════════════════════════════════
