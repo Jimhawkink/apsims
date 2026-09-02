@@ -197,6 +197,8 @@ export default function MarkEntryPage() {
     const [unsavedCells, setUnsavedCells] = useState<Set<string>>(new Set());
     const [saving, setSaving]             = useState(false);
     const [locked, setLocked]             = useState(false);
+    const [dbLocked, setDbLocked]         = useState(false); // from school_marks_lock table
+    const [currentUser, setCurrentUser]   = useState<any>(null);
     const [showImport, setShowImport]     = useState(false);
     const [showShortcuts, setShowShortcuts] = useState(false);
     const [marksLoading, setMarksLoading] = useState(false);
@@ -228,17 +230,50 @@ export default function MarkEntryPage() {
         setLoading(false);
     }, []);
 
-    useEffect(() => { fetchAll(); }, [fetchAll]);
-
-    // ── Role-based subject filter ─────────────────────────────────────────────
-    const availableSubjects = useMemo(() => {
+    useEffect(() => {
+        fetchAll();
         try {
-            const user = JSON.parse(localStorage.getItem('school_user') || '{}');
-            if (!user.id || user.role === 'admin' || user.role === 'principal') return subjects;
-            const myIds = subjectTeachers.filter(st => st.teacher_id === user.id).map(l => l.subject_id);
-            return subjects.filter(s => myIds.includes(s.id));
-        } catch { return subjects; }
-    }, [subjects, subjectTeachers]);
+            const u = JSON.parse(localStorage.getItem('school_user') || '{}');
+            setCurrentUser(u);
+        } catch {}
+    }, [fetchAll]);
+
+    // ── Role-based subject filter (strict: teacher only sees own subject/form/stream) ─
+    const isSuperUser = currentUser?.role === 'admin' || currentUser?.role === 'principal' || currentUser?.role === 'deputy';
+
+    const availableSubjects = useMemo(() => {
+        if (!currentUser?.id || isSuperUser) return subjects;
+        // Teacher: only subjects assigned to them for the selected form+stream
+        const myLinks = subjectTeachers.filter(st => {
+            const userMatch = st.teacher_id === currentUser.id || st.teacher_id === currentUser.teacher_id;
+            const formMatch = !selForm || !st.form_id || String(st.form_id) === selForm;
+            const streamMatch = !selStream || !st.stream_id || String(st.stream_id) === selStream;
+            return userMatch && formMatch && streamMatch;
+        });
+        const mySubjectIds = myLinks.map(l => l.subject_id);
+        return subjects.filter(s => mySubjectIds.includes(s.id));
+    }, [subjects, subjectTeachers, currentUser, isSuperUser, selForm, selStream]);
+
+    // ── Check DB lock for selected term/form/exam ────────────────────────────
+    useEffect(() => {
+        if (!selTerm || !selForm || !selExamType) { setDbLocked(false); return; }
+        supabase.from('school_marks_lock')
+            .select('is_locked')
+            .eq('term_id', Number(selTerm))
+            .eq('form_id', Number(selForm))
+            .eq('exam_type', selExamType)
+            .maybeSingle()
+            .then(({ data }) => {
+                // If a lock record exists with is_locked=true AND user is not superUser → locked
+                if (data && data.is_locked && !isSuperUser) {
+                    setDbLocked(true);
+                    setLocked(true);
+                } else {
+                    setDbLocked(false);
+                    if (!isSuperUser) setLocked(false);
+                }
+            });
+    }, [selTerm, selForm, selExamType, isSuperUser]);
 
     // ── Grade resolution ──────────────────────────────────────────────────────
     const getGrade = useCallback((rawScore: number): any => {
@@ -300,10 +335,19 @@ export default function MarkEntryPage() {
         const key = `${studentId}_${selSubject}`;
         if (score === (savedMarks[key] || '')) return;
         const g = getGrade(Number(score));
-        const payload = { student_id: studentId, subject_id: Number(selSubject), term_id: Number(selTerm), exam_type: selExamType, score: Number(score), grade: g.grade, points: g.points, remarks: g.remarks };
+        const teacherName  = currentUser?.full_name || currentUser?.username || '';
+        const teacherUserId = currentUser?.id || null;
+        const payload = {
+            student_id: studentId, subject_id: Number(selSubject),
+            term_id: Number(selTerm), exam_type: selExamType,
+            score: Number(score), grade: g.grade, points: g.points, remarks: g.remarks,
+            entered_by_user_id: teacherUserId,
+            entered_by_name: teacherName,
+            entered_at: new Date().toISOString(),
+        };
         const { data: ex } = await supabase.from('school_exam_marks').select('id').eq('student_id', studentId).eq('subject_id', Number(selSubject)).eq('term_id', Number(selTerm)).eq('exam_type', selExamType).maybeSingle();
         const { error } = ex
-            ? await supabase.from('school_exam_marks').update({ score: Number(score), grade: g.grade, points: g.points, remarks: g.remarks }).eq('id', ex.id)
+            ? await supabase.from('school_exam_marks').update({ score: Number(score), grade: g.grade, points: g.points, remarks: g.remarks, last_modified_by: teacherName, last_modified_at: new Date().toISOString() }).eq('id', ex.id)
             : await supabase.from('school_exam_marks').insert([payload]);
         if (!error) {
             setSavedMarks(prev => ({ ...prev, [key]: score }));
@@ -316,15 +360,24 @@ export default function MarkEntryPage() {
         if (unsavedCells.size === 0) { toast('✅ All marks already saved'); return; }
         setSaving(true);
         let saved = 0; let failed = 0;
+        const teacherName   = currentUser?.full_name || currentUser?.username || '';
+        const teacherUserId = currentUser?.id || null;
+
         for (const key of Array.from(unsavedCells)) {
             const [sid] = key.split('_');
             const score = marks[key];
             if (score === '' || score === undefined) continue;
             const g = getGrade(Number(score));
-            const payload = { student_id: Number(sid), subject_id: Number(selSubject), term_id: Number(selTerm), exam_type: selExamType, score: Number(score), grade: g.grade, points: g.points, remarks: g.remarks };
+            const payload = {
+                student_id: Number(sid), subject_id: Number(selSubject),
+                term_id: Number(selTerm), exam_type: selExamType,
+                score: Number(score), grade: g.grade, points: g.points, remarks: g.remarks,
+                entered_by_user_id: teacherUserId, entered_by_name: teacherName,
+                entered_at: new Date().toISOString(),
+            };
             const { data: ex } = await supabase.from('school_exam_marks').select('id').eq('student_id', Number(sid)).eq('subject_id', Number(selSubject)).eq('term_id', Number(selTerm)).eq('exam_type', selExamType).maybeSingle();
             const { error } = ex
-                ? await supabase.from('school_exam_marks').update({ score: Number(score), grade: g.grade, points: g.points, remarks: g.remarks }).eq('id', ex.id)
+                ? await supabase.from('school_exam_marks').update({ score: Number(score), grade: g.grade, points: g.points, remarks: g.remarks, last_modified_by: teacherName, last_modified_at: new Date().toISOString() }).eq('id', ex.id)
                 : await supabase.from('school_exam_marks').insert([payload]);
             if (!error) saved++; else failed++;
         }
@@ -444,9 +497,22 @@ export default function MarkEntryPage() {
                                     <button onClick={exportMarks} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-white/20 text-white/80 hover:bg-white/10 transition">
                                         <FiDownload size={12} /> Export
                                     </button>
-                                    <button onClick={() => setLocked(l => !l)} className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition ${locked ? 'bg-red-500 text-white' : 'border border-white/20 text-white/80 hover:bg-white/10'}`}>
-                                        {locked ? <><FiLock size={12} /> Locked</> : <><FiUnlock size={12} /> Lock</>}
-                                    </button>
+                                    {/* Teacher identity badge */}
+                                    {currentUser?.full_name && (
+                                        <span className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black rounded-xl bg-white/10 text-white/80 border border-white/20">
+                                            ✍️ {currentUser.full_name}
+                                        </span>
+                                    )}
+                                    {/* Lock button — super users can manually lock/unlock; teachers see read-only */}
+                                    {isSuperUser ? (
+                                        <button onClick={() => setLocked(l => !l)} className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition ${locked ? 'bg-red-500 text-white' : 'border border-white/20 text-white/80 hover:bg-white/10'}`}>
+                                            {locked ? <><FiLock size={12}/> Locked</> : <><FiUnlock size={12}/> Lock</>}
+                                        </button>
+                                    ) : dbLocked ? (
+                                        <span className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-red-500 text-white">
+                                            <FiLock size={12}/> Marks Locked
+                                        </span>
+                                    ) : null}
                                 </>
                             )}
                             <button onClick={fetchAll} className="p-2 rounded-xl border border-white/20 text-white/70 hover:bg-white/10 transition"><FiRefreshCw size={14} /></button>
@@ -487,6 +553,28 @@ export default function MarkEntryPage() {
                 </div>
             ) : (
                 <>
+                    {/* ════ DB LOCK BANNER ════ */}
+                    {dbLocked && !isSuperUser && (
+                        <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 flex items-start gap-3">
+                            <FiLock className="text-red-500 shrink-0 mt-0.5" size={18}/>
+                            <div>
+                                <p className="font-black text-red-800 text-sm">🔒 Marks Locked by Administration</p>
+                                <p className="text-xs text-red-600 mt-1">Marks entry for this form/term has been locked. You can view but not edit marks. Contact the Principal to unlock.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ════ TEACHER INFO BANNER ════ */}
+                    {!isSuperUser && currentUser?.full_name && !dbLocked && (
+                        <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3 flex items-center gap-3">
+                            <span className="text-xl">✍️</span>
+                            <div>
+                                <p className="font-black text-indigo-800 text-sm">Entering marks as: {currentUser.full_name}</p>
+                                <p className="text-xs text-indigo-600 mt-0.5">Your name will be stamped on every mark you enter and will appear on student report cards. Only your assigned subjects are shown.</p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* ════ SELECTION PANEL ════ */}
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                         <div className="flex items-center gap-2 mb-3">
