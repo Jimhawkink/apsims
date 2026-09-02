@@ -108,22 +108,27 @@ export default function CohortTrackerPage() {
     /* ─── FETCH ─── */
     const fetchAll = useCallback(async () => {
         setLoading(true);
-        const [fRes, stRes, subRes, studRes, termRes, markRes, cbcRes] = await Promise.all([
+        const [fRes, stRes, subRes, studRes, termRes, markRes] = await Promise.all([
             supabase.from('school_forms').select('*').order('form_level'),
             supabase.from('school_streams').select('*').order('stream_name'),
             supabase.from('school_subjects').select('*').eq('is_active', true).order('subject_name'),
             supabase.from('school_students').select('*').order('first_name'),
             supabase.from('school_terms').select('*').order('id', { ascending: true }),
             supabase.from('school_exam_marks').select('student_id,subject_id,term_id,exam_type,score,points,grade').eq('exam_type', examType),
-            supabase.from('school_cbc_marks').select('*').limit(5000).then(r => r).catch(() => ({ data: [] })),
         ]);
+        // CBC marks — optional table, safe fallback if table doesn't exist yet
+        let cbcData: any[] = [];
+        try {
+            const cbcRes = await supabase.from('school_cbc_marks').select('*').limit(5000);
+            cbcData = cbcRes.data || [];
+        } catch { cbcData = []; }
         setForms(fRes.data || []);
         setStreams(stRes.data || []);
         setSubjects(subRes.data || []);
         setStudents(studRes.data || []);
         setTerms(termRes.data || []);
         setAllMarks(markRes.data || []);
-        setCbcMarks((cbcRes as any)?.data || []);
+        setCbcMarks(cbcData);
         setLoading(false);
     }, [examType]);
 
@@ -213,7 +218,7 @@ export default function CohortTrackerPage() {
         return { ...stage, stageYear, stageAvg, cbcAvgLevel, passRate, atRisk, markCount: combinedScores.length, eeCount, meCount, aeCount, beCount };
     });
 
-    const activeStages = mode === '844' ? stages844 : stagesCBC;
+    const activeStages: any[] = mode === '844' ? stages844 : stagesCBC;
 
     /* ─── PER-STUDENT LIFETIME TRAJECTORY ─── */
     const studentTrajectory = cohortStudents.map(s => {
@@ -232,18 +237,18 @@ export default function CohortTrackerPage() {
 
     /* ─── TREND CHART (school-wide cohort avg per stage) ─── */
     const trendChart = {
-        labels: activeStages.map(s => s.label),
+        labels: activeStages.map((s: any) => s.label) as string[],
         datasets: [
             {
                 label: 'Cohort Average %',
-                data: activeStages.map(s => s.stageAvg > 0 ? s.stageAvg.toFixed(1) : null),
+                data: activeStages.map((s: any) => s.stageAvg > 0 ? parseFloat(s.stageAvg.toFixed(1)) : 0) as number[],
                 borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.12)',
                 fill: true, tension: 0.4, pointBackgroundColor: '#6366f1',
                 pointRadius: 6, borderWidth: 2.5,
             },
             {
                 label: 'Pass Threshold (50%)',
-                data: activeStages.map(() => 50),
+                data: activeStages.map(() => 50) as number[],
                 borderColor: '#ef4444', borderDash: [6, 4], borderWidth: 1.5,
                 pointRadius: 0, backgroundColor: 'transparent',
             },
@@ -254,23 +259,23 @@ export default function CohortTrackerPage() {
     const maleStudents   = cohortStudents.filter(s => s.gender?.toLowerCase() === 'male');
     const femaleStudents = cohortStudents.filter(s => s.gender?.toLowerCase() === 'female');
     const genderChart = {
-        labels: activeStages.map(s => s.label),
+        labels: activeStages.map((s: any) => s.label) as string[],
         datasets: [
             {
                 label: 'Male Avg %',
-                data: activeStages.map(s => {
-                    const mMarks = s.studentAvgs?.filter((sv: any) => maleStudents.some(m => m.id === sv.student.id));
-                    return mMarks?.length ? avg(mMarks.map((m: any) => m.avg)).toFixed(1) : null;
-                }),
+                data: activeStages.map((s: any) => {
+                    const mMarks = (s.studentAvgs || []).filter((sv: any) => maleStudents.some(m => m.id === sv.student.id));
+                    return mMarks.length ? parseFloat(avg(mMarks.map((m: any) => m.avg)).toFixed(1)) : 0;
+                }) as number[],
                 borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)',
                 fill: true, tension: 0.4, pointRadius: 4, borderWidth: 2,
             },
             {
                 label: 'Female Avg %',
-                data: activeStages.map(s => {
-                    const fMarks = s.studentAvgs?.filter((sv: any) => femaleStudents.some(f => f.id === sv.student.id));
-                    return fMarks?.length ? avg(fMarks.map((m: any) => m.avg)).toFixed(1) : null;
-                }),
+                data: activeStages.map((s: any) => {
+                    const fMarks = (s.studentAvgs || []).filter((sv: any) => femaleStudents.some(f => f.id === sv.student.id));
+                    return fMarks.length ? parseFloat(avg(fMarks.map((m: any) => m.avg)).toFixed(1)) : 0;
+                }) as number[],
                 borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.1)',
                 fill: true, tension: 0.4, pointRadius: 4, borderWidth: 2,
             },
