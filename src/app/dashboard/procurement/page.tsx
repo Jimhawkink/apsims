@@ -218,10 +218,89 @@ export default function ProcurementPage() {
     };
 
     const deliverPO = async(po:any)=>{
-        if(!confirm(`Mark ${po.po_number} as DELIVERED? This records that goods have been received.`)) return;
-        await supabase.from('school_purchase_orders').update({status:'Delivered',delivered_at:new Date().toISOString()}).eq('id',po.id);
-        try{ await supabase.from('school_store_audit_log').insert([{action_type:'LPO_DELIVERED',record_ref:po.po_number,description:`LPO ${po.po_number} marked as DELIVERED. Supplier: ${getSupplier(po.supplier_id)?.supplier_name||''}. Value: KES ${fmtN(po.grand_total)}`,actor:'Admin',actor_role:'Stores'}]); }catch(_){}
-        toast.success(`✅ ${po.po_number} marked as DELIVERED`);fetchAll();
+        if(!confirm(`Mark ${po.po_number} as DELIVERED?\n\nThis will:\n✅ Mark the LPO as Delivered\n✅ Automatically update stock in Stores for all items\n✅ Create GRN records\n\nProceed?`)) return;
+
+        // 1. Mark LPO as Delivered
+        const {error:poErr} = await supabase.from('school_purchase_orders')
+            .update({status:'Delivered', delivered_at:new Date().toISOString()})
+            .eq('id', po.id);
+        if(poErr){ toast.error('Failed to update LPO: '+poErr.message); return; }
+
+        // 2. Get all items for this PO
+        const thisPoItems = poItems.filter((i:any)=> i.po_id === po.id);
+        if(thisPoItems.length === 0){
+            toast.success(`✅ ${po.po_number} marked as DELIVERED`);
+            fetchAll(); return;
+        }
+
+        const supplier = getSupplier(po.supplier_id);
+        const grnYear = new Date().getFullYear();
+        let stockUpdateCount = 0;
+        let errors: string[] = [];
+
+        for(const item of thisPoItems){
+            // 3. Find matching store item by name (case-insensitive)
+            const {data: storeMatches} = await supabase
+                .from('school_store_items')
+                .select('id, item_name, quantity, unit_price')
+                .ilike('item_name', `%${item.item_description.trim()}%`)
+                .limit(1);
+
+            const storeItem = storeMatches?.[0];
+
+            if(storeItem){
+                // 4. Update stock quantity
+                const newQty = (Number(storeItem.quantity)||0) + Number(item.quantity);
+                const {error:stockErr} = await supabase
+                    .from('school_store_items')
+                    .update({ quantity: newQty })
+                    .eq('id', storeItem.id);
+                if(stockErr){ errors.push(`Stock update failed for ${item.item_description}: ${stockErr.message}`); continue; }
+                stockUpdateCount++;
+
+                // 5. Create GRN purchase record
+                const grnNumber = `GRN-${grnYear}-${po.po_number}-${stockUpdateCount}`;
+                await supabase.from('school_store_purchases').insert([{
+                    item_id: storeItem.id,
+                    item_name: storeItem.item_name,
+                    quantity: Number(item.quantity),
+                    unit: item.unit || 'Pcs',
+                    unit_cost: Number(item.unit_price)||0,
+                    total_cost: Number(item.quantity) * Number(item.unit_price||0),
+                    grn_number: grnNumber,
+                    supplier_id: po.supplier_id||null,
+                    supplier: supplier?.supplier_name||'',
+                    invoice_ref: po.po_number,
+                    delivery_date: new Date().toISOString().split('T')[0],
+                    received_by: 'Procurement',
+                    status: 'Authorized',
+                    authorized_by: 'System',
+                    authorized_by_role: 'Procurement',
+                    authorized_at: new Date().toISOString(),
+                    notes: `Auto-created from LPO ${po.po_number}`,
+                }]);
+            } else {
+                errors.push(`⚠️ "${item.item_description}" not found in store items — please add it in Stores first`);
+            }
+        }
+
+        // 6. Audit log
+        try{ await supabase.from('school_store_audit_log').insert([{
+            action_type:'LPO_DELIVERED',
+            record_ref: po.po_number,
+            description:`LPO ${po.po_number} DELIVERED. ${stockUpdateCount} item(s) stock updated. Supplier: ${supplier?.supplier_name||''}. Value: KES ${fmtN(po.grand_total)}`,
+            actor:'Admin', actor_role:'Procurement'
+        }]); }catch(_){}
+
+        if(errors.length > 0){
+            toast.error(errors.join('\n'));
+        }
+        if(stockUpdateCount > 0){
+            toast.success(`✅ ${po.po_number} DELIVERED — ${stockUpdateCount} item(s) stock updated in Stores!`);
+        } else if(errors.length === 0){
+            toast.success(`✅ ${po.po_number} marked as DELIVERED`);
+        }
+        fetchAll();
     };
 
     const cancelPO = async(po:any)=>{
