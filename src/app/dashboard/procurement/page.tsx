@@ -309,6 +309,54 @@ export default function ProcurementPage() {
         toast.success(`${po.po_number} cancelled`);fetchAll();
     };
 
+    /* ── Sync stock for already-delivered LPO ─────── */
+    const syncStockFromPO = async(po:any)=>{
+        if(!confirm(`Sync stock for ${po.po_number}?\n\nThis will update stock quantities in Stores for all items in this LPO.\n\nProceed?`)) return;
+        const thisPoItems = poItems.filter((i:any)=> i.po_id === po.id);
+        if(thisPoItems.length === 0){ toast.error('No items found for this LPO'); return; }
+        const supplier = getSupplier(po.supplier_id);
+        const grnYear = new Date().getFullYear();
+        let stockUpdateCount = 0;
+        let errors: string[] = [];
+        for(const item of thisPoItems){
+            const {data: storeMatches} = await supabase
+                .from('school_store_items')
+                .select('id, item_name, quantity, unit_price')
+                .ilike('item_name', `%${item.item_description.trim()}%`)
+                .limit(1);
+            const storeItem = storeMatches?.[0];
+            if(storeItem){
+                const newQty = (Number(storeItem.quantity)||0) + Number(item.quantity);
+                const {error:stockErr} = await supabase
+                    .from('school_store_items')
+                    .update({ quantity: newQty })
+                    .eq('id', storeItem.id);
+                if(stockErr){ errors.push(`Failed: ${item.item_description}: ${stockErr.message}`); continue; }
+                stockUpdateCount++;
+                const grnNumber = `GRN-${grnYear}-${po.po_number}-SYNC-${stockUpdateCount}`;
+                await supabase.from('school_store_purchases').insert([{
+                    item_id: storeItem.id, item_name: storeItem.item_name,
+                    quantity: Number(item.quantity), unit: item.unit||'Pcs',
+                    unit_cost: Number(item.unit_price)||0,
+                    total_cost: Number(item.quantity)*Number(item.unit_price||0),
+                    grn_number: grnNumber,
+                    supplier_id: po.supplier_id||null, supplier: supplier?.supplier_name||'',
+                    invoice_ref: po.po_number,
+                    delivery_date: new Date().toISOString().split('T')[0],
+                    received_by: 'Procurement', status: 'Authorized',
+                    authorized_by: 'System', authorized_by_role: 'Procurement',
+                    authorized_at: new Date().toISOString(),
+                    notes: `Synced from delivered LPO ${po.po_number}`,
+                }]);
+            } else {
+                errors.push(`"${item.item_description}" not found in store items`);
+            }
+        }
+        if(errors.length > 0) toast.error(errors.join('\n'));
+        if(stockUpdateCount > 0) toast.success(`✅ Stock synced — ${stockUpdateCount} item(s) updated in Stores from ${po.po_number}!`);
+        fetchAll();
+    };
+
     /* ── LPO → auto-fill invoice ────────────────────── */
     const onSelectPO=(poId:string)=>{
         const po=orders.find(o=>String(o.id)===poId);
@@ -828,6 +876,7 @@ ${st.supPayments.map((p,i)=>`<tr><td>${i+1}</td><td style="font-family:monospace
                                     {po.status==='Draft'&&<button onClick={()=>approvePO(po)} className="px-3 py-1.5 text-[10px] font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg flex items-center gap-1 transition"><FiCheck size={10}/>Approve</button>}
                                     {po.status==='Approved'&&<button onClick={()=>sendPO(po)} className="px-3 py-1.5 text-[10px] font-bold text-white rounded-lg flex items-center gap-1 transition" style={{background:'linear-gradient(135deg,#5b21b6,#7c3aed)'}}>✈️ Mark Sent</button>}
                                     {(po.status==='Approved'||po.status==='Sent')&&<button onClick={()=>deliverPO(po)} className="px-3 py-1.5 text-[10px] font-bold text-white rounded-lg flex items-center gap-1 transition" style={{background:'linear-gradient(135deg,#059669,#047857)'}}>📦 Mark Delivered</button>}
+                                    {po.status==='Delivered'&&<button onClick={()=>syncStockFromPO(po)} className="px-3 py-1.5 text-[10px] font-bold text-white rounded-lg flex items-center gap-1 transition" style={{background:'linear-gradient(135deg,#0891b2,#0e7490)'}}>🔄 Sync Stock</button>}
                                     {po.status!=='Cancelled'&&po.status!=='Delivered'&&<button onClick={()=>cancelPO(po)} className="px-3 py-1.5 text-[10px] font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-1 transition"><FiX size={10}/>Cancel</button>}
                                     <button onClick={()=>printLPO(po)} className="px-3 py-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-1 transition"><FiPrinter size={10}/>Print LPO</button>
                                     {hasInv
