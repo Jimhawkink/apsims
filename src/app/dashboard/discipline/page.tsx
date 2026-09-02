@@ -97,16 +97,45 @@ export default function DisciplinePage() {
         if (!description) { toast.error('Describe the incident'); return; }
         setSaving(true);
         const teacher = teachers.find(t => t.id === Number(teacherId));
-        const { error } = await supabase.from('school_discipline_records').insert([{
+        const reportedBy = teacher ? `${teacher.first_name} ${teacher.last_name}` : 'Admin';
+        const { error, data: inserted } = await supabase.from('school_discipline_records').insert([{
             student_id: selStudent.id, incident_date: new Date().toISOString().split('T')[0],
             category, severity, description, action_taken: actionTaken,
-            action_details: actionDetails || null, reported_by: teacher ? `${teacher.first_name} ${teacher.last_name}` : 'Admin',
+            action_details: actionDetails || null, reported_by: reportedBy,
             teacher_id: teacherId ? Number(teacherId) : null, parent_notified: parentNotified,
             parent_notified_date: parentNotified ? new Date().toISOString().split('T')[0] : null,
             counseling_referred: counseling, status: 'Open', term: selTerm, year: currentYear, created_by: 'admin'
-        }]);
+        }]).select();
         if (error) { toast.error('Failed: ' + error.message); setSaving(false); return; }
-        toast.success('Discipline record saved');
+
+        // ── Auto-create Guidance referral if counseling referred or action is Guidance ──
+        if (counseling || actionTaken === 'Guidance & Counseling') {
+            const concernMap: Record<string,string> = {
+                'Bullying':'Bullying', 'Substance Abuse':'Substance Abuse',
+                'Truancy / Lateness':'Truancy/Absenteeism', 'Attendance (Truancy/Lateness)':'Truancy/Absenteeism',
+                'Violence':'Behavioral Issue', 'Theft':'Behavioral Issue',
+                'Insubordination':'Behavioral Issue', 'Vandalism':'Behavioral Issue',
+                'Academic Dishonesty':'Academic Difficulty',
+            };
+            await supabase.from('school_guidance_referrals').insert([{
+                student_id: selStudent.id,
+                concern_type: concernMap[category] || 'Behavioral Issue',
+                severity: severity,
+                description: `[Auto-referred from Discipline] ${category}: ${description}`,
+                referred_by: reportedBy,
+                counselor_assigned: '',
+                status: 'Pending',
+                is_urgent: severity === 'Critical' || severity === 'Major',
+                parent_notified: parentNotified,
+                source: 'Discipline',
+                referral_date: new Date().toISOString().split('T')[0],
+                notes: `Discipline action: ${actionTaken}. ${actionDetails || ''}`.trim(),
+            }]);
+            toast.success('✅ Discipline record saved + Guidance referral created automatically');
+        } else {
+            toast.success('Discipline record saved');
+        }
+
         setSelStudent(null); setSearch(''); setDescription(''); setActionDetails('');
         setParentNotified(false); setCounseling(false);
         fetchAll(); setSaving(false);

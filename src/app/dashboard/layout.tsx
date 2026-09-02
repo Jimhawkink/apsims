@@ -55,6 +55,7 @@ const menuGroups = [
             { href: '/dashboard/students/promotion', label: 'Promotion', icon: FiTrendingUp, perm: 'students' },
             { href: '/dashboard/students/id-cards', label: 'ID Cards', icon: FiCreditCard, perm: 'students' },
             { href: '/dashboard/discipline', label: 'Discipline', icon: FiShield, perm: 'discipline' },
+            { href: '/dashboard/guidance', label: '🫶 Guidance & Counselling', icon: FiHeart, perm: 'discipline' },
             { href: '/dashboard/leave-out', label: 'Leave Out', icon: FiExternalLink, perm: 'leave-out' },
             { href: '/dashboard/students/health', label: 'Health Records', icon: FiHeart, perm: 'students' },
         ]
