@@ -67,6 +67,9 @@ export default function ProcurementPage() {
     const [invoices, setInvoices] = useState<any[]>([]);
     const [payments, setPayments] = useState<any[]>([]);
     const [schoolInfo, setSchoolInfo] = useState<any>({});
+    const [storeItems, setStoreItems] = useState<any[]>([]);
+    const [itemSearches, setItemSearches] = useState<string[]>(['']);
+    const [itemDropdownOpen, setItemDropdownOpen] = useState<number|null>(null);
     const [search, setSearch] = useState('');
     const [saving, setSaving] = useState(false);
     const [statusFilter, setStatusFilter] = useState('All');
@@ -95,13 +98,14 @@ export default function ProcurementPage() {
     /* ── fetch ─────────────────────────────────────── */
     const fetchAll = useCallback(async () => {
         setLoading(true);
-        const [sRes,oRes,piRes,iRes,pRes,scRes] = await Promise.all([
+        const [sRes,oRes,piRes,iRes,pRes,scRes,siRes] = await Promise.all([
             supabase.from('school_suppliers').select('*').order('supplier_name'),
             supabase.from('school_purchase_orders').select('*').order('created_at',{ascending:false}),
             supabase.from('school_po_items').select('*'),
             supabase.from('school_supplier_invoices').select('*').order('created_at',{ascending:false}),
             supabase.from('school_supplier_payments').select('*').order('created_at',{ascending:false}),
             supabase.from('school_details').select('*').maybeSingle(),
+            supabase.from('school_store_items').select('id,item_name,item_code,category,unit,unit_price').eq('is_active',true).order('item_name'),
         ]);
         setSuppliers(sRes.data||[]);
         setOrders(oRes.data||[]);
@@ -109,6 +113,7 @@ export default function ProcurementPage() {
         setInvoices(iRes.data||[]);
         setPayments(pRes.data||[]);
         setSchoolInfo(scRes.data||{});
+        setStoreItems(siRes.data||[]);
         setLoading(false);
     },[]);
 
@@ -215,7 +220,7 @@ export default function ProcurementPage() {
     const deliverPO = async(po:any)=>{
         if(!confirm(`Mark ${po.po_number} as DELIVERED? This records that goods have been received.`)) return;
         await supabase.from('school_purchase_orders').update({status:'Delivered',delivered_at:new Date().toISOString()}).eq('id',po.id);
-        await supabase.from('school_store_audit_log').insert([{action_type:'LPO_DELIVERED',record_ref:po.po_number,description:`LPO ${po.po_number} marked as DELIVERED. Supplier: ${getSupplier(po.supplier_id)?.supplier_name||''}. Value: KES ${fmtN(po.grand_total)}`,actor:'Admin',actor_role:'Stores'}]).catch(()=>{});
+        try{ await supabase.from('school_store_audit_log').insert([{action_type:'LPO_DELIVERED',record_ref:po.po_number,description:`LPO ${po.po_number} marked as DELIVERED. Supplier: ${getSupplier(po.supplier_id)?.supplier_name||''}. Value: KES ${fmtN(po.grand_total)}`,actor:'Admin',actor_role:'Stores'}]); }catch(_){}
         toast.success(`✅ ${po.po_number} marked as DELIVERED`);fetchAll();
     };
 
@@ -282,14 +287,14 @@ export default function ProcurementPage() {
                 await supabase.from('school_supplier_invoices').update({amount_paid:newPaid,balance:newBalance,status:newBalance<=0?'Paid':'Partial'}).eq('id',inv.id);
             }
         }
-        await supabase.from('school_store_audit_log').insert([{action_type:'SUPPLIER_PAYMENT',record_ref:payForm.payment_number,description:`Payment KES ${payForm.amount} to ${getSupplier(payForm.supplier_id)?.supplier_name||'supplier'} via ${payForm.payment_method}`,actor:'Admin',actor_role:'Bursar'}]).catch(()=>{});
+        try{ await supabase.from('school_store_audit_log').insert([{action_type:'SUPPLIER_PAYMENT',record_ref:payForm.payment_number,description:`Payment KES ${payForm.amount} to ${getSupplier(payForm.supplier_id)?.supplier_name||'supplier'} via ${payForm.payment_method}`,actor:'Admin',actor_role:'Bursar'}]); }catch(_){}
         toast.success('✅ Payment recorded!');
         setShowPaymentModal(false);setPayForm(freshPayment());setSaving(false);fetchAll();
     };
 
     /* ── PO line items ──────────────────────────────── */
-    const addItem=()=>setPoForm((f:any)=>({...f,items:[...f.items,{item_description:'',quantity:1,unit:'Pieces',unit_price:0}]}));
-    const removeItem=(idx:number)=>setPoForm((f:any)=>({...f,items:f.items.filter((_:any,i:number)=>i!==idx)}));
+    const addItem=()=>{setPoForm((f:any)=>({...f,items:[...f.items,{item_description:'',quantity:1,unit:'Pieces',unit_price:0}]}));setItemSearches(s=>[...s,'']);};
+    const removeItem=(idx:number)=>{setPoForm((f:any)=>({...f,items:f.items.filter((_:any,i:number)=>i!==idx)}));setItemSearches(s=>s.filter((_,i)=>i!==idx));};
     const updateItem=(idx:number,field:string,val:any)=>setPoForm((f:any)=>{const items=[...f.items];items[idx]={...items[idx],[field]:val};return{...f,items};});
     const poSubtotal=poForm.items.reduce((s:number,i:any)=>s+Number(i.quantity||0)*Number(i.unit_price||0),0);
     const poVAT=Math.round(poSubtotal*0.16*100)/100;
@@ -618,7 +623,7 @@ ${st.supPayments.map((p,i)=>`<tr><td>${i+1}</td><td style="font-family:monospace
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                         <button onClick={()=>{setSupForm(emptySupplier);setEditing(null);setShowSupplierModal(true);}} className="px-3 py-2 rounded-xl text-xs font-bold text-white bg-blue-500/80 hover:bg-blue-500 flex items-center gap-1.5 transition border border-blue-400/30"><FiPlus size={12}/> Supplier</button>
-                        <button onClick={()=>{setPoForm(emptyPO);setShowPOModal(true);}} className="px-3 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition shadow-md" style={{background:'linear-gradient(135deg,#06b6d4,#0891b2)'}}><FiShoppingCart size={12}/> New LPO</button>
+                        <button onClick={()=>{setPoForm(emptyPO);setItemSearches(['']);setItemDropdownOpen(null);setShowPOModal(true);}} className="px-3 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition shadow-md" style={{background:'linear-gradient(135deg,#06b6d4,#0891b2)'}}><FiShoppingCart size={12}/> New LPO</button>
                         <button onClick={()=>{setInvForm(freshInvoice());setShowInvoiceModal(true);}} className="px-3 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition shadow-md" style={{background:'linear-gradient(135deg,#f59e0b,#d97706)'}}><FiFileText size={12}/> Record Invoice</button>
                         <button onClick={()=>{setPayForm(freshPayment());setShowPaymentModal(true);}} className="px-3 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition shadow-md" style={{background:'linear-gradient(135deg,#22c55e,#16a34a)'}}><FiDollarSign size={12}/> Pay Supplier</button>
                         <button onClick={fetchAll} className="p-2 rounded-xl text-white hover:bg-white/10 transition"><FiRefreshCw size={14}/></button>
@@ -714,7 +719,7 @@ ${st.supPayments.map((p,i)=>`<tr><td>${i+1}</td><td style="font-family:monospace
                     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-16 text-center">
                         <span className="text-5xl block mb-3">📋</span>
                         <p className="text-sm font-bold text-gray-600">No Purchase Orders found</p>
-                        <button onClick={()=>{setPoForm(emptyPO);setShowPOModal(true);}} className="mt-4 px-5 py-2 text-xs font-bold text-white rounded-xl shadow-md" style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)'}}><FiPlus size={12} className="inline mr-1"/>Create First LPO</button>
+                        <button onClick={()=>{setPoForm(emptyPO);setItemSearches(['']);setItemDropdownOpen(null);setShowPOModal(true);}} className="mt-4 px-5 py-2 text-xs font-bold text-white rounded-xl shadow-md" style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)'}}><FiPlus size={12} className="inline mr-1"/>Create First LPO</button>
                     </div>
                 ):filteredOrders.map(po=>{
                     const supplier=getSupplier(po.supplier_id);
@@ -1195,7 +1200,55 @@ ${st.supPayments.map((p,i)=>`<tr><td>${i+1}</td><td style="font-family:monospace
                             <div className="space-y-2">
                                 {poForm.items.map((it:any,idx:number)=>(
                                     <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-gray-50 rounded-xl p-2.5">
-                                        <div className="col-span-5"><input value={it.item_description} onChange={e=>updateItem(idx,'item_description',e.target.value)} className={inputCls} placeholder="Item description…"/></div>
+                                        {/* ── Searchable Item Dropdown ── */}
+                                        <div className="col-span-5 relative">
+                                            <input
+                                                value={itemSearches[idx]??it.item_description}
+                                                onChange={e=>{
+                                                    const v=e.target.value;
+                                                    setItemSearches(s=>{const a=[...s];a[idx]=v;return a;});
+                                                    updateItem(idx,'item_description',v);
+                                                    setItemDropdownOpen(idx);
+                                                }}
+                                                onFocus={()=>setItemDropdownOpen(idx)}
+                                                onBlur={()=>setTimeout(()=>setItemDropdownOpen(null),200)}
+                                                className={inputCls}
+                                                placeholder="Search store items…"
+                                                autoComplete="off"
+                                            />
+                                            {itemDropdownOpen===idx && (
+                                                <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                                                    {storeItems.filter(s=>
+                                                        !itemSearches[idx] ||
+                                                        s.item_name.toLowerCase().includes((itemSearches[idx]||'').toLowerCase()) ||
+                                                        (s.item_code||'').toLowerCase().includes((itemSearches[idx]||'').toLowerCase())
+                                                    ).length===0
+                                                        ? <div className="px-3 py-2 text-xs text-gray-400 italic">No items found in store</div>
+                                                        : storeItems.filter(s=>
+                                                            !itemSearches[idx] ||
+                                                            s.item_name.toLowerCase().includes((itemSearches[idx]||'').toLowerCase()) ||
+                                                            (s.item_code||'').toLowerCase().includes((itemSearches[idx]||'').toLowerCase())
+                                                          ).map(s=>(
+                                                            <button
+                                                                key={s.id}
+                                                                type="button"
+                                                                onMouseDown={()=>{
+                                                                    updateItem(idx,'item_description',s.item_name);
+                                                                    updateItem(idx,'unit',s.unit||'Pieces');
+                                                                    updateItem(idx,'unit_price',s.unit_price||0);
+                                                                    setItemSearches(a=>{const n=[...a];n[idx]=s.item_name;return n;});
+                                                                    setItemDropdownOpen(null);
+                                                                }}
+                                                                className="w-full text-left px-3 py-2 text-xs hover:bg-cyan-50 border-b last:border-0 border-gray-100 flex items-center justify-between gap-2"
+                                                            >
+                                                                <span className="font-semibold text-gray-800">{s.item_name}</span>
+                                                                <span className="text-gray-400 shrink-0">{s.item_code} · {s.unit} · KES {Number(s.unit_price||0).toLocaleString()}</span>
+                                                            </button>
+                                                          ))
+                                                    }
+                                                </div>
+                                            )}
+                                        </div>
                                         <div className="col-span-2"><input type="number" value={it.quantity} onChange={e=>updateItem(idx,'quantity',e.target.value)} className={inputCls} min="1" placeholder="Qty"/></div>
                                         <div className="col-span-2"><select value={it.unit} onChange={e=>updateItem(idx,'unit',e.target.value)} className={inputCls}>{UNITS.map(u=><option key={u}>{u}</option>)}</select></div>
                                         <div className="col-span-2"><input type="number" value={it.unit_price} onChange={e=>updateItem(idx,'unit_price',e.target.value)} className={inputCls} min="0" step="0.01" placeholder="Unit Price"/></div>
