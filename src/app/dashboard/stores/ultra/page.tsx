@@ -256,7 +256,7 @@ export default function UltraStoresPage() {
 
     /* ─── SUBMIT GRN (Store Keeper records delivery) ─── */
     const receiveStock = async () => {
-        if (!grnForm.item_id || grnForm.quantity <= 0) { toast.error('Select item and enter quantity'); return; }
+        if (!grnForm.item_id || grnForm.quantity <= 0) { toast.error('Select item and enter quantity received'); return; }
         if (!grnForm.received_by.trim()) { toast.error('Enter store keeper name'); return; }
         const item = items.find(i => i.id === grnForm.item_id);
         if (!item) return;
@@ -267,22 +267,38 @@ export default function UltraStoresPage() {
         setSaving(true);
         const sup = suppliers.find(s => String(s.id) === String(grnForm.supplier_id));
         const procInv = procInvoices.find(i => String(i.id) === String(grnForm.proc_invoice_id));
-        const totalCost = grnForm.quantity * (grnForm.unit_cost || item.unit_price || 0);
+        const unitCost = Number(grnForm.unit_cost) || Number(item.unit_price) || 0;
+        const qty = Number(grnForm.quantity);
+        const totalCost = qty * unitCost;
         const grnNumber = `GRN-${new Date().getFullYear()}-${String(grns.length + 1).padStart(5, '0')}`;
+        // ── 1. Save GRN record as Authorized ──
         const { error } = await supabase.from('school_store_purchases').insert([{
             item_id: grnForm.item_id, item_name: item.item_name, item_code: item.item_code || null,
-            quantity: grnForm.quantity, unit: item.unit,
+            quantity: qty, unit: item.unit,
             supplier_id: grnForm.supplier_id || null, supplier: sup?.supplier_name || '',
             invoice_ref: grnForm.invoice_ref || procInv?.invoice_number || null,
-            unit_cost: grnForm.unit_cost || item.unit_price || 0,
-            total_cost: totalCost, grn_number: grnNumber,
+            unit_cost: unitCost, total_cost: totalCost, grn_number: grnNumber,
             delivery_date: grnForm.delivery_date,
             received_by: grnForm.received_by, notes: grnForm.notes || null,
-            status: 'Pending', // ← Awaiting Principal/DP authorization
+            status: 'Authorized',
+            authorized_by: grnForm.received_by,
+            authorized_by_role: 'Store Keeper',
+            authorized_at: new Date().toISOString(),
         }]);
         if (error) { toast.error(error.message); setSaving(false); return; }
-        await logAudit('GRN_CREATED', grnNumber, `GRN created: ${grnForm.quantity} ${item.unit} of ${item.item_name} from ${sup?.supplier_name || 'supplier'}. Awaiting authorization.`, grnForm.received_by, 'Store Keeper');
-        toast.success(`✅ GRN ${grnNumber} created — awaiting Principal/DP authorization`);
+        // ── 2. Update stock quantity immediately ──
+        const newQty = (Number(item.quantity) || 0) + qty;
+        const { error: stockErr } = await supabase.from('school_store_items').update({
+            quantity: newQty,
+            unit_price: unitCost || item.unit_price,
+            supplier: sup?.supplier_name || item.supplier || '',
+            supplier_id: grnForm.supplier_id || item.supplier_id || null,
+            last_restocked_at: new Date().toISOString(),
+            total_received: (Number(item.total_received) || 0) + qty,
+        }).eq('id', item.id);
+        if (stockErr) { toast.error('GRN saved but stock update failed: ' + stockErr.message); setSaving(false); fetchAll(); return; }
+        await logAudit('GRN_RECEIVED', grnNumber, `Stock received: ${qty} ${item.unit} of ${item.item_name} from ${sup?.supplier_name || 'supplier'}. New qty: ${newQty}`, grnForm.received_by, 'Store Keeper');
+        toast.success(`✅ GRN ${grnNumber} — ${qty} ${item.unit} of ${item.item_name} added to stock! New balance: ${newQty} ${item.unit}`);
         setShowGRNModal(false); setGrnForm(emptyGRN); setSaving(false); fetchAll();
     };
 
