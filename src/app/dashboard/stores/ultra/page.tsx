@@ -288,14 +288,9 @@ export default function UltraStoresPage() {
         if (error) { toast.error(error.message); setSaving(false); return; }
         // ── 2. Update stock quantity immediately ──
         const newQty = (Number(item.quantity) || 0) + qty;
-        const { error: stockErr } = await supabase.from('school_store_items').update({
-            quantity: newQty,
-            unit_price: unitCost || item.unit_price,
-            supplier: sup?.supplier_name || item.supplier || '',
-            supplier_id: grnForm.supplier_id || item.supplier_id || null,
-            last_restocked_at: new Date().toISOString(),
-            total_received: (Number(item.total_received) || 0) + qty,
-        }).eq('id', item.id);
+        const updatePayload: any = { quantity: newQty };
+        if (unitCost > 0) updatePayload.unit_price = unitCost;
+        const { error: stockErr } = await supabase.from('school_store_items').update(updatePayload).eq('id', item.id);
         if (stockErr) { toast.error('GRN saved but stock update failed: ' + stockErr.message); setSaving(false); fetchAll(); return; }
         await logAudit('GRN_RECEIVED', grnNumber, `Stock received: ${qty} ${item.unit} of ${item.item_name} from ${sup?.supplier_name || 'supplier'}. New qty: ${newQty}`, grnForm.received_by, 'Store Keeper');
         toast.success(`✅ GRN ${grnNumber} — ${qty} ${item.unit} of ${item.item_name} added to stock! New balance: ${newQty} ${item.unit}`);
@@ -1081,7 +1076,7 @@ ${grn.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                         <div style={{ padding: '16px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg,#22c55e,#16a34a)', borderRadius: '20px 20px 0 0' }}>
                             <div>
                                 <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><FiTruck /> Goods Received Note (GRN)</h3>
-                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', margin: '2px 0 0' }}>Stock will be added after Principal/DP authorization</p>
+                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', margin: '2px 0 0' }}>Stock is updated immediately upon submission</p>
                             </div>
                             <button onClick={() => setShowGRNModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', fontSize: 18 }}><FiX /></button>
                         </div>
