@@ -12,7 +12,7 @@ import {
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
     FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive,
     FiWifi, FiWifiOff, FiTruck, FiAward, FiFolder, FiCpu, FiTarget, FiActivity, FiBook, FiDownload,
-    FiCheckCircle, FiUser
+    FiCheckCircle, FiUser, FiMail, FiSliders
 
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
@@ -167,8 +167,10 @@ const menuGroups = [
             { href: '/dashboard/exams/marks-completion',     label: '✅ Marks Completion',          icon: FiCheckCircle, perm: 'exams' },
             { href: '/dashboard/exams/student-passport',     label: '🎓 Student Passport',          icon: FiUser,        perm: 'exams' },
             { href: '/dashboard/exams/class-teacher',        label: '👩‍🏫 Class Teacher Dashboard',  icon: FiUsers,       perm: 'exams' },
-            { href: '/dashboard/exams/cohort-tracker',       label: '📡 Cohort Tracker (8-4-4 & CBC)', icon: FiTrendingUp, perm: 'exams' },
-            { href: '/dashboard/exams/ai-insights',          label: '🤖 AI Insights Engine',       icon: FiZap,         perm: 'exams' },
+            { href: '/dashboard/exams/cohort-tracker',       label: '📡 Cohort Tracker (8-4-4 & CBC)', icon: FiTrendingUp,  perm: 'exams' },
+            { href: '/dashboard/exams/digital-delivery',     label: '📬 Digital Report Delivery',     icon: FiMail,        perm: 'exams' },
+            { href: '/dashboard/exams/subject-grading',      label: '⚙️ Subject Grading Config',      icon: FiSliders,     perm: 'exams' },
+            { href: '/dashboard/exams/ai-insights',          label: '🤖 AI Insights Engine',          icon: FiZap,         perm: 'exams' },
             { href: '/dashboard/exams/grade-heatmap',        label: '🌡️ Grade Heatmap',            icon: FiGrid,      perm: 'exams' },
             { href: '/dashboard/exams/student-trajectory',   label: '📈 Student Trajectory',       icon: FiTrendingUp, perm: 'exams' },
             { href: '/dashboard/exams/national-readiness',   label: '🇰🇪 KCSE Readiness',          icon: FiAward,     perm: 'exams' },
