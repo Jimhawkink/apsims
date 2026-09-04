@@ -28,6 +28,7 @@ import LoginScreen from './src/screens/LoginScreen';
 // ── Shared ───────────────────────────────────────────────────
 import NotificationScreen from './src/screens/shared/NotificationScreen';
 import ReportCardScreen from './src/screens/shared/ReportCardScreen';
+import AcademicPassportScreen from './src/screens/shared/AcademicPassportScreen';
 import ExportScreen from './src/screens/shared/ExportScreen';
 import AnnouncementScreen from './src/screens/shared/AnnouncementScreen';
 
@@ -103,7 +104,7 @@ function SplashScreen() {
 
             <View style={styles.splashFooter}>
                 <Text style={styles.splashBrand}>🇰🇪 Kenya's #1 School System</Text>
-                <Text style={styles.splashVersion}>v1.8.0 · Hawkinsoft Solutions</Text>
+                <Text style={styles.splashVersion}>v3.0.0 · Hawkinsoft Solutions</Text>
             </View>
         </LinearGradient>
     );
@@ -184,6 +185,7 @@ export default function App() {
                             {/* ── Shared ────────────────────────────────── */}
                             <Stack.Screen name="Notifications" component={NotificationScreen} />
                             <Stack.Screen name="ReportCard" component={ReportCardScreen} />
+                            <Stack.Screen name="AcademicPassport" component={AcademicPassportScreen} />
                             <Stack.Screen name="Export" component={ExportScreen} />
                             <Stack.Screen name="Announcement" component={AnnouncementScreen} />
 

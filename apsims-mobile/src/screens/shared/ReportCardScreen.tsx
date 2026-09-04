@@ -12,7 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/types';
 import {
     getCBCCompetencySummaries, getStudentResults, getReportCardDelivery,
-    markReportCardViewed, getGrade,
+    markReportCardViewed, getGrade, isResultsReleased,
     supabase, CBCCompetencySummary,
 } from '../../lib/supabase';
 import CBCLevelBadge from '../../components/CBCLevelBadge';
@@ -91,6 +91,8 @@ export default function ReportCardScreen() {
     const [rank, setRank] = useState<{ rank: number; total: number } | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [notReleased, setNotReleased] = useState(false);
+    const [releaseMsg, setReleaseMsg] = useState('');
     const selTermName = terms.find(t => t.id === selectedTermId)?.term_name || '';
 
     // ── Load CBC or 8-4-4 data (uses explicit cbcFlag to avoid stale closure)
@@ -191,8 +193,21 @@ export default function ReportCardScreen() {
             }
         } catch (e: any) { console.error('init terms error:', e.message); }
 
-        // Step 3: Load data using cbcDetected (NOT stale state)
+        // Step 3: Check release gate (parents only) then load data
         if (termId) {
+            // For parents: check if results have been officially released by the school
+            if (isParent) {
+                const gate = await isResultsReleased(termId, 'End-Term', formId || undefined);
+                if (!gate.released) {
+                    setNotReleased(true);
+                    setReleaseMsg(gate.message);
+                    setLoading(false);
+                    return;
+                }
+                setNotReleased(false);
+                if (gate.message) setReleaseMsg(gate.message);
+            }
+
             await loadCoreData(termId, 'End-Term', cbcDetected);
             if (isParent) {
                 const delivery = await getReportCardDelivery(studentId, termId);
@@ -253,6 +268,25 @@ export default function ReportCardScreen() {
             </View>
         );
     }
+
+    // ── Results not yet released by school ─────────────────────
+    if (notReleased && isParent) {
+        return (
+            <View style={{ flex:1, backgroundColor: C.bg }}>
+                <ScreenHeader title="Report Card" onBack={() => navigation.goBack()} />
+                <View style={{ flex:1, justifyContent:'center', alignItems:'center', padding:32 }}>
+                    <Text style={{ fontSize:56, marginBottom:16 }}>🔒</Text>
+                    <Text style={{ fontSize:18, fontWeight:'900', color: C.text, textAlign:'center', marginBottom:12 }}>Results Not Yet Released</Text>
+                    <Text style={{ fontSize:14, color: C.textSub, textAlign:'center', lineHeight:22 }}>{releaseMsg || 'The school has not yet released results for this term. You will be notified when results are available.'}</Text>
+                    <TouchableOpacity onPress={() => initialize()}
+                        style={{ marginTop:24, paddingHorizontal:24, paddingVertical:12, backgroundColor: C.primary, borderRadius:14 }}>
+                        <Text style={{ color:'#fff', fontWeight:'800', fontSize:14 }}>🔄 Check Again</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
+
 
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>

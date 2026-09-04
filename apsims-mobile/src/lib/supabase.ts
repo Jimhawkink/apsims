@@ -1740,6 +1740,42 @@ export async function markReportCardViewed(
     }
 }
 
+// ── Release Gate ─────────────────────────────────────────────
+// Checks school_report_releases to see if HOD/Principal released results
+// for a given term, exam type, and optionally a specific form
+export async function isResultsReleased(
+    termId: number,
+    examType: string,
+    formId?: number
+): Promise<{ released: boolean; message: string }> {
+    try {
+        // Check global release (form_id IS NULL) OR per-form release
+        let query = supabase
+            .from('school_report_releases')
+            .select('is_released, release_message')
+            .eq('term_id', termId)
+            .eq('exam_type', examType)
+            .eq('is_released', true);
+
+        if (formId) {
+            // Match either global (form_id null) or this specific form
+            query = query.or(`form_id.is.null,form_id.eq.${formId}`);
+        } else {
+            query = query.is('form_id', null);
+        }
+
+        const { data } = await query.limit(1).maybeSingle();
+        if (data) {
+            return { released: true, message: data.release_message || '' };
+        }
+        return { released: false, message: 'Results have not been released yet. Please wait for the school to publish results.' };
+    } catch (err: any) {
+        console.error('isResultsReleased error:', err.message);
+        // Fail-open: if network error, allow viewing
+        return { released: true, message: '' };
+    }
+}
+
 export async function getStudentDetail(
     studentId: number
 ): Promise<StudentDetail | null> {

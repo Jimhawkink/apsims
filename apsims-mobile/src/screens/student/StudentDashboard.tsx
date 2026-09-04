@@ -301,9 +301,10 @@ export default function StudentDashboard() {
                         <SectionLabel title="Quick Actions" subtitle="Tap to navigate" />
                         <View style={styles.qaGrid}>
                             <QuickActionItem icon="📊" label="My Results" gradient={T.gradBlue} onPress={() => navigation.navigate('StudentResults' as any)} />
-                            <QuickActionItem icon="📋" label="Attendance" gradient={T.gradTeal} onPress={() => navigation.navigate('StudentAttendance' as any)} />
+                            <QuickActionItem icon="📅" label="Attendance" gradient={T.gradTeal} onPress={() => navigation.navigate('StudentAttendance' as any)} />
                             <QuickActionItem icon="💰" label="Fee Balance" gradient={feeData.balance > 0 ? T.gradRed : T.gradGreen} onPress={() => navigation.navigate('FeeBalance' as any)} />
                             <QuickActionItem icon="📄" label="Report Card" gradient={T.gradPurple} onPress={() => navigation.navigate('ReportCard' as any)} />
+                            <QuickActionItem icon="🎓" label="Acad. Passport" gradient={T.gradIndigo || ['#4f46e5','#7c3aed']} onPress={() => navigation.navigate('AcademicPassport' as any, { studentId: sesStudentId, studentName: session?.student_name || '', formId: sesFormId, formLevel: session?.student_form_level || 0, isParent: false })} />
                         </View>
 
                         {/* ─── Fee Balance Gauge ─────────────────── */}

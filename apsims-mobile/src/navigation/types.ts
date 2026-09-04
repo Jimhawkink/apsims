@@ -59,6 +59,7 @@ export type RootStackParamList = {
     // ── Shared modal / pushed screens ──────────────────────────
     Notifications: { portalUserId: number };
     ReportCard: { studentId: number; formId: number; formLevel: number; isParent: boolean };
+    AcademicPassport: { studentId: number; studentName: string; formId: number; formLevel: number; isParent?: boolean };
     CBCAssessment: { studentId: number };
     Announcement: undefined;
     Export: undefined;
