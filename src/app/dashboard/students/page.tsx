@@ -65,6 +65,7 @@ export default function StudentsPage() {
     const [showDetailPanel, setShowDetailPanel] = useState<any>(null);
     const [selectedPathwayId, setSelectedPathwayId] = useState<number | null>(null);
     const [selectedElectives, setSelectedElectives] = useState<number[]>([]);
+    const [selectedSubjects844, setSelectedSubjects844] = useState<string[]>(['101', '102', '121']); // Default: ENG, KSW, MAT
 
     // Filtering + Sorting
     const filtered = useMemo(() => {
@@ -126,13 +127,24 @@ export default function StudentsPage() {
     };
 
     // Open modals
-    const openAdd = () => { setEditId(null); setFormData({ ...defaultStudent, admission_no: getNextAdmNo() }); setModalTab(0); setSelectedPathwayId(null); setSelectedElectives([]); setShowModal(true); };
-    const openEdit = (s: any) => {
+    const openAdd = () => { setEditId(null); setFormData({ ...defaultStudent, admission_no: getNextAdmNo() }); setModalTab(0); setSelectedPathwayId(null); setSelectedElectives([]); setSelectedSubjects844(['101','102','121']); setShowModal(true); };
+    const openEdit = async (s: any) => {
         setEditId(s.id);
         setFormData({ ...defaultStudent, ...s, admission_no: s.admission_no || s.admission_number || '', middle_name: s.middle_name || s.other_name || '', medical_conditions: s.medical_conditions || s.medical_info || '', form_id: s.form_id || null, stream_id: s.stream_id || null });
+        // Load CBC pathway subjects
         const existingSubjects = cbcStudentSubjects.filter((ss: any) => ss.student_id === s.id);
         if (existingSubjects.length > 0) { setSelectedPathwayId(existingSubjects[0]?.pathway_id ?? null); setSelectedElectives(existingSubjects.filter((ss: any) => ss.is_elective).map((ss: any) => ss.subject_id)); }
         else { setSelectedPathwayId(null); setSelectedElectives([]); }
+        // Load 8-4-4 subject combination from student_subjects_844
+        try {
+            const { data: ss844 } = await supabase.from('student_subjects_844').select('subject_id, group_no').eq('student_id', s.id);
+            if (ss844 && ss844.length > 0) {
+                // Map subject_ids back to KCSE codes via school_subjects
+                const { data: subDetails } = await supabase.from('school_subjects').select('id, subject_code').in('id', ss844.map((r: any) => r.subject_id));
+                const codes = (subDetails || []).map((sub: any) => sub.subject_code).filter(Boolean);
+                setSelectedSubjects844(codes.length > 0 ? codes : ['101','102','121']);
+            } else { setSelectedSubjects844(['101','102','121']); }
+        } catch { setSelectedSubjects844(['101','102','121']); }
         setModalTab(0); setShowModal(true);
     };
 
@@ -140,6 +152,8 @@ export default function StudentsPage() {
     const handleSave = async () => {
         if (!formData.admission_no || !formData.first_name || !formData.last_name) { toast.error('Fill admission number, first name and last name'); return; }
         const isCBC = formData.form_id ? getEducationSystem(Number(formData.form_id), forms) === 'CBC_Senior_School' : false;
+        const formLevel = forms.find(f => f.id === Number(formData.form_id))?.form_level || 0;
+        const is844Form34 = !isCBC && (formLevel === 3 || formLevel === 4);
         // Pathway is required only when enrolling NEW CBC students — not when editing existing ones
         if (isCBC && !editId) {
             if (!selectedPathwayId) { toast.error('Select a CBC pathway'); return; }
@@ -165,10 +179,10 @@ export default function StudentsPage() {
         if (editId) { ({ error } = await supabase.from('school_students').update(payload).eq('id', editId)); }
         else { const { data: ins, error: ie } = await supabase.from('school_students').insert([payload]).select('id').single(); error = ie; if (ins) studentId = ins.id; }
         if (error) { toast.error(error.message || 'Failed to save'); return; }
+        // ── CBC pathway subjects ─────────────────────────────────────────────
         if (isCBC && studentId && selectedPathwayId) {
             try {
                 await supabase.from('cbc_student_subjects').delete().eq('student_id', studentId);
-                // Only compulsory subjects for THIS specific pathway
                 const compIds = [...new Set(cbcPathwaySubjects
                     .filter((ps: any) => ps.pathway_id === selectedPathwayId && ps.is_compulsory)
                     .map((ps: any) => ps.subject_id))];
@@ -185,9 +199,43 @@ export default function StudentsPage() {
                     if (electErr) toast.error('Failed to save elective subjects: ' + electErr.message);
                 }
                 toast.success('CBC pathway & subjects saved!');
-            } catch (e: any) {
-                toast.error('CBC save error: ' + (e?.message || 'unknown'));
-            }
+            } catch (e: any) { toast.error('CBC save error: ' + (e?.message || 'unknown')); }
+        }
+        // ── 8-4-4 KCSE subject combination (Form 3 & 4) ─────────────────────
+        if (is844Form34 && studentId && selectedSubjects844.length > 0) {
+            try {
+                await supabase.from('student_subjects_844').delete().eq('student_id', studentId);
+                // Resolve KCSE codes to school_subjects IDs
+                const { data: allSubs } = await supabase.from('school_subjects').select('id, subject_code, subject_name');
+                const KCSE_CODE_MAP: Record<string, { name: string; group_no: number; compulsory: boolean }> = {
+                    '101': { name: 'English', group_no: 1, compulsory: true }, '102': { name: 'Kiswahili', group_no: 1, compulsory: true },
+                    '121': { name: 'Mathematics', group_no: 2, compulsory: true }, '231': { name: 'Biology', group_no: 2, compulsory: false },
+                    '232': { name: 'Physics', group_no: 2, compulsory: false }, '233': { name: 'Chemistry', group_no: 2, compulsory: false },
+                    '311': { name: 'History', group_no: 3, compulsory: false }, '312': { name: 'Geography', group_no: 3, compulsory: false },
+                    '313': { name: 'CRE', group_no: 3, compulsory: false }, '314': { name: 'IRE', group_no: 3, compulsory: false },
+                    '315': { name: 'HRE', group_no: 3, compulsory: false }, '443': { name: 'Agriculture', group_no: 4, compulsory: false },
+                    '441': { name: 'Home Science', group_no: 4, compulsory: false }, '451': { name: 'Computer', group_no: 4, compulsory: false },
+                    '442': { name: 'Art', group_no: 4, compulsory: false }, '444': { name: 'Woodwork', group_no: 4, compulsory: false },
+                    '448': { name: 'Electricity', group_no: 4, compulsory: false }, '446': { name: 'Building', group_no: 4, compulsory: false },
+                    '565': { name: 'Business', group_no: 5, compulsory: false }, '501': { name: 'French', group_no: 5, compulsory: false },
+                    '502': { name: 'German', group_no: 5, compulsory: false }, '511': { name: 'Music', group_no: 5, compulsory: false },
+                    '503': { name: 'Arabic', group_no: 5, compulsory: false },
+                };
+                const rows = selectedSubjects844.map(code => {
+                    const meta = KCSE_CODE_MAP[code];
+                    if (!meta) return null;
+                    const dbSub = (allSubs || []).find((s: any) =>
+                        s.subject_code === code ||
+                        s.subject_name?.toLowerCase().includes(meta.name.toLowerCase())
+                    );
+                    return dbSub ? { student_id: studentId, subject_id: dbSub.id, group_no: meta.group_no, is_compulsory: meta.compulsory } : null;
+                }).filter(Boolean);
+                if (rows.length > 0) {
+                    const { error: s844Err } = await supabase.from('student_subjects_844').insert(rows);
+                    if (s844Err) toast.error('KCSE subjects save error: ' + s844Err.message);
+                    else toast.success(`✅ KCSE subjects saved (${rows.length} subjects)!`);
+                }
+            } catch (e: any) { toast.error('8-4-4 save error: ' + (e?.message || 'unknown')); }
         }
         toast.success(editId ? 'Student updated ✅' : 'Student enrolled ✅'); setShowModal(false); fetchStudents();
     };
@@ -299,7 +347,7 @@ export default function StudentsPage() {
             {showImport && <StudentImportModal onClose={() => setShowImport(false)} onImportFile={handleImportFile} />}
 
             {/* Enroll/Edit Modal */}
-            <StudentEnrollModal showModal={showModal} editId={editId} formData={formData} setFormData={setFormData} modalTab={modalTab} setModalTab={setModalTab} forms={forms} streams={streams} isCBCForm={isCBCForm} cbcPathways={cbcPathways} cbcPathwaySubjects={cbcPathwaySubjects} allSubjects={allSubjects} selectedPathwayId={selectedPathwayId} selectedElectives={selectedElectives} onPathwayChange={(id) => { setSelectedPathwayId(id); setSelectedElectives([]); }} onElectivesChange={setSelectedElectives} onClose={() => setShowModal(false)} onSave={handleSave} />
+            <StudentEnrollModal showModal={showModal} editId={editId} formData={formData} setFormData={setFormData} modalTab={modalTab} setModalTab={setModalTab} forms={forms} streams={streams} isCBCForm={isCBCForm} is844Form34={!isCBCForm && (forms.find((f:any) => f.id === Number(formData.form_id))?.form_level === 3 || forms.find((f:any) => f.id === Number(formData.form_id))?.form_level === 4)} cbcPathways={cbcPathways} cbcPathwaySubjects={cbcPathwaySubjects} allSubjects={allSubjects} selectedPathwayId={selectedPathwayId} selectedElectives={selectedElectives} onPathwayChange={(id) => { setSelectedPathwayId(id); setSelectedElectives([]); }} onElectivesChange={setSelectedElectives} selectedSubjects844={selectedSubjects844} onSubjects844Change={setSelectedSubjects844} onClose={() => setShowModal(false)} onSave={handleSave} />
         </div>
     );
 }

@@ -222,6 +222,7 @@ interface EnrollModalProps {
     forms: any[];
     streams: any[];
     isCBCForm: boolean;
+    is844Form34: boolean;
     cbcPathways: any[];
     cbcPathwaySubjects: any[];
     allSubjects: any[];
@@ -229,16 +230,38 @@ interface EnrollModalProps {
     selectedElectives: number[];
     onPathwayChange: (id: number | null) => void;
     onElectivesChange: (ids: number[]) => void;
+    selectedSubjects844: string[];
+    onSubjects844Change: (codes: string[]) => void;
     onClose: () => void;
     onSave: () => void;
 }
 
+// KCSE Groups for 8-4-4 subject picker
+const KCSE_GROUPS_MODAL = [
+    { no: 1, label: 'Group I — Languages', color: '#dc2626', bg: '#fef2f2', border: '#fca5a5', icon: '📖',
+      rule: 'Both compulsory',
+      subjects: [{ code: '101', name: 'English', compulsory: true }, { code: '102', name: 'Kiswahili', compulsory: true }] },
+    { no: 2, label: 'Group II — Maths & Sciences', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', icon: '🔬',
+      rule: 'Maths compulsory + at least 1 science',
+      subjects: [{ code: '121', name: 'Mathematics', compulsory: true }, { code: '231', name: 'Biology', compulsory: false }, { code: '232', name: 'Physics', compulsory: false }, { code: '233', name: 'Chemistry', compulsory: false }] },
+    { no: 3, label: 'Group III — Humanities', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', icon: '🌍',
+      rule: 'At least 1 required',
+      subjects: [{ code: '311', name: 'History & Govt', compulsory: false }, { code: '312', name: 'Geography', compulsory: false }, { code: '313', name: 'C.R.E.', compulsory: false }, { code: '314', name: 'I.R.E.', compulsory: false }, { code: '315', name: 'H.R.E.', compulsory: false }] },
+    { no: 4, label: 'Group IV — Technical', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa', icon: '🔧',
+      rule: 'Optional — up to 2',
+      subjects: [{ code: '443', name: 'Agriculture', compulsory: false }, { code: '441', name: 'Home Science', compulsory: false }, { code: '451', name: 'Computer Studies', compulsory: false }, { code: '442', name: 'Art & Design', compulsory: false }, { code: '444', name: 'Woodwork', compulsory: false }, { code: '448', name: 'Electricity', compulsory: false }, { code: '446', name: 'Building Constr.', compulsory: false }] },
+    { no: 5, label: 'Group V — Languages & Creative', color: '#7c3aed', bg: '#faf5ff', border: '#e9d5ff', icon: '🎨',
+      rule: 'Optional — up to 2',
+      subjects: [{ code: '565', name: 'Business Studies', compulsory: false }, { code: '501', name: 'French', compulsory: false }, { code: '502', name: 'German', compulsory: false }, { code: '511', name: 'Music', compulsory: false }, { code: '503', name: 'Arabic', compulsory: false }] },
+];
+
 export default function StudentEnrollModal({
     showModal, editId, formData, setFormData,
-    modalTab, setModalTab, forms, streams, isCBCForm,
+    modalTab, setModalTab, forms, streams, isCBCForm, is844Form34,
     cbcPathways, cbcPathwaySubjects, allSubjects,
     selectedPathwayId, selectedElectives,
     onPathwayChange, onElectivesChange,
+    selectedSubjects844, onSubjects844Change,
     onClose, onSave,
 }: EnrollModalProps) {
     if (!showModal) return null;
@@ -246,7 +269,9 @@ export default function StudentEnrollModal({
     const subCounties = formData.county ? KENYAN_COUNTIES[formData.county] || [] : [];
     const modalTabs = isCBCForm
         ? ['📋 Basic Info', '🏠 Location', '👨‍👩‍👦 Guardian', '🏥 Medical', '🎓 Academic', '🛤️ CBC Pathway']
-        : ['📋 Basic Info', '🏠 Location', '👨‍👩‍👦 Guardian', '🏥 Medical', '🎓 Academic'];
+        : is844Form34
+          ? ['📋 Basic Info', '🏠 Location', '👨‍👩‍👦 Guardian', '🏥 Medical', '🎓 Academic', '📚 KCSE Subjects']
+          : ['📋 Basic Info', '🏠 Location', '👨‍👩‍👦 Guardian', '🏥 Medical', '🎓 Academic'];
 
     const inputClass = "w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium bg-white text-gray-700 focus:border-blue-400 focus:ring-2 focus:ring-blue-50 outline-none transition-all";
     const labelClass = "block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider";
@@ -379,6 +404,91 @@ export default function StudentEnrollModal({
                             onPathwayChange={onPathwayChange}
                             onElectivesChange={onElectivesChange}
                         />
+                    )}
+
+                    {/* Tab 5: 8-4-4 KCSE Subject Combination (Form 3 & 4 only) */}
+                    {modalTab === 5 && is844Form34 && (
+                        <div className="space-y-4">
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl p-4 text-white">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs font-semibold opacity-80 uppercase tracking-wider">Kenya MoE KCSE</p>
+                                        <h3 className="text-base font-black mt-0.5">KCSE Subject Combination</h3>
+                                        <p className="text-xs opacity-70 mt-0.5">Select 7–9 subjects across the official KCSE groups</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className={`text-3xl font-black ${selectedSubjects844.length < 7 ? 'text-red-300' : selectedSubjects844.length <= 9 ? 'text-green-300' : 'text-amber-300'}`}>
+                                            {selectedSubjects844.length}
+                                        </p>
+                                        <p className="text-xs opacity-70">of 9 max</p>
+                                    </div>
+                                </div>
+                                {/* Progress bar */}
+                                <div className="mt-3 bg-white/20 rounded-full h-1.5 overflow-hidden">
+                                    <div className="h-full rounded-full transition-all" style={{
+                                        width: `${Math.min(100, (selectedSubjects844.length / 9) * 100)}%`,
+                                        background: selectedSubjects844.length < 7 ? '#ef4444' : selectedSubjects844.length <= 9 ? '#22c55e' : '#f59e0b'
+                                    }}/>
+                                </div>
+                                <div className="flex justify-between mt-1 text-[10px] opacity-70">
+                                    <span>Min: 7 subjects</span>
+                                    <span>{selectedSubjects844.length < 7 ? `Need ${7 - selectedSubjects844.length} more` : selectedSubjects844.length <= 9 ? '✓ Valid combination' : `Remove ${selectedSubjects844.length - 9}`}</span>
+                                    <span>Max: 9 subjects</span>
+                                </div>
+                            </div>
+
+                            {/* Subject groups */}
+                            {KCSE_GROUPS_MODAL.map(group => (
+                                <div key={group.no} className="border rounded-2xl overflow-hidden" style={{ borderColor: group.border }}>
+                                    <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: group.bg }}>
+                                        <span>{group.icon}</span>
+                                        <div className="flex-1">
+                                            <p className="text-xs font-black" style={{ color: group.color }}>{group.label}</p>
+                                            <p className="text-[10px] text-gray-500">{group.rule}</p>
+                                        </div>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: group.color }}>
+                                            {group.subjects.filter(s => selectedSubjects844.includes(s.code)).length} selected
+                                        </span>
+                                    </div>
+                                    <div className="p-3 flex flex-wrap gap-2" style={{ background: '#fff' }}>
+                                        {group.subjects.map(sub => {
+                                            const checked = selectedSubjects844.includes(sub.code);
+                                            return (
+                                                <button
+                                                    key={sub.code}
+                                                    type="button"
+                                                    disabled={sub.compulsory}
+                                                    onClick={() => {
+                                                        if (sub.compulsory) return;
+                                                        onSubjects844Change(
+                                                            checked
+                                                                ? selectedSubjects844.filter(c => c !== sub.code)
+                                                                : [...selectedSubjects844, sub.code]
+                                                        );
+                                                    }}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                                                        sub.compulsory
+                                                            ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
+                                                            : checked
+                                                                ? 'text-white shadow-sm'
+                                                                : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'
+                                                    }`}
+                                                    style={checked && !sub.compulsory ? { background: group.color, borderColor: group.color } : {}}
+                                                >
+                                                    {checked && <span className="text-[10px]">✓</span>}
+                                                    {sub.name}
+                                                    {sub.compulsory && <span className="text-[8px] bg-gray-300 text-gray-600 px-1 rounded ml-1">CORE</span>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                            <p className="text-[10px] text-gray-400 text-center">
+                                Core subjects (English, Kiswahili, Mathematics) are always included and cannot be removed.
+                            </p>
+                        </div>
                     )}
                 </div>
 
