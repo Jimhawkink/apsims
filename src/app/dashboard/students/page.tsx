@@ -140,7 +140,8 @@ export default function StudentsPage() {
     const handleSave = async () => {
         if (!formData.admission_no || !formData.first_name || !formData.last_name) { toast.error('Fill admission number, first name and last name'); return; }
         const isCBC = formData.form_id ? getEducationSystem(Number(formData.form_id), forms) === 'CBC_Senior_School' : false;
-        if (isCBC) {
+        // Pathway is required only when enrolling NEW CBC students — not when editing existing ones
+        if (isCBC && !editId) {
             if (!selectedPathwayId) { toast.error('Select a CBC pathway'); return; }
             if (!validateSubjectCombination(selectedElectives)) { toast.error('Select exactly 3 elective subjects'); return; }
         }
