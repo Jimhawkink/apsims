@@ -9,9 +9,11 @@ export default function PathwayReadinessPage() {
   const data = useCBCReportData();
 
   const pathwayAnalysis = useMemo(() => {
-    return data.filteredStudents.map(student => {
+    return data.filteredStudents
+      .filter(student => data.getStudentPathway(student.id) !== null) // only show students with a pathway assigned
+      .map(student => {
       const sums = data.filteredSummaries.filter(s => s.student_id === student.id && s.overall_level);
-      if (sums.length === 0) return null;
+      // Don't skip students with no marks — show them as 0% readiness
 
       const pathway = data.getStudentPathway(student.id);
       const subjectScores: { subjectId: number; level: string; numeric: number }[] = sums.map(s => ({
