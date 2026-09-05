@@ -93,6 +93,8 @@ export default function StudentPassportPage() {
     const [allMarks, setAllMarks]       = useState<any[]>([]);
     const [attendance, setAttendance]   = useState<any[]>([]);
     const [discipline, setDiscipline]   = useState<any[]>([]);
+    const [studentPathway, setStudentPathway] = useState<any>(null);
+    const [studentSubjects, setStudentSubjects] = useState<any[]>([]);
     const [activeTab, setActiveTab]     = useState<'overview'|'subjects'|'terms'|'attendance'|'discipline'|'prediction'|'print'>('overview');
 
     const printRef = useRef<HTMLDivElement>(null);
@@ -122,14 +124,19 @@ export default function StudentPassportPage() {
     /* ─── FETCH STUDENT DATA ─── */
     const fetchStudentData = useCallback(async (student: any) => {
         setLoading(true);
-        const [marksRes, attRes, discRes] = await Promise.all([
+        const [marksRes, attRes, discRes, subjRes] = await Promise.all([
             supabase.from('school_exam_marks').select('*').eq('student_id', student.id).order('term_id', { ascending: true }),
             supabase.from('school_attendance').select('*').eq('student_id', student.id).order('attendance_date', { ascending: false }),
             supabase.from('school_discipline_records').select('*').eq('student_id', student.id).order('incident_date', { ascending: false }),
+            supabase.from('cbc_student_subjects').select('*, cbc_pathways(id,pathway_name,pathway_code,color_hex,icon), school_subjects(id,subject_name,subject_code,initials)').eq('student_id', student.id),
         ]);
         setAllMarks(marksRes.data || []);
         setAttendance(attRes.data || []);
         setDiscipline(discRes.data || []);
+        const subs = subjRes.data || [];
+        setStudentSubjects(subs);
+        const pw = subs.find((s: any) => s.cbc_pathways);
+        setStudentPathway(pw?.cbc_pathways || null);
         setLoading(false);
     }, []);
 
@@ -367,6 +374,11 @@ export default function StudentPassportPage() {
                                         <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700">{getForm(selStudent.form_id)}</span>
                                         <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-blue-100 text-blue-700">{getStream(selStudent.stream_id)}</span>
                                         <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-purple-100 text-purple-700">{selStudent.gender}</span>
+                                        {studentPathway && (
+                                            <span className="px-2 py-0.5 rounded-lg text-xs font-bold text-white" style={{ background: studentPathway.color_hex || '#6366f1' }}>
+                                                {studentPathway.icon} {studentPathway.pathway_name}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
@@ -434,6 +446,45 @@ export default function StudentPassportPage() {
                     {/* ══════ OVERVIEW TAB ══════ */}
                     {activeTab === 'overview' && (
                         <div className="space-y-4">
+                            {/* CBC Pathway & Subjects Card */}
+                            {studentPathway && (
+                                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <span className="text-xl">{studentPathway.icon}</span>
+                                        <div>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">CBC Pathway</p>
+                                            <p className="font-black text-gray-800 text-sm">{studentPathway.pathway_name}</p>
+                                        </div>
+                                        <span className="ml-auto px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: studentPathway.color_hex || '#6366f1' }}>
+                                            {studentPathway.pathway_code}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Compulsory Subjects</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {studentSubjects.filter((s: any) => !s.is_elective).map((s: any) => (
+                                                    <span key={s.id} className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                                                        {s.school_subjects?.subject_name || s.school_subjects?.initials}
+                                                    </span>
+                                                ))}
+                                                {studentSubjects.filter((s: any) => !s.is_elective).length === 0 && <span className="text-xs text-gray-400">—</span>}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Elective Subjects (3)</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {studentSubjects.filter((s: any) => s.is_elective).map((s: any) => (
+                                                    <span key={s.id} className="px-2 py-0.5 rounded-lg text-[11px] font-semibold text-white" style={{ background: studentPathway.color_hex || '#6366f1' }}>
+                                                        {s.school_subjects?.subject_name || s.school_subjects?.initials}
+                                                    </span>
+                                                ))}
+                                                {studentSubjects.filter((s: any) => s.is_elective).length === 0 && <span className="text-xs text-gray-400">No electives selected</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             {/* Trend Chart */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                 <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">

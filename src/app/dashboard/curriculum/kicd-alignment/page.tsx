@@ -96,19 +96,27 @@ export default function KICDAlignmentPage() {
     setSaving(false);
   };
 
+  const filteredAlignments = useMemo(()=>{
+    return alignments.filter(a=>
+        (!selForm || String(a.form_id)===String(selForm)) &&
+        (!selTerm || String(a.term_id)===String(selTerm)) &&
+        (!selSubject || a.subject_code===selSubject)
+    );
+  },[alignments,selForm,selTerm,selSubject]);
+
   const overallCoverage = useMemo(()=>{
-    if(alignments.length===0) return 0;
-    return alignments.reduce((a,r)=>a+Number(r.coverage_pct||0),0)/alignments.length;
-  },[alignments]);
+    if(filteredAlignments.length===0) return 0;
+    return filteredAlignments.reduce((a,r)=>a+Number(r.coverage_pct||0),0)/filteredAlignments.length;
+  },[filteredAlignments]);
 
   const subjectCoverage = useMemo(()=>{
     return KICD_AREAS_844.map(area=>{
-      const recs = alignments.filter(a=>a.subject_code===area.code);
+      const recs = filteredAlignments.filter(a=>a.subject_code===area.code);
       const avg = recs.length>0 ? recs.reduce((a,r)=>a+Number(r.coverage_pct||0),0)/recs.length : 0;
       const strandsCovered = new Set(recs.map(r=>r.strand)).size;
       return { ...area, avg, strandsCovered, totalRecs: recs.length };
     });
-  },[alignments]);
+  },[filteredAlignments]);
 
   const badges = useMemo(()=>KICD_BADGES.map(b=>({
     ...b,
@@ -190,7 +198,7 @@ export default function KICDAlignmentPage() {
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
                   {subj.strands.map(strand=>{
-                    const strandRecs=alignments.filter(a=>a.subject_code===subj.code&&a.strand===strand);
+                    const strandRecs=filteredAlignments.filter(a=>a.subject_code===subj.code&&a.strand===strand);
                     const strandAvg=strandRecs.length>0?strandRecs.reduce((a,r)=>a+Number(r.coverage_pct),0)/strandRecs.length:0;
                     return(
                       <div key={strand} style={{background:'#f8fafc',borderRadius:8,padding:'8px 10px',border:'1px solid #f1f5f9'}}>
@@ -216,7 +224,7 @@ export default function KICDAlignmentPage() {
         {tab==='cbc'&&(
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(340px,1fr))',gap:16}}>
             {KICD_COMPETENCIES_CBC.map(comp=>{
-              const recs=alignments.filter(a=>a.strand===comp.code);
+              const recs=filteredAlignments.filter(a=>a.strand===comp.code);
               const avg=recs.length>0?recs.reduce((a,r)=>a+Number(r.coverage_pct),0)/recs.length:0;
               return(
                 <div key={comp.code} style={{background:'#fff',borderRadius:16,border:'1px solid #e2e8f0',padding:24,boxShadow:'0 2px 12px rgba(0,0,0,0.04)'}}>
