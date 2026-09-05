@@ -93,6 +93,7 @@ const menuGroups = [
             { href: '/dashboard/exams/cbc-report-cards', label: 'CBC Report Cards', icon: FiFileText, perm: 'exams' },
             { href: '/dashboard/exams/cbc-reports', label: '📊 CBC Reports Hub', icon: FiBarChart2, perm: 'exams' },
             { href: '/dashboard/students/subject-combinations', label: 'CBC Subject Combos', icon: FiGrid, perm: 'students' },
+            { href: '/dashboard/students/subject-registration', label: '📚 8-4-4 Subject Registration', icon: FiBook, perm: 'students' },
             { href: '/dashboard/remedial', label: 'Remedial Programs', icon: FiTrendingUp, perm: 'remedial' },
             { href: '/dashboard/exams/kcse-prediction', label: '🎯 KCSE/KCPE Prediction', icon: FiBarChart2, perm: 'exams' },
         ]
@@ -150,6 +151,7 @@ const menuGroups = [
             { href: '/dashboard/curriculum/kicd-alignment',              label: '🏅 KICD Alignment & Badges',    icon: FiAward,      perm: 'curriculum' },
             { href: '/dashboard/cbc-analytics',                          label: 'CBC Analytics Dashboard',       icon: FiPieChart,   perm: 'curriculum' },
             { href: '/dashboard/students/subject-combinations',          label: 'CBC Subject Combinations',      icon: FiGrid,       perm: 'students' },
+            { href: '/dashboard/students/subject-registration',          label: '📚 8-4-4 Subject Registration', icon: FiBook,       perm: 'students' },
             { href: '/dashboard/knec-compliance',                        label: '🛡️ KNEC Compliance',            icon: FiShield,     perm: 'reports' },
             { href: '/dashboard/knec-compliance/cba-export',             label: '📥 KNEC CBA Official Export',   icon: FiDownload,   perm: 'reports' },
         ]
