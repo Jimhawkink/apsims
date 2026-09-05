@@ -167,10 +167,26 @@ export default function StudentsPage() {
         if (isCBC && studentId && selectedPathwayId) {
             try {
                 await supabase.from('cbc_student_subjects').delete().eq('student_id', studentId);
-                const compIds = [...new Set(cbcPathwaySubjects.filter((ps: any) => ps.is_compulsory).map((ps: any) => ps.subject_id))];
-                if (compIds.length > 0) await supabase.from('cbc_student_subjects').insert(compIds.map(sid => ({ student_id: studentId, pathway_id: selectedPathwayId, subject_id: sid, is_elective: false })));
-                if (selectedElectives.length > 0) await supabase.from('cbc_student_subjects').insert(selectedElectives.map(sid => ({ student_id: studentId, pathway_id: selectedPathwayId, subject_id: sid, is_elective: true })));
-            } catch { }
+                // Only compulsory subjects for THIS specific pathway
+                const compIds = [...new Set(cbcPathwaySubjects
+                    .filter((ps: any) => ps.pathway_id === selectedPathwayId && ps.is_compulsory)
+                    .map((ps: any) => ps.subject_id))];
+                if (compIds.length > 0) {
+                    const { error: compErr } = await supabase.from('cbc_student_subjects').insert(
+                        compIds.map(sid => ({ student_id: studentId, pathway_id: selectedPathwayId, subject_id: sid, is_elective: false }))
+                    );
+                    if (compErr) toast.error('Failed to save compulsory subjects: ' + compErr.message);
+                }
+                if (selectedElectives.length > 0) {
+                    const { error: electErr } = await supabase.from('cbc_student_subjects').insert(
+                        selectedElectives.map(sid => ({ student_id: studentId, pathway_id: selectedPathwayId, subject_id: sid, is_elective: true }))
+                    );
+                    if (electErr) toast.error('Failed to save elective subjects: ' + electErr.message);
+                }
+                toast.success('CBC pathway & subjects saved!');
+            } catch (e: any) {
+                toast.error('CBC save error: ' + (e?.message || 'unknown'));
+            }
         }
         toast.success(editId ? 'Student updated ✅' : 'Student enrolled ✅'); setShowModal(false); fetchStudents();
     };
