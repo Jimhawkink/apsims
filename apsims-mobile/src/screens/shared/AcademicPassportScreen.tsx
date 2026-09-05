@@ -141,7 +141,7 @@ export default function AcademicPassportScreen() {
             try {
                 const { data: ex } = await supabase
                     .from('school_students')
-                    .select('date_of_birth, date_admitted, house, kcpe_marks')
+                    .select('date_of_birth, date_admitted, house, kcpe_marks, pathway_preference')
                     .eq('id', studentId)
                     .single();
                 if (ex) sExtra = ex;
@@ -149,16 +149,33 @@ export default function AcademicPassportScreen() {
 
             if (s) setStudent({ ...s, ...sExtra });
 
-            // ── 1C. CBC Pathway + assigned subjects ─────────────────────
+            // ── 1C. CBC Pathway + assigned subjects (separate queries — avoids PostgREST join cache issue) ──
             try {
-                const { data: subs } = await supabase
+                const { data: cssRows } = await supabase
                     .from('cbc_student_subjects')
-                    .select('*, cbc_pathways(id,pathway_name,pathway_code,color_hex,icon), school_subjects(id,subject_name,subject_code,initials)')
+                    .select('id, student_id, pathway_id, subject_id, is_elective')
                     .eq('student_id', studentId);
-                if (subs && subs.length > 0) {
-                    setStudentSubjects(subs);
-                    const pw = subs.find((r: any) => r.cbc_pathways);
-                    if (pw) setStudentPathway(pw.cbc_pathways);
+
+                if (cssRows && cssRows.length > 0) {
+                    const pathwayId = cssRows.find((r: any) => r.pathway_id)?.pathway_id;
+                    const subjectIds = [...new Set(cssRows.map((r: any) => r.subject_id).filter(Boolean))];
+
+                    const [pwRes, subRes] = await Promise.all([
+                        pathwayId ? supabase.from('cbc_pathways').select('id,pathway_name,pathway_code,color_hex,icon').eq('id', pathwayId).single() : Promise.resolve({ data: null }),
+                        subjectIds.length > 0 ? supabase.from('school_subjects').select('id,subject_name,subject_code,initials').in('id', subjectIds as number[]) : Promise.resolve({ data: [] }),
+                    ]);
+
+                    const pathway = pwRes.data || null;
+                    const subjectMap: Record<number, any> = {};
+                    (subRes.data || []).forEach((s: any) => { subjectMap[s.id] = s; });
+
+                    const enriched = cssRows.map((r: any) => ({
+                        ...r,
+                        school_subjects: subjectMap[r.subject_id] || null,
+                        cbc_pathways: pathway,
+                    }));
+                    setStudentSubjects(enriched);
+                    if (pathway) setStudentPathway(pathway);
                 }
             } catch (_) {}
 
@@ -351,6 +368,14 @@ export default function AcademicPassportScreen() {
                                     <Text style={{color:"#c7d2fe",fontSize:11,fontWeight:"700"}}>{tag}</Text>
                                 </View>
                             ))}
+                            {/* Pathway badge */}
+                            {(studentPathway || student?.pathway_preference) && (
+                                <View style={{backgroundColor: studentPathway?.color_hex || '#6366f1',paddingHorizontal:8,paddingVertical:3,borderRadius:8}}>
+                                    <Text style={{color:"#fff",fontSize:11,fontWeight:"900"}}>
+                                        {studentPathway ? `${studentPathway.icon||'📚'} ${studentPathway.pathway_name}` : `📚 ${student?.pathway_preference}`}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                         {age!==null&&<Text style={{color:"rgba(255,255,255,0.55)",fontSize:11,marginTop:5}}>{age} yrs · Admitted {fmt(student?.date_admitted)}</Text>}
                     </View>
