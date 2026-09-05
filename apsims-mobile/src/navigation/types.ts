@@ -115,7 +115,12 @@ export type RootStackParamList = {
     LeaveOut: undefined;
     FeeBalance: undefined;
     Circular: undefined;
+    Circulars: undefined;
     ParentDiscipline: undefined;
+    ParentAttendance: { studentId: number };
+    ParentHomework: { studentId: number };
+    StudentResults: { studentId?: number };
+    StudentAttendance: { studentId?: number };
     ChildTimetable: {
         studentId: number;
         formId: number;

@@ -595,7 +595,7 @@ export default function ParentDashboard() {
                                 { icon: '📢', label: 'Circulars', grad: T.gradOrange, screen: 'Circulars', params: {} },
                                 { icon: '🏃', label: 'Leave Out', grad: T.gradRed, screen: 'LeaveOut', params: { studentId: child?.id } },
                                 { icon: '💳', label: 'Pay Fees', grad: T.gradGreen, screen: 'PayFees', params: { studentId: child?.id, studentName: child?.full_name, formId: child?.form_id, balance: child?.balance, totalDue: child?.totalDue, totalPaid: child?.totalPaid } },
-                                { icon: '🎓', label: 'Passport', grad: ['#4f46e5', '#7c3aed'], screen: 'AcademicPassport', params: { studentId: child?.id, studentName: child?.full_name, formId: child?.form_id, formLevel: 0, isParent: true } },
+                                { icon: '🎓', label: 'Passport', grad: ['#4f46e5', '#7c3aed'] as const, screen: 'AcademicPassport', params: { studentId: child?.id, studentName: child?.full_name, formId: child?.form_id, formLevel: 0, isParent: true } },
                             ].map((qa, i) => (
                                 <TouchableOpacity
                                     key={i}
