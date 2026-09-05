@@ -122,6 +122,8 @@ export default function AcademicPassportScreen() {
     const [attendance,setAttendance]     = useState<{present:number;total:number}|null>(null);
     const [discipline,setDiscipline]     = useState(0);
     const [latestCmt,setLatestCmt]       = useState({teacher:"",principal:""});
+    const [studentPathway,setStudentPathway] = useState<any>(null);
+    const [studentSubjects,setStudentSubjects] = useState<any[]>([]);
     const [activeTab,setActiveTab]       = useState<"overview"|"subjects"|"history"|"conduct">("overview");
 
     const load = useCallback(async () => {
@@ -147,9 +149,23 @@ export default function AcademicPassportScreen() {
 
             if (s) setStudent({ ...s, ...sExtra });
 
+            // ── 1C. CBC Pathway + assigned subjects ─────────────────────
+            try {
+                const { data: subs } = await supabase
+                    .from('cbc_student_subjects')
+                    .select('*, cbc_pathways(id,pathway_name,pathway_code,color_hex,icon), school_subjects(id,subject_name,subject_code,initials)')
+                    .eq('student_id', studentId);
+                if (subs && subs.length > 0) {
+                    setStudentSubjects(subs);
+                    const pw = subs.find((r: any) => r.cbc_pathways);
+                    if (pw) setStudentPathway(pw.cbc_pathways);
+                }
+            } catch (_) {}
+
             // Derive CBC from actual form_level in DB (params may have 0)
             const actualFormLevel = (s as any)?.school_forms?.form_level ?? formLevel;
             const isStudentCBC = actualFormLevel >= 10;
+
 
             // ── 2. Terms list ──────────────────────────────────────────
             const { data: terms } = await supabase
@@ -377,6 +393,40 @@ export default function AcademicPassportScreen() {
                             </View>
                         ))}
                     </View>
+
+                    {/* CBC Pathway Card */}
+                    {studentPathway && (
+                        <View style={st.card}>
+                            <View style={{flexDirection:'row',alignItems:'center',gap:10,marginBottom:12}}>
+                                <Text style={{fontSize:22}}>{studentPathway.icon||'📚'}</Text>
+                                <View style={{flex:1}}>
+                                    <Text style={{fontSize:10,color:'#94a3b8',fontWeight:'700',textTransform:'uppercase',letterSpacing:1}}>CBC Pathway</Text>
+                                    <Text style={{fontSize:15,fontWeight:'900',color:'#0f172a'}}>{studentPathway.pathway_name}</Text>
+                                </View>
+                                <View style={{paddingHorizontal:10,paddingVertical:4,borderRadius:20,backgroundColor:studentPathway.color_hex||'#6366f1'}}>
+                                    <Text style={{fontSize:11,fontWeight:'800',color:'#fff'}}>{studentPathway.pathway_code}</Text>
+                                </View>
+                            </View>
+                            <Text style={{fontSize:10,color:'#64748b',fontWeight:'700',textTransform:'uppercase',marginBottom:6}}>Compulsory Subjects</Text>
+                            <View style={{flexDirection:'row',flexWrap:'wrap',gap:6,marginBottom:12}}>
+                                {studentSubjects.filter((s:any)=>!s.is_elective).map((s:any)=>(
+                                    <View key={s.id} style={{paddingHorizontal:8,paddingVertical:3,borderRadius:8,backgroundColor:'#eff6ff',borderWidth:1,borderColor:'#bfdbfe'}}>
+                                        <Text style={{fontSize:11,fontWeight:'700',color:'#1d4ed8'}}>{s.school_subjects?.subject_name||s.school_subjects?.initials||'?'}</Text>
+                                    </View>
+                                ))}
+                                {studentSubjects.filter((s:any)=>!s.is_elective).length===0&&<Text style={{fontSize:12,color:'#94a3b8'}}>—</Text>}
+                            </View>
+                            <Text style={{fontSize:10,color:'#64748b',fontWeight:'700',textTransform:'uppercase',marginBottom:6}}>Elective Subjects (3 chosen)</Text>
+                            <View style={{flexDirection:'row',flexWrap:'wrap',gap:6}}>
+                                {studentSubjects.filter((s:any)=>s.is_elective).map((s:any)=>(
+                                    <View key={s.id} style={{paddingHorizontal:8,paddingVertical:3,borderRadius:8,backgroundColor:studentPathway.color_hex||'#6366f1'}}>
+                                        <Text style={{fontSize:11,fontWeight:'700',color:'#fff'}}>{s.school_subjects?.subject_name||s.school_subjects?.initials||'?'}</Text>
+                                    </View>
+                                ))}
+                                {studentSubjects.filter((s:any)=>s.is_elective).length===0&&<Text style={{fontSize:12,color:'#94a3b8'}}>No electives selected</Text>}
+                            </View>
+                        </View>
+                    )}
 
                     {!isCBC&&termHistory.length>0&&(
                         <View style={st.card}>
