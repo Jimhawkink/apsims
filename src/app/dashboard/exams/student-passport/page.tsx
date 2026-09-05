@@ -124,19 +124,52 @@ export default function StudentPassportPage() {
     /* ─── FETCH STUDENT DATA ─── */
     const fetchStudentData = useCallback(async (student: any) => {
         setLoading(true);
-        const [marksRes, attRes, discRes, subjRes] = await Promise.all([
+        const [marksRes, attRes, discRes] = await Promise.all([
             supabase.from('school_exam_marks').select('*').eq('student_id', student.id).order('term_id', { ascending: true }),
             supabase.from('school_attendance').select('*').eq('student_id', student.id).order('attendance_date', { ascending: false }),
             supabase.from('school_discipline_records').select('*').eq('student_id', student.id).order('incident_date', { ascending: false }),
-            supabase.from('cbc_student_subjects').select('*, cbc_pathways(id,pathway_name,pathway_code,color_hex,icon), school_subjects(id,subject_name,subject_code,initials)').eq('student_id', student.id),
         ]);
         setAllMarks(marksRes.data || []);
         setAttendance(attRes.data || []);
         setDiscipline(discRes.data || []);
-        const subs = subjRes.data || [];
-        setStudentSubjects(subs);
-        const pw = subs.find((s: any) => s.cbc_pathways);
-        setStudentPathway(pw?.cbc_pathways || null);
+
+        // ── CBC Pathway + subjects (separate queries — avoids PostgREST join cache issue) ──
+        try {
+            const { data: cssRows } = await supabase
+                .from('cbc_student_subjects')
+                .select('id, student_id, pathway_id, subject_id, is_elective')
+                .eq('student_id', student.id);
+
+            if (cssRows && cssRows.length > 0) {
+                // Fetch pathway details
+                const pathwayId = cssRows.find((r: any) => r.pathway_id)?.pathway_id;
+                const subjectIds = [...new Set(cssRows.map((r: any) => r.subject_id).filter(Boolean))];
+
+                const [pwRes, subRes] = await Promise.all([
+                    pathwayId ? supabase.from('cbc_pathways').select('id,pathway_name,pathway_code,color_hex,icon').eq('id', pathwayId).single() : Promise.resolve({ data: null }),
+                    subjectIds.length > 0 ? supabase.from('school_subjects').select('id,subject_name,subject_code,initials').in('id', subjectIds) : Promise.resolve({ data: [] }),
+                ]);
+
+                const pathway = pwRes.data || null;
+                const subjectMap: Record<number, any> = {};
+                (subRes.data || []).forEach((s: any) => { subjectMap[s.id] = s; });
+
+                const enriched = cssRows.map((r: any) => ({
+                    ...r,
+                    school_subjects: subjectMap[r.subject_id] || null,
+                    cbc_pathways: pathway,
+                }));
+                setStudentSubjects(enriched);
+                setStudentPathway(pathway);
+            } else {
+                setStudentSubjects([]);
+                setStudentPathway(null);
+            }
+        } catch (_) {
+            setStudentSubjects([]);
+            setStudentPathway(null);
+        }
+
         setLoading(false);
     }, []);
 
