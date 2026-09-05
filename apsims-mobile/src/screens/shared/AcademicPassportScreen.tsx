@@ -126,20 +126,26 @@ export default function AcademicPassportScreen() {
 
     const load = useCallback(async () => {
         try {
-            // ── 1. Student bio — use ONLY known columns ───────────────
+            // ── 1A. Student join query — EXACT same columns as getStudentDetail ──
             const { data: s, error: sErr } = await supabase
                 .from('school_students')
-                .select(`
-                    id, admission_number, first_name, last_name, gender, photo_url,
-                    date_of_birth, date_admitted, house, kcpe_marks,
-                    guardian_name, guardian_phone,
-                    school_forms(form_name, form_level),
-                    school_streams(stream_name)
-                `)
+                .select('id, admission_number, first_name, last_name, gender, photo_url, form_id, guardian_name, guardian_phone, school_forms(form_name, form_level), school_streams(stream_name)')
                 .eq('id', studentId)
                 .single();
-            if (sErr) console.error('student query error:', sErr.message);
-            if (s) setStudent(s);
+            if (sErr) console.error('student join error:', sErr.message);
+
+            // ── 1B. Extra flat columns — separate query, own try/catch ──────────
+            let sExtra: any = {};
+            try {
+                const { data: ex } = await supabase
+                    .from('school_students')
+                    .select('date_of_birth, date_admitted, house, kcpe_marks')
+                    .eq('id', studentId)
+                    .single();
+                if (ex) sExtra = ex;
+            } catch (_) {}
+
+            if (s) setStudent({ ...s, ...sExtra });
 
             // Derive CBC from actual form_level in DB (params may have 0)
             const actualFormLevel = (s as any)?.school_forms?.form_level ?? formLevel;
