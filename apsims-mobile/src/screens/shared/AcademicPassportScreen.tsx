@@ -1,4 +1,4 @@
-﻿// APSIMS Ultra Premium — Academic Passport Screen v3.0
+// APSIMS Ultra Premium — Academic Passport Screen v3.0
 // Matches web student-passport page exactly:
 // 4 tabs: Overview | Subjects | History | Conduct
 // 8-4-4 and CBC support, per-term marks, rank, attendance, discipline
@@ -126,65 +126,167 @@ export default function AcademicPassportScreen() {
 
     const load = useCallback(async () => {
         try {
-            const {data:s} = await supabase
-                .from("school_students")
-                .select("id,first_name,last_name,admission_number,gender,date_of_birth,photo_url,parent_name,guardian_name,guardian_phone,parent_phone,date_admitted,house,kcpe_marks,school_forms(form_name,form_level),school_streams(stream_name)")
-                .eq("id",studentId).single();
+            // ── 1. Student bio — use ONLY known columns ───────────────
+            const { data: s, error: sErr } = await supabase
+                .from('school_students')
+                .select(`
+                    id, admission_number, first_name, last_name, gender, photo_url,
+                    date_of_birth, date_admitted, house, kcpe_marks,
+                    guardian_name, guardian_phone,
+                    school_forms(form_name, form_level),
+                    school_streams(stream_name)
+                `)
+                .eq('id', studentId)
+                .single();
+            if (sErr) console.error('student query error:', sErr.message);
             if (s) setStudent(s);
 
-            const {data:terms} = await supabase.from("school_terms").select("id,term_name").order("id",{ascending:true});
+            // Derive CBC from actual form_level in DB (params may have 0)
+            const actualFormLevel = (s as any)?.school_forms?.form_level ?? formLevel;
+            const isStudentCBC = actualFormLevel >= 10;
 
-            if (isCBC) {
+            // ── 2. Terms list ──────────────────────────────────────────
+            const { data: terms } = await supabase
+                .from('school_terms')
+                .select('id, term_name')
+                .order('id', { ascending: true });
+
+            if (isStudentCBC) {
+                // ── CBC marks per term ─────────────────────────────────
                 const hist: any[] = [];
-                for (const term of (terms||[])) {
-                    const {data:sc} = await supabase.from("cbc_mark_scores")
-                        .select("score,school_strands(school_subjects(subject_name))")
-                        .eq("student_id",studentId).eq("term_id",term.id);
-                    if (!sc||!sc.length) continue;
-                    const bySub: Record<string,number[]> = {};
-                    sc.forEach((x:any)=>{const n=x.school_strands?.school_subjects?.subject_name||"Unknown";if(!bySub[n])bySub[n]=[];bySub[n].push(Number(x.score||0));});
-                    const subs = Object.entries(bySub).map(([name,scores])=>{const avg=scores.reduce((a,b)=>a+b,0)/scores.length;return {name,level:avg>=75?"EE":avg>=50?"ME":avg>=25?"AE":"BE",avg};});
-                    const avgScore = subs.reduce((a,b)=>a+b.avg,0)/subs.length;
-                    hist.push({term_name:term.term_name,overallLevel:avgScore>=75?"EE":avgScore>=50?"ME":avgScore>=25?"AE":"BE",avgScore,subs});
+                for (const term of (terms || [])) {
+                    try {
+                        const { data: sc } = await supabase
+                            .from('cbc_mark_scores')
+                            .select('score, school_strands(school_subjects(subject_name))')
+                            .eq('student_id', studentId)
+                            .eq('term_id', term.id);
+                        if (!sc || !sc.length) continue;
+                        const bySub: Record<string, number[]> = {};
+                        sc.forEach((x: any) => {
+                            const n = x.school_strands?.school_subjects?.subject_name || 'Unknown';
+                            if (!bySub[n]) bySub[n] = [];
+                            bySub[n].push(Number(x.score || 0));
+                        });
+                        const subs = Object.entries(bySub).map(([name, scores]) => {
+                            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+                            return { name, level: avg >= 75 ? 'EE' : avg >= 50 ? 'ME' : avg >= 25 ? 'AE' : 'BE', avg };
+                        });
+                        const avgScore = subs.reduce((a, b) => a + b.avg, 0) / subs.length;
+                        hist.push({
+                            term_name: term.term_name,
+                            overallLevel: avgScore >= 75 ? 'EE' : avgScore >= 50 ? 'ME' : avgScore >= 25 ? 'AE' : 'BE',
+                            avgScore, subs,
+                        });
+                    } catch (e: any) { console.error('cbc term error:', e.message); }
                 }
                 setCbcHistory(hist);
             } else {
+                // ── 8-4-4 marks per term ───────────────────────────────
                 const hist: any[] = [];
-                const sm: Record<string,number[]> = {};
-                for (const term of (terms||[])) {
-                    const {data:marks} = await supabase.from("school_exam_marks")
-                        .select("score,grade,school_subjects(subject_name)")
-                        .eq("student_id",studentId).eq("term_id",term.id).eq("exam_type","End-Term");
-                    if (!marks||!marks.length) continue;
-                    const subs = marks.map((m:any)=>({sn:m.school_subjects?.subject_name||"—",sc:Number(m.score||0),gr:m.grade||getGStr(Number(m.score||0))}));
-                    subs.forEach(s=>{if(!sm[s.sn])sm[s.sn]=[];sm[s.sn].push(s.sc);});
-                    const avg = subs.reduce((a,b)=>a+b.sc,0)/subs.length;
-                    let rank=0,total=0;
-                    if (formId) {
-                        const {data:fs} = await supabase.from("school_students").select("id").eq("form_id",formId).eq("status","Active");
-                        const sids=(fs||[]).map((x:any)=>x.id); total=sids.length;
-                        if (sids.length) {
-                            const {data:am} = await supabase.from("school_exam_marks").select("student_id,score").eq("term_id",term.id).eq("exam_type","End-Term").in("student_id",sids);
-                            const tots:Record<number,number>={};
-                            (am||[]).forEach((m:any)=>{tots[m.student_id]=(tots[m.student_id]||0)+Number(m.score||0);});
-                            const sorted=Object.values(tots).sort((a,b)=>b-a);
-                            rank=sorted.findIndex(t=>t===tots[studentId])+1;
+                const sm: Record<string, number[]> = {};
+                for (const term of (terms || [])) {
+                    try {
+                        const { data: marks } = await supabase
+                            .from('school_exam_marks')
+                            .select('score, grade, school_subjects(subject_name)')
+                            .eq('student_id', studentId)
+                            .eq('term_id', term.id)
+                            .eq('exam_type', 'End-Term');
+                        if (!marks || !marks.length) continue;
+                        const subs = marks.map((m: any) => ({
+                            sn: m.school_subjects?.subject_name || '—',
+                            sc: Number(m.score || 0),
+                            gr: m.grade || getGStr(Number(m.score || 0)),
+                        }));
+                        subs.forEach(s => { if (!sm[s.sn]) sm[s.sn] = []; sm[s.sn].push(s.sc); });
+                        const avg = subs.reduce((a, b) => a + b.sc, 0) / subs.length;
+                        // Rank in form
+                        let rank = 0, total = 0;
+                        if (formId) {
+                            try {
+                                const { data: fs } = await supabase
+                                    .from('school_students').select('id')
+                                    .eq('form_id', formId).eq('status', 'Active');
+                                const sids = (fs || []).map((x: any) => x.id);
+                                total = sids.length;
+                                if (sids.length) {
+                                    const { data: am } = await supabase
+                                        .from('school_exam_marks').select('student_id, score')
+                                        .eq('term_id', term.id).eq('exam_type', 'End-Term')
+                                        .in('student_id', sids);
+                                    const tots: Record<number, number> = {};
+                                    (am || []).forEach((m: any) => { tots[m.student_id] = (tots[m.student_id] || 0) + Number(m.score || 0); });
+                                    const sorted = Object.values(tots).sort((a, b) => b - a);
+                                    rank = sorted.findIndex(t => t === tots[studentId]) + 1;
+                                }
+                            } catch (e: any) { console.error('rank error:', e.message); }
                         }
-                    }
-                    const {data:cmt} = await supabase.from("report_card_comments").select("teacher_comment,principal_comment").eq("student_id",studentId).eq("term_id",term.id).maybeSingle();
-                    if (cmt) setLatestCmt({teacher:cmt.teacher_comment||"",principal:cmt.principal_comment||""});
-                    hist.push({term_name:term.term_name,avg:parseFloat(avg.toFixed(1)),grade:getGStr(avg),rank,total,subs});
+                        // Comments — try both possible table names
+                        try {
+                            const { data: cmt } = await supabase
+                                .from('cbc_report_card_comments')
+                                .select('teacher_comment, principal_comment')
+                                .eq('student_id', studentId).eq('term_id', term.id)
+                                .maybeSingle();
+                            if (cmt) setLatestCmt({ teacher: cmt.teacher_comment || '', principal: cmt.principal_comment || '' });
+                        } catch (_) {}
+                        hist.push({
+                            term_name: term.term_name,
+                            avg: parseFloat(avg.toFixed(1)),
+                            grade: getGStr(avg), rank, total, subs,
+                        });
+                    } catch (e: any) { console.error('term marks error:', e.message); }
                 }
                 setTermHistory(hist);
-                setSubjectAvgs(Object.entries(sm).map(([name,sc])=>{const avg=sc.reduce((a,b)=>a+b,0)/sc.length;return {name,avg:parseFloat(avg.toFixed(1)),grade:getGStr(avg),count:sc.length};}).sort((a,b)=>b.avg-a.avg));
+                setSubjectAvgs(
+                    Object.entries(sm)
+                        .map(([name, sc]) => {
+                            const avg = sc.reduce((a, b) => a + b, 0) / sc.length;
+                            return { name, avg: parseFloat(avg.toFixed(1)), grade: getGStr(avg), count: sc.length };
+                        })
+                        .sort((a, b) => b.avg - a.avg)
+                );
             }
-            const {data:att} = await supabase.from("school_attendance").select("status").eq("student_id",studentId);
-            if (att) setAttendance({present:att.filter((a:any)=>a.status==="Present").length,total:att.length});
-            const {count} = await supabase.from("school_discipline").select("id",{count:"exact",head:true}).eq("student_id",studentId);
-            setDiscipline(count||0);
-        } catch(e:any){console.error("passport:",e.message);}
-        finally{setLoading(false);setRefreshing(false);}
-    },[studentId,formId,isCBC]);
+
+            // ── 3. Comments for CBC ────────────────────────────────────
+            if (isStudentCBC) {
+                try {
+                    const { data: cmt } = await supabase
+                        .from('cbc_report_card_comments')
+                        .select('teacher_comment, principal_comment')
+                        .eq('student_id', studentId)
+                        .order('term_id', { ascending: false })
+                        .limit(1).maybeSingle();
+                    if (cmt) setLatestCmt({ teacher: cmt.teacher_comment || '', principal: cmt.principal_comment || '' });
+                } catch (_) {}
+            }
+
+            // ── 4. Attendance ──────────────────────────────────────────
+            try {
+                const { data: att } = await supabase
+                    .from('school_attendance')
+                    .select('status')
+                    .eq('student_id', studentId);
+                if (att) {
+                    const present = att.filter((a: any) => a.status === 'Present').length;
+                    setAttendance({ present, total: att.length });
+                }
+            } catch (e: any) { console.error('attendance error:', e.message); }
+
+            // ── 5. Discipline — correct table is school_discipline_records
+            try {
+                const { count } = await supabase
+                    .from('school_discipline_records')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('student_id', studentId);
+                setDiscipline(count || 0);
+            } catch (e: any) { console.error('discipline error:', e.message); }
+
+        } catch (e: any) { console.error('passport load error:', e.message); }
+        finally { setLoading(false); setRefreshing(false); }
+    }, [studentId, formId, formLevel, isCBC]);
+
 
     useEffect(()=>{load();},[load]);
     const onRefresh=()=>{setRefreshing(true);load();};
@@ -262,7 +364,7 @@ export default function AcademicPassportScreen() {
                 {activeTab==="overview"&&(<>
                     <View style={st.card}>
                         <SHd icon="👤" title="Student Information" sub="Personal & enrollment details"/>
-                        {[["Full Name",student?`${student.first_name} ${student.last_name}`:studentName],["Admission No.",student?.admission_number||"—"],["Gender",student?.gender||"—"],["Date of Birth",fmt(student?.date_of_birth)],["Age",age!==null?`${age} years`:"—"],["Form/Class",student?.school_forms?.form_name||"—"],["Stream",student?.school_streams?.stream_name||"—"],["Guardian",student?.parent_name||student?.guardian_name||"—"],["Phone",student?.guardian_phone||student?.parent_phone||"—"],["Admitted",fmt(student?.date_admitted)],["KCPE Marks",student?.kcpe_marks?`${student.kcpe_marks}/500`:"—"],["House",student?.house||"—"]].map(([label,val])=>(
+                        {[["Full Name",student?`${student.first_name} ${student.last_name}`:studentName],["Admission No.",student?.admission_number||"—"],["Gender",student?.gender||"—"],["Date of Birth",fmt(student?.date_of_birth)],["Age",age!==null?`${age} years`:"—"],["Form/Class",student?.school_forms?.form_name||"—"],["Stream",student?.school_streams?.stream_name||"—"],["Guardian",student?.guardian_name||"—"],["Phone",student?.guardian_phone||"—"],["Admitted",fmt(student?.date_admitted)],["KCPE Marks",student?.kcpe_marks?`${student.kcpe_marks}/500`:"—"],["House",student?.house||"—"]].map(([label,val])=>(
                             <View key={label as string} style={{flexDirection:"row",justifyContent:"space-between",paddingVertical:7,borderBottomWidth:1,borderBottomColor:"#f1f5f9"}}>
                                 <Text style={{fontSize:12,color:"#64748b",fontWeight:"600"}}>{label}</Text>
                                 <Text style={{fontSize:12,color:"#0f172a",fontWeight:"800",maxWidth:W*0.52,textAlign:"right"}} numberOfLines={2}>{val as string}</Text>
