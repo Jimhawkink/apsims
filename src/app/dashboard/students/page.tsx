@@ -159,6 +159,7 @@ export default function StudentsPage() {
             blood_group: formData.blood_group || null, medical_info: formData.medical_conditions || null, medical_conditions: formData.medical_conditions || null, special_needs: formData.special_needs || null,
             previous_school: formData.previous_school || null, kcpe_marks: formData.kcpe_marks ? Number(formData.kcpe_marks) : null,
             birth_cert_no: formData.birth_cert_no || null, nemis_no: formData.nemis_no || null, religion: formData.religion || null, notes: formData.notes || null,
+            ...(isCBC && selectedPathwayId ? { pathway_preference: cbcPathways.find((p: any) => p.id === selectedPathwayId)?.pathway_name || null } : {}),
         };
         let error; let studentId: number | null = editId;
         if (editId) { ({ error } = await supabase.from('school_students').update(payload).eq('id', editId)); }

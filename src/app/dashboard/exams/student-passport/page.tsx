@@ -407,11 +407,15 @@ export default function StudentPassportPage() {
                                         <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700">{getForm(selStudent.form_id)}</span>
                                         <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-blue-100 text-blue-700">{getStream(selStudent.stream_id)}</span>
                                         <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-purple-100 text-purple-700">{selStudent.gender}</span>
-                                        {studentPathway && (
+                                        {studentPathway ? (
                                             <span className="px-2 py-0.5 rounded-lg text-xs font-bold text-white" style={{ background: studentPathway.color_hex || '#6366f1' }}>
                                                 {studentPathway.icon} {studentPathway.pathway_name}
                                             </span>
-                                        )}
+                                        ) : selStudent.pathway_preference ? (
+                                            <span className="px-2 py-0.5 rounded-lg text-xs font-bold text-white bg-indigo-600">
+                                                📚 {selStudent.pathway_preference}
+                                            </span>
+                                        ) : null}
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
