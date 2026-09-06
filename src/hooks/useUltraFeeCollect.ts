@@ -177,7 +177,23 @@ export function useUltraFeeCollect() {
     }
     const termFees = yearFiltered.filter(f => currentTerm ? (!f.term_id || f.term_id === currentTerm.id) : true);
     const termTotal = termFees.reduce((s, f) => s + Number(f.amount || 0), 0);
-    const annualTotal = yearFiltered.reduce((s, f) => s + Number(f.amount || 0), 0);
+    // annualTotal: only count terms the student was actually enrolled in (based on admission date)
+    // Computed AFTER we know admDate — use a helper inline
+    const _student = students.find((s: any) => s.id === studentId);
+    const _admDate = _student?.admission_date ? new Date(_student.admission_date) : null;
+    const _currentTermStart = currentTerm?.start_date ? new Date(currentTerm.start_date) : null;
+    const _admittedThisTerm = _admDate && _currentTermStart && _admDate >= _currentTermStart;
+    const enrolledTermIds = terms
+      .filter((t: any) => {
+        if (_admittedThisTerm) return t.is_current; // only current term for new students
+        if (!_admDate) return true;
+        const termEnd = t.end_date ? new Date(t.end_date) : null;
+        if (termEnd && _admDate > termEnd) return false;
+        return true;
+      })
+      .map((t: any) => t.id);
+    const enrolledYearFees = yearFiltered.filter((f: any) => !f.term_id || enrolledTermIds.includes(f.term_id));
+    const annualTotal = enrolledYearFees.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
 
     // Fee breakdown by vote head
     const feeBreakdown: FeeBreakdownItem[] = [];
@@ -210,23 +226,13 @@ export function useUltraFeeCollect() {
     const capitationTotal = stuCapitation.reduce((s, c) => s + Number(c.amount || 0), 0);
 
     // ── Payment Waterfall: apply payments first to prev term arrears, then current term ──
-    // This mirrors Kenya school fee convention correctly
-    // IMPORTANT: Only charge prev term arrears for terms the student was actually enrolled in.
-    // A student admitted in Term 3 should NOT have Term 1 + Term 2 fees as arrears.
-    const student = students.find((s: any) => s.id === studentId);
-    const admDate = student?.admission_date ? new Date(student.admission_date) : null;
-    const currentTermStart = currentTerm?.start_date ? new Date(currentTerm.start_date) : null;
-
-    // Student admitted in current term → zero previous arrears
-    const admittedThisTerm = admDate && currentTermStart && admDate >= currentTermStart;
-
+    // Reuse _admDate / _admittedThisTerm computed above for annualTotal
     const prevTerms = terms.filter((t: any) => {
       if (t.is_current) return false;
-      if (admittedThisTerm) return false; // admitted this term → no previous term obligations
-      if (!admDate) return true; // no admission date on record → safe default: include
-      // Only include prev term if student was admitted BEFORE it ended
+      if (_admittedThisTerm) return false; // admitted this term → no previous obligations
+      if (!_admDate) return true;
       const termEnd = t.end_date ? new Date(t.end_date) : null;
-      if (termEnd && admDate > termEnd) return false; // admitted after this term ended → not enrolled then
+      if (termEnd && _admDate > termEnd) return false;
       return true;
     });
     let prevTotal = 0;
