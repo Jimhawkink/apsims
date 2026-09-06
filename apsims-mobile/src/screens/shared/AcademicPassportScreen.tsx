@@ -33,6 +33,7 @@ const GRADE_SCALE = [
 ];
 const getGObj = (s: number) => GRADE_SCALE.find(g => s >= g.min) || GRADE_SCALE[GRADE_SCALE.length-1];
 const getGStr = (s: number) => getGObj(s).grade;
+const meanGradeFromPoints = (pts: number) => { const g = GRADE_SCALE.find(g => g.pts <= pts); return g?.grade || 'E'; };
 const cbcLC = (lv: string | null) => {
     if (lv === "EE") return { bg: "#d1fae5", color: "#059669", label: "Exceeds Expectation" };
     if (lv === "ME") return { bg: "#dbeafe", color: "#2563eb", label: "Meets Expectation" };
@@ -125,7 +126,7 @@ export default function AcademicPassportScreen() {
     const [studentPathway,setStudentPathway] = useState<any>(null);
     const [studentSubjects,setStudentSubjects] = useState<any[]>([]);
     const [studentSubjects844,setStudentSubjects844] = useState<any[]>([]); // 8-4-4 KCSE subjects
-    const [activeTab,setActiveTab]       = useState<"overview"|"subjects"|"history"|"conduct">("overview");
+    const [activeTab,setActiveTab]       = useState<"overview"|"subjects"|"history"|"conduct"|"prediction">("overview");
 
     const load = useCallback(async () => {
         try {
@@ -365,7 +366,7 @@ export default function AcademicPassportScreen() {
         </View>
     );
 
-    const TABS=[{k:"overview",i:"📋",l:"Overview"},{k:"subjects",i:"📖",l:"Subjects"},{k:"history",i:"📈",l:"History"},{k:"conduct",i:"🧭",l:"Conduct"}] as const;
+    const TABS=[{k:"overview",i:"📋",l:"Overview"},{k:"subjects",i:"📖",l:"Subjects"},{k:"history",i:"📈",l:"History"},{k:"conduct",i:"🧭",l:"Conduct"},{k:"prediction",i:"🎯",l:"KCSE"}] as const;
 
     return (
         <View style={{flex:1,backgroundColor:"#F8FAFF"}}>
@@ -744,6 +745,97 @@ export default function AcademicPassportScreen() {
                         </View>
                     )}
                 </>)}
+
+                {/* ══ KCSE PREDICTION TAB ══ */}
+                {activeTab==="prediction"&&!isCBC&&(()=>{
+                    // Same logic as web passport
+                    const best7 = subjectAvgs.slice(0,7);
+                    const predictedMeanPts = best7.length>0
+                        ? Math.round(best7.reduce((a,s)=>a+(getGObj(s.avg).pts||0),0)/best7.length)
+                        : 0;
+                    const predictedGrade = predictedMeanPts>0 ? meanGradeFromPoints(predictedMeanPts) : '—';
+                    const pgColor = getGObj(subjectAvgs[0]?.avg||0).color;
+                    const totalPts = best7.reduce((a,s)=>a+(getGObj(s.avg).pts||0),0);
+                    return (
+                    <View style={{gap:12}}>
+                        {/* Predicted Grade Banner */}
+                        <View style={{borderRadius:20,padding:24,alignItems:'center',
+                            backgroundColor:'#1e1b4b',
+                            shadowColor:'#6366f1',shadowOffset:{width:0,height:8},shadowOpacity:0.3,shadowRadius:16,elevation:8}}>
+                            <Text style={{fontSize:11,color:'rgba(255,255,255,0.6)',fontWeight:'800',textTransform:'uppercase',letterSpacing:2,marginBottom:8}}>🎯 Predicted KCSE Mean Grade</Text>
+                            <Text style={{fontSize:80,fontWeight:'900',color:'#fff',lineHeight:90}}>{predictedGrade}</Text>
+                            <Text style={{fontSize:13,color:'rgba(255,255,255,0.7)',marginTop:8,fontWeight:'600'}}>Based on {best7.length} best subjects · Mean points: {predictedMeanPts}</Text>
+                            <Text style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:4}}>Prediction based on current average scores if maintained through KCSE</Text>
+                        </View>
+
+                        {/* Best 7 Subjects Table */}
+                        <View style={st.card}>
+                            <SHd icon="📚" title="Best 7 Subjects — KCSE Calculation" sub={`${best7.length} subjects · ${totalPts} total points`}/>
+                            {best7.length===0
+                                ? <View style={{alignItems:'center',paddingVertical:30}}><Text style={{fontSize:36}}>📭</Text><Text style={{color:'#94a3b8',marginTop:8,fontWeight:'700'}}>No subject data yet</Text></View>
+                                : <>
+                                {/* Header row */}
+                                <View style={{flexDirection:'row',paddingVertical:8,borderBottomWidth:1,borderBottomColor:'#e2e8f0',marginBottom:4}}>
+                                    <Text style={{fontSize:10,fontWeight:'800',color:'#94a3b8',width:24,textTransform:'uppercase'}}>#</Text>
+                                    <Text style={{fontSize:10,fontWeight:'800',color:'#94a3b8',flex:2,textTransform:'uppercase'}}>Subject</Text>
+                                    <Text style={{fontSize:10,fontWeight:'800',color:'#94a3b8',width:60,textAlign:'center',textTransform:'uppercase'}}>Avg</Text>
+                                    <Text style={{fontSize:10,fontWeight:'800',color:'#94a3b8',width:40,textAlign:'center',textTransform:'uppercase'}}>Grd</Text>
+                                    <Text style={{fontSize:10,fontWeight:'800',color:'#94a3b8',width:32,textAlign:'center',textTransform:'uppercase'}}>Pts</Text>
+                                </View>
+                                {best7.map((s,i)=>{
+                                    const g=getGObj(s.avg);
+                                    return(
+                                    <View key={i} style={{flexDirection:'row',alignItems:'center',paddingVertical:10,borderTopWidth:i===0?0:1,borderTopColor:'#f1f5f9'}}>
+                                        <Text style={{fontSize:11,color:'#94a3b8',width:24,fontWeight:'700'}}>{i+1}</Text>
+                                        <View style={{flex:2}}>
+                                            <Text style={{fontSize:12,fontWeight:'700',color:'#1e293b'}} numberOfLines={1}>{s.name}</Text>
+                                            {/* Score bar */}
+                                            <View style={{height:4,backgroundColor:'#f1f5f9',borderRadius:4,marginTop:4}}>
+                                                <View style={{height:4,borderRadius:4,width:`${Math.min(100,s.avg)}%` as any,backgroundColor:g.color}}/>
+                                            </View>
+                                        </View>
+                                        <Text style={{fontSize:13,fontWeight:'900',color:g.color,width:60,textAlign:'center'}}>{s.avg}%</Text>
+                                        <View style={{width:40,alignItems:'center'}}>
+                                            <GradePill grade={g.grade}/>
+                                        </View>
+                                        <Text style={{fontSize:16,fontWeight:'900',color:g.color,width:32,textAlign:'center'}}>{g.pts}</Text>
+                                    </View>
+                                    );
+                                })}
+                                {/* Total row */}
+                                <View style={{flexDirection:'row',alignItems:'center',paddingVertical:12,marginTop:6,borderTopWidth:2,borderTopColor:'#6366f1',backgroundColor:'#f0f0ff',borderRadius:10,paddingHorizontal:8}}>
+                                    <Text style={{flex:2,fontSize:12,fontWeight:'900',color:'#4f46e5'}}>TOTAL ({best7.length} subjects)</Text>
+                                    <Text style={{width:60,textAlign:'center',fontSize:13,fontWeight:'900',color:'#4f46e5'}}>{Math.round(best7.reduce((a,s)=>a+s.avg,0)/best7.length)}%</Text>
+                                    <View style={{width:40,alignItems:'center'}}><GradePill grade={predictedGrade}/></View>
+                                    <Text style={{width:32,textAlign:'center',fontSize:18,fontWeight:'900',color:'#4f46e5'}}>{totalPts}</Text>
+                                </View>
+                                </>
+                            }
+                        </View>
+
+                        {/* Grade Improvement Scenarios */}
+                        <View style={st.card}>
+                            <SHd icon="💡" title="Grade Improvement Scenarios" sub="If weak subjects improve"/>
+                            <View style={{flexDirection:'row',gap:8}}>
+                                {[{label:'If +10%',change:10},{label:'If +20%',change:20},{label:'Current trend',change:Math.max(0,trend)}].map((sc,i)=>{
+                                    const improved=best7.map(s=>Math.min(100,s.avg+sc.change));
+                                    const iPts=best7.length>0?Math.round(improved.reduce((a,v)=>a+(getGObj(v).pts||0),0)/best7.length):0;
+                                    const iGrade=meanGradeFromPoints(iPts);
+                                    const ig=getGObj(iPts*10);
+                                    return(
+                                    <View key={i} style={{flex:1,backgroundColor:'#f8faff',borderRadius:12,padding:12,borderWidth:1,borderColor:'#e2e8f0',alignItems:'center'}}>
+                                        <Text style={{fontSize:9,color:'#94a3b8',marginBottom:8,textAlign:'center',fontWeight:'600'}}>{sc.label}</Text>
+                                        <Text style={{fontSize:32,fontWeight:'900',color:getGObj(iPts*10).color||'#6366f1'}}>{iGrade}</Text>
+                                        <Text style={{fontSize:10,color:'#94a3b8',marginTop:4}}>{iPts} pts</Text>
+                                    </View>
+                                    );
+                                })}
+                            </View>
+                        </View>
+                    </View>
+                    );
+                })()}
+
             </ScrollView>
         </View>
     );
