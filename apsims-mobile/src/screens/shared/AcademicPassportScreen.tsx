@@ -232,28 +232,33 @@ export default function AcademicPassportScreen() {
                 }
                 setCbcHistory(hist);
             } else {
-                // ── 8-4-4 marks per term ───────────────────────────────
+                // ── 8-4-4 marks per term — ALL exam types (CAT1, CAT2, Mid-Term, End-Term) ───
                 const hist: any[] = [];
                 const sm: Record<string, number[]> = {};
                 for (const term of (terms || [])) {
                     try {
                         const { data: marks } = await supabase
                             .from('school_exam_marks')
-                            .select('score, grade, school_subjects(subject_name)')
+                            .select('score, grade, exam_type, points, teacher_remarks, school_subjects(subject_name, subject_code, initials)')
                             .eq('student_id', studentId)
                             .eq('term_id', term.id)
-                            .eq('exam_type', 'End-Term');
+                            .order('exam_type', { ascending: true });
                         if (!marks || !marks.length) continue;
                         const subs = marks.map((m: any) => ({
-                            sn: m.school_subjects?.subject_name || '—',
+                            sn: m.school_subjects?.subject_name || m.school_subjects?.initials || '—',
                             sc: Number(m.score || 0),
                             gr: m.grade || getGStr(Number(m.score || 0)),
+                            et: m.exam_type || '—',
+                            pts: m.points,
+                            rmk: m.teacher_remarks || '',
                         }));
+                        // Accumulate per-subject averages across all exam types
                         subs.forEach(s => { if (!sm[s.sn]) sm[s.sn] = []; sm[s.sn].push(s.sc); });
                         const avg = subs.reduce((a, b) => a + b.sc, 0) / subs.length;
-                        // Rank in form
+                        // Rank — use End-Term if available, else skip
                         let rank = 0, total = 0;
-                        if (formId) {
+                        const endTermSubs = subs.filter(s => s.et === 'End-Term');
+                        if (formId && endTermSubs.length > 0) {
                             try {
                                 const { data: fs } = await supabase
                                     .from('school_students').select('id')
@@ -272,7 +277,7 @@ export default function AcademicPassportScreen() {
                                 }
                             } catch (e: any) { console.error('rank error:', e.message); }
                         }
-                        // Comments — try both possible table names
+                        // Comments
                         try {
                             const { data: cmt } = await supabase
                                 .from('cbc_report_card_comments')
@@ -604,32 +609,56 @@ export default function AcademicPassportScreen() {
                 {/* HISTORY */}
                 {activeTab==="history"&&!isCBC&&(
                     <View style={st.card}>
-                        <SHd icon="📈" title="Full Term History" sub="End-Term results — all years"/>
+                        <SHd icon="📈" title="Full Term History" sub="All exams — CAT1, CAT2, Mid-Term, End-Term"/>
                         {termHistory.length===0?<View style={{alignItems:"center",paddingVertical:40}}><Text style={{fontSize:40}}>📭</Text><Text style={{color:"#64748b",marginTop:10,fontWeight:"700"}}>No history yet</Text></View>
                         :termHistory.map((term,i)=>{
                             const gc=getGObj(term.avg);const isLast=i===termHistory.length-1;
                             return(
-                                <View key={i} style={{borderRadius:12,borderWidth:1,borderColor:isLast?"#6366f180":"#e2e8f0",backgroundColor:isLast?"#f0f0ff":"#fafafa",padding:12,marginBottom:10}}>
-                                    <View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                                <View key={i} style={{borderRadius:14,borderWidth:1,borderColor:isLast?"#6366f180":"#e2e8f0",backgroundColor:isLast?"#f0f0ff":"#fafafa",padding:14,marginBottom:12}}>
+                                    {/* Term header */}
+                                    <View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                                         <View>
-                                            <Text style={{fontSize:13,fontWeight:"900",color:"#0f172a"}}>{term.term_name}</Text>
+                                            <Text style={{fontSize:14,fontWeight:"900",color:"#0f172a"}}>{term.term_name}</Text>
+                                            <Text style={{fontSize:10,color:"#64748b",fontWeight:"600"}}>{term.subs.length} subjects</Text>
                                             {isLast&&<Text style={{fontSize:9,color:"#6366f1",fontWeight:"900"}}>LATEST TERM</Text>}
                                         </View>
-                                        <View style={{flexDirection:"row",alignItems:"center",gap:8}}>
+                                        <View style={{alignItems:"flex-end",gap:4}}>
                                             {term.rank>0&&<Text style={{fontSize:11,color:"#64748b",fontWeight:"700"}}>#{term.rank}/{term.total}</Text>}
-                                            <GradePill grade={term.grade}/>
-                                            <Text style={{fontSize:14,fontWeight:"900",color:gc.color}}>{term.avg}%</Text>
+                                            <View style={{flexDirection:"row",alignItems:"center",gap:6}}>
+                                                <GradePill grade={term.grade}/>
+                                                <Text style={{fontSize:15,fontWeight:"900",color:gc.color}}>{term.avg}%</Text>
+                                            </View>
                                         </View>
                                     </View>
-                                    {term.subs.map((sub:any,j:number)=>(
-                                        <View key={j} style={{flexDirection:"row",justifyContent:"space-between",paddingVertical:4,borderTopWidth:j===0?1:0,borderTopColor:"#e2e8f0"}}>
-                                            <Text style={{fontSize:11,color:"#475569",fontWeight:"600",flex:1}}>{sub.sn}</Text>
-                                            <View style={{flexDirection:"row",alignItems:"center",gap:6}}>
-                                                <Text style={{fontSize:11,color:"#0f172a",fontWeight:"800"}}>{sub.sc}</Text>
+                                    {/* Column headers */}
+                                    <View style={{flexDirection:"row",paddingVertical:5,borderBottomWidth:1,borderBottomColor:"#e2e8f0",marginBottom:4}}>
+                                        <Text style={{fontSize:10,fontWeight:"800",color:"#94a3b8",flex:2,textTransform:"uppercase"}}>Subject</Text>
+                                        <Text style={{fontSize:10,fontWeight:"800",color:"#94a3b8",flex:1.2,textTransform:"uppercase"}}>Exam Type</Text>
+                                        <Text style={{fontSize:10,fontWeight:"800",color:"#94a3b8",width:46,textAlign:"right",textTransform:"uppercase"}}>Score</Text>
+                                        <Text style={{fontSize:10,fontWeight:"800",color:"#94a3b8",width:32,textAlign:"center",textTransform:"uppercase"}}>Grd</Text>
+                                    </View>
+                                    {/* Subject rows */}
+                                    {term.subs.map((sub:any,j:number)=>{
+                                        const sgc=getGObj(sub.sc);
+                                        const etColor=sub.et==="End-Term"?"#6366f1":sub.et==="Mid-Term"?"#0891b2":sub.et==="CAT 1"||sub.et==="CAT1"?"#059669":"#f59e0b";
+                                        return(
+                                        <View key={j} style={{flexDirection:"row",alignItems:"center",paddingVertical:6,borderTopWidth:j===0?0:1,borderTopColor:"#f1f5f9"}}>
+                                            <View style={{flex:2}}>
+                                                <Text style={{fontSize:11,color:"#1e293b",fontWeight:"700"}} numberOfLines={1}>{sub.sn}</Text>
+                                                {sub.rmk?<Text style={{fontSize:9,color:"#94a3b8",fontStyle:"italic"}} numberOfLines={1}>{sub.rmk}</Text>:null}
+                                            </View>
+                                            <View style={{flex:1.2}}>
+                                                <View style={{paddingHorizontal:6,paddingVertical:2,borderRadius:6,backgroundColor:etColor+"20",alignSelf:"flex-start"}}>
+                                                    <Text style={{fontSize:9,fontWeight:"800",color:etColor}}>{sub.et}</Text>
+                                                </View>
+                                            </View>
+                                            <Text style={{fontSize:12,fontWeight:"900",color:sgc.color,width:46,textAlign:"right"}}>{sub.sc}%</Text>
+                                            <View style={{width:32,alignItems:"center"}}>
                                                 <GradePill grade={sub.gr}/>
                                             </View>
                                         </View>
-                                    ))}
+                                        );
+                                    })}
                                 </View>
                             );
                         })}
