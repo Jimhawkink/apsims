@@ -123,15 +123,36 @@ export default function EditorTab() {
     const sid = Number(selectedSubject);
 
     if (!selectedTeacher && !selectedSubject) {
-      if (existing) { await supabase.from('school_timetable_entries').delete().eq('id', existing.id); toast.success('Cleared'); }
+      // Clear cell
+      if (existing) {
+        const { error } = await supabase.from('school_timetable_entries').delete().eq('id', existing.id);
+        if (error) toast.error(`Delete failed: ${error.message}`);
+        else toast.success('Cell cleared');
+      }
     } else {
       if (!selectedTeacher || !selectedSubject) { toast.error('Select both teacher and subject'); setSavingCell(false); return; }
-      const c = isTeacherBusy(tid, day, periodId, fId, sId);
-      if (c) { toast.error(`${getTeacherName(tid)} is already teaching ${getFormName(c.form_id)} ${getStreamName(c.stream_id)}`); setSavingCell(false); return; }
+      const conflict = isTeacherBusy(tid, day, periodId, fId, sId);
+      if (conflict) { toast.error(`${getTeacherName(tid)} is already teaching ${getFormName(conflict.form_id)} ${getStreamName(conflict.stream_id)}`); setSavingCell(false); return; }
       const data = { day_of_week: day, period_id: periodId, form_id: fId, stream_id: sId, subject_id: sid, teacher_id: tid, room: null, term: bTerm, year: bYear };
-      if (existing) await supabase.from('school_timetable_entries').update(data).eq('id', existing.id);
-      else await supabase.from('school_timetable_entries').upsert([{ ...data, is_double: false }], { onConflict: 'day_of_week,period_id,form_id,stream_id,term,year' });
-      toast.success('Lesson saved ✅');
+      let error: any = null;
+      if (existing) {
+        const res = await supabase.from('school_timetable_entries').update(data).eq('id', existing.id);
+        error = res.error;
+      } else {
+        const res = await supabase.from('school_timetable_entries').insert([{ ...data, is_double: false }]);
+        error = res.error;
+        // If duplicate — try update by matching key
+        if (error?.code === '23505') {
+          const res2 = await supabase.from('school_timetable_entries')
+            .update(data)
+            .eq('day_of_week', day).eq('period_id', periodId)
+            .eq('form_id', fId).eq('stream_id', sId)
+            .eq('term', bTerm).eq('year', bYear);
+          error = res2.error;
+        }
+      }
+      if (error) { toast.error(`Save failed: ${error.message}`); setSavingCell(false); return; }
+      toast.success('✅ Lesson saved!');
     }
     setEditCell(null); setSelectedTeacher(''); setSelectedSubject('');
     await fetchAll(); setSavingCell(false);
