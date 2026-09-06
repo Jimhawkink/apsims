@@ -540,7 +540,26 @@ export default function StudentPassportPage() {
                             )}
 
                             {/* ── 8-4-4 KCSE Subject Combination Card ── */}
-                            {!studentPathway && studentSubjects844.length > 0 && (
+                            {!studentPathway && studentSubjects844.length > 0 && (() => {
+                                // Client-side KCSE name map — works even if kcse_name col not yet added
+                                const KCSE_NAMES: Record<string, string> = {
+                                    '101':'English Language','102':'Kiswahili','121':'Mathematics',
+                                    '231':'Biology','232':'Physics','233':'Chemistry',
+                                    '311':'History & Government','312':'Geography','313':'C.R.E.',
+                                    '314':'I.R.E.','315':'H.R.E.',
+                                    '441':'Home Science','442':'Art & Design','443':'Agriculture',
+                                    '444':'Woodwork','446':'Building Construction','448':'Electricity',
+                                    '449':'Drawing & Design','450':'Aviation Technology','451':'Computer Studies',
+                                    '501':'French','502':'German','503':'Arabic',
+                                    '504':'Kenya Sign Language','511':'Music','565':'Business Studies',
+                                };
+                                const getName = (s: any) =>
+                                    s.kcse_name ||
+                                    (s.kcse_code ? KCSE_NAMES[s.kcse_code] : null) ||
+                                    s.school_subjects?.subject_name ||
+                                    s.school_subjects?.initials ||
+                                    '—';
+                                return (
                                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                                     <div className="flex items-center gap-3 mb-4">
                                         <span className="text-xl">📚</span>
@@ -557,14 +576,13 @@ export default function StudentPassportPage() {
                                             </span>
                                         </div>
                                     </div>
-                                    {/* Groups */}
                                     <div className="space-y-3">
                                         {[
-                                            { no: 1, label: 'Group I — Languages',         color: '#dc2626', bg: '#fef2f2', badge: 'bg-red-50 text-red-700 border-red-200' },
-                                            { no: 2, label: 'Group II — Maths & Sciences', color: '#2563eb', bg: '#eff6ff', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
-                                            { no: 3, label: 'Group III — Humanities',      color: '#16a34a', bg: '#f0fdf4', badge: 'bg-green-50 text-green-700 border-green-200' },
-                                            { no: 4, label: 'Group IV — Technical',        color: '#c2410c', bg: '#fff7ed', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
-                                            { no: 5, label: 'Group V — Languages & Creative', color: '#7c3aed', bg: '#faf5ff', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
+                                            { no: 1, label: 'Group I — Languages',            color: '#dc2626', bg: '#fef2f2', badge: 'bg-red-50 text-red-700 border-red-200' },
+                                            { no: 2, label: 'Group II — Maths & Sciences',    color: '#2563eb', bg: '#eff6ff', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+                                            { no: 3, label: 'Group III — Humanities',         color: '#16a34a', bg: '#f0fdf4', badge: 'bg-green-50 text-green-700 border-green-200' },
+                                            { no: 4, label: 'Group IV — Technical & Applied', color: '#c2410c', bg: '#fff7ed', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
+                                            { no: 5, label: 'Group V — Creatives & Others',   color: '#7c3aed', bg: '#faf5ff', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
                                         ].map(group => {
                                             const subs = studentSubjects844.filter((s: any) => s.group_no === group.no);
                                             if (subs.length === 0) return null;
@@ -573,9 +591,9 @@ export default function StudentPassportPage() {
                                                     <p className="text-[10px] font-black uppercase tracking-wider mb-2" style={{ color: group.color }}>{group.label}</p>
                                                     <div className="flex flex-wrap gap-1.5">
                                                         {subs.map((s: any) => (
-                                                            <span key={s.id} className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border ${group.badge}`}>
-                                                                {s.kcse_name || s.school_subjects?.subject_name || s.school_subjects?.initials || '—'}
-                                                                {s.is_compulsory && <span className="ml-1 text-[8px] opacity-60">CORE</span>}
+                                                            <span key={s.id} className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${group.badge}`}>
+                                                                {getName(s)}
+                                                                {s.is_compulsory && <span className="ml-1.5 text-[8px] bg-white/60 px-1 py-0.5 rounded font-black">CORE</span>}
                                                             </span>
                                                         ))}
                                                     </div>
@@ -583,14 +601,14 @@ export default function StudentPassportPage() {
                                             );
                                         })}
                                     </div>
-                                    {/* Footer stats */}
                                     <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
                                         <span className="font-semibold">{studentSubjects844.filter((s:any) => s.is_compulsory).length} compulsory</span>
                                         <span className="font-semibold">{studentSubjects844.filter((s:any) => !s.is_compulsory).length} optional subjects</span>
                                         <span className="font-bold text-gray-700">{studentSubjects844.length} / 9 max</span>
                                     </div>
                                 </div>
-                            )}
+                                );
+                            })()}
 
                             {/* Trend Chart */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
