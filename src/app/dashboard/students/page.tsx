@@ -294,6 +294,8 @@ export default function StudentsPage() {
     };
 
     const isCBCForm = formData.form_id ? getEducationSystem(Number(formData.form_id), forms) === 'CBC_Senior_School' : false;
+    const modalFormLevel = forms.find((f: any) => f.id === Number(formData.form_id))?.form_level || 0;
+    const modal844 = !isCBCForm && (modalFormLevel === 3 || modalFormLevel === 4);
 
     // Bulk action handlers
     const bulkAction = (msg: string) => { toast.success(`${msg} for ${selectedIds.size} students`); setSelectedIds(new Set()); };
@@ -369,7 +371,7 @@ export default function StudentsPage() {
             {showImport && <StudentImportModal onClose={() => setShowImport(false)} onImportFile={handleImportFile} />}
 
             {/* Enroll/Edit Modal */}
-            <StudentEnrollModal showModal={showModal} editId={editId} formData={formData} setFormData={setFormData} modalTab={modalTab} setModalTab={setModalTab} forms={forms} streams={streams} isCBCForm={isCBCForm} is844Form34={!isCBCForm && (forms.find((f:any) => f.id === Number(formData.form_id))?.form_level === 3 || forms.find((f:any) => f.id === Number(formData.form_id))?.form_level === 4)} cbcPathways={cbcPathways} cbcPathwaySubjects={cbcPathwaySubjects} allSubjects={allSubjects} selectedPathwayId={selectedPathwayId} selectedElectives={selectedElectives} onPathwayChange={(id) => { setSelectedPathwayId(id); setSelectedElectives([]); }} onElectivesChange={setSelectedElectives} selectedSubjects844={selectedSubjects844} onSubjects844Change={setSelectedSubjects844} onClose={() => setShowModal(false)} onSave={handleSave} />
+            <StudentEnrollModal showModal={showModal} editId={editId} formData={formData} setFormData={setFormData} modalTab={modalTab} setModalTab={setModalTab} forms={forms} streams={streams} isCBCForm={isCBCForm} is844Form34={modal844} cbcPathways={cbcPathways} cbcPathwaySubjects={cbcPathwaySubjects} allSubjects={allSubjects} selectedPathwayId={selectedPathwayId} selectedElectives={selectedElectives} onPathwayChange={(id) => { setSelectedPathwayId(id); setSelectedElectives([]); }} onElectivesChange={setSelectedElectives} selectedSubjects844={selectedSubjects844} onSubjects844Change={setSelectedSubjects844} onClose={() => setShowModal(false)} onSave={handleSave} />
         </div>
     );
 }

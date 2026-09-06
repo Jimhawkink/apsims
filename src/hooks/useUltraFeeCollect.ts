@@ -211,11 +211,28 @@ export function useUltraFeeCollect() {
 
     // ── Payment Waterfall: apply payments first to prev term arrears, then current term ──
     // This mirrors Kenya school fee convention correctly
-    const prevTerms = terms.filter(t => !t.is_current);
+    // IMPORTANT: Only charge prev term arrears for terms the student was actually enrolled in.
+    // A student admitted in Term 3 should NOT have Term 1 + Term 2 fees as arrears.
+    const student = students.find((s: any) => s.id === studentId);
+    const admDate = student?.admission_date ? new Date(student.admission_date) : null;
+    const currentTermStart = currentTerm?.start_date ? new Date(currentTerm.start_date) : null;
+
+    // Student admitted in current term → zero previous arrears
+    const admittedThisTerm = admDate && currentTermStart && admDate >= currentTermStart;
+
+    const prevTerms = terms.filter((t: any) => {
+      if (t.is_current) return false;
+      if (admittedThisTerm) return false; // admitted this term → no previous term obligations
+      if (!admDate) return true; // no admission date on record → safe default: include
+      // Only include prev term if student was admitted BEFORE it ended
+      const termEnd = t.end_date ? new Date(t.end_date) : null;
+      if (termEnd && admDate > termEnd) return false; // admitted after this term ended → not enrolled then
+      return true;
+    });
     let prevTotal = 0;
     if (prevTerms.length > 0) {
-      const prevTermFees = yearFiltered.filter(f => prevTerms.some(pt => pt.id === f.term_id));
-      prevTotal = prevTermFees.reduce((s, f) => s + Number(f.amount || 0), 0);
+      const prevTermFees = yearFiltered.filter((f: any) => prevTerms.some((pt: any) => pt.id === f.term_id));
+      prevTotal = prevTermFees.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
     }
 
     // Payments are applied: 1st to prev term arrears, 2nd to current term
