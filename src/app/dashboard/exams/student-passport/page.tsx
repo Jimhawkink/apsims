@@ -95,6 +95,7 @@ export default function StudentPassportPage() {
     const [discipline, setDiscipline]   = useState<any[]>([]);
     const [studentPathway, setStudentPathway] = useState<any>(null);
     const [studentSubjects, setStudentSubjects] = useState<any[]>([]);
+    const [studentSubjects844, setStudentSubjects844] = useState<any[]>([]); // 8-4-4 KCSE subjects
     const [activeTab, setActiveTab]     = useState<'overview'|'subjects'|'terms'|'attendance'|'discipline'|'prediction'|'print'>('overview');
 
     const printRef = useRef<HTMLDivElement>(null);
@@ -170,6 +171,33 @@ export default function StudentPassportPage() {
             setStudentPathway(null);
         }
 
+        // ── 8-4-4 KCSE Subject Combination (separate query — no join) ──
+        try {
+            const { data: ss844 } = await supabase
+                .from('student_subjects_844')
+                .select('id, student_id, subject_id, group_no, is_compulsory')
+                .eq('student_id', student.id);
+
+            if (ss844 && ss844.length > 0) {
+                const subIds = [...new Set(ss844.map((r: any) => r.subject_id).filter(Boolean))];
+                const { data: subDetails } = await supabase
+                    .from('school_subjects')
+                    .select('id, subject_name, subject_code, initials')
+                    .in('id', subIds);
+                const subMap: Record<number, any> = {};
+                (subDetails || []).forEach((s: any) => { subMap[s.id] = s; });
+                const enriched844 = ss844.map((r: any) => ({
+                    ...r,
+                    school_subjects: subMap[r.subject_id] || null,
+                }));
+                setStudentSubjects844(enriched844);
+            } else {
+                setStudentSubjects844([]);
+            }
+        } catch (_) {
+            setStudentSubjects844([]);
+        }
+
         setLoading(false);
     }, []);
 
@@ -178,6 +206,9 @@ export default function StudentPassportPage() {
         setShowDrop(false);
         setSearchQ(`${s.first_name} ${s.last_name}`);
         setActiveTab('overview');
+        setStudentPathway(null);
+        setStudentSubjects([]);
+        setStudentSubjects844([]);
         fetchStudentData(s);
     };
 
@@ -522,6 +553,60 @@ export default function StudentPassportPage() {
                                     </div>
                                 </div>
                             )}
+
+                            {/* ── 8-4-4 KCSE Subject Combination Card ── */}
+                            {!studentPathway && studentSubjects844.length > 0 && (
+                                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <span className="text-xl">📚</span>
+                                        <div className="flex-1">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">KCSE Subject Combination</p>
+                                            <p className="font-black text-gray-800 text-sm">8-4-4 Registered Subjects</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`px-3 py-1 rounded-full text-xs font-black text-white ${studentSubjects844.length >= 7 && studentSubjects844.length <= 9 ? 'bg-green-500' : 'bg-red-500'}`}>
+                                                {studentSubjects844.length} subjects
+                                            </span>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${studentSubjects844.length >= 7 && studentSubjects844.length <= 9 ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
+                                                {studentSubjects844.length >= 7 && studentSubjects844.length <= 9 ? '✓ Valid KCSE Combo' : '⚠ Check Combination'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {/* Groups */}
+                                    <div className="space-y-3">
+                                        {[
+                                            { no: 1, label: 'Group I — Languages',         color: '#dc2626', bg: '#fef2f2', badge: 'bg-red-50 text-red-700 border-red-200' },
+                                            { no: 2, label: 'Group II — Maths & Sciences', color: '#2563eb', bg: '#eff6ff', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+                                            { no: 3, label: 'Group III — Humanities',      color: '#16a34a', bg: '#f0fdf4', badge: 'bg-green-50 text-green-700 border-green-200' },
+                                            { no: 4, label: 'Group IV — Technical',        color: '#c2410c', bg: '#fff7ed', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
+                                            { no: 5, label: 'Group V — Languages & Creative', color: '#7c3aed', bg: '#faf5ff', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
+                                        ].map(group => {
+                                            const subs = studentSubjects844.filter((s: any) => s.group_no === group.no);
+                                            if (subs.length === 0) return null;
+                                            return (
+                                                <div key={group.no} className="rounded-xl border p-3" style={{ borderColor: `${group.color}30`, background: group.bg }}>
+                                                    <p className="text-[10px] font-black uppercase tracking-wider mb-2" style={{ color: group.color }}>{group.label}</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {subs.map((s: any) => (
+                                                            <span key={s.id} className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border ${group.badge}`}>
+                                                                {s.school_subjects?.subject_name || s.school_subjects?.initials || '—'}
+                                                                {s.is_compulsory && <span className="ml-1 text-[8px] opacity-60">CORE</span>}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    {/* Footer stats */}
+                                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                                        <span className="font-semibold">{studentSubjects844.filter((s:any) => s.is_compulsory).length} compulsory</span>
+                                        <span className="font-semibold">{studentSubjects844.filter((s:any) => !s.is_compulsory).length} optional subjects</span>
+                                        <span className="font-bold text-gray-700">{studentSubjects844.length} / 9 max</span>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Trend Chart */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                 <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
