@@ -232,82 +232,73 @@ export default function AcademicPassportScreen() {
                 }
                 setCbcHistory(hist);
             } else {
-                // ── 8-4-4 marks per term — ALL exam types, SEPARATE queries (no PostgREST join) ───
-                const hist: any[] = [];
-                const sm: Record<string, number[]> = {};
+                // ── 8-4-4 marks — EXACT SAME as web passport ───────────
+                // Step 1: Get ALL marks for this student (one flat query, no joins — same as web)
+                let allMarks: any[] = [];
+                try {
+                    const { data: mData, error: mErr } = await supabase
+                        .from('school_exam_marks')
+                        .select('*')
+                        .eq('student_id', studentId)
+                        .order('term_id', { ascending: true });
+                    if (mErr) console.error('marks fetch error:', mErr.message);
+                    allMarks = mData || [];
+                } catch (e: any) { console.error('marks error:', e.message); }
 
-                // Pre-load all subjects for this school (flat query — no join)
+                // Step 2: Get all subjects (flat — no join)
                 let subjectMap: Record<number, string> = {};
                 try {
-                    const { data: allSubjects } = await supabase
+                    const { data: sData } = await supabase
                         .from('school_subjects')
-                        .select('id, subject_name, initials');
-                    (allSubjects || []).forEach((s: any) => {
-                        subjectMap[s.id] = s.subject_name || s.initials || '—';
+                        .select('id, subject_name, initials, subject_code');
+                    (sData || []).forEach((s: any) => {
+                        subjectMap[s.id] = s.subject_name || s.initials || `#${s.id}`;
                     });
                 } catch (_) {}
 
+                // Step 3: Build term history (same logic as web)
+                const hist: any[] = [];
+                const sm: Record<string, number[]> = {};
                 for (const term of (terms || [])) {
-                    try {
-                        // Flat query — NO PostgREST join
-                        const { data: marks, error: mErr } = await supabase
-                            .from('school_exam_marks')
-                            .select('subject_id, score, grade, exam_type, points, teacher_remarks')
-                            .eq('student_id', studentId)
-                            .eq('term_id', term.id)
-                            .order('exam_type', { ascending: true });
-                        if (mErr) { console.error('marks error:', mErr.message); continue; }
-                        if (!marks || !marks.length) continue;
-                        const subs = marks.map((m: any) => ({
-                            sn: subjectMap[m.subject_id] || `Subj#${m.subject_id}`,
-                            sc: Number(m.score || 0),
-                            gr: m.grade || getGStr(Number(m.score || 0)),
-                            et: m.exam_type || '—',
-                            pts: m.points,
-                            rmk: m.teacher_remarks || '',
-                        }));
-                        // Accumulate per-subject averages
-                        subs.forEach(s => { if (!sm[s.sn]) sm[s.sn] = []; sm[s.sn].push(s.sc); });
-                        const avg = subs.reduce((a, b) => a + b.sc, 0) / subs.length;
-                        // Rank — only when End-Term marks exist
-                        let rank = 0, total = 0;
-                        const endTermSubs = subs.filter(s => s.et === 'End-Term');
-                        if (formId && endTermSubs.length > 0) {
-                            try {
-                                const { data: fs } = await supabase
-                                    .from('school_students').select('id')
-                                    .eq('form_id', formId).eq('status', 'Active');
-                                const sids = (fs || []).map((x: any) => x.id);
-                                total = sids.length;
-                                if (sids.length) {
-                                    const { data: am } = await supabase
-                                        .from('school_exam_marks').select('student_id, score')
-                                        .eq('term_id', term.id).eq('exam_type', 'End-Term')
-                                        .in('student_id', sids);
-                                    const tots: Record<number, number> = {};
-                                    (am || []).forEach((m: any) => { tots[m.student_id] = (tots[m.student_id] || 0) + Number(m.score || 0); });
-                                    const sorted = Object.values(tots).sort((a, b) => b - a);
-                                    rank = sorted.findIndex(t => t === tots[studentId]) + 1;
-                                }
-                            } catch (e: any) { console.error('rank error:', e.message); }
-                        }
-                        // Comments
+                    const termMarks = allMarks.filter((m: any) => m.term_id === term.id);
+                    if (!termMarks.length) continue;
+                    const subs = termMarks.map((m: any) => ({
+                        sn: subjectMap[m.subject_id] || `Subj#${m.subject_id}`,
+                        sc: Number(m.score || 0),
+                        gr: m.grade || getGStr(Number(m.score || 0)),
+                        et: m.exam_type || '—',
+                        pts: m.points,
+                        rmk: m.teacher_remarks || '',
+                    }));
+                    subs.forEach(s => { if (!sm[s.sn]) sm[s.sn] = []; sm[s.sn].push(s.sc); });
+                    const avg = subs.reduce((a, b) => a + b.sc, 0) / subs.length;
+                    // Rank — only for End-Term
+                    let rank = 0, total = 0;
+                    const hasEndTerm = subs.some(s => s.et === 'End-Term');
+                    if (formId && hasEndTerm) {
                         try {
-                            const { data: cmt } = await supabase
-                                .from('cbc_report_card_comments')
-                                .select('teacher_comment, principal_comment')
-                                .eq('student_id', studentId).eq('term_id', term.id)
-                                .maybeSingle();
-                            if (cmt) setLatestCmt({ teacher: cmt.teacher_comment || '', principal: cmt.principal_comment || '' });
+                            const { data: fs } = await supabase
+                                .from('school_students').select('id')
+                                .eq('form_id', formId).eq('status', 'Active');
+                            const sids = (fs || []).map((x: any) => x.id);
+                            total = sids.length;
+                            if (sids.length) {
+                                const { data: am } = await supabase
+                                    .from('school_exam_marks').select('student_id, score')
+                                    .eq('term_id', term.id).eq('exam_type', 'End-Term')
+                                    .in('student_id', sids);
+                                const tots: Record<number, number> = {};
+                                (am || []).forEach((m: any) => { tots[m.student_id] = (tots[m.student_id] || 0) + Number(m.score || 0); });
+                                const sorted = Object.values(tots).sort((a, b) => b - a);
+                                rank = sorted.findIndex(t => t === tots[studentId]) + 1;
+                            }
                         } catch (_) {}
-                        hist.push({
-                            term_name: term.term_name,
-                            avg: parseFloat(avg.toFixed(1)),
-                            grade: getGStr(avg), rank, total, subs,
-                        });
-                    } catch (e: any) { console.error('term marks error:', e.message); }
+                    }
+                    hist.push({ term_name: term.term_name, avg: parseFloat(avg.toFixed(1)), grade: getGStr(avg), rank, total, subs });
                 }
                 setTermHistory(hist);
+
+                // Step 4: Subject averages across all terms (same as web)
                 setSubjectAvgs(
                     Object.entries(sm)
                         .map(([name, sc]) => {
