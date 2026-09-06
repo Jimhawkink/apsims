@@ -223,26 +223,30 @@ export async function loginUser(username: string, password: string): Promise<Use
 
 export async function getTeacherSubjectCards(teacherId: number): Promise<SubjectCard[]> {
     try {
+        // Flat select — no joins (school_subject_teachers has no FK to school_forms)
         const { data: assignments, error: assignErr } = await supabase
             .from('school_subject_teachers')
-            .select(`
-                id, subject_id, teacher_id, form_id, stream_id,
-                school_subjects(id, subject_name),
-                school_forms(id, form_name)
-            `)
+            .select('id, subject_id, teacher_id, form_id, stream_id')
             .eq('teacher_id', teacherId);
 
         if (assignErr || !assignments || assignments.length === 0) return [];
 
+        // Fetch lookup tables in parallel
+        const [subjectsRes, formsRes] = await Promise.all([
+            supabase.from('school_subjects').select('id, subject_name'),
+            supabase.from('school_forms').select('id, form_name'),
+        ]);
+        const allSubjects = subjectsRes.data || [];
+        const allForms    = formsRes.data    || [];
+
         // Get current term once
-        const term = await getCurrentTerm();
+        const term   = await getCurrentTerm();
         const termId = term?.id || 0;
 
         const cards: SubjectCard[] = [];
 
         for (const a of assignments) {
-            const subj = (a as any).school_subjects;
-            const form = (a as any).school_forms;
+            const subj = allSubjects.find((s: any) => s.id === a.subject_id);
             if (!subj) continue;
 
             const assignmentStreamId: number | null = (a as any).stream_id || null;
@@ -260,7 +264,8 @@ export async function getTeacherSubjectCards(teacherId: number): Promise<Subject
             }
 
             for (const fid of formIds) {
-                let formName = form?.form_name || '';
+                const foundForm = allForms.find((f: any) => f.id === fid);
+                let formName = foundForm?.form_name || '';
                 if (!formName) {
                     const { data: fData } = await supabase
                         .from('school_forms').select('form_name').eq('id', fid).single();
@@ -357,35 +362,52 @@ export async function getTeacherSubjectCards(teacherId: number): Promise<Subject
 
 export async function getTeacherTimetable(teacherId: number): Promise<TimetableEntry[]> {
     try {
-        const { data, error } = await supabase
+        // Step 1: Flat select — no joins (avoids FK dependency issues)
+        const { data: entries, error } = await supabase
             .from('school_timetable_entries')
-            .select(`
-                id, day_of_week, period_id, room, is_double,
-                school_timetable_periods(id, period_name, start_time, end_time, period_type),
-                school_subjects(id, subject_name),
-                school_forms(id, form_name),
-                school_streams(id, stream_name)
-            `)
+            .select('*')
             .eq('teacher_id', teacherId)
             .order('day_of_week')
             .order('period_id');
 
-        if (error || !data) return [];
+        if (error || !entries || entries.length === 0) return [];
 
-        return data.map((e: any) => ({
-            id: e.id,
-            day_of_week: e.day_of_week,
-            period_id: e.period_id,
-            period_name: e.school_timetable_periods?.period_name || '',
-            start_time: e.school_timetable_periods?.start_time || '',
-            end_time: e.school_timetable_periods?.end_time || '',
-            period_type: e.school_timetable_periods?.period_type || 'lesson',
-            subject_name: e.school_subjects?.subject_name || null,
-            form_name: e.school_forms?.form_name || null,
-            stream_name: e.school_streams?.stream_name || null,
-            room: e.room,
-            is_double: e.is_double,
-        }));
+        // Step 2: Fetch all lookup tables in parallel
+        const [periodsRes, subjectsRes, formsRes, streamsRes] = await Promise.all([
+            supabase.from('school_timetable_periods').select('id, period_name, start_time, end_time, period_type'),
+            supabase.from('school_subjects').select('id, subject_name'),
+            supabase.from('school_forms').select('id, form_name'),
+            supabase.from('school_streams').select('id, stream_name'),
+        ]);
+
+        const periods  = periodsRes.data  || [];
+        const subjects = subjectsRes.data || [];
+        const forms    = formsRes.data    || [];
+        const streams  = streamsRes.data  || [];
+
+        // Step 3: Map entries with resolved names
+        return entries.map((e: any) => {
+            const period  = periods.find((p: any)  => p.id === e.period_id);
+            const subject = subjects.find((s: any) => s.id === e.subject_id);
+            const form    = forms.find((f: any)    => f.id === e.form_id);
+            const stream  = streams.find((s: any)  => s.id === e.stream_id);
+            return {
+                id:           e.id,
+                day_of_week:  e.day_of_week,
+                period_id:    e.period_id,
+                period_name:  period?.period_name  || `Period ${e.period_id}`,
+                start_time:   period?.start_time   || '',
+                end_time:     period?.end_time     || '',
+                period_type:  period?.period_type  || 'lesson',
+                subject_name: subject?.subject_name || null,
+                form_name:    form?.form_name       || null,
+                stream_name:  stream?.stream_name   || null,
+                room:         e.room,
+                is_double:    e.is_double,
+                term:         e.term,
+                year:         e.year,
+            };
+        });
     } catch (err: any) {
         console.error('getTeacherTimetable error:', err.message);
         return [];
