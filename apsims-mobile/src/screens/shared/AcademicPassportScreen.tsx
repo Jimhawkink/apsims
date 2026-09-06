@@ -124,6 +124,7 @@ export default function AcademicPassportScreen() {
     const [latestCmt,setLatestCmt]       = useState({teacher:"",principal:""});
     const [studentPathway,setStudentPathway] = useState<any>(null);
     const [studentSubjects,setStudentSubjects] = useState<any[]>([]);
+    const [studentSubjects844,setStudentSubjects844] = useState<any[]>([]); // 8-4-4 KCSE subjects
     const [activeTab,setActiveTab]       = useState<"overview"|"subjects"|"history"|"conduct">("overview");
 
     const load = useCallback(async () => {
@@ -178,6 +179,31 @@ export default function AcademicPassportScreen() {
                     if (pathway) setStudentPathway(pathway);
                 }
             } catch (_) {}
+
+            // ── 1D. 8-4-4 KCSE Subject Combination (student_subjects_844) ──
+            try {
+                const { data: ss844 } = await supabase
+                    .from('student_subjects_844')
+                    .select('id, student_id, subject_id, group_no, is_compulsory')
+                    .eq('student_id', studentId);
+
+                if (ss844 && ss844.length > 0) {
+                    const subIds = [...new Set(ss844.map((r: any) => r.subject_id).filter(Boolean))];
+                    const { data: subDets } = await supabase
+                        .from('school_subjects')
+                        .select('id, subject_name, subject_code, initials')
+                        .in('id', subIds as number[]);
+                    const subMap: Record<number, any> = {};
+                    (subDets || []).forEach((s: any) => { subMap[s.id] = s; });
+                    const enriched844 = ss844.map((r: any) => ({
+                        ...r,
+                        school_subjects: subMap[r.subject_id] || null,
+                    }));
+                    setStudentSubjects844(enriched844);
+                } else {
+                    setStudentSubjects844([]);
+                }
+            } catch (_) { setStudentSubjects844([]); }
 
             // Derive CBC from actual form_level in DB (params may have 0)
             const actualFormLevel = (s as any)?.school_forms?.form_level ?? formLevel;
@@ -449,6 +475,46 @@ export default function AcademicPassportScreen() {
                                     </View>
                                 ))}
                                 {studentSubjects.filter((s:any)=>s.is_elective).length===0&&<Text style={{fontSize:12,color:'#94a3b8'}}>No electives selected</Text>}
+                            </View>
+                        </View>
+                    )}
+
+                    {/* 8-4-4 KCSE Subject Combination Card (Form 1-4 non-CBC) */}
+                    {!isCBC && studentSubjects844 && studentSubjects844.length > 0 && (
+                        <View style={st.card}>
+                            <View style={{flexDirection:'row',alignItems:'center',gap:10,marginBottom:12}}>
+                                <Text style={{fontSize:22}}>📚</Text>
+                                <View style={{flex:1}}>
+                                    <Text style={{fontSize:10,color:'#94a3b8',fontWeight:'700',textTransform:'uppercase',letterSpacing:1}}>KCSE Subject Combination</Text>
+                                    <Text style={{fontSize:15,fontWeight:'900',color:'#0f172a'}}>8-4-4 Registered Subjects</Text>
+                                </View>
+                                <View style={{paddingHorizontal:10,paddingVertical:4,borderRadius:20,backgroundColor:'#4f46e5'}}>
+                                    <Text style={{fontSize:11,fontWeight:'800',color:'#fff'}}>{studentSubjects844.length} subjects</Text>
+                                </View>
+                            </View>
+                            {/* Group I & II - Core */}
+                            {[
+                                {label:'Group I — Languages', color:'#dc2626', bg:'#fef2f2', subs: studentSubjects844.filter((s:any)=>s.group_no===1)},
+                                {label:'Group II — Sciences', color:'#2563eb', bg:'#eff6ff', subs: studentSubjects844.filter((s:any)=>s.group_no===2)},
+                                {label:'Group III — Humanities', color:'#16a34a', bg:'#f0fdf4', subs: studentSubjects844.filter((s:any)=>s.group_no===3)},
+                                {label:'Group IV — Technical', color:'#c2410c', bg:'#fff7ed', subs: studentSubjects844.filter((s:any)=>s.group_no===4)},
+                                {label:'Group V — Languages & Creative', color:'#7c3aed', bg:'#faf5ff', subs: studentSubjects844.filter((s:any)=>s.group_no===5)},
+                            ].filter(g=>g.subs.length>0).map(group=>(
+                                <View key={group.label} style={{marginBottom:10}}>
+                                    <Text style={{fontSize:9,fontWeight:'800',color:group.color,textTransform:'uppercase',letterSpacing:0.5,marginBottom:5}}>{group.label}</Text>
+                                    <View style={{flexDirection:'row',flexWrap:'wrap',gap:5}}>
+                                        {group.subs.map((s:any)=>(
+                                            <View key={s.id} style={{paddingHorizontal:8,paddingVertical:3,borderRadius:8,backgroundColor:group.bg,borderWidth:1,borderColor:group.color+'40'}}>
+                                                <Text style={{fontSize:11,fontWeight:'700',color:group.color}}>{s.school_subjects?.subject_name||s.school_subjects?.initials||'—'}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            ))}
+                            <View style={{marginTop:6,paddingTop:8,borderTopWidth:1,borderTopColor:'#f1f5f9',flexDirection:'row',justifyContent:'space-between'}}>
+                                <Text style={{fontSize:10,color:'#64748b',fontWeight:'600'}}>{studentSubjects844.filter((s:any)=>s.is_compulsory).length} compulsory</Text>
+                                <Text style={{fontSize:10,color:'#64748b',fontWeight:'600'}}>{studentSubjects844.filter((s:any)=>!s.is_compulsory).length} electives</Text>
+                                <Text style={{fontSize:10,fontWeight:'800',color:studentSubjects844.length>=7&&studentSubjects844.length<=9?'#059669':'#dc2626'}}>{studentSubjects844.length>=7&&studentSubjects844.length<=9?'✓ Valid KCSE Combo':'⚠ Check combination'}</Text>
                             </View>
                         </View>
                     )}
