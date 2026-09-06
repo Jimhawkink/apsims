@@ -232,30 +232,44 @@ export default function AcademicPassportScreen() {
                 }
                 setCbcHistory(hist);
             } else {
-                // ── 8-4-4 marks per term — ALL exam types (CAT1, CAT2, Mid-Term, End-Term) ───
+                // ── 8-4-4 marks per term — ALL exam types, SEPARATE queries (no PostgREST join) ───
                 const hist: any[] = [];
                 const sm: Record<string, number[]> = {};
+
+                // Pre-load all subjects for this school (flat query — no join)
+                let subjectMap: Record<number, string> = {};
+                try {
+                    const { data: allSubjects } = await supabase
+                        .from('school_subjects')
+                        .select('id, subject_name, initials');
+                    (allSubjects || []).forEach((s: any) => {
+                        subjectMap[s.id] = s.subject_name || s.initials || '—';
+                    });
+                } catch (_) {}
+
                 for (const term of (terms || [])) {
                     try {
-                        const { data: marks } = await supabase
+                        // Flat query — NO PostgREST join
+                        const { data: marks, error: mErr } = await supabase
                             .from('school_exam_marks')
-                            .select('score, grade, exam_type, points, teacher_remarks, school_subjects(subject_name, subject_code, initials)')
+                            .select('subject_id, score, grade, exam_type, points, teacher_remarks')
                             .eq('student_id', studentId)
                             .eq('term_id', term.id)
                             .order('exam_type', { ascending: true });
+                        if (mErr) { console.error('marks error:', mErr.message); continue; }
                         if (!marks || !marks.length) continue;
                         const subs = marks.map((m: any) => ({
-                            sn: m.school_subjects?.subject_name || m.school_subjects?.initials || '—',
+                            sn: subjectMap[m.subject_id] || `Subj#${m.subject_id}`,
                             sc: Number(m.score || 0),
                             gr: m.grade || getGStr(Number(m.score || 0)),
                             et: m.exam_type || '—',
                             pts: m.points,
                             rmk: m.teacher_remarks || '',
                         }));
-                        // Accumulate per-subject averages across all exam types
+                        // Accumulate per-subject averages
                         subs.forEach(s => { if (!sm[s.sn]) sm[s.sn] = []; sm[s.sn].push(s.sc); });
                         const avg = subs.reduce((a, b) => a + b.sc, 0) / subs.length;
-                        // Rank — use End-Term if available, else skip
+                        // Rank — only when End-Term marks exist
                         let rank = 0, total = 0;
                         const endTermSubs = subs.filter(s => s.et === 'End-Term');
                         if (formId && endTermSubs.length > 0) {
