@@ -4,7 +4,7 @@
 export type TTab =
   | 'dashboard' | 'cards' | 'availability' | 'classrooms'
   | 'generate' | 'editor'
-  | 'class' | 'teacher' | 'room' | 'master'
+  | 'class' | 'teacher' | 'room' | 'master' | 'student'
   | 'verify' | 'substitutions' | 'stats' | 'print' | 'setup'
   | 'snapshots' | 'distribute' | 'cbc';
 

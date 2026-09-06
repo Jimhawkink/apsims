@@ -3,7 +3,8 @@ import { useState, useMemo } from 'react';
 import { useTimetable } from './TimetableProvider';
 import { DAYS, DAY_SHORT, getSubjectColor } from './timetable-colors';
 import type { Entry, Period } from './timetable-types';
-import { FiPrinter, FiUser, FiBook, FiLink } from 'react-icons/fi';
+import { FiPrinter, FiUser, FiBook, FiLink, FiDownload } from 'react-icons/fi';
+import { printPremiumTeacherReport, exportTimetableToCSV } from './ExportUtils';
 
 // ═══ Shared Grid Renderer ═══════════════════════════════════════
 function UltraGrid({ filterFn, viewMode = 'class' }: {
@@ -118,15 +119,23 @@ export function TeacherViewTab() {
   }, [tTeacher, subjectTeachers]);
 
   const printTeacherTT = () => {
-    const rows = allPeriodsSorted.map(p => ({
-      period: p.period_name, time: `${p.start_time?.substring(0,5)} - ${p.end_time?.substring(0,5)}`, type: p.period_type,
-      cells: DAYS.map(day => {
-        const e = termEntries.find(x => x.teacher_id === tid && x.day_of_week === day && x.period_id === p.id);
-        const color = e?.subject_id ? getSubjectColor(e.subject_id, subjects) : undefined;
-        return { subj: e?.subject_id ? getSubjectName(e.subject_id) : '', teacher: e ? `${getFormName(e.form_id)} ${getStreamName(e.stream_id)}` : '', room: e?.room || '', color };
-      })
-    }));
-    printTimetable(`Teacher Timetable — ${getTeacherName(tid)}`, rows);
+    const teacher = teachers.find(t => t.id === tid);
+    printPremiumTeacherReport({
+      teacherName: getTeacherName(tid),
+      tscNumber: (teacher as any)?.tsc_number,
+      term: bTerm, year: bYear,
+      entries: teacherEntries,
+      periods: allPeriodsSorted,
+      getSubjectName, getFormName, getStreamName,
+    });
+  };
+
+  const exportTeacherCSV = () => {
+    exportTimetableToCSV(
+      `Teacher_${getTeacherName(tid)}_${bTerm}_${bYear}`,
+      teacherEntries, allPeriodsSorted,
+      getSubjectName, getTeacherName, getFormName, getStreamName,
+    );
   };
 
   return (
@@ -138,7 +147,8 @@ export function TeacherViewTab() {
         {tTeacher && <>
           <div className="px-3 py-2 bg-blue-50 rounded-xl text-xs font-bold text-blue-700">{teacherEntries.length} lessons/week</div>
           <div className="px-3 py-2 bg-purple-50 border border-purple-200 rounded-xl text-xs font-bold text-purple-700 flex items-center gap-1.5"><FiLink size={12} /> {teacherLinks.length} subject-class links</div>
-          <button onClick={printTeacherTT} className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-bold flex items-center gap-1.5 shadow-lg shadow-blue-500/20"><FiPrinter size={14} /> Print</button>
+          <button onClick={exportTeacherCSV} className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-sm font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"><FiDownload size={14} /> Excel</button>
+          <button onClick={printTeacherTT} className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-bold flex items-center gap-1.5 shadow-lg shadow-blue-500/20"><FiPrinter size={14} /> Report PDF</button>
         </>}
       </div>
 

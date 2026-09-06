@@ -20,6 +20,7 @@ import { SetupTab, AvailabilityTab } from './SetupAvailTab';
 import { ClassroomsTab, SubstitutionsTab } from './SubsClassroomTab';
 import { SnapshotsTab, DistributeTab } from './SnapshotsDistributeTab';
 import CBCTimetableTab from './CBCTimetableTab';
+import { StudentTimetableTab } from './StudentTimetableTab';
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -44,6 +45,7 @@ function TimetableShell() {
     { label: 'VIEW', items: [
       { key: 'class' as TTab, label: 'Class View', icon: FiEye, emoji: '📅' },
       { key: 'teacher' as TTab, label: 'Teacher View', icon: FiUser, emoji: '👤' },
+      { key: 'student' as TTab, label: 'Student TT', icon: FiUser, emoji: '🎒' },
       { key: 'room' as TTab, label: 'Room View', icon: FiMapPin, emoji: '🚪' },
       { key: 'master' as TTab, label: 'Master Table', icon: FiColumns, emoji: '📋' },
     ]},
@@ -165,6 +167,7 @@ function TimetableShell() {
         {tab === 'editor' && <EditorTab />}
         {tab === 'class' && <ClassViewTab />}
         {tab === 'teacher' && <TeacherViewTab />}
+        {tab === 'student' && <StudentTimetableTab />}
         {tab === 'room' && <RoomViewTab />}
         {tab === 'master' && <MasterViewTab />}
         {tab === 'verify' && <VerifyTab />}
