@@ -465,7 +465,20 @@ export default function AcademicPassportScreen() {
                     )}
 
                     {/* 8-4-4 KCSE Subject Combination Card (Form 1-4 non-CBC) */}
-                    {!isCBC && studentSubjects844 && studentSubjects844.length > 0 && (
+                    {!isCBC && studentSubjects844 && studentSubjects844.length > 0 && (()=>{
+                        const KCSE_NAMES: Record<string,string> = {
+                            '101':'English Language','102':'Kiswahili','121':'Mathematics',
+                            '231':'Biology','232':'Physics','233':'Chemistry',
+                            '311':'History & Govt','312':'Geography','313':'C.R.E.',
+                            '314':'I.R.E.','315':'H.R.E.',
+                            '441':'Home Science','442':'Art & Design','443':'Agriculture',
+                            '444':'Woodwork','446':'Building Construction','448':'Electricity',
+                            '449':'Drawing & Design','450':'Aviation Tech','451':'Computer Studies',
+                            '501':'French','502':'German','503':'Arabic',
+                            '504':'Kenya Sign Language','511':'Music','565':'Business Studies',
+                        };
+                        const getName=(s:any)=>s.kcse_name||(s.kcse_code?KCSE_NAMES[s.kcse_code]:null)||s.school_subjects?.subject_name||s.school_subjects?.initials||'—';
+                        return (
                         <View style={st.card}>
                             <View style={{flexDirection:'row',alignItems:'center',gap:10,marginBottom:12}}>
                                 <Text style={{fontSize:22}}>📚</Text>
@@ -473,24 +486,24 @@ export default function AcademicPassportScreen() {
                                     <Text style={{fontSize:10,color:'#94a3b8',fontWeight:'700',textTransform:'uppercase',letterSpacing:1}}>KCSE Subject Combination</Text>
                                     <Text style={{fontSize:15,fontWeight:'900',color:'#0f172a'}}>8-4-4 Registered Subjects</Text>
                                 </View>
-                                <View style={{paddingHorizontal:10,paddingVertical:4,borderRadius:20,backgroundColor:'#4f46e5'}}>
+                                <View style={{paddingHorizontal:10,paddingVertical:4,borderRadius:20,backgroundColor:studentSubjects844.length>=7&&studentSubjects844.length<=9?'#059669':'#dc2626'}}>
                                     <Text style={{fontSize:11,fontWeight:'800',color:'#fff'}}>{studentSubjects844.length} subjects</Text>
                                 </View>
                             </View>
-                            {/* Group I & II - Core */}
                             {[
-                                {label:'Group I — Languages', color:'#dc2626', bg:'#fef2f2', subs: studentSubjects844.filter((s:any)=>s.group_no===1)},
-                                {label:'Group II — Sciences', color:'#2563eb', bg:'#eff6ff', subs: studentSubjects844.filter((s:any)=>s.group_no===2)},
-                                {label:'Group III — Humanities', color:'#16a34a', bg:'#f0fdf4', subs: studentSubjects844.filter((s:any)=>s.group_no===3)},
-                                {label:'Group IV — Technical', color:'#c2410c', bg:'#fff7ed', subs: studentSubjects844.filter((s:any)=>s.group_no===4)},
-                                {label:'Group V — Languages & Creative', color:'#7c3aed', bg:'#faf5ff', subs: studentSubjects844.filter((s:any)=>s.group_no===5)},
+                                {label:'Group I — Languages',          color:'#dc2626', bg:'#fef2f2', subs:studentSubjects844.filter((s:any)=>s.group_no===1)},
+                                {label:'Group II — Maths & Sciences',  color:'#2563eb', bg:'#eff6ff', subs:studentSubjects844.filter((s:any)=>s.group_no===2)},
+                                {label:'Group III — Humanities',       color:'#16a34a', bg:'#f0fdf4', subs:studentSubjects844.filter((s:any)=>s.group_no===3)},
+                                {label:'Group IV — Technical',         color:'#c2410c', bg:'#fff7ed', subs:studentSubjects844.filter((s:any)=>s.group_no===4)},
+                                {label:'Group V — Creatives & Others', color:'#7c3aed', bg:'#faf5ff', subs:studentSubjects844.filter((s:any)=>s.group_no===5)},
                             ].filter(g=>g.subs.length>0).map(group=>(
                                 <View key={group.label} style={{marginBottom:10}}>
                                     <Text style={{fontSize:9,fontWeight:'800',color:group.color,textTransform:'uppercase',letterSpacing:0.5,marginBottom:5}}>{group.label}</Text>
                                     <View style={{flexDirection:'row',flexWrap:'wrap',gap:5}}>
                                         {group.subs.map((s:any)=>(
-                                            <View key={s.id} style={{paddingHorizontal:8,paddingVertical:3,borderRadius:8,backgroundColor:group.bg,borderWidth:1,borderColor:group.color+'40'}}>
-                                                <Text style={{fontSize:11,fontWeight:'700',color:group.color}}>{s.kcse_name||s.school_subjects?.subject_name||s.school_subjects?.initials||'—'}</Text>
+                                            <View key={s.id} style={{paddingHorizontal:8,paddingVertical:4,borderRadius:8,backgroundColor:group.bg,borderWidth:1,borderColor:group.color+'40'}}>
+                                                <Text style={{fontSize:11,fontWeight:'700',color:group.color}}>{getName(s)}</Text>
+                                                {s.is_compulsory&&<Text style={{fontSize:8,color:group.color,opacity:0.6,fontWeight:'800'}}>CORE</Text>}
                                             </View>
                                         ))}
                                     </View>
@@ -502,7 +515,8 @@ export default function AcademicPassportScreen() {
                                 <Text style={{fontSize:10,fontWeight:'800',color:studentSubjects844.length>=7&&studentSubjects844.length<=9?'#059669':'#dc2626'}}>{studentSubjects844.length>=7&&studentSubjects844.length<=9?'✓ Valid KCSE Combo':'⚠ Check combination'}</Text>
                             </View>
                         </View>
-                    )}
+                        );
+                    })()}
 
                     {!isCBC&&termHistory.length>0&&(
                         <View style={st.card}>
