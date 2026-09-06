@@ -748,14 +748,14 @@ export default function AcademicPassportScreen() {
 
                 {/* ══ KCSE PREDICTION TAB ══ */}
                 {activeTab==="prediction"&&!isCBC&&(()=>{
-                    // Same logic as web passport
+                    // Same logic as web passport — web uses avg/10 as pts (school DB grading has no KCSE pts)
                     const best7 = subjectAvgs.slice(0,7);
                     const predictedMeanPts = best7.length>0
-                        ? Math.round(best7.reduce((a,s)=>a+(getGObj(s.avg).pts||0),0)/best7.length)
+                        ? Math.round(best7.reduce((a,s)=>a+(s.avg/10),0)/best7.length)
                         : 0;
                     const predictedGrade = predictedMeanPts>0 ? meanGradeFromPoints(predictedMeanPts) : '—';
                     const pgColor = getGObj(subjectAvgs[0]?.avg||0).color;
-                    const totalPts = best7.reduce((a,s)=>a+(getGObj(s.avg).pts||0),0);
+                    const totalPts = Math.round(best7.reduce((a,s)=>a+(s.avg/10),0));
                     return (
                     <View style={{gap:12}}>
                         {/* Predicted Grade Banner */}
@@ -784,6 +784,7 @@ export default function AcademicPassportScreen() {
                                 </View>
                                 {best7.map((s,i)=>{
                                     const g=getGObj(s.avg);
+                                    const subPts=parseFloat((s.avg/10).toFixed(1));
                                     return(
                                     <View key={i} style={{flexDirection:'row',alignItems:'center',paddingVertical:10,borderTopWidth:i===0?0:1,borderTopColor:'#f1f5f9'}}>
                                         <Text style={{fontSize:11,color:'#94a3b8',width:24,fontWeight:'700'}}>{i+1}</Text>
@@ -798,7 +799,7 @@ export default function AcademicPassportScreen() {
                                         <View style={{width:40,alignItems:'center'}}>
                                             <GradePill grade={g.grade}/>
                                         </View>
-                                        <Text style={{fontSize:16,fontWeight:'900',color:g.color,width:32,textAlign:'center'}}>{g.pts}</Text>
+                                        <Text style={{fontSize:14,fontWeight:'900',color:g.color,width:32,textAlign:'center'}}>{subPts}</Text>
                                     </View>
                                     );
                                 })}
