@@ -62,6 +62,9 @@ export interface TimetableEntry {
     stream_name: string | null;
     room: string | null;
     is_double: boolean;
+    form_level?: number | null;        // to determine CBC vs 8-4-4
+    curriculum_type?: 'CBC' | '8-4-4' | null;
+    teacher_weekly_total?: number;     // injected client-side
 }
 
 export interface ExamMark {

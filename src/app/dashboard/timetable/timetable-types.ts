@@ -55,6 +55,12 @@ export interface UnplacedCard { req: Requirement; remaining: number; reason: str
 export interface GenSettings {
   maxConsecutiveSameSubject: number; spreadEvenly: boolean;
   avoidLastPeriod: string[]; maxTeacherLessonsPerDay: number;
+  maxWeeklyTeacherLessons: number;   // TSC Kenya limit — default 27
+  enableRoomTypeMatching: boolean;   // auto-assign room by subject type
+  minimizeTeacherGaps: boolean;      // penalise free-period gaps for teachers
+  lockLunchPeriods: boolean;         // never schedule during break/lunch
+  cbcPathwayMode: boolean;           // CBC: STEM→lab, CSL→Fri PM, PE→Mon+Thu
+  enableSplitClass: boolean;         // allow class to be split into subgroups
 }
 
 export interface ConflictItem {

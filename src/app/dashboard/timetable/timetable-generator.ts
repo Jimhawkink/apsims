@@ -1,4 +1,4 @@
-// ─── APSIMS Ultra Timetable Generator v2.0 ────────────────────────
+﻿// ─── APSIMS Ultra Timetable Generator v2.0 ────────────────────────
 // Kenya #1 — Beats Zeraki & ASC with:
 //   ✅ Room auto-assignment
 //   ✅ Double-period support
@@ -29,14 +29,56 @@ export function autoGenerateTimetable(
   year: number,
   classrooms: Classroom[] = [],
   subjectCategories: Record<number, string> = {},
+  subjectNames: Record<number, string> = {},        // NEW: for room-type matching
 ): { placed: Entry[]; unplaced: UnplacedCard[] } {
   const placed: Entry[] = [];
   const unplaced: UnplacedCard[] = [];
+
+  // ── Defaults for new settings fields (backward-compat) ──
+  const maxWeekly  = settings.maxWeeklyTeacherLessons ?? 27;
+  const roomMatch  = settings.enableRoomTypeMatching  ?? true;
+  const gapMin     = settings.minimizeTeacherGaps     ?? true;
+  const cbcMode    = settings.cbcPathwayMode           ?? true;
+
+  // ── ROOM TYPE MAP — Kenya subject → preferred room type ──────────
+  const ROOM_TYPE_MAP: [RegExp, string][] = [
+    [/biology|chemistry|physics|science/i,   'Laboratory'],
+    [/computer|ict|computing/i,              'ICT Lab'],
+    [/home\s*science|nutrition/i,            'Home Science Room'],
+    [/art|craft|design/i,                    'Art Room'],
+    [/music/i,                               'Music Room'],
+    [/physical\s*ed|p\.?e\.?|sport/i,        'Field'],
+    [/workshop|technical|woodwork|metal/i,   'Workshop'],
+    [/agriculture|farming/i,                 'Agriculture Lab'],
+  ];
+  const getPreferredRoomType = (subjectId: number): string => {
+    const name = subjectNames[subjectId] || '';
+    for (const [rx, rt] of ROOM_TYPE_MAP) { if (rx.test(name)) return rt; }
+    return 'Classroom';
+  };
+
+  // ── CBC pathway helpers ──────────────────────────────────────────
+  const isCBCPathwayPractical = (subjectId: number): boolean => {
+    const n = (subjectNames[subjectId] || '').toLowerCase();
+    return /stem|science|ict|computer|agriculture|technical|workshop/.test(n);
+  };
+  const isCSL = (subjectId: number): boolean =>
+    /community\s*service|csl/i.test(subjectNames[subjectId] || '');
+  const isPE = (subjectId: number): boolean =>
+    /physical\s*ed|p\.?e\.?|sport/i.test(subjectNames[subjectId] || '');
+
+  // CSL preferred: Friday last 2 periods
+  const isCSLSlot = (day: string, pi: number): boolean =>
+    day === 'Friday' && pi >= lessonPeriods.length - 2;
+  // PE preferred: Monday or Thursday
+  const isPEDay = (day: string): boolean => day === 'Monday' || day === 'Thursday';
 
   // ── Grids ──
   const classGrid:   Record<string, Record<number, Record<string, Entry>>> = {};
   const teacherGrid: Record<string, Record<number, Set<number>>>           = {};
   const roomGrid:    Record<string, Record<number, Set<string>>>           = {};
+  // NEW: weekly teacher lesson counter
+  const teacherWeekly: Record<number, number> = {};
 
   DAYS.forEach(day => {
     classGrid[day] = {}; teacherGrid[day] = {}; roomGrid[day] = {};
@@ -53,8 +95,11 @@ export function autoGenerateTimetable(
     const ck = `${e.form_id}-${e.stream_id}`;
     if (classGrid[e.day_of_week]?.[e.period_id]) {
       classGrid[e.day_of_week][e.period_id][ck] = e;
-      if (e.teacher_id) teacherGrid[e.day_of_week][e.period_id].add(e.teacher_id);
-      if (e.room)       roomGrid[e.day_of_week][e.period_id].add(e.room);
+      if (e.teacher_id) {
+        teacherGrid[e.day_of_week][e.period_id].add(e.teacher_id);
+        teacherWeekly[e.teacher_id] = (teacherWeekly[e.teacher_id] || 0) + 1;
+      }
+      if (e.room) roomGrid[e.day_of_week][e.period_id].add(e.room);
     }
   });
 
@@ -82,8 +127,7 @@ export function autoGenerateTimetable(
     }
   });
 
-  // ── SMART PRIORITY SORT (Most constrained first — Kenya Zeraki-beating algo) ──
-  // Count how many valid slots each card has (fewer = schedule first)
+  // ── SMART PRIORITY SORT ──────────────────────────────────────────
   const countValidSlots = (card: Card): number => {
     let count = 0;
     const ck = `${card.formId}-${card.streamId}`;
@@ -106,30 +150,31 @@ export function autoGenerateTimetable(
     return av ? av.is_available : true;
   };
 
-  // Sort by constraint level (most constrained first)
   cards.sort((a, b) => {
     const aSlots = countValidSlots(a);
     const bSlots = countValidSlots(b);
-    if (aSlots !== bSlots) return aSlots - bSlots; // fewer slots → schedule first
-    if (b.isCore !== a.isCore) return b.isCore ? 1 : -1; // core subjects priority
+    if (aSlots !== bSlots) return aSlots - bSlots;
+    if (b.isCore !== a.isCore) return b.isCore ? 1 : -1;
     if (a.maxPerDay !== b.maxPerDay) return a.maxPerDay - b.maxPerDay;
     return 0;
   });
 
-  // ── Room assignment helper ──
-  const findFreeRoom = (day: string, periodId: number, preferType?: string): string | null => {
+  // ── PREMIUM Room assignment — matches subject to room type ────────
+  const findFreeRoom = (day: string, periodId: number, subjectId?: number): string | null => {
     if (!classrooms.length) return null;
     const busy = roomGrid[day][periodId];
-    const available = classrooms.filter(r =>
-      r.is_active && !busy.has(r.room_name) &&
-      (!preferType || r.room_type === preferType || preferType === 'any')
+    const preferType = roomMatch && subjectId ? getPreferredRoomType(subjectId) : 'Classroom';
+    // First try preferred type
+    const preferred = classrooms.filter(r =>
+      r.is_active && !busy.has(r.room_name) && r.room_type === preferType
     );
-    if (!available.length) return null;
-    // Prefer specific room types (Science lab for Science, etc.)
-    return available[0].room_name;
+    if (preferred.length) return preferred[0].room_name;
+    // Fallback: any classroom
+    const any = classrooms.filter(r => r.is_active && !busy.has(r.room_name));
+    return any.length ? any[0].room_name : null;
   };
 
-  // ── Counting helpers ──
+  // ── Counting helpers ──────────────────────────────────────────────
   const countSubjectOnDay = (day: string, formId: number, streamId: number, subjectId: number): number => {
     const ck = `${formId}-${streamId}`;
     let c = 0;
@@ -141,6 +186,19 @@ export function autoGenerateTimetable(
     let c = 0;
     lessonPeriods.forEach(p => { if (teacherGrid[day][p.id].has(teacherId)) c++; });
     return c;
+  };
+
+  // NEW: teacher gap count on a day (free periods between first and last lesson)
+  const countTeacherGapsOnDay = (day: string, teacherId: number, newPeriodIdx: number): number => {
+    const occupied: number[] = [];
+    lessonPeriods.forEach((p, pi) => {
+      if (teacherGrid[day][p.id].has(teacherId)) occupied.push(pi);
+    });
+    occupied.push(newPeriodIdx);
+    occupied.sort((a, b) => a - b);
+    if (occupied.length < 2) return 0;
+    const span = occupied[occupied.length - 1] - occupied[0] + 1;
+    return span - occupied.length; // free periods within first→last lesson
   };
 
   const wouldExceedConsecutive = (day: string, periodIdx: number, formId: number, streamId: number, subjectId: number): boolean => {
@@ -155,37 +213,73 @@ export function autoGenerateTimetable(
     return consecutive > settings.maxConsecutiveSameSubject;
   };
 
-  // ── Score a slot (higher = better) ──
+  // ── WEIGHTED MULTI-FACTOR SLOT SCORING ────────────────────────────
+  // Higher score = better slot. Factors:
+  //   1. Even spread across days (+30 if day has 0 lessons for subject)
+  //   2. Core subjects prefer morning (+20 for period 0-2)
+  //   3. Teacher gap minimization (-10 per gap created)
+  //   4. CBC: CSL gets bonus for Friday PM, PE for Mon/Thu
+  //   5. Avoid last period for core (-15)
+  //   6. Room type availability (+10 if preferred room available)
+  //   7. Teacher workload balance (-5 if teacher already heavy this day)
+  //   8. Light randomization (+0-8) to avoid deterministic ties
   const scoreSlot = (card: Card, day: string, pi: number, periodId: number): number => {
     const dayCount = countSubjectOnDay(day, card.formId, card.streamId, card.subjectId);
     let score = 100;
 
-    // Spread evenly across days
+    // 1. Spread evenly across days (strong weight)
     if (settings.spreadEvenly) score -= dayCount * 35;
 
-    // Core subjects prefer morning (periods 0–2)
+    // 2. Core subjects prefer morning (periods 0–2)
     if (card.isCore) {
       score += Math.max(0, (lessonPeriods.length - pi)) * 3;
     }
 
-    // Avoid last period for core subjects
+    // 3. Teacher gap minimization
+    if (gapMin && card.teacherId) {
+      const gaps = countTeacherGapsOnDay(day, card.teacherId, pi);
+      score -= gaps * 10; // -10 per free period gap created
+    }
+
+    // 4. CBC pathway scheduling bonus
+    if (cbcMode) {
+      if (isCSL(card.subjectId) && isCSLSlot(day, pi)) score += 40; // CSL → Friday PM
+      if (isPE(card.subjectId) && isPEDay(day)) score += 25;         // PE → Mon/Thu
+      if (isCBCPathwayPractical(card.subjectId) && pi < 4) score += 15; // practicals in morning
+    }
+
+    // 5. Avoid last period for core subjects
     if (pi === lessonPeriods.length - 1 && card.isCore) score -= 15;
 
-    // Avoid first period (assembly period risk)
+    // 6. Room type availability bonus
+    if (roomMatch && classrooms.length > 0) {
+      const preferType = getPreferredRoomType(card.subjectId);
+      const hasPref = classrooms.some(r =>
+        r.is_active && !roomGrid[day][periodId].has(r.room_name) && r.room_type === preferType
+      );
+      if (hasPref) score += 10;
+    }
+
+    // 7. Teacher daily load balance
+    if (card.teacherId) {
+      const dayLoad = countTeacherOnDay(day, card.teacherId);
+      if (dayLoad >= settings.maxTeacherLessonsPerDay - 1) score -= 20;
+    }
+
+    // 8. Avoid period 0 (assembly risk)
     if (pi === 0) score -= 5;
 
-    // Light randomization to avoid deterministic results
+    // 9. Light randomisation to break ties
     score += Math.random() * 8;
 
     return score;
   };
 
-  // ── PLACE each card ──
+  // ── PLACE each card ───────────────────────────────────────────────
   const placeCard = (card: Card): boolean => {
     const ck = `${card.formId}-${card.streamId}`;
     let bestSlot: { day: string; periodId: number; score: number } | null = null;
 
-    // Shuffle days for variety
     const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
 
     for (const day of shuffledDays) {
@@ -195,10 +289,12 @@ export function autoGenerateTimetable(
       for (let pi = 0; pi < lessonPeriods.length; pi++) {
         const period = lessonPeriods[pi];
 
-        // Basic conflicts
+        // Hard constraints
         if (classGrid[day][period.id][ck]) continue;
         if (card.teacherId && teacherGrid[day][period.id].has(card.teacherId)) continue;
         if (card.teacherId && countTeacherOnDay(day, card.teacherId) >= settings.maxTeacherLessonsPerDay) continue;
+        // ── NEW: TSC weekly hours enforcement ──
+        if (card.teacherId && (teacherWeekly[card.teacherId] || 0) >= maxWeekly) continue;
         if (card.teacherId && !isTeacherAvailable(card.teacherId, day, period.id)) continue;
         if (wouldExceedConsecutive(day, pi, card.formId, card.streamId, card.subjectId)) continue;
 
@@ -211,8 +307,8 @@ export function autoGenerateTimetable(
 
     if (!bestSlot) return false;
 
-    // Assign room
-    const room = findFreeRoom(bestSlot.day, bestSlot.periodId, 'any');
+    // Assign room — prefer subject-appropriate room type
+    const room = findFreeRoom(bestSlot.day, bestSlot.periodId, card.subjectId);
 
     const entry: Entry = {
       day_of_week: bestSlot.day, period_id: bestSlot.periodId,
@@ -222,54 +318,46 @@ export function autoGenerateTimetable(
     };
 
     classGrid[bestSlot.day][bestSlot.periodId][ck] = entry;
-    if (card.teacherId) teacherGrid[bestSlot.day][bestSlot.periodId].add(card.teacherId);
+    if (card.teacherId) {
+      teacherGrid[bestSlot.day][bestSlot.periodId].add(card.teacherId);
+      teacherWeekly[card.teacherId] = (teacherWeekly[card.teacherId] || 0) + 1;
+    }
     if (room) roomGrid[bestSlot.day][bestSlot.periodId].add(room);
     placed.push(entry);
     return true;
   };
 
-  // ── DOUBLE PERIOD support ──
+  // ── DOUBLE PERIOD support (updated: subject-aware room + TSC weekly limit) ──
   const placeDoubleCard = (card: Card): boolean => {
     const ck = `${card.formId}-${card.streamId}`;
-
     const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
     for (const day of shuffledDays) {
       const dayCount = countSubjectOnDay(day, card.formId, card.streamId, card.subjectId);
       if (dayCount + 2 > card.maxPerDay * 2) continue;
-
+      // TSC weekly check — need 2 free slots
+      if (card.teacherId && (teacherWeekly[card.teacherId] || 0) + 2 > maxWeekly) continue;
       for (let pi = 0; pi < lessonPeriods.length - 1; pi++) {
         const p1 = lessonPeriods[pi];
         const p2 = lessonPeriods[pi + 1];
-
-        // Both slots must be lessons
         if (p1.period_type !== 'lesson' || p2.period_type !== 'lesson') continue;
-
-        // Both slots free for class
         if (classGrid[day][p1.id][ck] || classGrid[day][p2.id][ck]) continue;
-
-        // Teacher free in both
         if (card.teacherId && (
           teacherGrid[day][p1.id].has(card.teacherId) ||
           teacherGrid[day][p2.id].has(card.teacherId) ||
           !isTeacherAvailable(card.teacherId, day, p1.id) ||
           !isTeacherAvailable(card.teacherId, day, p2.id)
         )) continue;
-
-        // Place double
-        const room = findFreeRoom(day, p1.id, 'any');
+        const room = findFreeRoom(day, p1.id, card.subjectId);
         const e1: Entry = { day_of_week: day, period_id: p1.id, form_id: card.formId, stream_id: card.streamId, subject_id: card.subjectId, teacher_id: card.teacherId, room, is_double: true, term, year };
         const e2: Entry = { day_of_week: day, period_id: p2.id, form_id: card.formId, stream_id: card.streamId, subject_id: card.subjectId, teacher_id: card.teacherId, room, is_double: true, term, year };
-
         classGrid[day][p1.id][ck] = e1;
         classGrid[day][p2.id][ck] = e2;
         if (card.teacherId) {
           teacherGrid[day][p1.id].add(card.teacherId);
           teacherGrid[day][p2.id].add(card.teacherId);
+          teacherWeekly[card.teacherId] = (teacherWeekly[card.teacherId] || 0) + 2;
         }
-        if (room) {
-          roomGrid[day][p1.id].add(room);
-          roomGrid[day][p2.id].add(room);
-        }
+        if (room) { roomGrid[day][p1.id].add(room); roomGrid[day][p2.id].add(room); }
         placed.push(e1, e2);
         return true;
       }
@@ -280,16 +368,11 @@ export function autoGenerateTimetable(
   // ── Main placement loop with soft backtracking ──
   for (const card of cards) {
     let success = false;
-
-    // Try double period first if allowed
     if (card.allowDouble && card.lessonIndex === 0) {
       success = placeDoubleCard(card);
-      if (success) continue; // placed 2 lessons at once
+      if (success) continue;
     }
-
-    // Try single placement
     success = placeCard(card);
-
     if (!success) {
       const req = requirements.find(r =>
         r.form_id === card.formId && r.stream_id === card.streamId &&
@@ -303,7 +386,9 @@ export function autoGenerateTimetable(
         else unplaced.push({
           req, remaining: 1,
           reason: card.teacherId
-            ? `Teacher unavailable or overloaded — no valid slot found`
+            ? (teacherWeekly[card.teacherId] || 0) >= maxWeekly
+              ? `Teacher exceeded TSC weekly limit (${maxWeekly} lessons)`
+              : `Teacher unavailable or overloaded — no valid slot found`
             : `No available slot for this class-subject combination`,
         });
       }
@@ -313,9 +398,7 @@ export function autoGenerateTimetable(
   return { placed, unplaced };
 }
 
-// ─── Enhanced Verification Engine ─────────────────────────────────
-// ─── Kenya 2026 Curriculum Detection Helpers ──────────────────────
-// Detects curriculum type from form_name when curriculum_type is not stored
+
 export function detectCurriculumType(form: { form_name: string; curriculum_type?: string }): 'CBC' | '844' {
   if (form.curriculum_type === 'CBC') return 'CBC';
   if (form.curriculum_type === '844') return '844';
