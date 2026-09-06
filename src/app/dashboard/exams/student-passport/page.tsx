@@ -171,29 +171,14 @@ export default function StudentPassportPage() {
             setStudentPathway(null);
         }
 
-        // ── 8-4-4 KCSE Subject Combination (separate query — no join) ──
+        // ── 8-4-4 KCSE Subject Combination ──
         try {
             const { data: ss844 } = await supabase
                 .from('student_subjects_844')
-                .select('id, student_id, subject_id, group_no, is_compulsory')
+                .select('id, student_id, subject_id, group_no, is_compulsory, kcse_code, kcse_name')
                 .eq('student_id', student.id);
 
-            if (ss844 && ss844.length > 0) {
-                const subIds = [...new Set(ss844.map((r: any) => r.subject_id).filter(Boolean))];
-                const { data: subDetails } = await supabase
-                    .from('school_subjects')
-                    .select('id, subject_name, subject_code, initials')
-                    .in('id', subIds);
-                const subMap: Record<number, any> = {};
-                (subDetails || []).forEach((s: any) => { subMap[s.id] = s; });
-                const enriched844 = ss844.map((r: any) => ({
-                    ...r,
-                    school_subjects: subMap[r.subject_id] || null,
-                }));
-                setStudentSubjects844(enriched844);
-            } else {
-                setStudentSubjects844([]);
-            }
+            setStudentSubjects844(ss844 && ss844.length > 0 ? ss844 : []);
         } catch (_) {
             setStudentSubjects844([]);
         }
@@ -589,7 +574,7 @@ export default function StudentPassportPage() {
                                                     <div className="flex flex-wrap gap-1.5">
                                                         {subs.map((s: any) => (
                                                             <span key={s.id} className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border ${group.badge}`}>
-                                                                {s.school_subjects?.subject_name || s.school_subjects?.initials || '—'}
+                                                                {s.kcse_name || s.school_subjects?.subject_name || s.school_subjects?.initials || '—'}
                                                                 {s.is_compulsory && <span className="ml-1 text-[8px] opacity-60">CORE</span>}
                                                             </span>
                                                         ))}

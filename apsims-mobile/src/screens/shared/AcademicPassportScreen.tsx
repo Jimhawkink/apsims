@@ -184,25 +184,10 @@ export default function AcademicPassportScreen() {
             try {
                 const { data: ss844 } = await supabase
                     .from('student_subjects_844')
-                    .select('id, student_id, subject_id, group_no, is_compulsory')
+                    .select('id, student_id, subject_id, group_no, is_compulsory, kcse_code, kcse_name')
                     .eq('student_id', studentId);
 
-                if (ss844 && ss844.length > 0) {
-                    const subIds = [...new Set(ss844.map((r: any) => r.subject_id).filter(Boolean))];
-                    const { data: subDets } = await supabase
-                        .from('school_subjects')
-                        .select('id, subject_name, subject_code, initials')
-                        .in('id', subIds as number[]);
-                    const subMap: Record<number, any> = {};
-                    (subDets || []).forEach((s: any) => { subMap[s.id] = s; });
-                    const enriched844 = ss844.map((r: any) => ({
-                        ...r,
-                        school_subjects: subMap[r.subject_id] || null,
-                    }));
-                    setStudentSubjects844(enriched844);
-                } else {
-                    setStudentSubjects844([]);
-                }
+                setStudentSubjects844(ss844 && ss844.length > 0 ? ss844 : []);
             } catch (_) { setStudentSubjects844([]); }
 
             // Derive CBC from actual form_level in DB (params may have 0)
@@ -505,7 +490,7 @@ export default function AcademicPassportScreen() {
                                     <View style={{flexDirection:'row',flexWrap:'wrap',gap:5}}>
                                         {group.subs.map((s:any)=>(
                                             <View key={s.id} style={{paddingHorizontal:8,paddingVertical:3,borderRadius:8,backgroundColor:group.bg,borderWidth:1,borderColor:group.color+'40'}}>
-                                                <Text style={{fontSize:11,fontWeight:'700',color:group.color}}>{s.school_subjects?.subject_name||s.school_subjects?.initials||'—'}</Text>
+                                                <Text style={{fontSize:11,fontWeight:'700',color:group.color}}>{s.kcse_name||s.school_subjects?.subject_name||s.school_subjects?.initials||'—'}</Text>
                                             </View>
                                         ))}
                                     </View>

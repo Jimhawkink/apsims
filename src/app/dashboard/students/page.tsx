@@ -205,31 +205,53 @@ export default function StudentsPage() {
         if (is844Form34 && studentId && selectedSubjects844.length > 0) {
             try {
                 await supabase.from('student_subjects_844').delete().eq('student_id', studentId);
-                // Resolve KCSE codes to school_subjects IDs
-                const { data: allSubs } = await supabase.from('school_subjects').select('id, subject_code, subject_name');
-                const KCSE_CODE_MAP: Record<string, { name: string; group_no: number; compulsory: boolean }> = {
-                    '101': { name: 'English', group_no: 1, compulsory: true }, '102': { name: 'Kiswahili', group_no: 1, compulsory: true },
-                    '121': { name: 'Mathematics', group_no: 2, compulsory: true }, '231': { name: 'Biology', group_no: 2, compulsory: false },
-                    '232': { name: 'Physics', group_no: 2, compulsory: false }, '233': { name: 'Chemistry', group_no: 2, compulsory: false },
-                    '311': { name: 'History', group_no: 3, compulsory: false }, '312': { name: 'Geography', group_no: 3, compulsory: false },
-                    '313': { name: 'CRE', group_no: 3, compulsory: false }, '314': { name: 'IRE', group_no: 3, compulsory: false },
-                    '315': { name: 'HRE', group_no: 3, compulsory: false }, '443': { name: 'Agriculture', group_no: 4, compulsory: false },
-                    '441': { name: 'Home Science', group_no: 4, compulsory: false }, '451': { name: 'Computer', group_no: 4, compulsory: false },
-                    '442': { name: 'Art', group_no: 4, compulsory: false }, '444': { name: 'Woodwork', group_no: 4, compulsory: false },
-                    '448': { name: 'Electricity', group_no: 4, compulsory: false }, '446': { name: 'Building', group_no: 4, compulsory: false },
-                    '565': { name: 'Business', group_no: 5, compulsory: false }, '501': { name: 'French', group_no: 5, compulsory: false },
-                    '502': { name: 'German', group_no: 5, compulsory: false }, '511': { name: 'Music', group_no: 5, compulsory: false },
-                    '503': { name: 'Arabic', group_no: 5, compulsory: false },
+                // KCSE master map — stores code + full name directly (no DB name-matching)
+                const KCSE_MAP: Record<string, { name: string; group_no: number; compulsory: boolean }> = {
+                    '101': { name: 'English Language',       group_no: 1, compulsory: true  },
+                    '102': { name: 'Kiswahili',              group_no: 1, compulsory: true  },
+                    '121': { name: 'Mathematics',            group_no: 2, compulsory: true  },
+                    '231': { name: 'Biology',                group_no: 2, compulsory: false },
+                    '232': { name: 'Physics',                group_no: 2, compulsory: false },
+                    '233': { name: 'Chemistry',              group_no: 2, compulsory: false },
+                    '311': { name: 'History & Government',   group_no: 3, compulsory: false },
+                    '312': { name: 'Geography',              group_no: 3, compulsory: false },
+                    '313': { name: 'C.R.E.',                 group_no: 3, compulsory: false },
+                    '314': { name: 'I.R.E.',                 group_no: 3, compulsory: false },
+                    '315': { name: 'H.R.E.',                 group_no: 3, compulsory: false },
+                    '441': { name: 'Home Science',           group_no: 4, compulsory: false },
+                    '442': { name: 'Art & Design',           group_no: 4, compulsory: false },
+                    '443': { name: 'Agriculture',            group_no: 4, compulsory: false },
+                    '444': { name: 'Woodwork',               group_no: 4, compulsory: false },
+                    '446': { name: 'Building Construction',  group_no: 4, compulsory: false },
+                    '448': { name: 'Electricity',            group_no: 4, compulsory: false },
+                    '449': { name: 'Drawing & Design',       group_no: 4, compulsory: false },
+                    '450': { name: 'Aviation Technology',    group_no: 4, compulsory: false },
+                    '451': { name: 'Computer Studies',       group_no: 4, compulsory: false },
+                    '501': { name: 'French',                 group_no: 5, compulsory: false },
+                    '502': { name: 'German',                 group_no: 5, compulsory: false },
+                    '503': { name: 'Arabic',                 group_no: 5, compulsory: false },
+                    '504': { name: 'Kenya Sign Language',    group_no: 5, compulsory: false },
+                    '511': { name: 'Music',                  group_no: 5, compulsory: false },
+                    '565': { name: 'Business Studies',       group_no: 5, compulsory: false },
                 };
+                // Try to find matching DB subject_id by code (best effort — optional)
+                const { data: allSubs } = await supabase.from('school_subjects').select('id, subject_code');
+                const codeToDbId: Record<string, number> = {};
+                (allSubs || []).forEach((s: any) => { if (s.subject_code) codeToDbId[s.subject_code] = s.id; });
+
                 const rows = selectedSubjects844.map(code => {
-                    const meta = KCSE_CODE_MAP[code];
+                    const meta = KCSE_MAP[code];
                     if (!meta) return null;
-                    const dbSub = (allSubs || []).find((s: any) =>
-                        s.subject_code === code ||
-                        s.subject_name?.toLowerCase().includes(meta.name.toLowerCase())
-                    );
-                    return dbSub ? { student_id: studentId, subject_id: dbSub.id, group_no: meta.group_no, is_compulsory: meta.compulsory } : null;
+                    return {
+                        student_id: studentId,
+                        subject_id: codeToDbId[code] || null,  // null if no exact code match — that's OK
+                        group_no: meta.group_no,
+                        is_compulsory: meta.compulsory,
+                        kcse_code: code,          // store KCSE code directly
+                        kcse_name: meta.name,     // store official KCSE name directly
+                    };
                 }).filter(Boolean);
+
                 if (rows.length > 0) {
                     const { error: s844Err } = await supabase.from('student_subjects_844').insert(rows);
                     if (s844Err) toast.error('KCSE subjects save error: ' + s844Err.message);
