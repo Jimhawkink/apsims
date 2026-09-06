@@ -41,20 +41,40 @@ export default function CardsTab() {
     if (!confirm(`Auto-create ${missingCards.length} lesson cards from Settings for ${getFormName(fId)} ${getStreamName(sId)}?`)) return;
     setAutoFilling(true);
     let created = 0;
-    // De-duplicate by subject_id (one card per subject, take the first teacher found)
     const seenSubjects = new Set<number>();
+
     for (const a of missingCards) {
       if (seenSubjects.has(a.subject_id)) continue;
       seenSubjects.add(a.subject_id);
+
+      // First check if record already exists (avoids onConflict DB constraint dependency)
+      const { data: existing } = await supabase
+        .from('school_timetable_requirements')
+        .select('id')
+        .eq('form_id', fId)
+        .eq('stream_id', sId)
+        .eq('subject_id', a.subject_id)
+        .eq('term', bTerm)
+        .eq('year', bYear)
+        .maybeSingle();
+
+      if (existing) { created++; continue; } // already exists — count it as done
+
       const data = {
         form_id: fId, stream_id: sId,
         subject_id: a.subject_id,
-        teacher_id: a.teacher_id,
+        teacher_id: a.teacher_id || null,
         lessons_per_week: 3, max_per_day: 2, allow_double: false,
         term: bTerm, year: bYear,
       };
-      const { error } = await supabase.from('school_timetable_requirements').upsert([data], { onConflict: 'form_id,stream_id,subject_id,term,year' });
-      if (!error) created++;
+      const { error } = await supabase.from('school_timetable_requirements').insert([data]);
+      if (!error) {
+        created++;
+      } else {
+        // If duplicate key — still count as success
+        if (error.code === '23505') { created++; }
+        else console.error('AutoFill insert error:', error.message, data);
+      }
     }
     toast.success(`✅ Auto-filled ${created} lesson cards from Settings`);
     await fetchAll();
