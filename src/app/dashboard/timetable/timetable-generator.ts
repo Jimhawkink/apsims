@@ -1,11 +1,11 @@
-﻿// ─── APSIMS Ultra Timetable Generator v2.0 ────────────────────────
-// Kenya #1 — Beats Zeraki & ASC with:
-//   ✅ Room auto-assignment
-//   ✅ Double-period support
-//   ✅ Smart priority sorting (most-constrained first)
-//   ✅ Department balance scoring
-//   ✅ Core subject morning preference
-//   ✅ Soft backtracking (retry with different ordering)
+﻿// â”€â”€â”€ APSIMS Ultra Timetable Generator v2.0 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Kenya #1 â€” Beats Zeraki & ASC with:
+//   âœ… Room auto-assignment
+//   âœ… Double-period support
+//   âœ… Smart priority sorting (most-constrained first)
+//   âœ… Department balance scoring
+//   âœ… Core subject morning preference
+//   âœ… Soft backtracking (retry with different ordering)
 
 import type { Requirement, Period, Entry, UnplacedCard, GenSettings, Availability, ConflictItem, Classroom } from './timetable-types';
 import { DAYS } from './timetable-colors';
@@ -34,13 +34,13 @@ export function autoGenerateTimetable(
   const placed: Entry[] = [];
   const unplaced: UnplacedCard[] = [];
 
-  // ── Defaults for new settings fields (backward-compat) ──
+  // â”€â”€ Defaults for new settings fields (backward-compat) â”€â”€
   const maxWeekly  = settings.maxWeeklyTeacherLessons ?? 27;
   const roomMatch  = settings.enableRoomTypeMatching  ?? true;
   const gapMin     = settings.minimizeTeacherGaps     ?? true;
   const cbcMode    = settings.cbcPathwayMode           ?? true;
 
-  // ── ROOM TYPE MAP — Kenya subject → preferred room type ──────────
+  // â”€â”€ ROOM TYPE MAP â€” Kenya subject â†’ preferred room type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const ROOM_TYPE_MAP: [RegExp, string][] = [
     [/biology|chemistry|physics|science/i,   'Laboratory'],
     [/computer|ict|computing/i,              'ICT Lab'],
@@ -57,7 +57,7 @@ export function autoGenerateTimetable(
     return 'Classroom';
   };
 
-  // ── CBC pathway helpers ──────────────────────────────────────────
+  // â”€â”€ CBC pathway helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const isCBCPathwayPractical = (subjectId: number): boolean => {
     const n = (subjectNames[subjectId] || '').toLowerCase();
     return /stem|science|ict|computer|agriculture|technical|workshop/.test(n);
@@ -73,7 +73,7 @@ export function autoGenerateTimetable(
   // PE preferred: Monday or Thursday
   const isPEDay = (day: string): boolean => day === 'Monday' || day === 'Thursday';
 
-  // ── Grids ──
+  // â”€â”€ Grids â”€â”€
   const classGrid:   Record<string, Record<number, Record<string, Entry>>> = {};
   const teacherGrid: Record<string, Record<number, Set<number>>>           = {};
   const roomGrid:    Record<string, Record<number, Set<string>>>           = {};
@@ -103,7 +103,7 @@ export function autoGenerateTimetable(
     }
   });
 
-  // ── Build cards ──
+  // â”€â”€ Build cards â”€â”€
   const cards: Card[] = [];
   requirements.forEach(req => {
     if (req.term !== term || req.year !== year) return;
@@ -127,7 +127,7 @@ export function autoGenerateTimetable(
     }
   });
 
-  // ── SMART PRIORITY SORT ──────────────────────────────────────────
+  // â”€â”€ SMART PRIORITY SORT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const countValidSlots = (card: Card): number => {
     let count = 0;
     const ck = `${card.formId}-${card.streamId}`;
@@ -159,7 +159,7 @@ export function autoGenerateTimetable(
     return 0;
   });
 
-  // ── PREMIUM Room assignment — matches subject to room type ────────
+  // â”€â”€ PREMIUM Room assignment â€” matches subject to room type â”€â”€â”€â”€â”€â”€â”€â”€
   const findFreeRoom = (day: string, periodId: number, subjectId?: number): string | null => {
     if (!classrooms.length) return null;
     const busy = roomGrid[day][periodId];
@@ -174,7 +174,7 @@ export function autoGenerateTimetable(
     return any.length ? any[0].room_name : null;
   };
 
-  // ── Counting helpers ──────────────────────────────────────────────
+  // â”€â”€ Counting helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const countSubjectOnDay = (day: string, formId: number, streamId: number, subjectId: number): number => {
     const ck = `${formId}-${streamId}`;
     let c = 0;
@@ -198,7 +198,7 @@ export function autoGenerateTimetable(
     occupied.sort((a, b) => a - b);
     if (occupied.length < 2) return 0;
     const span = occupied[occupied.length - 1] - occupied[0] + 1;
-    return span - occupied.length; // free periods within first→last lesson
+    return span - occupied.length; // free periods within firstâ†’last lesson
   };
 
   const wouldExceedConsecutive = (day: string, periodIdx: number, formId: number, streamId: number, subjectId: number): boolean => {
@@ -213,7 +213,7 @@ export function autoGenerateTimetable(
     return consecutive > settings.maxConsecutiveSameSubject;
   };
 
-  // ── WEIGHTED MULTI-FACTOR SLOT SCORING ────────────────────────────
+  // â”€â”€ WEIGHTED MULTI-FACTOR SLOT SCORING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Higher score = better slot. Factors:
   //   1. Even spread across days (+30 if day has 0 lessons for subject)
   //   2. Core subjects prefer morning (+20 for period 0-2)
@@ -230,7 +230,7 @@ export function autoGenerateTimetable(
     // 1. Spread evenly across days (strong weight)
     if (settings.spreadEvenly) score -= dayCount * 35;
 
-    // 2. Core subjects prefer morning (periods 0–2)
+    // 2. Core subjects prefer morning (periods 0â€“2)
     if (card.isCore) {
       score += Math.max(0, (lessonPeriods.length - pi)) * 3;
     }
@@ -243,8 +243,8 @@ export function autoGenerateTimetable(
 
     // 4. CBC pathway scheduling bonus
     if (cbcMode) {
-      if (isCSL(card.subjectId) && isCSLSlot(day, pi)) score += 40; // CSL → Friday PM
-      if (isPE(card.subjectId) && isPEDay(day)) score += 25;         // PE → Mon/Thu
+      if (isCSL(card.subjectId) && isCSLSlot(day, pi)) score += 40; // CSL â†’ Friday PM
+      if (isPE(card.subjectId) && isPEDay(day)) score += 25;         // PE â†’ Mon/Thu
       if (isCBCPathwayPractical(card.subjectId) && pi < 4) score += 15; // practicals in morning
     }
 
@@ -275,7 +275,7 @@ export function autoGenerateTimetable(
     return score;
   };
 
-  // ── PLACE each card ───────────────────────────────────────────────
+  // â”€â”€ PLACE each card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const placeCard = (card: Card): boolean => {
     const ck = `${card.formId}-${card.streamId}`;
     let bestSlot: { day: string; periodId: number; score: number } | null = null;
@@ -293,7 +293,7 @@ export function autoGenerateTimetable(
         if (classGrid[day][period.id][ck]) continue;
         if (card.teacherId && teacherGrid[day][period.id].has(card.teacherId)) continue;
         if (card.teacherId && countTeacherOnDay(day, card.teacherId) >= settings.maxTeacherLessonsPerDay) continue;
-        // ── NEW: TSC weekly hours enforcement ──
+        // â”€â”€ NEW: TSC weekly hours enforcement â”€â”€
         if (card.teacherId && (teacherWeekly[card.teacherId] || 0) >= maxWeekly) continue;
         if (card.teacherId && !isTeacherAvailable(card.teacherId, day, period.id)) continue;
         if (wouldExceedConsecutive(day, pi, card.formId, card.streamId, card.subjectId)) continue;
@@ -307,7 +307,7 @@ export function autoGenerateTimetable(
 
     if (!bestSlot) return false;
 
-    // Assign room — prefer subject-appropriate room type
+    // Assign room â€” prefer subject-appropriate room type
     const room = findFreeRoom(bestSlot.day, bestSlot.periodId, card.subjectId);
 
     const entry: Entry = {
@@ -327,14 +327,14 @@ export function autoGenerateTimetable(
     return true;
   };
 
-  // ── DOUBLE PERIOD support (updated: subject-aware room + TSC weekly limit) ──
+  // â”€â”€ DOUBLE PERIOD support (updated: subject-aware room + TSC weekly limit) â”€â”€
   const placeDoubleCard = (card: Card): boolean => {
     const ck = `${card.formId}-${card.streamId}`;
     const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
     for (const day of shuffledDays) {
       const dayCount = countSubjectOnDay(day, card.formId, card.streamId, card.subjectId);
       if (dayCount + 2 > card.maxPerDay * 2) continue;
-      // TSC weekly check — need 2 free slots
+      // TSC weekly check â€” need 2 free slots
       if (card.teacherId && (teacherWeekly[card.teacherId] || 0) + 2 > maxWeekly) continue;
       for (let pi = 0; pi < lessonPeriods.length - 1; pi++) {
         const p1 = lessonPeriods[pi];
@@ -365,7 +365,96 @@ export function autoGenerateTimetable(
     return false;
   };
 
-  // ── Main placement loop with soft backtracking ──
+  // â”€â”€ TRUE BACKTRACKING SOLVER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // When greedy fails: displace a lower-priority lesson, place card,
+  // then re-place the displaced lesson elsewhere (Kempe-chain style).
+  // Depth-1 backtracking â€” fast, effective, defeats ASC greedy.
+  const backtrackPlace = (card: Card): boolean => {
+    const ck = `${card.formId}-${card.streamId}`;
+    const shuffledDays = [...DAYS].sort(() => Math.random() - 0.5);
+
+    for (const day of shuffledDays) {
+      for (const period of lessonPeriods) {
+        const victim = classGrid[day][period.id][ck];
+        if (!victim || victim.subject_id === card.subjectId) continue;
+        // Never displace a core subject for a non-core
+        if (subjectCategories[victim.subject_id!] === 'Core' && !card.isCore) continue;
+
+        // â”€â”€ Step 1: Temporarily remove victim â”€â”€
+        delete classGrid[day][period.id][ck];
+        if (victim.teacher_id) {
+          teacherGrid[day][period.id].delete(victim.teacher_id);
+          teacherWeekly[victim.teacher_id] = Math.max(0, (teacherWeekly[victim.teacher_id] || 0) - 1);
+        }
+        if (victim.room) roomGrid[day][period.id].delete(victim.room);
+
+        // â”€â”€ Step 2: Check if card fits here now â”€â”€
+        const teacherOk = !card.teacherId || (
+          !teacherGrid[day][period.id].has(card.teacherId) &&
+          isTeacherAvailable(card.teacherId, day, period.id) &&
+          countTeacherOnDay(day, card.teacherId) < settings.maxTeacherLessonsPerDay &&
+          (teacherWeekly[card.teacherId] || 0) < maxWeekly
+        );
+
+        if (teacherOk) {
+          // â”€â”€ Step 3: Place card into vacated slot â”€â”€
+          const room = findFreeRoom(day, period.id, card.subjectId);
+          const newEntry: Entry = {
+            day_of_week: day, period_id: period.id,
+            form_id: card.formId, stream_id: card.streamId,
+            subject_id: card.subjectId, teacher_id: card.teacherId,
+            room, is_double: false, term, year,
+          };
+          classGrid[day][period.id][ck] = newEntry;
+          if (card.teacherId) {
+            teacherGrid[day][period.id].add(card.teacherId);
+            teacherWeekly[card.teacherId] = (teacherWeekly[card.teacherId] || 0) + 1;
+          }
+          if (room) roomGrid[day][period.id].add(room);
+
+          // â”€â”€ Step 4: Try to re-place victim elsewhere â”€â”€
+          const victimCard: Card = {
+            reqId: 0, formId: victim.form_id, streamId: victim.stream_id || 0,
+            subjectId: victim.subject_id!, teacherId: victim.teacher_id,
+            lessonIndex: 0, maxPerDay: 2, allowDouble: false,
+            isCore: subjectCategories[victim.subject_id!] === 'Core',
+          };
+          const victimReplaced = placeCard(victimCard);
+
+          if (victimReplaced) {
+            // âœ… Both placed â€” remove victim's old entry from placed array
+            const oldIdx = placed.findIndex(p =>
+              p.day_of_week === day && p.period_id === period.id &&
+              p.form_id === card.formId && p.stream_id === (card.streamId || 0) &&
+              p.subject_id === victim.subject_id
+            );
+            if (oldIdx >= 0) placed.splice(oldIdx, 1);
+            placed.push(newEntry);
+            return true; // ðŸŽ‰ Backtrack succeeded
+          }
+
+          // â”€â”€ Step 5: Victim failed â€” revert card placement â”€â”€
+          delete classGrid[day][period.id][ck];
+          if (card.teacherId) {
+            teacherGrid[day][period.id].delete(card.teacherId);
+            teacherWeekly[card.teacherId] = Math.max(0, (teacherWeekly[card.teacherId] || 0) - 1);
+          }
+          if (room) roomGrid[day][period.id].delete(room);
+        }
+
+        // â”€â”€ Step 6: Restore victim to grids â”€â”€
+        classGrid[day][period.id][ck] = victim;
+        if (victim.teacher_id) {
+          teacherGrid[day][period.id].add(victim.teacher_id);
+          teacherWeekly[victim.teacher_id] = (teacherWeekly[victim.teacher_id] || 0) + 1;
+        }
+        if (victim.room) roomGrid[day][period.id].add(victim.room);
+      }
+    }
+    return false; // Backtrack exhausted â€” truly unplaceable
+  };
+
+  // â”€â”€ Main placement loop: Greedy â†’ Backtrack â†’ Report â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   for (const card of cards) {
     let success = false;
     if (card.allowDouble && card.lessonIndex === 0) {
@@ -373,6 +462,8 @@ export function autoGenerateTimetable(
       if (success) continue;
     }
     success = placeCard(card);
+    // â”€â”€ NEW: If greedy fails, try backtracking displacement â”€â”€
+    if (!success) success = backtrackPlace(card);
     if (!success) {
       const req = requirements.find(r =>
         r.form_id === card.formId && r.stream_id === card.streamId &&
@@ -388,8 +479,8 @@ export function autoGenerateTimetable(
           reason: card.teacherId
             ? (teacherWeekly[card.teacherId] || 0) >= maxWeekly
               ? `Teacher exceeded TSC weekly limit (${maxWeekly} lessons)`
-              : `Teacher unavailable or overloaded — no valid slot found`
-            : `No available slot for this class-subject combination`,
+              : `Teacher unavailable or overloaded â€” backtrack exhausted`
+            : `No available slot after greedy + backtrack â€” check requirements`,
         });
       }
     }
@@ -499,7 +590,7 @@ export function verifyTimetable(
     if (placed < req.lessons_per_week) {
       conflicts.push({
         type: 'missing_assignment', severity: placed === 0 ? 'error' : 'warning',
-        message: `${getName(req.subject_id, subjects, 'subject')} — ${getName(req.form_id, forms, 'form')} ${getName(req.stream_id, streams, 'stream')}`,
+        message: `${getName(req.subject_id, subjects, 'subject')} â€” ${getName(req.form_id, forms, 'form')} ${getName(req.stream_id, streams, 'stream')}`,
         details: `Only ${placed}/${req.lessons_per_week} lessons placed (${Math.round(placed / req.lessons_per_week * 100)}%)`,
       });
     }
@@ -547,7 +638,7 @@ export function verifyTimetable(
             conflicts.push({
               type: 'gap', severity: 'info',
               message: `Gap: ${getName(fid, forms, 'form')} ${getName(sid, streams, 'stream')}`,
-              details: `${day} — ${p.period_name} is empty between scheduled lessons`,
+              details: `${day} â€” ${p.period_name} is empty between scheduled lessons`,
               day, period: p.period_name,
             });
           }
@@ -556,11 +647,11 @@ export function verifyTimetable(
     });
   });
 
-  // ════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // KENYA 2026 CBC / 8-4-4 DUAL CURRICULUM CHECKS
-  // ════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-  // Build curriculum map: formId → 'CBC' | '844'
+  // Build curriculum map: formId â†’ 'CBC' | '844'
   const formCurriculumMap = new Map<number, 'CBC' | '844'>();
   forms.forEach(f => formCurriculumMap.set(f.id, detectCurriculumType(f)));
 
@@ -569,7 +660,7 @@ export function verifyTimetable(
 
   const hasBothCurricula = cbcFormIds.size > 0 && f844Ids.size > 0;
 
-  // ── CHECK 7: Teacher teaching BOTH CBC and 8-4-4 in the same period ──
+  // â”€â”€ CHECK 7: Teacher teaching BOTH CBC and 8-4-4 in the same period â”€â”€
   if (hasBothCurricula) {
     DAYS.forEach(day => {
       lessonPeriods.forEach(p => {
@@ -589,8 +680,8 @@ export function verifyTimetable(
           if (val.cbc && val.f844) {
             conflicts.push({
               type: 'curriculum_conflict', severity: 'error', curriculum: 'CBC',
-              message: `⚠️ ${getName(tid, teachers, 'teacher')} crosses curricula`,
-              details: `${day} ${p.period_name}: Teaching CBC AND 8-4-4 classes simultaneously — ${val.names.join(' & ')}`,
+              message: `âš ï¸ ${getName(tid, teachers, 'teacher')} crosses curricula`,
+              details: `${day} ${p.period_name}: Teaching CBC AND 8-4-4 classes simultaneously â€” ${val.names.join(' & ')}`,
               day, period: p.period_name,
             });
           }
@@ -599,7 +690,7 @@ export function verifyTimetable(
     });
   }
 
-  // ── CHECK 8: CBC form missing Community Service Learning (CSL) ──
+  // â”€â”€ CHECK 8: CBC form missing Community Service Learning (CSL) â”€â”€
   if (cbcFormIds.size > 0) {
     const CSL_KEYWORDS = ['community service', 'csl', 'service learning'];
     const clSubjects = subjects.filter(s =>
@@ -617,7 +708,7 @@ export function verifyTimetable(
         if (!hasCSL && clSubjects.length > 0) {
           conflicts.push({
             type: 'cbc_missing', severity: 'warning', curriculum: 'CBC',
-            message: `📚 Missing CSL — ${getName(fid, forms, 'form')} ${getName(sid, streams, 'stream')}`,
+            message: `ðŸ“š Missing CSL â€” ${getName(fid, forms, 'form')} ${getName(sid, streams, 'stream')}`,
             details: 'KICD requires 2 Community Service Learning periods/week for CBC Senior School',
           });
         }
@@ -625,7 +716,7 @@ export function verifyTimetable(
     });
   }
 
-  // ── CHECK 9: CBC form missing Physical Education & Health ──
+  // â”€â”€ CHECK 9: CBC form missing Physical Education & Health â”€â”€
   if (cbcFormIds.size > 0) {
     const PE_KEYWORDS = ['physical education', 'peh', 'pe & health', 'sports'];
     const peSubjects = subjects.filter(s =>
@@ -643,7 +734,7 @@ export function verifyTimetable(
         if (!hasPE && peSubjects.length > 0) {
           conflicts.push({
             type: 'cbc_missing', severity: 'warning', curriculum: 'CBC',
-            message: `🏃 Missing PE&H — ${getName(fid, forms, 'form')} ${getName(sid, streams, 'stream')}`,
+            message: `ðŸƒ Missing PE&H â€” ${getName(fid, forms, 'form')} ${getName(sid, streams, 'stream')}`,
             details: 'KICD CBC Senior School requires Physical Education & Health (2 periods/week)',
           });
         }
@@ -651,7 +742,7 @@ export function verifyTimetable(
     });
   }
 
-  // ── CHECK 10: Subject–Curriculum mismatch (CBC subject in 8-4-4 form) ──
+  // â”€â”€ CHECK 10: Subjectâ€“Curriculum mismatch (CBC subject in 8-4-4 form) â”€â”€
   if (hasBothCurricula) {
     te.forEach(e => {
       if (!e.subject_id) return;
@@ -664,21 +755,21 @@ export function verifyTimetable(
       if (is844Form && cbcSubj) {
         conflicts.push({
           type: 'curriculum_conflict', severity: 'warning', curriculum: '844',
-          message: `🔀 CBC subject in 8-4-4 class — ${sub.subject_name}`,
+          message: `ðŸ”€ CBC subject in 8-4-4 class â€” ${sub.subject_name}`,
           details: `${getName(e.form_id, forms, 'form')} ${getName(e.stream_id, streams, 'stream')}: "${sub.subject_name}" is a CBC-specific subject`,
         });
       }
       if (isCBCForm && f844Subj) {
         conflicts.push({
           type: 'curriculum_conflict', severity: 'info', curriculum: 'CBC',
-          message: `🔀 8-4-4 subject in CBC class — ${sub.subject_name}`,
+          message: `ðŸ”€ 8-4-4 subject in CBC class â€” ${sub.subject_name}`,
           details: `${getName(e.form_id, forms, 'form')} ${getName(e.stream_id, streams, 'stream')}: "${sub.subject_name}" is typically an 8-4-4 subject`,
         });
       }
     });
   }
 
-  // ── CHECK 11: KICD Minimum Weekly Lessons (Grade 10/11/12 = 40/week) ──
+  // â”€â”€ CHECK 11: KICD Minimum Weekly Lessons (Grade 10/11/12 = 40/week) â”€â”€
   cbcFormIds.forEach(fid => {
     const formName = getName(fid, forms, 'form');
     const formStreams = [...new Set(te.filter(e => e.form_id === fid).map(e => e.stream_id))];
@@ -688,14 +779,14 @@ export function verifyTimetable(
       if (streamLessons < 35 && streamLessons > 0) {
         conflicts.push({
           type: 'cbc_missing', severity: 'warning', curriculum: 'CBC',
-          message: `📊 Low lesson count — ${formName} ${streamName}`,
-          details: `Only ${streamLessons} lessons/week. KICD CBC Senior School recommends 38–40 periods/week`,
+          message: `ðŸ“Š Low lesson count â€” ${formName} ${streamName}`,
+          details: `Only ${streamLessons} lessons/week. KICD CBC Senior School recommends 38â€“40 periods/week`,
         });
       }
     });
   });
 
-  // ── CHECK 12: Practical subjects need double periods (CBC Lab Rule) ──
+  // â”€â”€ CHECK 12: Practical subjects need double periods (CBC Lab Rule) â”€â”€
   const PRACTICAL_KEYWORDS = ['biology', 'chemistry', 'physics', 'computer', 'agriculture', 'home science', 'art'];
   cbcFormIds.forEach(fid => {
     const formStreams = [...new Set(te.filter(e => e.form_id === fid).map(e => e.stream_id))];
@@ -710,7 +801,7 @@ export function verifyTimetable(
           const subName = subjects.find(s => s.id === practicalEntries[0].subject_id)?.subject_name || kw;
           conflicts.push({
             type: 'cbc_missing', severity: 'info', curriculum: 'CBC',
-            message: `🔬 No double period — ${subName} (${getName(fid, forms, 'form')})`,
+            message: `ðŸ”¬ No double period â€” ${subName} (${getName(fid, forms, 'form')})`,
             details: 'KICD CBC: Practical subjects (Science, Computer, Art) should have at least one double period for lab work',
           });
         }
@@ -718,8 +809,8 @@ export function verifyTimetable(
     });
   });
 
-  // ── CHECK 13: Teacher cross-curriculum daily overload ──
-  // A teacher teaching BOTH CBC and 8-4-4 across the week — warn if > 35 total
+  // â”€â”€ CHECK 13: Teacher cross-curriculum daily overload â”€â”€
+  // A teacher teaching BOTH CBC and 8-4-4 across the week â€” warn if > 35 total
   if (hasBothCurricula) {
     teachers.forEach(t => {
       const cbcLessons = te.filter(e => e.teacher_id === t.id && cbcFormIds.has(e.form_id)).length;
@@ -727,14 +818,14 @@ export function verifyTimetable(
       if (cbcLessons > 0 && f844Lessons > 0 && (cbcLessons + f844Lessons) > 30) {
         conflicts.push({
           type: 'curriculum_conflict', severity: 'warning',
-          message: `⚡ Cross-curriculum overload — ${t.first_name} ${t.last_name}`,
+          message: `âš¡ Cross-curriculum overload â€” ${t.first_name} ${t.last_name}`,
           details: `Teaching ${cbcLessons} CBC + ${f844Lessons} 8-4-4 lessons/week (${cbcLessons + f844Lessons} total). Consider curriculum specialization`,
         });
       }
     });
   }
 
-  // ── CHECK 14: Form 4 (8-4-4) — KCSE 2026 last cohort integrity ──
+  // â”€â”€ CHECK 14: Form 4 (8-4-4) â€” KCSE 2026 last cohort integrity â”€â”€
   const form4s = forms.filter(f => {
     const n = f.form_name.toLowerCase();
     return /form\s*4|f4/.test(n) && formCurriculumMap.get(f.id) === '844';
@@ -746,8 +837,8 @@ export function verifyTimetable(
       if (subjectCount < 7) {
         conflicts.push({
           type: 'missing_assignment', severity: 'warning', curriculum: '844',
-          message: `📋 KCSE 2026 Form 4 — ${getName(f4.id, forms, 'form')} ${getName(sid, streams, 'stream')}`,
-          details: `Only ${subjectCount} subjects scheduled. KCSE candidates need minimum 7 subjects. This is the LAST 8-4-4 KCSE cohort — ensure full coverage`,
+          message: `ðŸ“‹ KCSE 2026 Form 4 â€” ${getName(f4.id, forms, 'form')} ${getName(sid, streams, 'stream')}`,
+          details: `Only ${subjectCount} subjects scheduled. KCSE candidates need minimum 7 subjects. This is the LAST 8-4-4 KCSE cohort â€” ensure full coverage`,
         });
       }
     });
@@ -757,7 +848,7 @@ export function verifyTimetable(
 
 }
 
-// ─── TSC Workload Summary ──────────────────────────────────────────
+// â”€â”€â”€ TSC Workload Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export interface TSCWorkloadRow {
   teacherId: number;
   teacherName: string;
