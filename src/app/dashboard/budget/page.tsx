@@ -96,7 +96,7 @@ export default function BudgetPage() {
 
     const openEdit = (v: any) => {
         setEditId(v.id);
-        setForm({ vote_head: v.vote_head, category: v.category, budget_amount: String(v.budget_amount), actual_amount: String(v.actual_amount || 0), notes: v.notes || '' });
+        setForm({ vote_head: v.vote_name, category: v.category, budget_amount: String(v.budget_amount || v.allocated_amount || 0), actual_amount: String(v.actual_amount || v.spent_amount || 0), notes: v.notes || '' });
         setShowModal(true);
     };
 
@@ -104,7 +104,7 @@ export default function BudgetPage() {
         if (!form.vote_head.trim()) return toast.error('Vote head is required');
         if (!form.budget_amount || Number(form.budget_amount) <= 0) return toast.error('Budget amount must be greater than 0');
         const payload = {
-            vote_head: form.vote_head.trim(),
+            vote_name: form.vote_head.trim(),
             category: form.category,
             budget_amount: Number(form.budget_amount),
             actual_amount: Number(form.actual_amount || 0),
@@ -135,7 +135,7 @@ export default function BudgetPage() {
         let list = [...votes];
         if (search) {
             const q = search.toLowerCase();
-            list = list.filter(v => v.vote_head?.toLowerCase().includes(q) || v.category?.toLowerCase().includes(q) || v.notes?.toLowerCase().includes(q));
+            list = list.filter(v => v.vote_name?.toLowerCase().includes(q) || v.category?.toLowerCase().includes(q) || v.notes?.toLowerCase().includes(q));
         }
         if (filterCat) list = list.filter(v => v.category === filterCat);
         list.sort((a, b) => {
@@ -143,7 +143,7 @@ export default function BudgetPage() {
             if (sortBy === 'budget') { va = Number(a.budget_amount); vb = Number(b.budget_amount); }
             else if (sortBy === 'actual') { va = Number(a.actual_amount); vb = Number(b.actual_amount); }
             else if (sortBy === 'pct') { va = calcPct(Number(a.actual_amount), Number(a.budget_amount)); vb = calcPct(Number(b.actual_amount), Number(b.budget_amount)); }
-            else { return sortDir === 'asc' ? (a.vote_head || '').localeCompare(b.vote_head || '') : (b.vote_head || '').localeCompare(a.vote_head || ''); }
+            else { return sortDir === 'asc' ? (a.vote_name || '').localeCompare(b.vote_name || '') : (b.vote_name || '').localeCompare(a.vote_name || ''); }
             return sortDir === 'asc' ? va - vb : vb - va;
         });
         return list;
@@ -176,7 +176,7 @@ export default function BudgetPage() {
             const p = calcPct(Number(v.actual_amount), Number(v.budget_amount));
             const diff = Number(v.budget_amount) - Number(v.actual_amount);
             return [
-                `"${v.vote_head}"`, v.category,
+                `"${v.vote_name}"`, v.category,
                 v.budget_amount, v.actual_amount,
                 `${p}%`, diff,
                 p > 100 ? 'OVER BUDGET' : p > 90 ? 'CRITICAL' : p > 75 ? 'HIGH' : 'ON TRACK',
@@ -371,7 +371,7 @@ export default function BudgetPage() {
                                             style={{ borderBottom: '1px solid #f1f5f9' }}>
                                             <td className="px-3 py-3 text-center font-bold text-indigo-600" style={{ background: '#f5f3ff60' }}>{idx + 1}</td>
                                             <td className="px-3 py-3" style={{ background: '#f0fdfa60' }}>
-                                                <p className="font-bold text-gray-800">{v.vote_head}</p>
+                                                <p className="font-bold text-gray-800">{v.vote_name}</p>
                                             </td>
                                             <td className="px-3 py-3" style={{ background: '#eff6ff60' }}>
                                                 <CatBadge cat={v.category} />
@@ -400,7 +400,7 @@ export default function BudgetPage() {
                                                         className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition border border-blue-200" title="Edit">
                                                         <FiEdit2 size={12} />
                                                     </button>
-                                                    <button onClick={() => handleDelete(v.id, v.vote_head)}
+                                                    <button onClick={() => handleDelete(v.id, v.vote_name)}
                                                         className="p-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition border border-red-200" title="Delete">
                                                         <FiTrash2 size={12} />
                                                     </button>
