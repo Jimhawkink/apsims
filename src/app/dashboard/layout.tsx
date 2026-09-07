@@ -193,6 +193,8 @@ const menuGroups = [
             { href: '/dashboard/exams/university-predictor',         label: '🎓 University Predictor', icon: FiAward,     perm: 'exams' },
             { href: '/dashboard/exams/departmental',                 label: '🏛️ Departmental HOD View', icon: FiUsers,     perm: 'exams' },
             { href: '/dashboard/exams/five-year-trend',              label: '📈 5-Year Trend Analysis', icon: FiTrendingUp,perm: 'exams' },
+            { href: '/dashboard/exams/study-hub',                    label: '📚 Student Study Hub',     icon: FiBook,      perm: 'exams' },
+            { href: '/dashboard/exams/online-exam',                  label: '🖥️ Online Timed Exam',    icon: FiCpu,       perm: 'exams' },
         ]
     },
     {
