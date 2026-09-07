@@ -496,38 +496,39 @@ export async function getTeachers() {
 export async function getStrands(learningAreaId?: number) {
     let query = supabase
         .from('school_cbc_strands')
-        .select('*, school_cbc_learning_areas!inner(area_name)')
+        .select('*')
         .eq('is_active', true)
         .order('sort_order');
     if (learningAreaId) query = query.eq('learning_area_id', learningAreaId);
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    return data || [];
 }
 
 export async function getSubStrands(strandId?: number) {
     let query = supabase
         .from('school_cbc_sub_strands')
-        .select('*, school_cbc_strands!inner(strand_name)')
+        .select('*')
         .eq('is_active', true)
         .order('sort_order');
     if (strandId) query = query.eq('strand_id', strandId);
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    return data || [];
 }
-
 export async function getTopics(subjectId?: number, formId?: number) {
-    let query = supabase
-        .from('school_topics')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order');
-    if (subjectId) query = query.eq('subject_id', subjectId);
-    if (formId) query = query.eq('form_id', formId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
+    // school_topics may not exist — return empty array safely
+    try {
+        let query = supabase
+            .from('school_topics')
+            .select('*')
+            .order('sort_order');
+        if (subjectId) query = query.eq('subject_id', subjectId);
+        if (formId) query = query.eq('form_id', formId);
+        const { data, error } = await query;
+        if (error) return []; // table doesn't exist
+        return data || [];
+    } catch { return []; }
 }
 
 export async function getLearningAreas() {
@@ -635,16 +636,17 @@ export async function autoGenerateScheme(params: {
             }
         }
     } else {
-        // 8-4-4: Get topics for this subject and form
-        const { data: topics } = await supabase
-            .from('school_topics')
-            .select('*')
-            .eq('subject_id', subjectId)
-            .eq('form_id', formId)
-            .eq('is_active', true)
-            .order('sort_order');
-        contentItems = (topics || []).map(t => ({ ...t, sub_strand_name: t.topic_name }));
-        if (contentItems.length > 0) firstTopicId = contentItems[0].id;
+        // 8-4-4: Get topics for this subject and form (table may not exist)
+        try {
+            const { data: topics } = await supabase
+                .from('school_topics')
+                .select('*')
+                .eq('subject_id', subjectId)
+                .eq('form_id', formId)
+                .order('sort_order');
+            contentItems = (topics || []).map((t: any) => ({ ...t, sub_strand_name: t.topic_name }));
+            if (contentItems.length > 0) firstTopicId = contentItems[0].id;
+        } catch { contentItems = []; }
     }
 
     // 2b. Update scheme header with strand/topic if found
