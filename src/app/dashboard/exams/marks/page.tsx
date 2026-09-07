@@ -352,6 +352,23 @@ export default function MarkEntryPage() {
         if (!error) {
             setSavedMarks(prev => ({ ...prev, [key]: score }));
             setUnsavedCells(prev => { const n = new Set(prev); n.delete(key); return n; });
+            // ── Auto-alert parent when student fails ──────────────────
+            if (Number(score) < 50) {
+                try {
+                    const subName = subjects.find((s: any) => String(s.id) === String(selSubject))?.subject_name || 'a subject';
+                    const { data: portal } = await supabase.from('school_portal_users').select('id').eq('student_id', studentId).eq('user_type', 'parent').maybeSingle();
+                    if (portal?.id) {
+                        await supabase.from('school_portal_notifications').insert([{
+                            portal_user_id: portal.id,
+                            title: `⚠️ Low Mark Alert — ${subName}`,
+                            message: `Your child scored ${score}% in ${subName} (${selExamType}). This is below the pass mark of 50%. Please contact the class teacher for support.`,
+                            type: 'academic_alert',
+                            is_read: false,
+                            created_at: new Date().toISOString(),
+                        }]);
+                    }
+                } catch { /* silent — don't block marks save */ }
+            }
         }
     };
 

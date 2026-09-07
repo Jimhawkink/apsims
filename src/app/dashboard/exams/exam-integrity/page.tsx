@@ -1,236 +1,262 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, Filler } from 'chart.js';
-import { Line, Bar } from 'react-chartjs-2';
-import { FiPrinter, FiDownload, FiRefreshCw, FiShield, FiAlertTriangle, FiCheckCircle } from 'react-icons/fi';
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, Filler);
+import { computeWeightedMark, getSubjectGrade } from '@/lib/knec-grading';
+import { FiShield, FiAlertTriangle, FiRefreshCw, FiTrendingUp, FiTrendingDown, FiUsers } from 'react-icons/fi';
 
-function stdDev(arr: number[]) { if (!arr.length) return 0; const m = arr.reduce((a,b)=>a+b,0)/arr.length; return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/arr.length); }
+interface Anomaly {
+    type: 'score_jump' | 'score_drop' | 'outlier_high' | 'outlier_low' | 'class_avg_drop' | 'perfect_score_cluster';
+    severity: 'High' | 'Medium' | 'Low';
+    student?: string; subject?: string; term?: string;
+    value?: number; previous?: number; classAvg?: number;
+    description: string;
+}
 
 export default function ExamIntegrityPage() {
-  const [anomalies, setAnomalies] = useState<any[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [filter, setFilter]       = useState<'all'|'High'|'Medium'|'Low'>('all');
-  const [flagged, setFlagged]     = useState<Set<string>>(new Set());
-  const [cleared, setCleared]     = useState<Set<string>>(new Set());
-  const [refresh, setRefresh]     = useState(0);
+    const [subjects, setSubjects] = useState<any[]>([]);
+    const [students, setStudents] = useState<any[]>([]);
+    const [marks, setMarks] = useState<any[]>([]);
+    const [terms, setTerms] = useState<any[]>([]);
+    const [forms, setForms] = useState<any[]>([]);
+    const [selForm, setSelForm] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [filterSev, setFilterSev] = useState<string>('All');
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const [{ data: marks }, { data: students }, { data: subjects }, { data: exams }] = await Promise.all([
-        supabase.from('school_exam_marks').select('id,student_id,subject_id,exam_id,marks,created_at').order('created_at').limit(10000),
-        supabase.from('school_students').select('id,first_name,last_name,admission_no'),
-        supabase.from('school_subjects').select('id,subject_name'),
-        supabase.from('school_exams').select('id,exam_name'),
-      ]);
+    const load = useCallback(async () => {
+        setLoading(true);
+        const [sRes, subRes, mRes, tRes, fRes] = await Promise.all([
+            supabase.from('school_students').select('*').eq('status', 'Active'),
+            supabase.from('school_subjects').select('*').eq('is_active', true),
+            supabase.from('school_exam_marks').select('*'),
+            supabase.from('school_terms').select('*').order('id', { ascending: true }),
+            supabase.from('school_forms').select('*').order('form_level'),
+        ]);
+        setStudents(sRes.data || []); setSubjects(subRes.data || []);
+        setMarks(mRes.data || []); setTerms(tRes.data || []);
+        setForms(fRes.data || []);
+        setLoading(false);
+    }, []);
 
-      const studentMap: Record<string,any> = {};
-      (students||[]).forEach((s:any) => { studentMap[s.id] = s; });
-      const subjectMap: Record<string,string> = {};
-      (subjects||[]).forEach((s:any) => { subjectMap[s.id] = s.subject_name; });
-      const examMap: Record<string,string> = {};
-      (exams||[]).forEach((e:any) => { examMap[e.id] = e.exam_name; });
+    useEffect(() => { load(); }, [load]);
 
-      // Build student-subject history
-      const history: Record<string,number[]> = {};
-      (marks||[]).forEach((m:any) => {
-        const key = `${m.student_id}_${m.subject_id}`;
-        if (!history[key]) history[key] = [];
-        history[key].push(Number(m.marks||0));
-      });
+    const anomalies = useMemo((): Anomaly[] => {
+        const results: Anomaly[] = [];
+        const filtStudents = students.filter(s => !selForm || String(s.form_id) === selForm);
 
-      // Class averages per exam+subject
-      const classAvg: Record<string,{ sum:number; cnt:number }> = {};
-      (marks||[]).forEach((m:any) => {
-        const key = `${m.exam_id}_${m.subject_id}`;
-        if (!classAvg[key]) classAvg[key] = { sum:0, cnt:0 };
-        classAvg[key].sum += Number(m.marks||0);
-        classAvg[key].cnt++;
-      });
+        subjects.forEach(sub => {
+            // Per-student per-term scores
+            const studentTermScores: Record<number, Record<number, number>> = {};
+            filtStudents.forEach(st => { studentTermScores[st.id] = {}; });
 
-      const detected: any[] = [];
-      (marks||[]).forEach((m:any) => {
-        const score = Number(m.marks||0);
-        const key = `${m.student_id}_${m.subject_id}`;
-        const hist = history[key] || [];
-        const prevScores = hist.slice(0, hist.length - 1);
-        const prevAvg = prevScores.length ? prevScores.reduce((a,b)=>a+b,0)/prevScores.length : null;
-        const classKey = `${m.exam_id}_${m.subject_id}`;
-        const ca = classAvg[classKey];
-        const mean = ca ? ca.sum / ca.cnt : null;
+            marks.filter(m => m.subject_id === sub.id && filtStudents.some(s => s.id === m.student_id))
+                .forEach(m => {
+                    if (!studentTermScores[m.student_id]) studentTermScores[m.student_id] = {};
+                    studentTermScores[m.student_id][m.term_id] = Number(m.score);
+                });
 
-        const issues: { type:string; severity:'High'|'Medium'|'Low' }[] = [];
+            // ── 1. Score jump/drop detection (>30 marks between terms) ──
+            filtStudents.forEach(st => {
+                const termScores = studentTermScores[st.id] || {};
+                const termIds = terms.map(t => t.id).filter(id => termScores[id] !== undefined);
+                for (let i = 1; i < termIds.length; i++) {
+                    const prev = termScores[termIds[i - 1]];
+                    const curr = termScores[termIds[i]];
+                    const diff = curr - prev;
+                    const termName = terms.find(t => t.id === termIds[i])?.term_name || '';
+                    if (diff >= 30) {
+                        results.push({
+                            type: 'score_jump', severity: diff >= 40 ? 'High' : 'Medium',
+                            student: `${st.first_name} ${st.last_name}`, subject: sub.subject_name, term: termName,
+                            value: curr, previous: prev,
+                            description: `Score jumped +${diff.toFixed(0)} marks (${prev.toFixed(0)}% → ${curr.toFixed(0)}%) in ${sub.subject_name}`,
+                        });
+                    } else if (diff <= -30) {
+                        results.push({
+                            type: 'score_drop', severity: diff <= -40 ? 'High' : 'Medium',
+                            student: `${st.first_name} ${st.last_name}`, subject: sub.subject_name, term: termName,
+                            value: curr, previous: prev,
+                            description: `Score dropped ${diff.toFixed(0)} marks (${prev.toFixed(0)}% → ${curr.toFixed(0)}%) in ${sub.subject_name}`,
+                        });
+                    }
+                }
+            });
 
-        // Anomaly 1: Score spike (>25 above their own average)
-        if (prevAvg !== null && prevScores.length >= 2 && score - prevAvg > 25) {
-          issues.push({ type: `Score Spike: +${Math.round(score-prevAvg)}% above own average`, severity: score - prevAvg > 40 ? 'High' : 'Medium' });
-        }
-        // Anomaly 2: Perfect score
-        if (score === 100) issues.push({ type: 'Perfect Score (100%)', severity: 'Medium' });
-        // Anomaly 3: Outlier from class mean
-        if (mean !== null) {
-          const allScores = (marks||[]).filter((mm:any)=>mm.exam_id===m.exam_id&&mm.subject_id===m.subject_id).map((mm:any)=>Number(mm.marks||0));
-          const sd = stdDev(allScores);
-          if (sd > 0 && Math.abs(score - mean) > 2.5 * sd) {
-            issues.push({ type: `Statistical Outlier: ${Math.round(Math.abs(score-mean)/sd*10)/10}σ from class mean`, severity: Math.abs(score-mean)/sd > 3 ? 'High' : 'Medium' });
-          }
-        }
-        // Anomaly 4: Dramatic improvement >30 points
-        if (prevAvg !== null && prevScores.length >= 1 && score - prevAvg > 30 && score - prevAvg <= 25 === false) {
-          if (issues.length === 0) issues.push({ type: `Dramatic Improvement: +${Math.round(score-prevAvg)}pts from previous avg`, severity: 'Low' });
-        }
+            // ── 2. Statistical outlier detection (mean ± 2.5 std dev) ──
+            terms.forEach(term => {
+                const termMarks = marks.filter(m => m.subject_id === sub.id && m.term_id === term.id && filtStudents.some(s => s.id === m.student_id));
+                if (termMarks.length < 5) return;
+                const scores = termMarks.map(m => Number(m.score));
+                const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+                const variance = scores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / scores.length;
+                const stdDev = Math.sqrt(variance);
+                const threshold = 2.5;
 
-        if (issues.length > 0) {
-          const st = studentMap[m.student_id] || {};
-          detected.push({
-            id: m.id,
-            studentName: `${st.first_name||'Unknown'} ${st.last_name||''}`,
-            admNo: st.admission_no || '—',
-            exam: examMap[m.exam_id] || '—',
-            subject: subjectMap[m.subject_id] || '—',
-            score,
-            prevAvg: prevAvg !== null ? Math.round(prevAvg) : null,
-            deviation: prevAvg !== null ? Math.round(score - prevAvg) : null,
-            anomalyType: issues[0].type,
-            severity: issues[0].severity,
-          });
-        }
-      });
+                termMarks.forEach(m => {
+                    const score = Number(m.score);
+                    const zScore = stdDev > 0 ? Math.abs((score - mean) / stdDev) : 0;
+                    if (zScore >= threshold) {
+                        const st = filtStudents.find(s => s.id === m.student_id);
+                        if (!st) return;
+                        const isHigh = score > mean;
+                        results.push({
+                            type: isHigh ? 'outlier_high' : 'outlier_low',
+                            severity: zScore >= 3 ? 'High' : 'Medium',
+                            student: `${st.first_name} ${st.last_name}`, subject: sub.subject_name, term: term.term_name,
+                            value: score, classAvg: Math.round(mean * 10) / 10,
+                            description: `${isHigh ? '📈 Unusually high' : '📉 Unusually low'} score: ${score.toFixed(0)}% vs class avg ${mean.toFixed(1)}% (z=${zScore.toFixed(1)})`,
+                        });
+                    }
+                });
 
-      setAnomalies(detected.sort((a,b) => { const ord: Record<string,number> = { High:0, Medium:1, Low:2 }; return ord[a.severity]-ord[b.severity]; }));
-      setLoading(false);
-    })();
-  }, [refresh]);
+                // ── 3. Perfect score cluster (>20% of class scores 95-100) ──
+                const perfectCount = scores.filter(s => s >= 95).length;
+                if (perfectCount / scores.length > 0.20 && scores.length >= 10) {
+                    results.push({
+                        type: 'perfect_score_cluster', severity: perfectCount / scores.length > 0.35 ? 'High' : 'Medium',
+                        subject: sub.subject_name, term: term.term_name,
+                        value: Math.round((perfectCount / scores.length) * 100),
+                        description: `🚨 ${perfectCount} students (${Math.round((perfectCount / scores.length) * 100)}%) scored 95%+ in ${sub.subject_name} — possible irregularity`,
+                    });
+                }
 
-  const filtered = anomalies.filter(a => filter === 'all' || a.severity === filter).filter(a => !cleared.has(a.id));
-  const high   = anomalies.filter(a=>a.severity==='High'&&!cleared.has(a.id)).length;
-  const medium = anomalies.filter(a=>a.severity==='Medium'&&!cleared.has(a.id)).length;
-  const low    = anomalies.filter(a=>a.severity==='Low'&&!cleared.has(a.id)).length;
-  const clean  = Math.max(0, (anomalies.length > 0 ? 100 : 100) - Math.round(filtered.length / Math.max(1, anomalies.length + 50) * 100));
+                // ── 4. Class average drop >15 marks vs previous term ──
+                const prevTerm = terms[terms.findIndex(t => t.id === term.id) - 1];
+                if (prevTerm) {
+                    const prevMarks = marks.filter(m => m.subject_id === sub.id && m.term_id === prevTerm.id && filtStudents.some(s => s.id === m.student_id));
+                    if (prevMarks.length >= 5) {
+                        const prevMean = prevMarks.reduce((a, m) => a + Number(m.score), 0) / prevMarks.length;
+                        const drop = prevMean - mean;
+                        if (drop >= 15) {
+                            results.push({
+                                type: 'class_avg_drop', severity: drop >= 20 ? 'High' : 'Medium',
+                                subject: sub.subject_name, term: term.term_name,
+                                value: Math.round(mean * 10) / 10, previous: Math.round(prevMean * 10) / 10,
+                                description: `Class average dropped ${drop.toFixed(1)} marks in ${sub.subject_name} (${prevMean.toFixed(1)}% → ${mean.toFixed(1)}%) — check teaching or exam difficulty`,
+                            });
+                        }
+                    }
+                }
+            });
+        });
 
-  const sevCfg: Record<string,{ color:string; bg:string; glow:string }> = {
-    High:   { color:'#dc2626', bg:'#fef2f2', glow:'0 0 12px rgba(220,38,38,0.3)' },
-    Medium: { color:'#d97706', bg:'#fffbeb', glow:'0 0 12px rgba(217,119,6,0.25)' },
-    Low:    { color:'#0891b2', bg:'#ecfeff', glow:'0 0 12px rgba(8,145,178,0.2)' },
-  };
+        return results.sort((a, b) => {
+            const s = { High: 0, Medium: 1, Low: 2 };
+            return s[a.severity] - s[b.severity];
+        });
+    }, [subjects, students, marks, terms, selForm]);
 
-  const exportCSV = () => {
-    const rows = [['Student','Adm No','Exam','Subject','Score','Prev Avg','Deviation','Anomaly Type','Severity'],
-      ...filtered.map(a=>[a.studentName,a.admNo,a.exam,a.subject,a.score,a.prevAvg??'N/A',a.deviation??'N/A',a.anomalyType,a.severity])];
-    const el = document.createElement('a'); el.href='data:text/csv,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')); el.download='integrity_report.csv'; el.click();
-  };
+    const filtered = useMemo(() => filterSev === 'All' ? anomalies : anomalies.filter(a => a.severity === filterSev), [anomalies, filterSev]);
+    const highCount = anomalies.filter(a => a.severity === 'High').length;
+    const medCount = anomalies.filter(a => a.severity === 'Medium').length;
 
-  const integrityBar = { labels:['High Risk','Medium','Low Risk','Clean'], datasets:[{ data:[high,medium,low,clean], backgroundColor:['#dc2626','#d97706','#0891b2','#059669'], borderRadius:8 }] };
+    const typeIcon = (t: string) => ({ score_jump: '📈', score_drop: '📉', outlier_high: '⬆️', outlier_low: '⬇️', class_avg_drop: '📊', perfect_score_cluster: '🚨' })[t] || '⚠️';
+    const sevColor = (s: string) => s === 'High' ? '#dc2626' : s === 'Medium' ? '#d97706' : '#059669';
+    const sevBg = (s: string) => s === 'High' ? '#fef2f2' : s === 'Medium' ? '#fffbeb' : '#f0fdf4';
 
-  return (
-    <div className="space-y-6">
-      <style>{`@media print { .no-print{display:none!important;} body{-webkit-print-color-adjust:exact;print-color-adjust:exact;} }`}</style>
+    if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full" /></div>;
 
-      {/* HEADER */}
-      <div className="relative overflow-hidden rounded-2xl" style={{ background:'linear-gradient(135deg,#1a0000,#450a0a,#7f1d1d)', minHeight:185 }}>
-        <div className="absolute inset-0" style={{ background:'radial-gradient(ellipse at 10% 50%,rgba(239,68,68,0.3) 0%,transparent 60%)' }} />
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage:'radial-gradient(circle at 1px 1px,#fff 1px,transparent 0)', backgroundSize:'20px 20px' }} />
-        <div className="absolute top-4 right-10 w-32 h-32 opacity-20" style={{ background:'radial-gradient(circle,#fca5a5,transparent)', filter:'blur(30px)' }} />
-        <div className="relative px-6 py-7 flex justify-between items-start">
-          <div>
-            <div className="flex items-center gap-2 mb-2"><FiShield size={14} className="text-red-300"/><span className="text-[10px] font-bold text-red-300 uppercase tracking-widest">Examination Security System</span></div>
-            <h1 className="text-3xl font-black text-white">🛡️ Exam Integrity Monitor</h1>
-            <p className="text-white/50 text-sm mt-2">Statistical anomaly detection — identify irregularities before they become problems</p>
-            <div className="mt-5 flex gap-8">
-              {[{ label:'High Severity', v:high, c:'#fca5a5' },{ label:'Medium', v:medium, c:'#fcd34d' },{ label:'Low', v:low, c:'#93c5fd' },{ label:'Integrity Score', v:clean+'%', c:'#6ee7b7' }].map(k=>(
-                <div key={k.label}><p className="text-2xl font-black" style={{ color:k.c }}>{k.v}</p><p className="text-[10px] text-white/40 font-bold uppercase">{k.label}</p></div>
-              ))}
+    return (
+        <div style={{ minHeight: '100vh', background: '#f8fafc', padding: 24 }}>
+            {/* Header */}
+            <div style={{ background: 'linear-gradient(135deg,#991b1b,#dc2626)', borderRadius: 16, padding: '20px 28px', marginBottom: 24, color: '#fff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                    <div>
+                        <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>🛡️ Exam Integrity & Anomaly Detection</h1>
+                        <p style={{ margin: '4px 0 0', opacity: 0.85, fontSize: 13 }}>Statistical outliers · Score jumps · Class average drops · Cluster detection</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <select value={selForm} onChange={e => setSelForm(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, fontSize: 13 }}>
+                            <option value="" style={{ color: '#1e293b' }}>All Forms</option>
+                            {forms.map((f: any) => <option key={f.id} value={f.id} style={{ color: '#1e293b' }}>{f.form_name}</option>)}
+                        </select>
+                        <button onClick={load} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8, padding: '8px 14px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13 }}>
+                            <FiRefreshCw size={14} /> Scan
+                        </button>
+                    </div>
+                </div>
+                {/* Summary */}
+                <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
+                    {[
+                        { label: 'Total Flags', value: anomalies.length, color: '#fff' },
+                        { label: '🔴 High Severity', value: highCount, color: '#fca5a5' },
+                        { label: '🟡 Medium Severity', value: medCount, color: '#fde68a' },
+                        { label: 'Types Detected', value: new Set(anomalies.map(a => a.type)).size, color: '#fff' },
+                    ].map((s, i) => (
+                        <div key={i} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: '10px 18px', minWidth: 100, textAlign: 'center' }}>
+                            <div style={{ fontSize: 22, fontWeight: 900, color: s.color }}>{s.value}</div>
+                            <div style={{ fontSize: 11, opacity: 0.9 }}>{s.label}</div>
+                        </div>
+                    ))}
+                </div>
             </div>
-          </div>
-          <div className="flex gap-2 flex-col mt-1 no-print">
-            <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white border border-white/20 hover:bg-white/10"><FiDownload size={13}/>Export CSV</button>
-            <button onClick={()=>window.print()} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white border border-white/20 hover:bg-white/10"><FiPrinter size={13}/>Print Report</button>
-            <button onClick={()=>setRefresh(r=>r+1)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white border border-white/20 hover:bg-white/10"><FiRefreshCw size={13}/>Re-scan</button>
-          </div>
-        </div>
-      </div>
 
-      {/* CHART + SUMMARY */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Integrity Score Breakdown</p>
-          <div style={{ height:200 }}>
-            <Bar data={integrityBar} options={{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,grid:{color:'#f8fafc'}}, x:{grid:{display:false}} } }} />
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Anomaly Types Detected</p>
-          {[
-            { icon:'📈', label:'Score Spike', desc:'Score >25pts above own avg' },
-            { icon:'💯', label:'Perfect Score', desc:'Student scored exactly 100%' },
-            { icon:'📊', label:'Statistical Outlier', desc:'>2.5σ from class mean' },
-            { icon:'🚀', label:'Dramatic Improvement', desc:'>30 point jump from prior avg' },
-          ].map(t => (
-            <div key={t.label} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
-              <span className="text-xl">{t.icon}</span>
-              <div><p className="text-xs font-bold text-gray-800">{t.label}</p><p className="text-[10px] text-gray-400">{t.desc}</p></div>
+            {/* Filters */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                {['All', 'High', 'Medium', 'Low'].map(sev => (
+                    <button key={sev} onClick={() => setFilterSev(sev)}
+                        style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12,
+                            background: filterSev === sev ? sevColor(sev) : '#fff',
+                            color: filterSev === sev ? '#fff' : '#475569',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                        {sev === 'All' ? `All (${anomalies.length})` : `${sev} (${anomalies.filter(a => a.severity === sev).length})`}
+                    </button>
+                ))}
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* FILTER + ANOMALY TABLE */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap gap-3 items-center no-print">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-auto">Detected Anomalies</p>
-          {(['all','High','Medium','Low'] as const).map(v=>(
-            <button key={v} onClick={()=>setFilter(v)} className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${filter===v?'text-white shadow-sm':'bg-gray-100 text-gray-600'}`}
-              style={filter===v?{ background: v==='High'?'#dc2626':v==='Medium'?'#d97706':v==='Low'?'#0891b2':'#6366f1' }:{}}>
-              {v==='all'?'All':v}
-            </button>
-          ))}
-          <span className="text-xs text-gray-400">{filtered.length} records</span>
+            {/* Anomaly List */}
+            {filtered.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 60, background: '#fff', borderRadius: 14, color: '#94a3b8' }}>
+                    <FiShield size={48} style={{ margin: '0 auto 12px', color: '#059669' }} />
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#059669' }}>✅ No anomalies detected!</div>
+                    <div style={{ fontSize: 13, marginTop: 6 }}>All scores are within normal statistical range</div>
+                </div>
+            ) : (
+                <div style={{ display: 'grid', gap: 10 }}>
+                    {filtered.map((a, i) => (
+                        <div key={i} style={{ background: sevBg(a.severity), borderRadius: 12, padding: '14px 20px', border: `1.5px solid ${sevColor(a.severity)}40`, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                            <div style={{ fontSize: 24, flexShrink: 0 }}>{typeIcon(a.type)}</div>
+                            <div style={{ flex: 1, minWidth: 200 }}>
+                                <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 3 }}>{a.description}</div>
+                                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11, color: '#64748b' }}>
+                                    {a.student && <span>👤 {a.student}</span>}
+                                    {a.subject && <span>📚 {a.subject}</span>}
+                                    {a.term && <span>📅 {a.term}</span>}
+                                    {a.classAvg !== undefined && <span>Class avg: {a.classAvg}%</span>}
+                                    {a.value !== undefined && a.previous !== undefined && <span>{a.previous}% → {a.value}%</span>}
+                                </div>
+                            </div>
+                            <div style={{ flexShrink: 0 }}>
+                                <span style={{ background: sevColor(a.severity), color: '#fff', fontWeight: 900, fontSize: 11, padding: '3px 10px', borderRadius: 6 }}>
+                                    {a.severity} Risk
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Detection methodology */}
+            <div style={{ background: '#fff', borderRadius: 12, padding: 20, marginTop: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                <div style={{ fontWeight: 800, fontSize: 13, color: '#1e293b', marginBottom: 12 }}>🔍 Detection Methodology</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 10 }}>
+                    {[
+                        { icon: '📈', title: 'Score Jump', desc: 'Student score increases ≥30 marks between consecutive terms' },
+                        { icon: '📉', title: 'Score Drop', desc: 'Student score decreases ≥30 marks between consecutive terms' },
+                        { icon: '⬆️', title: 'Outlier High', desc: 'Score is ≥2.5 standard deviations above class mean' },
+                        { icon: '⬇️', title: 'Outlier Low', desc: 'Score is ≥2.5 standard deviations below class mean' },
+                        { icon: '📊', title: 'Class Avg Drop', desc: 'Class average drops ≥15 marks from previous term' },
+                        { icon: '🚨', title: 'Perfect Cluster', desc: 'More than 20% of class scores 95%+ — possible leakage' },
+                    ].map((m, i) => (
+                        <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', display: 'flex', gap: 8 }}>
+                            <span style={{ fontSize: 18, flexShrink: 0 }}>{m.icon}</span>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: 12, color: '#1e293b' }}>{m.title}</div>
+                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{m.desc}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
-        {loading ? <div className="p-10 text-center text-gray-400">Scanning exam data for anomalies…</div>
-          : filtered.length === 0 ? (
-            <div className="p-12 text-center">
-              <FiCheckCircle size={40} className="text-green-400 mx-auto mb-3" />
-              <p className="font-bold text-gray-700">No anomalies detected{filter!=='all'?' in this category':''}!</p>
-              <p className="text-sm text-gray-400 mt-1">{anomalies.length === 0 ? 'Add exam marks to begin integrity monitoring' : 'All records appear statistically normal'}</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr>{['Student','Adm No','Exam','Subject','Score','Prev Avg','Deviation','Anomaly Type','Severity','Actions'].map(h=>(
-                    <th key={h} className="px-3 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                  ))}</tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filtered.map(a=>{
-                    const cfg = sevCfg[a.severity] || sevCfg.Low;
-                    return (
-                      <tr key={a.id} className="hover:bg-red-50/30 transition-colors">
-                        <td className="px-3 py-3 font-semibold text-gray-800 whitespace-nowrap">{a.studentName}</td>
-                        <td className="px-3 py-3 text-xs font-mono text-gray-400">{a.admNo}</td>
-                        <td className="px-3 py-3 text-xs text-gray-600 whitespace-nowrap">{a.exam}</td>
-                        <td className="px-3 py-3 text-xs text-indigo-600 font-medium whitespace-nowrap">{a.subject}</td>
-                        <td className="px-3 py-3 font-black text-gray-800">{a.score}%</td>
-                        <td className="px-3 py-3 text-gray-500">{a.prevAvg!=null?a.prevAvg+'%':'—'}</td>
-                        <td className="px-3 py-3 font-bold" style={{ color:a.deviation>=0?'#059669':'#dc2626' }}>{a.deviation!=null?(a.deviation>=0?'+':'')+a.deviation:'—'}</td>
-                        <td className="px-3 py-3 text-xs text-gray-600 max-w-[180px] truncate" title={a.anomalyType}>{a.anomalyType}</td>
-                        <td className="px-3 py-3"><span className="px-2 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap" style={{ color:cfg.color, background:cfg.bg, boxShadow:cfg.glow }}>{a.severity}</span></td>
-                        <td className="px-3 py-3 no-print">
-                          <div className="flex gap-1">
-                            <button onClick={()=>setFlagged(s=>new Set([...s,a.id]))} className={`px-2 py-1 rounded text-[10px] font-bold ${flagged.has(a.id)?'bg-red-100 text-red-700':'bg-gray-100 text-gray-600 hover:bg-red-50'}`}>🚩 Flag</button>
-                            <button onClick={()=>setCleared(s=>new Set([...s,a.id]))} className="px-2 py-1 rounded text-[10px] font-bold bg-gray-100 text-gray-600 hover:bg-green-50">✅ Clear</button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-      </div>
-    </div>
-  );
+    );
 }
