@@ -190,6 +190,7 @@ const menuGroups = [
             { href: '/dashboard/exams/cbc-reports/competency-wheel', label: '☯️ CBC Competency Wheel', icon: FiGrid, perm: 'exams' },
             { href: '/dashboard/exams/cbc-reports/pathway-engine',   label: '🛤️ CBC Pathway Engine',  icon: FiTrendingUp, perm: 'exams' },
             { href: '/dashboard/exams/cbc-reports/rubric-analytics', label: '📏 CBC Rubric Analytics', icon: FiBarChart2, perm: 'exams' },
+            { href: '/dashboard/exams/university-predictor',         label: '🎓 University Predictor', icon: FiAward,     perm: 'exams' },
         ]
     },
     {
