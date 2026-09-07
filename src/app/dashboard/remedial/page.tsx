@@ -141,8 +141,8 @@ export default function RemedialPage() {
       supabase.from('school_forms').select('*').order('form_level'),
       supabase.from('school_streams').select('*').order('stream_name'),
       supabase.from('school_remedial_terms').select('*').order('id', { ascending: false }),
-      supabase.from('school_remedial_enrollments').select('id,student_id,term_id,enrolled_at, school_students(id,first_name,last_name,admission_number,form_id,stream_id)').order('enrolled_at', { ascending: false }),
-      supabase.from('school_remedial_payments').select('id,student_id,term_id,amount,payment_method,receipt_number,notes,payment_date,created_at, school_students(id,first_name,last_name,admission_number,form_id,stream_id)').order('created_at', { ascending: false }),
+      supabase.from('school_remedial_enrollments').select('id,student_id,term_id,enrolled_at').order('enrolled_at', { ascending: false }),
+      supabase.from('school_remedial_payments').select('id,student_id,term_id,amount,payment_method,receipt_number,notes,payment_date,created_at').order('created_at', { ascending: false }),
     ]);
     setStudents(s.data || []);
     setForms(f.data || []);
@@ -185,7 +185,7 @@ export default function RemedialPage() {
     const rows = enrollments
       .filter(e => e.term_id === termNum)
       .map(e => {
-        const st = e.school_students || students.find(s => s.id === e.student_id);
+        const st = students.find(s => s.id === e.student_id);
         const paid = getPaidForEnrollment(e.student_id, termNum);
         const due = Number(term?.fee_amount || 0);
         const balance = due - paid;
@@ -199,7 +199,7 @@ export default function RemedialPage() {
           streamId: st?.stream_id,
           formName: getFormName(st?.form_id),
           streamName: getStreamName(st?.stream_id),
-          termName: `${e.school_remedial_terms?.term_name || term?.term_name || ''}`,
+          termName: term?.term_name || '',
           due, paid, balance, status,
           enrolledAt: e.enrolled_at,
         };
