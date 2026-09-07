@@ -80,7 +80,7 @@ export default function BudgetPage() {
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
-        const { data, error } = await supabase.from('school_budget_votes').select('*').eq('academic_year', year).order('budget_amount', { ascending: false });
+        const { data, error } = await supabase.from('school_budget_votes').select('*').eq('academic_year', year).order('id', { ascending: false });
         if (error) toast.error(error.message);
         setVotes(data || []);
         setLoading(false);
