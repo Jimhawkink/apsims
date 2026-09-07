@@ -206,35 +206,82 @@ function useAnalysisData() {
         .filter(Boolean) as SubjectPerf[],
         [subjects, termMarks, grading, getGrade]);
 
-    // ── Student performance ────────────────────────────────────────────────────
+    // ── Student performance — KNEC CORRECT (CAT 30% + EndTerm 70% weighted, Best-7 mean grade) ──
     const studentPerf: StudentPerf[] = useMemo(() => {
         return classStudents.map(student => {
-            const sm = termMarks.filter(m => m.student_id === student.id);
-            if (sm.length === 0) return null;
+            // Get ALL marks for this student this term (all exam types)
+            const allTermMarks = allMarks.filter(m =>
+                m.student_id === student.id && (!selTerm || String(m.term_id) === selTerm)
+            );
+            if (allTermMarks.length === 0) return null;
+
+            // Group by subject and compute KNEC-weighted score per subject
+            const bySubject = new Map<number, any[]>();
+            allTermMarks.forEach(m => {
+                if (!bySubject.has(m.subject_id)) bySubject.set(m.subject_id, []);
+                bySubject.get(m.subject_id)!.push(m);
+            });
+
             const subjectScores: Record<number, number> = {};
-            sm.forEach(m => { subjectScores[m.subject_id] = Number(m.score); });
+            const subjectPoints: Record<number, number> = {};
+            bySubject.forEach((subMarks, subjectId) => {
+                // CAT 30% + End-Term 70% weighting
+                const cats = subMarks.filter(m => /cat\s*\d?|continuous|test\s*\d/i.test(m.exam_type || ''));
+                const endTerm = subMarks.find(m => /end.?term|final/i.test(m.exam_type || ''));
+                const selType = subMarks.find(m => m.exam_type === selExamType);
+                let weightedScore: number;
+                if (cats.length > 0 && endTerm) {
+                    const catAvg = cats.reduce((a: number, m: any) => a + Number(m.score), 0) / cats.length;
+                    weightedScore = catAvg * 0.30 + Number(endTerm.score) * 0.70;
+                } else if (selType) {
+                    weightedScore = Number(selType.score);
+                } else {
+                    weightedScore = subMarks.reduce((a: number, m: any) => a + Number(m.score), 0) / subMarks.length;
+                }
+                subjectScores[subjectId] = Math.round(weightedScore * 10) / 10;
+                subjectPoints[subjectId] = getGrade(subjectScores[subjectId]).points;
+            });
+
             const scores = Object.values(subjectScores);
             const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-            // Best 7 for KCSE
-            const sortedResults = sm.map(m => ({
-                subId: m.subject_id, score: Number(m.score), points: getGrade(Number(m.score)).points
-            })).sort((a, b) => b.points - a.points || b.score - a.score);
-            const best7 = showBest7 ? sortedResults.slice(0, 7) : sortedResults;
+
+            // KNEC Best-7: English + Kiswahili mandatory, then best 5 by points
+            const allResults = Object.keys(subjectScores).map(Number).map(subId => {
+                const sub = subjects.find(s => s.id === subId);
+                return { subId, score: subjectScores[subId], points: subjectPoints[subId], name: sub?.subject_name || '' };
+            });
+            const english = allResults.find(r => /^english$/i.test(r.name.trim()));
+            const kiswa   = allResults.find(r => /^kiswahili$/i.test(r.name.trim()));
+            const mandatory = [english, kiswa].filter(Boolean) as typeof allResults;
+            const mandIds = new Set(mandatory.map(r => r.subId));
+            const others  = allResults.filter(r => !mandIds.has(r.subId)).sort((a, b) => b.points - a.points);
+            const best7   = showBest7 ? [...mandatory, ...others.slice(0, 7 - mandatory.length)] : allResults;
             const totalPoints = best7.reduce((a, b) => a + b.points, 0);
+
+            // KNEC mean grade from total points table
+            const MEAN_TABLE = [
+                {g:'A',min:81},{g:'A-',min:74},{g:'B+',min:67},{g:'B',min:60},{g:'B-',min:53},
+                {g:'C+',min:46},{g:'C',min:40},{g:'C-',min:33},{g:'D+',min:27},{g:'D',min:21},
+                {g:'D-',min:14},{g:'E',min:7},
+            ];
+            const knecMeanGrade = MEAN_TABLE.find(r => totalPoints >= r.min)?.g || 'E';
+
             const subjectIds = Object.keys(subjectScores).map(Number);
-            const highestId = subjectIds.reduce((a, b) => subjectScores[a] > subjectScores[b] ? a : b, subjectIds[0]);
-            const lowestId = subjectIds.reduce((a, b) => subjectScores[a] < subjectScores[b] ? a : b, subjectIds[0]);
-            const highSub = subjects.find(s => s.id === highestId);
-            const lowSub = subjects.find(s => s.id === lowestId);
+            const highestId  = subjectIds.reduce((a, b) => subjectScores[a] > subjectScores[b] ? a : b, subjectIds[0]);
+            const lowestId   = subjectIds.reduce((a, b) => subjectScores[a] < subjectScores[b] ? a : b, subjectIds[0]);
+            const highSub    = subjects.find(s => s.id === highestId);
+            const lowSub     = subjects.find(s => s.id === lowestId);
             return {
                 student, avg, totalPoints, best7Points: totalPoints,
-                subjectCount: scores.length, meanGrade: getGrade(avg), count: sm.length,
-                highestSubject: highSub ? `${highSub.subject_name} (${subjectScores[highestId]})` : '',
-                lowestSubject: lowSub ? `${lowSub.subject_name} (${subjectScores[lowestId]})` : '',
+                subjectCount: scores.length,
+                meanGrade: { grade: knecMeanGrade, points: Math.round(totalPoints / Math.max(best7.length,1)), min_score: 0, max_score: 100, remarks: '' },
+                count: allTermMarks.length,
+                highestSubject: highSub ? `${highSub.subject_name} (${subjectScores[highestId].toFixed(0)}%)` : '',
+                lowestSubject:  lowSub  ? `${lowSub.subject_name} (${subjectScores[lowestId].toFixed(0)}%)` : '',
                 subjectScores,
             };
         }).filter(Boolean) as StudentPerf[];
-    }, [classStudents, termMarks, subjects, getGrade, showBest7]);
+    }, [classStudents, allMarks, selTerm, selExamType, subjects, getGrade, showBest7]);
 
     // ── Stream performance ─────────────────────────────────────────────────────
     const streamPerf: StreamPerf[] = useMemo(() => streams.map(stream => {
