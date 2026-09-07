@@ -187,7 +187,7 @@ export default function RemedialPage() {
       .map(e => {
         const st = e.school_students || students.find(s => s.id === e.student_id);
         const paid = getPaidForEnrollment(e.student_id, termNum);
-        const due = Number(e.amount_due);
+        const due = Number(term?.fee_amount || 0);
         const balance = due - paid;
         const status = getStatus(due, paid);
         return {
@@ -199,7 +199,7 @@ export default function RemedialPage() {
           streamId: st?.stream_id,
           formName: getFormName(st?.form_id),
           streamName: getStreamName(st?.stream_id),
-          termName: `${e.school_remedial_terms?.term_name || term?.term_name} ${e.school_remedial_terms?.year || term?.year}`,
+          termName: `${e.school_remedial_terms?.term_name || term?.term_name || ''}`,
           due, paid, balance, status,
           enrolledAt: e.enrolled_at,
         };
@@ -263,7 +263,6 @@ export default function RemedialPage() {
       payment_method: qpMethod,
       receipt_number: qpReceipt || genReceipt(),
       notes: qpNotes || null,
-      created_by: 'admin',
     }]);
     if (error) { toast.error('Payment failed: ' + error.message); setQpSaving(false); return; }
 
@@ -280,10 +279,8 @@ export default function RemedialPage() {
           await supabase.from('school_remedial_enrollments').insert([{
             student_id: quickPayTarget.studentId,
             remedial_term_id: nextTerm.id,
-            amount_due: Math.max(0, Number(nextTerm.fee_amount) - credit),
-            created_by: 'admin',
           }]).then(({ error: e2 }) => {
-            if (!e2) toast(`💳 KES ${credit.toLocaleString()} credit carried to ${nextTerm.term_name} ${nextTerm.year}`, { icon: '✅' });
+            if (!e2) toast(`KES ${credit.toLocaleString()} credit noted for ${nextTerm.term_name}`, { icon: '💳' });
           });
         }
       }
@@ -301,9 +298,11 @@ export default function RemedialPage() {
     const amt = Number(editAmount);
     if (!amt || amt <= 0) return toast.error('Enter valid amount');
     setEditSaving(true);
-    const { error } = await supabase.from('school_remedial_enrollments').update({ amount_due: amt }).eq('id', editTarget.enrId);
+    // amount_due does not exist on enrollments — update the term fee instead
+    const termId = Number(rosterTerm);
+    const { error } = await supabase.from('school_remedial_terms').update({ fee_amount: amt }).eq('id', termId);
     if (error) { toast.error('Update failed: ' + error.message); setEditSaving(false); return; }
-    toast.success('Amount updated');
+    toast.success('Term fee updated for all students in this term');
     setEditTarget(null); fetchAll(true); setEditSaving(false);
   };
 
@@ -327,8 +326,9 @@ export default function RemedialPage() {
   const getStudentBalance = (studentId: number, termId: number) => {
     const enr = enrollments.find(e => e.student_id === studentId && e.remedial_term_id === termId);
     if (!enr) return null;
+    const due = Number(terms.find(t => t.id === termId)?.fee_amount || 0);
     const paid = getPaidForEnrollment(studentId, termId);
-    return { due: Number(enr.amount_due), paid, balance: Number(enr.amount_due) - paid };
+    return { due, paid, balance: due - paid };
   };
 
   const handleEnrollAndPay = async () => {
@@ -341,8 +341,7 @@ export default function RemedialPage() {
     const existing = enrollments.find(e => e.student_id === selStudent.id && e.remedial_term_id === termId);
     if (!existing) {
       const { error: enrErr } = await supabase.from('school_remedial_enrollments').insert([{
-        student_id: selStudent.id, remedial_term_id: termId,
-        amount_due: term?.fee_amount || 1500, created_by: 'admin'
+        student_id: selStudent.id, remedial_term_id: termId
       }]);
       if (enrErr && !enrErr.message.includes('duplicate')) {
         toast.error('Enrollment failed: ' + enrErr.message); setPaying(false); return;
@@ -352,7 +351,7 @@ export default function RemedialPage() {
     const { error } = await supabase.from('school_remedial_payments').insert([{
       student_id: selStudent.id, remedial_term_id: termId, amount: amt,
       payment_method: payMethod, receipt_number: receiptNo,
-      notes: payNotes || null, created_by: 'admin'
+      notes: payNotes || null
     }]);
     if (error) { toast.error('Payment failed: ' + error.message); setPaying(false); return; }
     toast.success(`KES ${amt.toLocaleString()} recorded for ${selStudent.first_name} ${selStudent.last_name}`);
@@ -375,12 +374,11 @@ export default function RemedialPage() {
     const toEnroll = filtered.filter(s => !alreadyEnrolled.has(s.id));
     if (toEnroll.length === 0) { toast('All selected students already enrolled'); setMassEnrolling(false); return; }
     const inserts = toEnroll.map(s => ({
-      student_id: s.id, remedial_term_id: termNum,
-      amount_due: term?.fee_amount || 1500, created_by: 'admin'
+      student_id: s.id, remedial_term_id: termNum
     }));
     const { error } = await supabase.from('school_remedial_enrollments').insert(inserts);
     if (error) { toast.error('Mass enroll failed: ' + error.message); setMassEnrolling(false); return; }
-    toast.success(`✅ ${toEnroll.length} students enrolled for ${term?.term_name} ${term?.year}`);
+    toast.success(`${toEnroll.length} students enrolled for ${term?.term_name}`);
     fetchAll(true); setMassEnrolling(false);
   };
 
@@ -432,13 +430,14 @@ export default function RemedialPage() {
       }
       return true;
     }).map(e => {
+      const due = Number(terms.find(t => t.id === e.remedial_term_id)?.fee_amount || 0);
       const paid = getPaidForEnrollment(e.student_id, e.remedial_term_id);
-      return { ...e, paid, balance: Number(e.amount_due) - paid, status: getStatus(Number(e.amount_due), paid) };
+      return { ...e, due, paid, balance: due - paid, amount_due: due, status: getStatus(due, paid) };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enrollments, payments, balTerm, balForm, balStream, balSearch]);
+  }, [enrollments, payments, balTerm, balForm, balStream, balSearch, terms]);
 
-  const totalDue = balanceData.reduce((s, b) => s + Number(b.amount_due), 0);
+  const totalDue = balanceData.reduce((s, b) => s + b.due, 0);
   const totalPaid2 = balanceData.reduce((s, b) => s + b.paid, 0);
   const totalBal = balanceData.reduce((s, b) => s + b.balance, 0);
 
@@ -470,7 +469,10 @@ export default function RemedialPage() {
 
   // ── HEADER STATS ───────────────────────────────────────────────────────────
   const allPaid = enrollments.reduce((s, e) => s + getPaidForEnrollment(e.student_id, e.remedial_term_id), 0);
-  const allBal = enrollments.reduce((s, e) => s + (Number(e.amount_due) - getPaidForEnrollment(e.student_id, e.remedial_term_id)), 0);
+  const allBal = enrollments.reduce((s, e) => {
+    const fee = Number(terms.find(t => t.id === e.remedial_term_id)?.fee_amount || 0);
+    return s + Math.max(0, fee - getPaidForEnrollment(e.student_id, e.remedial_term_id));
+  }, 0);
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
