@@ -150,6 +150,9 @@ export default function RemedialPage() {
     setTerms(t.data || []);
     setEnrollments(e.data || []);
     setPayments(p.data || []);
+    if (e.error) toast.error('Enrollments query failed: ' + e.error.message);
+    if (p.error) toast.error('Payments query failed: ' + p.error.message);
+    if (t.error) toast.error('Terms query failed: ' + t.error.message);
     if (t.data?.length) {
       if (!rosterTerm) setRosterTerm(String(t.data[0].id));
       if (!selTermId) setSelTermId(String(t.data[0].id));
