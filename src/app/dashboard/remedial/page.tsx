@@ -141,8 +141,8 @@ export default function RemedialPage() {
       supabase.from('school_forms').select('*').order('form_level'),
       supabase.from('school_streams').select('*').order('stream_name'),
       supabase.from('school_remedial_terms').select('*').order('id', { ascending: false }),
-      supabase.from('school_remedial_enrollments').select('*, school_students(id,first_name,last_name,admission_number,form_id,stream_id), school_remedial_terms(id,term_name,fee_amount)').order('enrolled_at', { ascending: false }),
-      supabase.from('school_remedial_payments').select('*, school_students(id,first_name,last_name,admission_number,form_id,stream_id), school_remedial_terms(id,term_name)').order('created_at', { ascending: false }),
+      supabase.from('school_remedial_enrollments').select('id,student_id,term_id,enrolled_at, school_students(id,first_name,last_name,admission_number,form_id,stream_id)').order('enrolled_at', { ascending: false }),
+      supabase.from('school_remedial_payments').select('id,student_id,term_id,amount,payment_method,receipt_number,notes,payment_date,created_at, school_students(id,first_name,last_name,admission_number,form_id,stream_id)').order('created_at', { ascending: false }),
     ]);
     setStudents(s.data || []);
     setForms(f.data || []);
