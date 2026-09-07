@@ -1,801 +1,342 @@
 'use client';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import toast from 'react-hot-toast';
-import {
-    FiPrinter, FiDownload, FiRefreshCw, FiTrendingUp, FiTrendingDown,
-    FiAward, FiAlertTriangle, FiUsers, FiBook, FiBarChart2, FiCheckCircle,
-    FiStar, FiTarget, FiZap, FiGrid, FiShield,
-} from 'react-icons/fi';
-import { HiAcademicCap, HiSparkles, HiDocumentReport } from 'react-icons/hi';
-import {
-    Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement,
-    PointElement, ArcElement, Title, Tooltip, Legend, Filler,
-} from 'chart.js';
-import { Bar, Line, Doughnut } from 'react-chartjs-2';
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler);
+import { processStudentAllMarks, computeKNECMeanGrade, getSubjectGrade, vsNational, GRADE_ORDER } from '@/lib/knec-grading';
+import { FiPrinter, FiDownload, FiRefreshCw, FiTrendingUp, FiTrendingDown, FiMinus, FiAward, FiUsers, FiBook } from 'react-icons/fi';
 
-/* ─── GRADE SCALE ─── */
-const GRADE_SCALE = [
-    { min: 75, grade: 'A',  pts: 12, color: '#059669' },
-    { min: 70, grade: 'A-', pts: 11, color: '#10b981' },
-    { min: 65, grade: 'B+', pts: 10, color: '#0891b2' },
-    { min: 60, grade: 'B',  pts:  9, color: '#2563eb' },
-    { min: 55, grade: 'B-', pts:  8, color: '#4f46e5' },
-    { min: 50, grade: 'C+', pts:  7, color: '#7c3aed' },
-    { min: 45, grade: 'C',  pts:  6, color: '#d97706' },
-    { min: 40, grade: 'C-', pts:  5, color: '#f59e0b' },
-    { min: 35, grade: 'D+', pts:  4, color: '#ea580c' },
-    { min: 30, grade: 'D',  pts:  3, color: '#dc2626' },
-    { min: 25, grade: 'D-', pts:  2, color: '#b91c1c' },
-    { min:  0, grade: 'E',  pts:  1, color: '#7f1d1d' },
-];
-const grd = (s: number) => GRADE_SCALE.find(g => s >= g.min) || GRADE_SCALE[GRADE_SCALE.length - 1];
-const pct = (a: number, b: number) => b > 0 ? parseFloat((a / b * 100).toFixed(1)) : 0;
-const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-
-function GradePill({ grade, size = 'sm' }: { grade: string; size?: 'xs' | 'sm' | 'md' }) {
-    const g = GRADE_SCALE.find(gs => gs.grade === grade);
-    const sz = { xs: 'text-[9px] px-1.5 py-0.5', sm: 'text-[10px] px-2 py-0.5', md: 'text-xs px-3 py-1' }[size];
-    return <span className={`${sz} font-black rounded-lg inline-block`} style={{ background: `${g?.color}20`, color: g?.color || '#94a3b8', border: `1px solid ${g?.color || '#94a3b8'}30` }}>{grade}</span>;
-}
-
-function ScoreBar({ score, max = 100 }: { score: number; max?: number }) {
-    const pct = Math.min((score / max) * 100, 100);
-    const g = grd(score);
-    return (
-        <div className="flex items-center gap-2">
-            <div className="flex-1 bg-gray-100 rounded-full h-2">
-                <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: g.color }} />
-            </div>
-            <span className="text-xs font-black w-10 text-right tabular-nums" style={{ color: g.color }}>{score.toFixed(1)}%</span>
-        </div>
-    );
-}
-
-/* ══════════════════════════════════════════════════════════════ */
 export default function PrincipalReportPage() {
-    const printRef = useRef<HTMLDivElement>(null);
-
-    /* ─── State ─── */
+    const [data, setData] = useState<any>({});
+    const [terms, setTerms] = useState<any[]>([]);
+    const [forms, setForms] = useState<any[]>([]);
+    const [selTerm, setSelTerm] = useState('');
+    const [selForm, setSelForm] = useState('');
+    const [school, setSchool] = useState<any>({});
     const [loading, setLoading] = useState(true);
-    const [generating, setGenerating] = useState(false);
-    const [terms, setTerms]         = useState<any[]>([]);
-    const [forms, setForms]         = useState<any[]>([]);
-    const [streams, setStreams]     = useState<any[]>([]);
-    const [subjects, setSubjects]   = useState<any[]>([]);
-    const [students, setStudents]   = useState<any[]>([]);
-    const [teachers, setTeachers]   = useState<any[]>([]);
-    const [marks, setMarks]         = useState<any[]>([]);
-    const [allMarks, setAllMarks]   = useState<any[]>([]);
-    const [subTeachers, setSubTeachers] = useState<any[]>([]);
-    const [discipline, setDiscipline]   = useState<any[]>([]);
-    const [attendance, setAttendance]   = useState<any[]>([]);
-    const [schoolInfo, setSchoolInfo]   = useState<any>(null);
 
-    const [selTerm, setSelTerm]         = useState('');
-    const [selExamType, setSelExamType] = useState('End-Term');
-    const [showReport, setShowReport]   = useState(false);
-    const [activeSection, setActiveSection] = useState<string>('executive');
-
-    const EXAM_TYPES = ['CAT 1','CAT 2','Mid-Term','End-Term','Mock','Pre-Mock','Trial'];
-
-    /* ─── FETCH BASE ─── */
-    const fetchBase = useCallback(async () => {
+    const load = useCallback(async () => {
         setLoading(true);
-        const [tRes, fRes, stRes, subRes, studRes, tchRes, stRes2, discRes, attRes, schoolRes] = await Promise.all([
-            supabase.from('school_terms').select('*').order('id', { ascending: false }),
+        const [sRes, subRes, mRes, gRes, tRes, fRes, stRes, schRes] = await Promise.all([
+            supabase.from('school_students').select('*').eq('status','Active'),
+            supabase.from('school_subjects').select('*').eq('is_active',true),
+            supabase.from('school_exam_marks').select('*'),
+            supabase.from('school_grading_system').select('*').order('points',{ascending:false}),
+            supabase.from('school_terms').select('*').order('id',{ascending:false}),
             supabase.from('school_forms').select('*').order('form_level'),
-            supabase.from('school_streams').select('*').order('stream_name'),
-            supabase.from('school_subjects').select('*').eq('is_active', true).order('subject_name'),
-            supabase.from('school_students').select('id,first_name,last_name,admission_no,admission_number,form_id,stream_id,gender').eq('status', 'Active').order('first_name'),
-            supabase.from('school_teachers').select('id,first_name,last_name,tsc_number').order('first_name'),
-            supabase.from('school_subject_teachers').select('*'),
-            supabase.from('school_discipline_records').select('*').order('incident_date', { ascending: false }),
-            supabase.from('school_attendance').select('student_id,status,attendance_date').order('attendance_date', { ascending: false }).limit(5000),
+            supabase.from('school_streams').select('*'),
             supabase.from('school_settings').select('*').limit(1).maybeSingle(),
         ]);
-        setTerms(tRes.data || []);
-        setForms(fRes.data || []);
-        setStreams(stRes.data || []);
-        setSubjects(subRes.data || []);
-        setStudents(studRes.data || []);
-        setTeachers(tchRes.data || []);
-        setSubTeachers(stRes2.data || []);
-        setDiscipline(discRes.data || []);
-        setAttendance(attRes.data || []);
-        setSchoolInfo(schoolRes.data);
-        if ((tRes.data || []).length > 0) setSelTerm(String((tRes.data as any[])[0].id));
+        const cur = (tRes.data||[]).find((t:any)=>t.is_current);
+        if(cur) setSelTerm(String(cur.id));
+        setTerms(tRes.data||[]); setForms(fRes.data||[]);
+        setSchool(schRes.data||{});
+        setData({ students: sRes.data||[], subjects: subRes.data||[], marks: mRes.data||[], grading: gRes.data||[], streams: stRes.data||[] });
         setLoading(false);
     }, []);
 
-    useEffect(() => { fetchBase(); }, []);
+    useEffect(()=>{load();},[load]);
 
-    /* ─── GENERATE REPORT ─── */
-    const generateReport = useCallback(async () => {
-        if (!selTerm) { toast.error('Select a term'); return; }
-        setGenerating(true);
-        const { data: termMarks } = await supabase
-            .from('school_exam_marks')
-            .select('*')
-            .eq('term_id', Number(selTerm))
-            .eq('exam_type', selExamType);
-        const { data: prevTermMarks } = await Promise.resolve(
-            terms.length > 1
-                ? supabase.from('school_exam_marks').select('*').eq('term_id', terms[1]?.id).eq('exam_type', selExamType)
-                : { data: [] }
-        );
-        setMarks(termMarks || []);
-        setAllMarks(prevTermMarks || []);
-        setShowReport(true);
-        setGenerating(false);
-        toast.success('📊 Report generated!');
-    }, [selTerm, selExamType, terms]);
+    const report = useMemo(()=>{
+        if(!data.students||!selTerm) return null;
+        const { students, subjects, marks, grading, streams } = data;
+        const termMarks = marks.filter((m:any)=>String(m.term_id)===selTerm && (!selForm||String(students.find((s:any)=>s.id===m.student_id)?.form_id)===selForm));
+        const termStudents = students.filter((s:any)=>!selForm||String(s.form_id)===selForm);
 
-    /* ─── HELPERS ─── */
-    const getTerm    = () => terms.find(t => String(t.id) === selTerm);
-    const getPrevTerm = () => terms[1];
-    const getForm    = (id: any) => forms.find(f => f.id === id)?.form_name || '—';
-    const getStream  = (id: any) => streams.find(s => s.id === id)?.stream_name || '—';
-    const getSub     = (id: any) => subjects.find(s => s.id === id);
-    const getTeacher = (id: any) => teachers.find(t => t.id === id);
+        // Per-student results with CORRECT KNEC mean grade
+        const studentResults = termStudents.map((student:any)=>{
+            const sm = termMarks.filter((m:any)=>m.student_id===student.id);
+            if(!sm.length) return null;
+            const processed = processStudentAllMarks(sm, subjects, grading);
+            const mean = computeKNECMeanGrade(processed);
+            const avg = processed.reduce((a:number,r:any)=>a+r.score,0)/(processed.length||1);
+            return { student, processed, mean, avg };
+        }).filter(Boolean) as any[];
 
-    /* ─── COMPUTED ─── */
-    // Overall stats
-    const scores       = marks.map(m => Number(m.score));
-    const schoolAvg    = avg(scores);
-    const passCount    = scores.filter(s => s >= 50).length;
-    const passRate     = pct(passCount, scores.length);
-    const aRate        = pct(scores.filter(s => s >= 70).length, scores.length);
-    const failRate     = pct(scores.filter(s => s < 40).length, scores.length);
+        // School overview
+        const allScores = termMarks.map((m:any)=>Number(m.score));
+        const schoolAvg = allScores.length ? allScores.reduce((a:number,b:number)=>a+b,0)/allScores.length : 0;
+        const passCount = allScores.filter((s:number)=>s>=50).length;
+        const aCount = allScores.filter((s:number)=>s>=75).length;
+        const eCount = allScores.filter((s:number)=>s<25).length;
 
-    // Previous term
-    const prevScores   = (allMarks || []).map((m: any) => Number(m.score));
-    const prevAvg      = avg(prevScores);
-    const avgChange    = schoolAvg - prevAvg;
+        // Grade distribution
+        const gradeDist: Record<string,number> = {};
+        GRADE_ORDER.forEach(g=>{gradeDist[g]=0;});
+        studentResults.forEach((r:any)=>{ if(r.mean.meanGrade) gradeDist[r.mean.meanGrade]=(gradeDist[r.mean.meanGrade]||0)+1; });
 
-    // Grade distribution
-    const gradeDist = GRADE_SCALE.map(g => {
-        const count = scores.filter(s => s >= g.min && (g.grade === 'E' || s < (GRADE_SCALE[GRADE_SCALE.indexOf(g) - 1]?.min ?? 200))).length;
-        return { ...g, count };
-    });
+        // Subject analysis with vs national
+        const subjectStats = subjects.map((sub:any)=>{
+            const sm = termMarks.filter((m:any)=>m.subject_id===sub.id);
+            if(!sm.length) return null;
+            const scores = sm.map((m:any)=>Number(m.score));
+            const avg = scores.reduce((a:number,b:number)=>a+b,0)/scores.length;
+            const pass = scores.filter((s:number)=>s>=50).length;
+            const national = vsNational(sub.subject_name, avg);
+            return { ...sub, avg, passRate:(pass/scores.length)*100, count:scores.length, national, grade: getSubjectGrade(avg,grading) };
+        }).filter(Boolean).sort((a:any,b:any)=>b.avg-a.avg) as any[];
 
-    // Per-form performance
-    const formPerf = forms.map(f => {
-        const formStudents = students.filter(s => s.form_id === f.id);
-        const formMarks = marks.filter(m => formStudents.some(s => s.id === m.student_id));
-        const formScores = formMarks.map(m => Number(m.score));
-        const fAvg = avg(formScores);
-        const fPass = pct(formScores.filter(s => s >= 50).length, formScores.length);
-        const fPrev = (allMarks || []).filter((m: any) => formStudents.some(s => s.id === m.student_id));
-        const fPrevAvg = avg(fPrev.map((m: any) => Number(m.score)));
-        return { form: f, avg: fAvg, passRate: fPass, count: formStudents.length, markCount: formMarks.length, change: fAvg - fPrevAvg };
-    }).filter(f => f.markCount > 0);
+        // Top 10 students by mean grade
+        const topStudents = [...studentResults].sort((a:any,b:any)=>{
+            const ai = GRADE_ORDER.indexOf(a.mean.meanGrade), bi = GRADE_ORDER.indexOf(b.mean.meanGrade);
+            return ai-bi || b.mean.totalPoints-a.mean.totalPoints;
+        }).slice(0,10);
 
-    // Per-subject performance
-    const subjectPerf = subjects.map(sub => {
-        const subMarks = marks.filter(m => m.subject_id === sub.id);
-        if (subMarks.length === 0) return null;
-        const subScores = subMarks.map(m => Number(m.score));
-        const sAvg = avg(subScores);
-        const sPass = pct(subScores.filter(s => s >= 50).length, subScores.length);
-        const assignment = subTeachers.find(st => st.subject_id === sub.id);
-        const teacher = assignment ? getTeacher(assignment.teacher_id) : null;
-        const prevSubMarks = (allMarks || []).filter((m: any) => m.subject_id === sub.id);
-        const prevAvgSub = avg(prevSubMarks.map((m: any) => Number(m.score)));
-        return { sub, avg: sAvg, passRate: sPass, count: subMarks.length, teacher, change: sAvg - prevAvgSub };
-    }).filter(Boolean) as any[];
-    subjectPerf.sort((a, b) => b.avg - a.avg);
+        // At-risk students
+        const atRisk = studentResults.filter((r:any)=>r.avg<40||GRADE_ORDER.indexOf(r.mean.meanGrade)>=8).slice(0,10);
 
-    // Stream performance
-    const streamPerf = streams.map(str => {
-        const strStudents = students.filter(s => s.stream_id === str.id);
-        const strMarks = marks.filter(m => strStudents.some(s => s.id === m.student_id));
-        if (strMarks.length === 0) return null;
-        const strScores = strMarks.map(m => Number(m.score));
-        const sAvg = avg(strScores);
-        const sPass = pct(strScores.filter(s => s >= 50).length, strScores.length);
-        const formId = strStudents[0]?.form_id;
-        return { stream: str, avg: sAvg, passRate: sPass, count: strStudents.length, formId };
-    }).filter(Boolean) as any[];
-    streamPerf.sort((a, b) => b.avg - a.avg);
+        // Form breakdown
+        const formStats = forms.map((form:any)=>{
+            const fs = termStudents.filter((s:any)=>s.form_id===form.id);
+            const fm = termMarks.filter((m:any)=>fs.some((s:any)=>s.id===m.student_id));
+            if(!fm.length) return null;
+            const scores = fm.map((m:any)=>Number(m.score));
+            const avg = scores.reduce((a:number,b:number)=>a+b,0)/scores.length;
+            const pass = scores.filter((s:number)=>s>=50).length;
+            return { form, avg, passRate:(pass/scores.length)*100, count:fs.length, grade:getSubjectGrade(avg,grading) };
+        }).filter(Boolean) as any[];
 
-    // Teacher performance
-    const teacherPerf = teachers.map(tch => {
-        const assignments = subTeachers.filter((st: any) => st.teacher_id === tch.id);
-        const tchMarks = marks.filter(m => assignments.some((a: any) => a.subject_id === m.subject_id));
-        if (tchMarks.length === 0) return null;
-        const tchScores = tchMarks.map(m => Number(m.score));
-        const tAvg = avg(tchScores);
-        const tPass = pct(tchScores.filter(s => s >= 50).length, tchScores.length);
-        const tSubjects = [...new Set(assignments.map((a: any) => a.subject_id))].map(id => getSub(id)?.subject_name).filter(Boolean);
-        return { teacher: tch, avg: tAvg, passRate: tPass, count: tchScores.length, subjects: tSubjects };
-    }).filter(Boolean) as any[];
-    teacherPerf.sort((a, b) => b.avg - a.avg);
+        // Stream breakdown
+        const streamStats = streams.map((stream:any)=>{
+            const ss = termStudents.filter((s:any)=>s.stream_id===stream.id&&(!selForm||String(s.form_id)===selForm));
+            const sm2 = termMarks.filter((m:any)=>ss.some((s:any)=>s.id===m.student_id));
+            if(!sm2.length) return null;
+            const scores = sm2.map((m:any)=>Number(m.score));
+            const avg = scores.reduce((a:number,b:number)=>a+b,0)/scores.length;
+            const pass = scores.filter((s:number)=>s>=50).length;
+            return { stream, avg, passRate:(pass/scores.length)*100, count:ss.length };
+        }).filter(Boolean).sort((a:any,b:any)=>b.avg-a.avg) as any[];
 
-    // Top 10 students
-    const studentPerf = students.map(s => {
-        const sMarks = marks.filter(m => m.student_id === s.id);
-        if (sMarks.length === 0) return null;
-        const sScores = sMarks.map(m => Number(m.score));
-        const sAvg = avg(sScores);
-        const best7Pts = [...sMarks].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, 7).reduce((a, m) => a + (Number(m.points) || grd(Number(m.score)).pts), 0);
-        const meanGrade = GRADE_SCALE.find(g => g.pts <= Math.round(best7Pts / Math.min(7, sMarks.length)))?.grade || 'E';
-        return { student: s, avg: sAvg, best7Pts, meanGrade, count: sMarks.length };
-    }).filter(Boolean) as any[];
-    studentPerf.sort((a, b) => b.avg - a.avg);
+        return { schoolAvg, passCount, passRate:(passCount/Math.max(allScores.length,1))*100, aCount, eCount, gradeDist, subjectStats, topStudents, atRisk, formStats, streamStats, totalStudents:termStudents.length, totalEntries:allScores.length };
+    }, [data, selTerm, selForm, forms, subjects]);
 
-    // At-risk students
-    const atRiskStudents = studentPerf.filter(sp => sp.avg < 40);
+    const termName = terms.find(t=>String(t.id)===selTerm)?.term_name||'';
+    const formName = selForm ? forms.find(f=>String(f.id)===selForm)?.form_name||'' : 'All Forms';
+    const gc = (g:string)=>({A:'#059669','A-':'#10b981','B+':'#0ea5e9',B:'#3b82f6','B-':'#6366f1','C+':'#8b5cf6',C:'#a78bfa','C-':'#f59e0b','D+':'#f97316',D:'#ef4444','D-':'#dc2626',E:'#991b1b'}[g]||'#94a3b8');
 
-    // Discipline stats
-    const currentTermDisc = discipline.filter(d => {
-        const termObj = getTerm();
-        return termObj && d.incident_date >= (termObj.start_date || '2000-01-01');
-    });
-
-    // Attendance
-    const attPresent = attendance.filter(a => a.status === 'Present').length;
-    const attTotal   = attendance.length;
-    const attRate    = pct(attPresent, attTotal);
-
-    // Chart data
-    const formChart = {
-        labels: formPerf.map(f => f.form.form_name),
-        datasets: [{
-            label: 'Average %',
-            data: formPerf.map(f => f.avg.toFixed(1)),
-            backgroundColor: ['#6366f1','#0891b2','#059669','#f59e0b'].slice(0, formPerf.length),
-            borderRadius: 8,
-        }],
-    };
-    const subjectTopChart = {
-        labels: subjectPerf.slice(0, 10).map(s => s.sub.subject_name.length > 12 ? s.sub.subject_name.slice(0, 12) + '…' : s.sub.subject_name),
-        datasets: [{
-            label: 'Avg %',
-            data: subjectPerf.slice(0, 10).map(s => s.avg.toFixed(1)),
-            backgroundColor: subjectPerf.slice(0, 10).map(s => `${grd(s.avg).color}cc`),
-            borderRadius: 6,
-        }],
-    };
-    const gradeChart = {
-        labels: gradeDist.filter(g => g.count > 0).map(g => g.grade),
-        datasets: [{
-            data: gradeDist.filter(g => g.count > 0).map(g => g.count),
-            backgroundColor: gradeDist.filter(g => g.count > 0).map(g => `${g.color}cc`),
-        }],
-    };
-
-    const secBtn = (key: string, label: string, icon: any) => (
-        <button onClick={() => setActiveSection(key)}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap ${activeSection === key ? 'bg-indigo-600 text-white shadow' : 'bg-white border border-gray-200 text-gray-600 hover:bg-indigo-50'}`}>
-            {icon} {label}
-        </button>
-    );
-
-    if (loading) return (
-        <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"/>
-        </div>
-    );
+    if(loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"/></div>;
 
     return (
-        <div className="space-y-6 pb-16">
-            {/* ═══ HEADER ═══ */}
-            <div className="rounded-2xl p-6 text-white" style={{ background: 'linear-gradient(135deg,#1e1b4b,#312e81,#4338ca)' }}>
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-black flex items-center gap-2">
-                            <HiDocumentReport size={24}/> Principal's Term Report Generator
-                        </h1>
-                        <p className="text-sm text-white/70 mt-1">
-                            Auto-generated executive performance report ready for Board of Governors & Ministry inspection
-                        </p>
-                    </div>
-                    {showReport && (
-                        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl text-xs font-bold bg-white text-indigo-700 hover:bg-indigo-50 flex items-center gap-1.5 shadow">
-                            <FiPrinter size={12}/> Print Full Report
-                        </button>
-                    )}
-                </div>
-
-                {/* Controls */}
-                <div className="flex flex-wrap gap-3 mt-5">
-                    <div>
-                        <p className="text-[10px] text-white/60 font-bold uppercase mb-1">Academic Term</p>
-                        <select value={selTerm} onChange={e => setSelTerm(e.target.value)}
-                            className="border-0 rounded-xl px-3 py-2 text-sm bg-white/15 text-white focus:ring-2 focus:ring-white/30 focus:outline-none backdrop-blur-sm min-w-[180px]">
-                            <option value="">— Select Term —</option>
-                            {terms.map(t => <option key={t.id} value={t.id} className="text-gray-800">{t.term_name} {t.year || ''}{t.is_current ? ' (Current)' : ''}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <p className="text-[10px] text-white/60 font-bold uppercase mb-1">Exam Type</p>
-                        <select value={selExamType} onChange={e => setSelExamType(e.target.value)}
-                            className="border-0 rounded-xl px-3 py-2 text-sm bg-white/15 text-white focus:ring-2 focus:ring-white/30 focus:outline-none backdrop-blur-sm">
-                            {EXAM_TYPES.map(e => <option key={e} className="text-gray-800">{e}</option>)}
-                        </select>
-                    </div>
-                    <div className="flex items-end">
-                        <button onClick={generateReport} disabled={generating || !selTerm}
-                            className="px-6 py-2 rounded-xl text-sm font-black bg-white text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 flex items-center gap-2 shadow-lg transition">
-                            {generating ? <><div className="animate-spin h-4 w-4 border-2 border-indigo-500 border-t-transparent rounded-full"/>Generating…</> : <><HiSparkles size={14}/>Generate Report</>}
-                        </button>
-                    </div>
-                </div>
+        <div style={{minHeight:'100vh',background:'#f8fafc',padding:'24px'}}>
+            {/* Controls */}
+            <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:20,flexWrap:'wrap'}}>
+                <div style={{fontWeight:900,fontSize:20,color:'#1e293b',flex:1}}>📋 Principal&apos;s Academic Report</div>
+                <select value={selTerm} onChange={e=>setSelTerm(e.target.value)} style={{padding:'8px 14px',borderRadius:8,border:'1px solid #e2e8f0',fontSize:13,fontWeight:700}}>
+                    {terms.map((t:any)=><option key={t.id} value={t.id}>{t.term_name}</option>)}
+                </select>
+                <select value={selForm} onChange={e=>setSelForm(e.target.value)} style={{padding:'8px 14px',borderRadius:8,border:'1px solid #e2e8f0',fontSize:13,fontWeight:700}}>
+                    <option value="">All Forms</option>
+                    {forms.map((f:any)=><option key={f.id} value={f.id}>{f.form_name}</option>)}
+                </select>
+                <button onClick={()=>window.print()} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 18px',background:'#2563eb',color:'#fff',border:'none',borderRadius:8,fontWeight:700,cursor:'pointer',fontSize:13}}>
+                    <FiPrinter size={15}/> Print Report
+                </button>
             </div>
 
-            {/* ═══ NO REPORT YET ═══ */}
-            {!showReport && (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
-                    <HiDocumentReport size={56} className="text-indigo-200 mx-auto mb-4"/>
-                    <p className="text-lg font-black text-gray-400">Select a term and click "Generate Report"</p>
-                    <p className="text-sm text-gray-300 mt-1">The full Principal's report will be created automatically from your academic data</p>
+            {/* PRINTABLE REPORT AREA */}
+            <div id="principal-report" style={{background:'#fff',borderRadius:16,boxShadow:'0 4px 24px rgba(0,0,0,0.10)',overflow:'hidden'}}>
+                {/* Official Header */}
+                <div style={{background:'linear-gradient(135deg,#1e3a5f,#2563eb)',padding:'32px 40px',color:'#fff',textAlign:'center'}}>
+                    <div style={{fontSize:11,letterSpacing:3,opacity:0.8,marginBottom:4}}>REPUBLIC OF KENYA — MINISTRY OF EDUCATION</div>
+                    <div style={{fontSize:26,fontWeight:900,marginBottom:4}}>{school.school_name||'SCHOOL NAME'}</div>
+                    <div style={{fontSize:13,opacity:0.85}}>{school.school_address||'P.O. Box — County, Kenya'} · Tel: {school.phone||'—'}</div>
+                    <div style={{marginTop:16,fontSize:18,fontWeight:700,background:'rgba(255,255,255,0.15)',borderRadius:8,padding:'8px 24px',display:'inline-block'}}>
+                        END-OF-TERM ACADEMIC PERFORMANCE REPORT
+                    </div>
+                    <div style={{marginTop:8,fontSize:14,opacity:0.9}}>{termName} · {formName}</div>
                 </div>
-            )}
 
-            {/* ═══════════ FULL REPORT ═══════════ */}
-            {showReport && (
-                <div ref={printRef} className="space-y-6">
-                    {/* Report Title */}
-                    <div className="bg-white rounded-2xl border-2 border-indigo-100 shadow-sm overflow-hidden">
-                        <div className="h-2" style={{ background: 'linear-gradient(90deg,#1e1b4b,#4f46e5,#0891b2,#059669,#f59e0b,#ef4444)' }}/>
-                        <div className="p-6 text-center">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                {schoolInfo?.school_name || 'APSIMS School'} — Academic Performance Report
-                            </p>
-                            <h2 className="text-2xl font-black text-gray-800 mt-2">
-                                {getTerm()?.term_name || '—'} {getTerm()?.year || ''} — {selExamType} Examination
-                            </h2>
-                            <p className="text-xs text-gray-400 mt-1">Generated: {new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                        </div>
+                {report && (<>
+                {/* Executive Summary */}
+                <div style={{padding:'24px 40px',borderBottom:'2px solid #f1f5f9'}}>
+                    <div style={{fontSize:13,fontWeight:800,color:'#64748b',letterSpacing:1,marginBottom:16}}>I. EXECUTIVE SUMMARY</div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:16}}>
+                        {[
+                            { label:'Total Candidates', value:report.totalStudents, color:'#2563eb' },
+                            { label:'School Average', value:`${report.schoolAvg.toFixed(1)}%`, color:'#7c3aed' },
+                            { label:'Pass Rate (≥50%)', value:`${report.passRate.toFixed(1)}%`, color:'#059669' },
+                            { label:'A Grade Entries', value:report.aCount, color:'#065f46' },
+                            { label:'E Grade Entries', value:report.eCount, color:'#dc2626' },
+                        ].map((s,i)=>(
+                            <div key={i} style={{textAlign:'center',background:'#f8fafc',borderRadius:10,padding:'16px 8px',border:'1px solid #e2e8f0'}}>
+                                <div style={{fontSize:22,fontWeight:900,color:s.color}}>{s.value}</div>
+                                <div style={{fontSize:11,color:'#64748b',marginTop:4}}>{s.label}</div>
+                            </div>
+                        ))}
                     </div>
+                </div>
 
-                    {/* Section Tabs */}
-                    <div className="flex gap-2 flex-wrap">
-                        {secBtn('executive', 'Executive Summary', <HiSparkles size={11}/>)}
-                        {secBtn('forms',     'Form Analysis',     <FiGrid size={11}/>)}
-                        {secBtn('subjects',  'Subject Analysis',  <FiBook size={11}/>)}
-                        {secBtn('streams',   'Stream Battle',     <FiBarChart2 size={11}/>)}
-                        {secBtn('teachers',  'Teacher Performance', <FiUsers size={11}/>)}
-                        {secBtn('students',  'Top & At-Risk',     <FiAward size={11}/>)}
-                        {secBtn('welfare',   'Welfare & Conduct', <FiShield size={11}/>)}
-                        {secBtn('narrative', 'AI Narrative',      <HiDocumentReport size={11}/>)}
-                    </div>
-
-                    {/* ══ EXECUTIVE SUMMARY ══ */}
-                    {activeSection === 'executive' && (
-                        <div className="space-y-4">
-                            {/* KPI Cards */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {[
-                                    { label: 'School Average', val: `${schoolAvg.toFixed(1)}%`, sub: `${avgChange >= 0 ? '+' : ''}${avgChange.toFixed(1)}% vs prev`, color: grd(schoolAvg).color, icon: '📊', up: avgChange >= 0 },
-                                    { label: 'Pass Rate', val: `${passRate}%`, sub: `${passCount} students passing`, color: passRate >= 50 ? '#059669' : '#ef4444', icon: '✅', up: passRate >= 50 },
-                                    { label: 'A Grade Rate', val: `${aRate}%`, sub: `${scores.filter(s => s >= 70).length} A/A-`, color: '#6366f1', icon: '🏆', up: aRate > 10 },
-                                    { label: 'Total Students', val: students.length, sub: `${marks.length} marks entered`, color: '#0891b2', icon: '👥', up: true },
-                                ].map(k => (
-                                    <div key={k.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                                        <div className="flex items-start justify-between mb-2">
-                                            <span className="text-2xl">{k.icon}</span>
-                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${k.up ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                                                {k.up ? '↑' : '↓'}
-                                            </span>
-                                        </div>
-                                        <p className="text-3xl font-black" style={{ color: k.color }}>{k.val}</p>
-                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mt-1">{k.label}</p>
-                                        <p className="text-[10px] text-gray-400">{k.sub}</p>
+                {/* Grade Distribution */}
+                <div style={{padding:'24px 40px',borderBottom:'2px solid #f1f5f9'}}>
+                    <div style={{fontSize:13,fontWeight:800,color:'#64748b',letterSpacing:1,marginBottom:16}}>II. GRADE DISTRIBUTION (KNEC MEAN GRADES)</div>
+                    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                        {GRADE_ORDER.map(g=>{
+                            const cnt = report.gradeDist[g]||0;
+                            const pct = report.totalStudents>0 ? (cnt/report.totalStudents*100).toFixed(1) : '0.0';
+                            return (
+                                <div key={g} style={{textAlign:'center',minWidth:60}}>
+                                    <div style={{height:60,background:'#f1f5f9',borderRadius:'8px 8px 0 0',display:'flex',alignItems:'flex-end',justifyContent:'center',overflow:'hidden'}}>
+                                        <div style={{width:'100%',background:gc(g),height:`${Math.max(4,(cnt/(report.totalStudents||1))*100)}%`,transition:'height 0.3s'}}/>
                                     </div>
+                                    <div style={{background:gc(g),color:'#fff',fontWeight:900,fontSize:13,padding:'3px 0',borderRadius:'0 0 8px 8px'}}>{g}</div>
+                                    <div style={{fontSize:12,fontWeight:700,color:'#1e293b',marginTop:4}}>{cnt}</div>
+                                    <div style={{fontSize:10,color:'#94a3b8'}}>{pct}%</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Subject Performance Table */}
+                <div style={{padding:'24px 40px',borderBottom:'2px solid #f1f5f9'}}>
+                    <div style={{fontSize:13,fontWeight:800,color:'#64748b',letterSpacing:1,marginBottom:16}}>III. SUBJECT PERFORMANCE ANALYSIS</div>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                        <thead>
+                            <tr style={{background:'#1e3a5f',color:'#fff'}}>
+                                {['#','Subject','Entries','School Avg','Grade','Pass Rate','National Avg','Gap','Status'].map(h=>(
+                                    <th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,letterSpacing:0.5}}>{h}</th>
                                 ))}
-                            </div>
-
-                            {/* Charts row */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Form-wise Average Score</p>
-                                    {formPerf.length > 0 ? (
-                                        <div style={{ height: 220 }}>
-                                            <Bar data={formChart} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${v}%` } }, x: { grid: { display: false } } } }}/>
-                                        </div>
-                                    ) : <p className="text-center text-gray-400 py-20 text-sm">No form data</p>}
-                                </div>
-                                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Grade Distribution</p>
-                                    {gradeDist.some(g => g.count > 0) ? (
-                                        <div style={{ height: 220 }}>
-                                            <Doughnut data={gradeChart} options={{ responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'right', labels: { font: { size: 9 }, boxWidth: 8 } } } }}/>
-                                        </div>
-                                    ) : <p className="text-center text-gray-400 py-20 text-sm">No grade data</p>}
-                                </div>
-                            </div>
-
-                            {/* Grade dist table */}
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Grade Distribution Table</p>
-                                <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
-                                    {gradeDist.map(g => (
-                                        <div key={g.grade} className="text-center p-3 rounded-xl" style={{ background: `${g.color}15`, border: `1px solid ${g.color}30` }}>
-                                            <p className="text-sm font-black" style={{ color: g.color }}>{g.grade}</p>
-                                            <p className="text-lg font-black text-gray-800">{g.count}</p>
-                                            <p className="text-[9px] text-gray-400">{pct(g.count, scores.length)}%</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ══ FORM ANALYSIS ══ */}
-                    {activeSection === 'forms' && (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {formPerf.map(f => {
-                                    const formStudents = students.filter(s => s.form_id === f.form.id);
-                                    const formMarks = marks.filter(m => formStudents.some(s => s.id === m.student_id));
-                                    const formGradeDist = GRADE_SCALE.map(g => {
-                                        const count = formMarks.filter(m => {
-                                            const s = Number(m.score);
-                                            const idx = GRADE_SCALE.indexOf(g);
-                                            return s >= g.min && (idx === 0 || s < GRADE_SCALE[idx - 1].min);
-                                        }).length;
-                                        return { ...g, count };
-                                    });
-                                    const formStreams = streams.filter(st => formStudents.some(s => s.stream_id === st.id));
-                                    return (
-                                        <div key={f.form.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                                            <div className="p-4 border-b border-gray-100 flex items-center justify-between" style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
-                                                <div>
-                                                    <p className="font-black text-gray-800 text-lg">{f.form.form_name}</p>
-                                                    <p className="text-xs text-gray-400">{f.count} students · {formStreams.length} stream(s)</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-3xl font-black" style={{ color: grd(f.avg).color }}>{f.avg.toFixed(1)}%</p>
-                                                    <GradePill grade={grd(f.avg).grade}/>
-                                                    {f.change !== 0 && <p className={`text-[10px] font-bold mt-0.5 ${f.change > 0 ? 'text-green-600' : 'text-red-500'}`}>{f.change > 0 ? '+' : ''}{f.change.toFixed(1)}% vs prev</p>}
-                                                </div>
-                                            </div>
-                                            <div className="p-4">
-                                                <div className="grid grid-cols-3 gap-2 mb-3">
-                                                    {[
-                                                        { l: 'Pass Rate', v: `${f.passRate}%`, c: f.passRate >= 50 ? '#059669' : '#ef4444' },
-                                                        { l: 'Students', v: f.count, c: '#6366f1' },
-                                                        { l: 'Avg Marks', v: f.markCount, c: '#0891b2' },
-                                                    ].map(k => (
-                                                        <div key={k.l} className="bg-gray-50 rounded-xl p-2 text-center">
-                                                            <p className="text-base font-black" style={{ color: k.c }}>{k.v}</p>
-                                                            <p className="text-[9px] text-gray-400 uppercase">{k.l}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                {/* Mini grade dist */}
-                                                <div className="flex gap-1 mt-2">
-                                                    {formGradeDist.filter(g => g.count > 0).map(g => (
-                                                        <div key={g.grade} title={`${g.grade}: ${g.count}`} className="flex-1 text-center">
-                                                            <div className="h-8 rounded-sm flex items-end justify-center" style={{ background: `${g.color}20` }}>
-                                                                <div className="rounded-sm w-full" style={{ height: `${Math.max((g.count / Math.max(...formGradeDist.map(g => g.count))) * 100, 5)}%`, background: g.color }}/>
-                                                            </div>
-                                                            <p className="text-[8px] font-black mt-0.5" style={{ color: g.color }}>{g.grade}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ══ SUBJECT ANALYSIS ══ */}
-                    {activeSection === 'subjects' && (
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                                <p className="font-black text-gray-800">Subject Performance Ranking — {selExamType}</p>
-                                <p className="text-xs text-gray-400">{subjectPerf.length} subjects</p>
-                            </div>
-                            <div style={{ height: 280 }} className="p-5">
-                                {subjectPerf.length > 0 ? (
-                                    <Bar data={subjectTopChart} options={{ responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { max: 100, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${v}%` } }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } } }}/>
-                                ) : <p className="text-center text-gray-400 text-sm">No data</p>}
-                            </div>
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-100">
-                                        {['Rank','Subject','Teacher','Avg Score','Pass Rate','Grade','Change','Status'].map(h => (
-                                            <th key={h} className="px-4 py-2.5 text-left text-[10px] font-black text-gray-500 uppercase whitespace-nowrap">{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {subjectPerf.map((s, i) => (
-                                        <tr key={s.sub.id} className={`hover:bg-gray-50 transition ${s.avg < 40 ? 'bg-red-50/40' : ''}`}>
-                                            <td className="px-4 py-2.5 text-xs text-gray-400 font-mono">{i + 1}</td>
-                                            <td className="px-4 py-2.5">
-                                                <p className="font-bold text-gray-800 text-xs">{s.sub.subject_name}</p>
-                                                <p className="text-[10px] text-gray-400">{s.sub.subject_code}</p>
-                                            </td>
-                                            <td className="px-4 py-2.5 text-xs text-gray-500">{s.teacher ? `${s.teacher.first_name} ${s.teacher.last_name}` : <span className="text-gray-300 italic">Unassigned</span>}</td>
-                                            <td className="px-4 py-2.5 min-w-[120px]"><ScoreBar score={s.avg}/></td>
-                                            <td className="px-4 py-2.5">
-                                                <span className={`text-xs font-bold ${s.passRate >= 50 ? 'text-green-600' : 'text-red-500'}`}>{s.passRate}%</span>
-                                            </td>
-                                            <td className="px-4 py-2.5"><GradePill grade={grd(s.avg).grade}/></td>
-                                            <td className="px-4 py-2.5">
-                                                {s.change !== 0 && (
-                                                    <span className={`text-xs font-bold flex items-center gap-0.5 ${s.change > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                        {s.change > 0 ? <FiTrendingUp size={10}/> : <FiTrendingDown size={10}/>}
-                                                        {s.change > 0 ? '+' : ''}{s.change.toFixed(1)}%
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.passRate >= 50 ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-100 text-red-600'}`}>
-                                                    {s.passRate >= 70 ? 'Excellent' : s.passRate >= 50 ? 'Passing' : s.passRate >= 30 ? 'At Risk' : 'Failing'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-
-                    {/* ══ STREAM BATTLE ══ */}
-                    {activeSection === 'streams' && (
-                        <div className="space-y-3">
-                            {streamPerf.map((s, i) => (
-                                <div key={s.stream.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
-                                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-black text-white text-sm" style={{ background: ['#6366f1','#0891b2','#059669','#f59e0b','#ef4444'][i % 5] }}>
-                                        {i + 1}
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="font-black text-gray-800">{s.stream.stream_name} <span className="text-xs text-gray-400 font-normal">· {getForm(s.formId)}</span></p>
-                                        <ScoreBar score={s.avg}/>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-3 text-center">
-                                        {[
-                                            { l: 'Avg', v: `${s.avg.toFixed(1)}%`, c: grd(s.avg).color },
-                                            { l: 'Pass', v: `${s.passRate}%`, c: s.passRate >= 50 ? '#059669' : '#ef4444' },
-                                            { l: 'Students', v: s.count, c: '#6366f1' },
-                                        ].map(k => (
-                                            <div key={k.l}>
-                                                <p className="text-base font-black" style={{ color: k.c }}>{k.v}</p>
-                                                <p className="text-[9px] text-gray-400 uppercase">{k.l}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <GradePill grade={grd(s.avg).grade} size="md"/>
-                                    {i === 0 && <span className="text-lg">🏆</span>}
-                                </div>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {report.subjectStats.map((sub:any,i:number)=>(
+                                <tr key={sub.id} style={{background:i%2===0?'#fff':'#f8fafc',borderBottom:'1px solid #e2e8f0'}}>
+                                    <td style={{padding:'8px 12px',color:'#94a3b8',fontSize:11}}>{i+1}</td>
+                                    <td style={{padding:'8px 12px',fontWeight:700,color:'#1e293b'}}>{sub.subject_name}</td>
+                                    <td style={{padding:'8px 12px',color:'#64748b'}}>{sub.count}</td>
+                                    <td style={{padding:'8px 12px',fontWeight:700}}>{sub.avg.toFixed(1)}%</td>
+                                    <td style={{padding:'8px 12px'}}>
+                                        <span style={{background:gc(sub.grade.grade),color:'#fff',fontWeight:900,fontSize:11,padding:'2px 8px',borderRadius:5}}>{sub.grade.grade}</span>
+                                    </td>
+                                    <td style={{padding:'8px 12px',color:sub.passRate>=50?'#059669':'#dc2626',fontWeight:700}}>{sub.passRate.toFixed(1)}%</td>
+                                    <td style={{padding:'8px 12px',color:'#64748b'}}>{sub.national.national}%</td>
+                                    <td style={{padding:'8px 12px'}}>
+                                        <span style={{color:sub.national.above?'#059669':'#dc2626',fontWeight:700}}>
+                                            {sub.national.above?'+':''}{sub.national.gap}%
+                                        </span>
+                                    </td>
+                                    <td style={{padding:'8px 12px'}}>
+                                        <span style={{fontSize:11,fontWeight:700,color:sub.national.above?'#059669':'#dc2626'}}>
+                                            {sub.national.above?'▲ Above':'▼ Below'} National
+                                        </span>
+                                    </td>
+                                </tr>
                             ))}
-                        </div>
-                    )}
-
-                    {/* ══ TEACHER PERFORMANCE ══ */}
-                    {activeSection === 'teachers' && (
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="p-4 border-b border-gray-100">
-                                <p className="font-black text-gray-800">Teacher Performance Index (TPI)</p>
-                                <p className="text-xs text-gray-400 mt-0.5">Based on average student score in subjects taught this {selExamType}</p>
-                            </div>
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-100">
-                                        {['Rank','Teacher','TSC No','Subjects Taught','Students','Avg Score','Pass Rate','Grade','TPI Rating'].map(h => (
-                                            <th key={h} className="px-4 py-2.5 text-left text-[10px] font-black text-gray-500 uppercase whitespace-nowrap">{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {teacherPerf.length === 0 && <tr><td colSpan={9} className="text-center py-10 text-gray-400">No teacher data</td></tr>}
-                                    {teacherPerf.map((t, i) => (
-                                        <tr key={t.teacher.id} className="hover:bg-gray-50">
-                                            <td className="px-4 py-3 text-xs text-gray-400">{i + 1}</td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-black text-indigo-700">{t.teacher.first_name[0]}{t.teacher.last_name[0]}</div>
-                                                    <p className="font-bold text-gray-800 text-xs">{t.teacher.first_name} {t.teacher.last_name}</p>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-xs text-gray-400">{t.teacher.tsc_number || '—'}</td>
-                                            <td className="px-4 py-3 text-xs text-gray-600 max-w-[160px]">{t.subjects.slice(0, 3).join(', ')}{t.subjects.length > 3 ? ` +${t.subjects.length - 3}` : ''}</td>
-                                            <td className="px-4 py-3 text-xs text-center text-gray-600">{t.count}</td>
-                                            <td className="px-4 py-3 min-w-[120px]"><ScoreBar score={t.avg}/></td>
-                                            <td className="px-4 py-3 text-xs font-bold" style={{ color: t.passRate >= 50 ? '#059669' : '#ef4444' }}>{t.passRate}%</td>
-                                            <td className="px-4 py-3"><GradePill grade={grd(t.avg).grade}/></td>
-                                            <td className="px-4 py-3">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${t.avg >= 70 ? 'bg-green-50 border-green-200 text-green-700' : t.avg >= 50 ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-red-50 border-red-100 text-red-600'}`}>
-                                                    {t.avg >= 70 ? '⭐ Excellent' : t.avg >= 60 ? '✅ Good' : t.avg >= 50 ? '⚠️ Average' : '🚨 Needs Support'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-
-                    {/* ══ TOP & AT-RISK STUDENTS ══ */}
-                    {activeSection === 'students' && (
-                        <div className="space-y-4">
-                            {/* Top 10 */}
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                                <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-                                    <FiAward className="text-amber-500"/>
-                                    <p className="font-black text-gray-800">Top 10 Students — {selExamType}</p>
-                                </div>
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="bg-gray-50 border-b border-gray-100">
-                                            {['Rank','Student','Adm No','Form','Stream','Avg Score','Mean Grade'].map(h => (
-                                                <th key={h} className="px-4 py-2.5 text-left text-[10px] font-black text-gray-500 uppercase whitespace-nowrap">{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {studentPerf.slice(0, 10).map((sp, i) => (
-                                            <tr key={sp.student.id} className="hover:bg-gray-50">
-                                                <td className="px-4 py-2.5">
-                                                    <span className="text-lg">{['🥇','🥈','🥉'][i] || i + 1}</span>
-                                                </td>
-                                                <td className="px-4 py-2.5 font-bold text-gray-800 text-xs">{sp.student.first_name} {sp.student.last_name}</td>
-                                                <td className="px-4 py-2.5 text-xs text-gray-400">{sp.student.admission_no || sp.student.admission_number}</td>
-                                                <td className="px-4 py-2.5 text-xs text-gray-500">{getForm(sp.student.form_id)}</td>
-                                                <td className="px-4 py-2.5 text-xs text-gray-500">{getStream(sp.student.stream_id)}</td>
-                                                <td className="px-4 py-2.5 min-w-[120px]"><ScoreBar score={sp.avg}/></td>
-                                                <td className="px-4 py-2.5"><GradePill grade={sp.meanGrade}/></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* At-Risk */}
-                            <div className="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
-                                <div className="p-4 border-b border-red-100 flex items-center gap-2">
-                                    <FiAlertTriangle className="text-red-500"/>
-                                    <p className="font-black text-red-700">🚨 At-Risk Students (Avg &lt; 40%) — {atRiskStudents.length} students</p>
-                                </div>
-                                {atRiskStudents.length === 0 ? (
-                                    <div className="p-8 text-center">
-                                        <FiCheckCircle size={28} className="text-green-400 mx-auto mb-2"/>
-                                        <p className="text-green-600 font-bold">No students scoring below 40% — Great news!</p>
-                                    </div>
-                                ) : (
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="bg-red-50 border-b border-red-100">
-                                                {['Student','Adm No','Form','Stream','Avg Score','Grade','Risk Level','Action'].map(h => (
-                                                    <th key={h} className="px-4 py-2.5 text-left text-[10px] font-black text-red-500 uppercase whitespace-nowrap">{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-red-50">
-                                            {atRiskStudents.map(sp => (
-                                                <tr key={sp.student.id} className="hover:bg-red-50/50">
-                                                    <td className="px-4 py-2.5 font-bold text-gray-800 text-xs">{sp.student.first_name} {sp.student.last_name}</td>
-                                                    <td className="px-4 py-2.5 text-xs text-gray-400">{sp.student.admission_no || sp.student.admission_number}</td>
-                                                    <td className="px-4 py-2.5 text-xs text-gray-500">{getForm(sp.student.form_id)}</td>
-                                                    <td className="px-4 py-2.5 text-xs text-gray-500">{getStream(sp.student.stream_id)}</td>
-                                                    <td className="px-4 py-2.5 min-w-[120px]"><ScoreBar score={sp.avg}/></td>
-                                                    <td className="px-4 py-2.5"><GradePill grade={sp.meanGrade}/></td>
-                                                    <td className="px-4 py-2.5">
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sp.avg < 25 ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700'}`}>
-                                                            {sp.avg < 25 ? '🔴 Critical' : '🟠 High Risk'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-2.5 text-xs text-indigo-600 font-bold">Intervention Needed</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ══ WELFARE & CONDUCT ══ */}
-                    {activeSection === 'welfare' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2"><FiCheckCircle className="text-green-500"/>📅 Attendance Overview</p>
-                                <div className="grid grid-cols-3 gap-3 mb-4">
-                                    {[
-                                        { l: 'Attendance Rate', v: `${attRate}%`, c: attRate >= 80 ? '#059669' : '#ef4444' },
-                                        { l: 'Days Present', v: attPresent.toLocaleString(), c: '#059669' },
-                                        { l: 'Total Records', v: attTotal.toLocaleString(), c: '#6366f1' },
-                                    ].map(k => (
-                                        <div key={k.l} className="bg-gray-50 rounded-xl p-3 text-center">
-                                            <p className="text-xl font-black" style={{ color: k.c }}>{k.v}</p>
-                                            <p className="text-[9px] text-gray-400 uppercase font-bold">{k.l}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                                {attRate < 80 && (
-                                    <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-                                        <p className="text-xs font-bold text-red-700">⚠️ Attendance below 80% threshold. Ministry requires 80%+ for exam eligibility.</p>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2"><FiShield className="text-indigo-500"/>🚨 Discipline Summary</p>
-                                <div className="grid grid-cols-3 gap-3 mb-4">
-                                    {[
-                                        { l: 'Total Incidents', v: discipline.length, c: discipline.length > 5 ? '#ef4444' : '#059669' },
-                                        { l: 'This Term', v: currentTermDisc.length, c: '#f59e0b' },
-                                        { l: 'Open Cases', v: discipline.filter(d => d.status === 'Open').length, c: '#dc2626' },
-                                    ].map(k => (
-                                        <div key={k.l} className="bg-gray-50 rounded-xl p-3 text-center">
-                                            <p className="text-xl font-black" style={{ color: k.c }}>{k.v}</p>
-                                            <p className="text-[9px] text-gray-400 uppercase font-bold">{k.l}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                                {/* Incident categories */}
-                                {['Bullying','Truancy / Lateness','Substance Abuse','Violence','Academic Dishonesty'].map(cat => {
-                                    const count = discipline.filter(d => d.category === cat).length;
-                                    if (!count) return null;
-                                    return (
-                                        <div key={cat} className="flex items-center gap-2 mb-1.5">
-                                            <p className="text-xs text-gray-600 flex-1">{cat}</p>
-                                            <div className="w-24 bg-gray-100 rounded-full h-1.5">
-                                                <div className="h-1.5 rounded-full bg-red-400" style={{ width: `${Math.min((count / Math.max(discipline.length, 1)) * 100, 100)}%` }}/>
-                                            </div>
-                                            <span className="text-xs font-bold text-gray-500 w-6">{count}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ══ AI NARRATIVE ══ */}
-                    {activeSection === 'narrative' && (
-                        <div className="space-y-4">
-                            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl border border-indigo-100 shadow-sm p-6">
-                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-4 flex items-center gap-2"><HiSparkles size={12}/>Auto-Generated Principal's Narrative</p>
-                                <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
-                                    <p><strong>1. Executive Summary</strong></p>
-                                    <p>
-                                        The {getTerm()?.term_name || '—'} {selExamType} examination results for {schoolInfo?.school_name || 'our school'} have been compiled and analysed. A total of <strong>{students.length} active students</strong> sat for <strong>{subjectPerf.length} subjects</strong>, recording a school mean average of <strong>{schoolAvg.toFixed(1)}%</strong>
-                                        {avgChange !== 0 ? `, representing a ${avgChange > 0 ? 'positive' : 'negative'} change of ${Math.abs(avgChange).toFixed(1)}% compared to the previous examination period.` : '.'}
-                                    </p>
-                                    <p><strong>2. Academic Performance</strong></p>
-                                    <p>
-                                        The overall pass rate stands at <strong>{passRate}%</strong> ({passCount} students scoring 50% and above), with <strong>{aRate}% of entries earning A-grade</strong> (70%+). The weakest performance was recorded in {subjectPerf[subjectPerf.length - 1]?.sub.subject_name || '—'} ({subjectPerf[subjectPerf.length - 1]?.avg.toFixed(1) || '—'}%), requiring urgent departmental review and additional resource allocation.
-                                        {formPerf.length > 0 && ` The best-performing class is ${formPerf.sort((a, b) => b.avg - a.avg)[0]?.form.form_name} with a mean of ${formPerf.sort((a, b) => b.avg - a.avg)[0]?.avg.toFixed(1)}%.`}
-                                    </p>
-                                    <p><strong>3. Teacher Effectiveness</strong></p>
-                                    <p>
-                                        {teacherPerf.length > 0 ? `The top-performing teacher this term is ${teacherPerf[0]?.teacher.first_name} ${teacherPerf[0]?.teacher.last_name} with a mean student score of ${teacherPerf[0]?.avg.toFixed(1)}% in ${teacherPerf[0]?.subjects.join(', ')}. ` : ''}
-                                        {teacherPerf.filter(t => t.avg < 50).length > 0 ? `${teacherPerf.filter(t => t.avg < 50).length} teacher(s) require professional development support as their classes scored below the 50% threshold.` : 'All teachers recorded acceptable performance levels above 50%.'}
-                                    </p>
-                                    <p><strong>4. At-Risk Students</strong></p>
-                                    <p>
-                                        {atRiskStudents.length > 0
-                                            ? `A total of ${atRiskStudents.length} student(s) scored below 40%, placing them in the critical at-risk category. These students require immediate intervention including additional classes, parental engagement, and guidance counselling. The administration should prioritise structured support programmes for these learners before the next examination period.`
-                                            : 'No students were identified in the critical at-risk category (below 40%). This is a positive indicator of the school\'s academic support systems.'}
-                                    </p>
-                                    <p><strong>5. Recommendations</strong></p>
-                                    <ul className="list-disc list-inside space-y-1 text-gray-600">
-                                        {subjectPerf.filter(s => s.passRate < 50).length > 0 && (
-                                            <li>Convene subject HOD meetings for {subjectPerf.filter(s => s.passRate < 50).map(s => s.sub.subject_name).join(', ')} to address below-average performance.</li>
-                                        )}
-                                        {atRiskStudents.length > 0 && <li>Implement structured intervention programme for {atRiskStudents.length} at-risk students.</li>}
-                                        {attRate < 80 && <li>Address attendance challenges — current rate of {attRate}% is below the 80% Ministry requirement.</li>}
-                                        {discipline.filter(d => d.status === 'Open').length > 0 && <li>Resolve {discipline.filter(d => d.status === 'Open').length} open discipline cases before term ends.</li>}
-                                        <li>Organise a prize-giving ceremony to recognise top-performing students and motivate the student body.</li>
-                                        <li>Share individual student report cards with parents/guardians within two weeks of results.</li>
-                                    </ul>
-                                    <p className="text-xs text-gray-400 pt-4 border-t border-gray-200">
-                                        Report prepared by APSIMS — Alpha School Information Management System · {new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                        </tbody>
+                    </table>
                 </div>
-            )}
+
+                {/* Form Breakdown */}
+                {report.formStats.length>1 && (
+                <div style={{padding:'24px 40px',borderBottom:'2px solid #f1f5f9'}}>
+                    <div style={{fontSize:13,fontWeight:800,color:'#64748b',letterSpacing:1,marginBottom:16}}>IV. FORM-BY-FORM PERFORMANCE</div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+                        {report.formStats.map((fs:any)=>(
+                            <div key={fs.form.id} style={{background:'#f8fafc',borderRadius:10,padding:16,border:'1px solid #e2e8f0',textAlign:'center'}}>
+                                <div style={{fontSize:14,fontWeight:900,color:'#1e293b'}}>{fs.form.form_name}</div>
+                                <div style={{fontSize:22,fontWeight:900,color:'#2563eb',marginTop:6}}>{fs.avg.toFixed(1)}%</div>
+                                <div style={{marginTop:4}}>
+                                    <span style={{background:gc(fs.grade.grade),color:'#fff',fontWeight:900,fontSize:12,padding:'2px 10px',borderRadius:6}}>{fs.grade.grade}</span>
+                                </div>
+                                <div style={{fontSize:12,color:'#64748b',marginTop:6}}>Pass: {fs.passRate.toFixed(1)}% · {fs.count} students</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                )}
+
+                {/* Stream Comparison */}
+                {report.streamStats.length>1 && (
+                <div style={{padding:'24px 40px',borderBottom:'2px solid #f1f5f9'}}>
+                    <div style={{fontSize:13,fontWeight:800,color:'#64748b',letterSpacing:1,marginBottom:16}}>V. STREAM COMPARISON</div>
+                    <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                        {report.streamStats.map((ss:any,i:number)=>(
+                            <div key={ss.stream.id} style={{background:i===0?'#eff6ff':'#f8fafc',border:i===0?'2px solid #3b82f6':'1px solid #e2e8f0',borderRadius:10,padding:'12px 20px',minWidth:140,textAlign:'center'}}>
+                                {i===0&&<div style={{fontSize:10,color:'#2563eb',fontWeight:800,letterSpacing:1,marginBottom:4}}>🏆 TOP STREAM</div>}
+                                <div style={{fontWeight:800,color:'#1e293b'}}>{ss.stream.stream_name}</div>
+                                <div style={{fontSize:18,fontWeight:900,color:i===0?'#2563eb':'#475569'}}>{ss.avg.toFixed(1)}%</div>
+                                <div style={{fontSize:11,color:'#64748b'}}>Pass {ss.passRate.toFixed(0)}% · {ss.count} students</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                )}
+
+                {/* Top 10 Students */}
+                <div style={{padding:'24px 40px',borderBottom:'2px solid #f1f5f9'}}>
+                    <div style={{fontSize:13,fontWeight:800,color:'#64748b',letterSpacing:1,marginBottom:16}}>VI. TOP 10 STUDENTS (BY KNEC MEAN GRADE)</div>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                        <thead>
+                            <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
+                                {['Rank','Student Name','Adm No','Mean Grade','Points','Average Score'].map(h=>(
+                                    <th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:11,color:'#64748b',letterSpacing:0.5}}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {report.topStudents.map((r:any,i:number)=>(
+                                <tr key={r.student.id} style={{borderBottom:'1px solid #f1f5f9',background:i===0?'#fefce8':'#fff'}}>
+                                    <td style={{padding:'8px 12px',fontWeight:900,color:i===0?'#d97706':'#64748b'}}>
+                                        {i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`}
+                                    </td>
+                                    <td style={{padding:'8px 12px',fontWeight:700,color:'#1e293b'}}>{r.student.first_name} {r.student.last_name}</td>
+                                    <td style={{padding:'8px 12px',color:'#64748b',fontSize:12}}>{r.student.admission_number||r.student.admission_no}</td>
+                                    <td style={{padding:'8px 12px'}}>
+                                        <span style={{background:gc(r.mean.meanGrade),color:'#fff',fontWeight:900,fontSize:12,padding:'3px 10px',borderRadius:6}}>{r.mean.meanGrade}</span>
+                                    </td>
+                                    <td style={{padding:'8px 12px',fontWeight:700,color:'#7c3aed'}}>{r.mean.totalPoints}</td>
+                                    <td style={{padding:'8px 12px',color:'#475569'}}>{r.avg.toFixed(1)}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* At-Risk Students */}
+                {report.atRisk.length>0 && (
+                <div style={{padding:'24px 40px',borderBottom:'2px solid #f1f5f9'}}>
+                    <div style={{fontSize:13,fontWeight:800,color:'#64748b',letterSpacing:1,marginBottom:16}}>VII. AT-RISK STUDENTS — URGENT INTERVENTION REQUIRED</div>
+                    <div style={{background:'#fef2f2',border:'1px solid #fca5a5',borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:12,color:'#991b1b',fontWeight:700}}>
+                        ⚠️ The following {report.atRisk.length} students require immediate HOD and Counsellor attention
+                    </div>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                        <thead>
+                            <tr style={{background:'#fef2f2',borderBottom:'1px solid #fca5a5'}}>
+                                {['Student','Adm No','Mean Grade','Average','Action Required'].map(h=>(
+                                    <th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:11,color:'#991b1b'}}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {report.atRisk.map((r:any)=>(
+                                <tr key={r.student.id} style={{borderBottom:'1px solid #fee2e2'}}>
+                                    <td style={{padding:'8px 12px',fontWeight:700}}>{r.student.first_name} {r.student.last_name}</td>
+                                    <td style={{padding:'8px 12px',color:'#64748b',fontSize:12}}>{r.student.admission_number||r.student.admission_no}</td>
+                                    <td style={{padding:'8px 12px'}}>
+                                        <span style={{background:gc(r.mean.meanGrade),color:'#fff',fontWeight:900,fontSize:12,padding:'2px 8px',borderRadius:5}}>{r.mean.meanGrade}</span>
+                                    </td>
+                                    <td style={{padding:'8px 12px',color:'#dc2626',fontWeight:700}}>{r.avg.toFixed(1)}%</td>
+                                    <td style={{padding:'8px 12px',fontSize:12,color:'#dc2626'}}>Schedule parent meeting · Extra tuition</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                )}
+
+                {/* Signature Block */}
+                <div style={{padding:'32px 40px',display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:40}}>
+                    {['Class Teacher','Head of Academics','Principal'].map(role=>(
+                        <div key={role} style={{textAlign:'center'}}>
+                            <div style={{borderTop:'2px solid #1e3a5f',paddingTop:8,marginTop:48}}>
+                                <div style={{fontWeight:800,fontSize:12,color:'#1e3a5f'}}>{role}</div>
+                                <div style={{fontSize:11,color:'#64748b'}}>Name: _______________________</div>
+                                <div style={{fontSize:11,color:'#64748b'}}>Date: ________________________</div>
+                                <div style={{fontSize:11,color:'#64748b'}}>Stamp: _______________________</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                </>)}
+            </div>
         </div>
     );
 }
-

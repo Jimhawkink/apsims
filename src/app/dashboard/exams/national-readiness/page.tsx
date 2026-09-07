@@ -1,201 +1,189 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-
-const GRADE_POINTS: Record<string, number> = { A: 12, 'A-': 11, 'B+': 10, B: 9, 'B-': 8, 'C+': 7, C: 6, 'C-': 5, 'D+': 4, D: 3, 'D-': 2, E: 1 };
-function avgToGrade(avg: number) {
-  if (avg >= 75) return 'A'; if (avg >= 70) return 'A-'; if (avg >= 65) return 'B+';
-  if (avg >= 60) return 'B'; if (avg >= 55) return 'B-'; if (avg >= 50) return 'C+';
-  if (avg >= 45) return 'C'; if (avg >= 40) return 'C-'; if (avg >= 35) return 'D+';
-  if (avg >= 30) return 'D'; if (avg >= 25) return 'D-'; return 'E';
-}
-function gradeColor(g: string) {
-  if (['A','A-'].includes(g)) return '#14532d';
-  if (['B+','B','B-'].includes(g)) return '#15803d';
-  if (['C+','C','C-'].includes(g)) return '#ca8a04';
-  if (['D+','D','D-'].includes(g)) return '#dc2626';
-  return '#7f1d1d';
-}
-function riskLevel(avg: number) {
-  if (avg >= 50) return { label: 'On Track', color: '#059669', bg: '#ecfdf5' };
-  if (avg >= 40) return { label: 'Monitor', color: '#0891b2', bg: '#ecfeff' };
-  if (avg >= 30) return { label: 'At Risk', color: '#d97706', bg: '#fffbeb' };
-  return { label: 'Critical', color: '#dc2626', bg: '#fef2f2' };
-}
+import { computeWeightedMark, vsNational, getSubjectGrade, NATIONAL_AVG_2023, computeRiskScore } from '@/lib/knec-grading';
+import { FiTrendingUp, FiTrendingDown, FiMinus, FiAward, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
 
 export default function NationalReadinessPage() {
-  const [students, setStudents] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [subjectAvgs, setSubjectAvgs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
+    const [subjects, setSubjects] = useState<any[]>([]);
+    const [marks, setMarks] = useState<any[]>([]);
+    const [students, setStudents] = useState<any[]>([]);
+    const [grading, setGrading] = useState<any[]>([]);
+    const [terms, setTerms] = useState<any[]>([]);
+    const [forms, setForms] = useState<any[]>([]);
+    const [selTerm, setSelTerm] = useState('');
+    const [selForm, setSelForm] = useState('');
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const [{ data: allStudents }, { data: allMarks }, { data: allSubjects }, { data: forms }] = await Promise.all([
-        supabase.from('school_students').select('id,first_name,last_name,admission_no,form_id,gender').eq('status', 'Active'),
-        supabase.from('school_exam_marks').select('student_id,subject_id,marks,form_id').limit(10000),
-        supabase.from('school_subjects').select('id,subject_name'),
-        supabase.from('school_forms').select('id,form_name,form_level').order('form_level'),
-      ]);
+    const load = useCallback(async () => {
+        setLoading(true);
+        const [sRes, subRes, mRes, gRes, tRes, fRes] = await Promise.all([
+            supabase.from('school_students').select('*').eq('status','Active'),
+            supabase.from('school_subjects').select('*').eq('is_active',true),
+            supabase.from('school_exam_marks').select('*'),
+            supabase.from('school_grading_system').select('*').order('points',{ascending:false}),
+            supabase.from('school_terms').select('*').order('id',{ascending:false}),
+            supabase.from('school_forms').select('*').order('form_level'),
+        ]);
+        setStudents(sRes.data||[]); setSubjects(subRes.data||[]);
+        setMarks(mRes.data||[]); setGrading(gRes.data||[]);
+        setTerms(tRes.data||[]); setForms(fRes.data||[]);
+        const cur = (tRes.data||[]).find((t:any)=>t.is_current);
+        if(cur) setSelTerm(String(cur.id));
+        const f4 = (fRes.data||[]).find((f:any)=>f.form_level===4);
+        if(f4) setSelForm(String(f4.id));
+        setLoading(false);
+    },[]);
 
-      // Find Form 4 students (or take all if no form data)
-      const form4 = (forms || []).find(f => f.form_level === 4 || f.form_name?.includes('4') || f.form_name?.includes('IV'));
-      const targetStudents = form4
-        ? (allStudents || []).filter(s => s.form_id === form4.id)
-        : (allStudents || []).slice(0, 50);
+    useEffect(()=>{load();},[load]);
 
-      // Compute per-student average
-      const withAvg = targetStudents.map(st => {
-        const stMarks = (allMarks || []).filter(m => m.student_id === st.id).map(m => Number(m.marks || 0));
-        const avg = stMarks.length ? stMarks.reduce((a, b) => a + b, 0) / stMarks.length : 0;
-        const grade = avgToGrade(avg);
-        return { ...st, avg: Math.round(avg * 10) / 10, grade, points: GRADE_POINTS[grade] || 1 };
-      }).sort((a, b) => b.avg - a.avg);
+    const analysis = useMemo(()=>{
+        if(!subjects.length||!selTerm) return null;
+        const termStudents = students.filter(s=>!selForm||String(s.form_id)===selForm);
+        const termMarks = marks.filter(m=>String(m.term_id)===selTerm&&termStudents.some(s=>s.id===m.student_id));
 
-      // Subject readiness (class average per subject)
-      const sAvgs = (allSubjects || []).map(s => {
-        const sMarks = (allMarks || []).filter(m => m.subject_id === s.id).map(m => Number(m.marks || 0));
-        return { name: s.subject_name, avg: sMarks.length ? Math.round(sMarks.reduce((a, b) => a + b, 0) / sMarks.length) : 0 };
-      }).filter(s => s.avg > 0).sort((a, b) => a.avg - b.avg);
+        const subjectStats = subjects.map(sub=>{
+            const sm = termMarks.filter(m=>m.subject_id===sub.id);
+            if(!sm.length) return null;
+            // Group by student and compute weighted mark
+            const byStudent = new Map<number,any[]>();
+            sm.forEach(m=>{ if(!byStudent.has(m.student_id)) byStudent.set(m.student_id,[]); byStudent.get(m.student_id)!.push(m); });
+            const weightedScores: number[] = [];
+            byStudent.forEach(sMarks=>{
+                const w = computeWeightedMark(sMarks.map(m=>({examType:m.exam_type,score:m.score,outOf:m.out_of||100})));
+                weightedScores.push(w);
+            });
+            const avg = weightedScores.reduce((a,b)=>a+b,0)/weightedScores.length;
+            const nat = vsNational(sub.subject_name, avg);
+            const grade = getSubjectGrade(avg, grading);
+            const passRate = (weightedScores.filter(s=>s>=50).length/weightedScores.length)*100;
+            const aRate = (weightedScores.filter(s=>s>=75).length/weightedScores.length)*100;
+            const eRate = (weightedScores.filter(s=>s<25).length/weightedScores.length)*100;
+            const readinessScore = Math.min(100, Math.round(
+                (avg/100)*40 + (passRate/100)*30 + (nat.above?15:0) + (aRate/100)*15
+            ));
+            return { ...sub, avg, nat, grade, passRate, aRate, eRate, count:weightedScores.length, readinessScore };
+        }).filter(Boolean).sort((a:any,b:any)=>b.readinessScore-a.readinessScore) as any[];
 
-      setStudents(withAvg);
-      setSubjects(allSubjects || []);
-      setSubjectAvgs(sAvgs);
-      setLoading(false);
-    })();
-  }, []);
+        const overallAvg = subjectStats.length ? subjectStats.reduce((a,s)=>a+s.avg,0)/subjectStats.length : 0;
+        const nationalAvg = 50;
+        const aboveNational = subjectStats.filter(s=>s.nat.above).length;
+        const belowNational = subjectStats.filter(s=>!s.nat.above).length;
+        const overallReadiness = subjectStats.length ? Math.round(subjectStats.reduce((a,s)=>a+s.readinessScore,0)/subjectStats.length) : 0;
+        return { subjectStats, overallAvg, aboveNational, belowNational, overallReadiness, totalSubjects:subjectStats.length };
+    },[subjects,marks,students,grading,selTerm,selForm]);
 
-  const filtered = students.filter(s => {
-    const name = `${s.first_name} ${s.last_name}`.toLowerCase();
-    const matchSearch = !search || name.includes(search.toLowerCase()) || (s.admission_no || '').includes(search);
-    const risk = riskLevel(s.avg);
-    const matchFilter = filter === 'all' || risk.label.toLowerCase().replace(' ', '-') === filter;
-    return matchSearch && matchFilter;
-  });
+    if(loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"/></div>;
 
-  const critical = students.filter(s => s.avg < 30).length;
-  const atRisk   = students.filter(s => s.avg >= 30 && s.avg < 40).length;
-  const onTrack  = students.filter(s => s.avg >= 50).length;
-  const meanPoints = students.length ? Math.round(students.reduce((a, b) => a + (b.points || 1), 0) / students.length * 10) / 10 : 0;
-  const meanGrade = Object.entries(GRADE_POINTS).sort((a, b) => Math.abs(b[1] - meanPoints) - Math.abs(a[1] - meanPoints))[0]?.[0] || '-';
+    const readColor = (r:number)=> r>=75?'#059669':r>=50?'#d97706':'#dc2626';
+    const readLabel = (r:number)=> r>=75?'🟢 Ready':r>=50?'🟡 Approaching':'🔴 Not Ready';
 
-  const readinessChart = {
-    labels: subjectAvgs.map(s => s.name.length > 12 ? s.name.slice(0, 12) + '…' : s.name),
-    datasets: [
-      { label: 'Class Average', data: subjectAvgs.map(s => s.avg), backgroundColor: subjectAvgs.map(s => s.avg >= 45 ? '#16a34a' : '#dc2626'), borderRadius: 6 },
-      { label: 'C Plain Target (45)', data: subjectAvgs.map(() => 45), backgroundColor: 'rgba(0,0,0,0)', borderColor: '#f59e0b', type: 'line' as const, borderDash: [4, 4], borderWidth: 2, pointRadius: 0 },
-    ] as any,
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-2xl" style={{ background: 'linear-gradient(135deg,#052e16,#064e3b,#065f46)', minHeight: 140 }}>
-        <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px,#fff 1px,transparent 0)', backgroundSize: '24px 24px' }} />
-        <div className="relative px-6 py-6">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">🇰🇪</span>
-            <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Kenya Certificate of Secondary Education</span>
-          </div>
-          <h1 className="text-2xl font-black text-white">KCSE National Exam Readiness Tracker</h1>
-          <p className="text-white/50 text-sm mt-1">Predictive analysis for Form 4 national examinations</p>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: 'Students Analyzed', value: students.length, icon: '👥', bg: '#eff6ff', color: '#3b82f6' },
-          { label: 'Predicted Mean Grade', value: meanGrade, icon: '🎓', bg: '#ecfdf5', color: '#059669' },
-          { label: 'On Track (C+ & above)', value: onTrack, icon: '✅', bg: '#f0fdf4', color: '#16a34a' },
-          { label: 'Critical (below D+)', value: critical, icon: '🚨', bg: '#fef2f2', color: '#dc2626' },
-        ].map(k => (
-          <div key={k.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: k.bg }}>{k.icon}</div>
-              <p className="text-2xl font-black" style={{ color: k.color }}>{loading ? '…' : k.value}</p>
+    return (
+        <div style={{minHeight:'100vh',background:'#f0f9ff',padding:24}}>
+            <div style={{background:'linear-gradient(135deg,#065f46,#059669)',borderRadius:16,padding:'24px 32px',marginBottom:24,color:'#fff'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+                    <div>
+                        <h1 style={{fontSize:22,fontWeight:900,margin:0}}>🏅 National Exam Readiness Report</h1>
+                        <p style={{margin:'4px 0 0',opacity:0.85,fontSize:13}}>School performance vs KNEC National Averages 2023 · CAT-weighted marks</p>
+                    </div>
+                    <div style={{display:'flex',gap:10}}>
+                        <select value={selTerm} onChange={e=>setSelTerm(e.target.value)} style={{padding:'8px 14px',borderRadius:8,border:'none',background:'rgba(255,255,255,0.2)',color:'#fff',fontWeight:700,fontSize:13}}>
+                            {terms.map((t:any)=><option key={t.id} value={t.id} style={{color:'#1e293b'}}>{t.term_name}</option>)}
+                        </select>
+                        <select value={selForm} onChange={e=>setSelForm(e.target.value)} style={{padding:'8px 14px',borderRadius:8,border:'none',background:'rgba(255,255,255,0.2)',color:'#fff',fontWeight:700,fontSize:13}}>
+                            <option value="" style={{color:'#1e293b'}}>All Forms</option>
+                            {forms.map((f:any)=><option key={f.id} value={f.id} style={{color:'#1e293b'}}>{f.form_name}</option>)}
+                        </select>
+                    </div>
+                </div>
+                {analysis && (
+                    <div style={{display:'flex',gap:20,marginTop:20,flexWrap:'wrap'}}>
+                        {[
+                            {label:'Overall Readiness',value:`${analysis.overallReadiness}%`,sub:readLabel(analysis.overallReadiness)},
+                            {label:'School Average',value:`${analysis.overallAvg.toFixed(1)}%`,sub:'CAT-weighted'},
+                            {label:'Above National',value:`${analysis.aboveNational}`,sub:`of ${analysis.totalSubjects} subjects`},
+                            {label:'Below National',value:`${analysis.belowNational}`,sub:'need improvement'},
+                        ].map((s,i)=>(
+                            <div key={i} style={{background:'rgba(255,255,255,0.15)',borderRadius:10,padding:'12px 20px',minWidth:140}}>
+                                <div style={{fontSize:22,fontWeight:900}}>{s.value}</div>
+                                <div style={{fontSize:12,fontWeight:700,opacity:0.9}}>{s.label}</div>
+                                <div style={{fontSize:11,opacity:0.75}}>{s.sub}</div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
-            <p className="text-xs text-gray-400 font-semibold">{k.label}</p>
-          </div>
-        ))}
-      </div>
 
-      {/* Student Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap gap-3 items-center">
-          <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mr-auto">Form 4 Students — KCSE Readiness</p>
-          <input placeholder="Search by name or adm no…" value={search} onChange={e => setSearch(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-48 focus:outline-none focus:border-indigo-300" />
-          <select value={filter} onChange={e => setFilter(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none">
-            <option value="all">All Students</option>
-            <option value="on-track">On Track</option>
-            <option value="monitor">Monitor</option>
-            <option value="at-risk">At Risk</option>
-            <option value="critical">Critical</option>
-          </select>
-        </div>
-        {loading ? <div className="p-8 text-center text-gray-400">Loading…</div> : filtered.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">
-            <p className="text-4xl mb-3">🇰🇪</p>
-            <p className="font-bold">No Form 4 data yet</p>
-            <p className="text-sm mt-1">Add Form 4 students and exam marks to see KCSE predictions</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  {['#','Name','Adm No','Avg %','Predicted Grade','Predicted Points','Risk Level'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((st, i) => {
-                  const risk = riskLevel(st.avg);
-                  return (
-                    <tr key={st.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
-                      <td className="px-4 py-3 font-semibold text-gray-800">{st.first_name} {st.last_name}</td>
-                      <td className="px-4 py-3 text-gray-500 font-mono text-xs">{st.admission_no || '—'}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 bg-gray-100 rounded-full h-1.5">
-                            <div className="h-1.5 rounded-full" style={{ width: `${Math.min(100, st.avg)}%`, background: st.avg >= 50 ? '#16a34a' : st.avg >= 30 ? '#d97706' : '#dc2626' }} />
-                          </div>
-                          <span className="font-bold text-gray-800">{st.avg}%</span>
+            {analysis && (<>
+            {/* Readiness Gauge */}
+            <div style={{background:'#fff',borderRadius:12,padding:24,marginBottom:20,boxShadow:'0 2px 12px rgba(0,0,0,0.06)'}}>
+                <div style={{fontWeight:800,fontSize:14,color:'#1e293b',marginBottom:16}}>Overall School Readiness Score</div>
+                <div style={{display:'flex',alignItems:'center',gap:16}}>
+                    <div style={{flex:1,background:'#f1f5f9',borderRadius:999,height:20,overflow:'hidden'}}>
+                        <div style={{height:'100%',width:`${analysis.overallReadiness}%`,background:`linear-gradient(90deg,#dc2626,#d97706,#059669)`,borderRadius:999,transition:'width 1s ease'}}/>
+                    </div>
+                    <div style={{fontSize:24,fontWeight:900,color:readColor(analysis.overallReadiness),minWidth:60}}>{analysis.overallReadiness}%</div>
+                    <div style={{fontSize:13,fontWeight:700,color:readColor(analysis.overallReadiness)}}>{readLabel(analysis.overallReadiness)}</div>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#94a3b8',marginTop:4}}>
+                    <span>0% — Not Ready</span><span>50% — Approaching</span><span>75%+ — Ready</span>
+                </div>
+            </div>
+
+            {/* Subject Cards */}
+            <div style={{display:'grid',gap:12}}>
+                {analysis.subjectStats.map((sub:any,i:number)=>(
+                    <div key={sub.id} style={{background:'#fff',borderRadius:12,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,0.06)',border:`1.5px solid ${sub.nat.above?'#86efac':'#fca5a5'}`}}>
+                        <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+                            <div style={{fontSize:13,fontWeight:900,color:'#64748b',minWidth:28}}>#{i+1}</div>
+                            <div style={{flex:1}}>
+                                <div style={{fontWeight:800,fontSize:15,color:'#1e293b'}}>{sub.subject_name}</div>
+                                <div style={{display:'flex',gap:12,marginTop:6,flexWrap:'wrap'}}>
+                                    <span style={{fontSize:12,color:'#64748b'}}>School Avg: <strong style={{color:'#1e293b'}}>{sub.avg.toFixed(1)}%</strong></span>
+                                    <span style={{fontSize:12,color:'#64748b'}}>National: <strong style={{color:'#64748b'}}>{sub.nat.national}%</strong></span>
+                                    <span style={{fontSize:12,color:'#64748b'}}>Pass Rate: <strong style={{color:sub.passRate>=50?'#059669':'#dc2626'}}>{sub.passRate.toFixed(1)}%</strong></span>
+                                    <span style={{fontSize:12,color:'#64748b'}}>A Rate: <strong style={{color:'#2563eb'}}>{sub.aRate.toFixed(1)}%</strong></span>
+                                    <span style={{fontSize:12,color:'#64748b'}}>E Rate: <strong style={{color:'#dc2626'}}>{sub.eRate.toFixed(1)}%</strong></span>
+                                </div>
+                            </div>
+                            {/* Gap indicator */}
+                            <div style={{textAlign:'center',minWidth:80}}>
+                                <div style={{fontSize:18,fontWeight:900,color:sub.nat.above?'#059669':'#dc2626'}}>
+                                    {sub.nat.above?'+':''}{sub.nat.gap}%
+                                </div>
+                                <div style={{fontSize:11,color:'#64748b'}}>vs National</div>
+                                <div style={{fontSize:11,fontWeight:700,color:sub.nat.above?'#059669':'#dc2626'}}>{sub.nat.above?'▲ Above':'▼ Below'}</div>
+                            </div>
+                            {/* Readiness score */}
+                            <div style={{textAlign:'center',minWidth:90}}>
+                                <div style={{fontSize:18,fontWeight:900,color:readColor(sub.readinessScore)}}>{sub.readinessScore}%</div>
+                                <div style={{fontSize:11,color:'#64748b'}}>Readiness</div>
+                                <div style={{fontSize:11,fontWeight:700,color:readColor(sub.readinessScore)}}>{readLabel(sub.readinessScore)}</div>
+                            </div>
+                            {/* Grade badge */}
+                            <div style={{background:({A:'#059669','A-':'#10b981','B+':'#0ea5e9',B:'#3b82f6','B-':'#6366f1','C+':'#8b5cf6',C:'#a78bfa','C-':'#f59e0b','D+':'#f97316',D:'#ef4444','D-':'#dc2626',E:'#991b1b'} as any)[sub.grade.grade]||'#94a3b8',color:'#fff',borderRadius:8,padding:'6px 14px',fontWeight:900,fontSize:16}}>
+                                {sub.grade.grade}
+                            </div>
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-1 rounded-lg text-xs font-black text-white" style={{ background: gradeColor(st.grade) }}>{st.grade}</span>
-                      </td>
-                      <td className="px-4 py-3 font-bold text-gray-700">{st.points} pts</td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-1 rounded-full text-xs font-bold" style={{ color: risk.color, background: risk.bg }}>{risk.label}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Subject Readiness Chart */}
-      {subjectAvgs.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1">Subject Readiness vs C Plain Target (45%)</p>
-          <p className="text-xs text-gray-400 mb-4">🟢 Above C plain · 🔴 Below C plain · Yellow dashed = minimum target</p>
-          <div style={{ height: 250 }}>
-            <Bar data={readinessChart} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const, labels: { font: { size: 11 } } } }, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${v}%` } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
-          </div>
+                        {/* Progress bar: School vs National */}
+                        <div style={{marginTop:12,display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                            <div>
+                                <div style={{fontSize:10,color:'#64748b',marginBottom:3}}>School Average</div>
+                                <div style={{background:'#f1f5f9',borderRadius:999,height:8}}>
+                                    <div style={{height:'100%',width:`${sub.avg}%`,background:'#3b82f6',borderRadius:999}}/>
+                                </div>
+                            </div>
+                            <div>
+                                <div style={{fontSize:10,color:'#64748b',marginBottom:3}}>National Average</div>
+                                <div style={{background:'#f1f5f9',borderRadius:999,height:8}}>
+                                    <div style={{height:'100%',width:`${sub.nat.national}%`,background:'#94a3b8',borderRadius:999}}/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            </>)}
         </div>
-      )}
-    </div>
-  );
+    );
 }
