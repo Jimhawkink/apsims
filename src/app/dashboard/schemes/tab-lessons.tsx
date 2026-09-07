@@ -117,10 +117,21 @@ export default function LessonsTab({ scheme, weeks, lessons, onRefresh }: {
                                                 )}
                                                 {!isEditing && (
                                                     <div className="mt-2 space-y-1.5">
+                                                        {/* KNEC fields row */}
+                                                        <div className="flex flex-wrap gap-2 mb-1">
+                                                            {l.proposed_date && <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200">📅 {l.proposed_date}</span>}
+                                                            {l.teaching_method && <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">📖 {l.teaching_method}</span>}
+                                                            {l.textbook_reference && <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">📚 {l.textbook_reference}</span>}
+                                                            {l.syllabus_reference && <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-gray-100 text-gray-600 border border-gray-200">§ {l.syllabus_reference}</span>}
+                                                            {l.sub_topic && <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-teal-50 text-teal-700 border border-teal-200">🔖 {l.sub_topic}</span>}
+                                                        </div>
+                                                        {l.previous_knowledge && <p className="text-[11px] text-gray-600"><span className="font-bold text-orange-600">Prior Knowledge:</span> {l.previous_knowledge}</p>}
+                                                        {(l.lesson_objectives||[]).length > 0 && <p className="text-[11px] text-gray-600"><span className="font-bold text-red-600">Objectives:</span> {(l.lesson_objectives||[]).join('; ')}</p>}
                                                         {(l.learning_outcomes||[]).length > 0 && <p className="text-[11px] text-gray-600"><span className="font-bold text-purple-600">Outcomes:</span> {(l.learning_outcomes||[]).join('; ')}</p>}
                                                         {(l.key_inquiry_questions||[]).length > 0 && <p className="text-[11px] text-gray-600"><span className="font-bold text-blue-600">Inquiries:</span> {(l.key_inquiry_questions||[]).join('; ')}</p>}
                                                         {(l.learning_activities||[]).length > 0 && <p className="text-[11px] text-gray-600"><span className="font-bold text-teal-600">Activities:</span> {(l.learning_activities||[]).join('; ')}</p>}
                                                         {(l.learning_resources||[]).length > 0 && <p className="text-[11px] text-gray-600"><span className="font-bold text-amber-600">Resources:</span> {(l.learning_resources||[]).join('; ')}</p>}
+                                                        {l.chalkboard_summary && <p className="text-[11px] text-gray-600"><span className="font-bold text-gray-700">Board Summary:</span> {l.chalkboard_summary}</p>}
                                                         <div className="flex flex-wrap gap-1 mt-1">
                                                             {(l.core_competencies||[]).map((c,i) => <span key={i} className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700">{c}</span>)}
                                                             {(l.values||[]).map((v,i) => <span key={i} className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-100 text-green-700">{v}</span>)}
@@ -193,11 +204,50 @@ export default function LessonsTab({ scheme, weeks, lessons, onRefresh }: {
                                                             <div><label className="text-[10px] font-bold text-gray-500 uppercase">Non-Formal Activity</label>
                                                                 <textarea value={editData.non_formal_activity||''} onChange={e => setEditData(d => ({...d, non_formal_activity: e.target.value}))} className="w-full mt-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs" rows={2} /></div>
                                                         </div>}
-                                                        {/* Duration */}
+                                                        {/* Duration + Double */}
                                                         <div className="flex items-center gap-3">
                                                             <div><label className="text-[10px] font-bold text-gray-500 uppercase">Duration (min)</label>
                                                                 <input type="number" value={editData.lesson_duration_minutes||40} onChange={e => setEditData(d => ({...d, lesson_duration_minutes: Number(e.target.value)}))} className="w-20 mt-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs" /></div>
                                                             <label className="flex items-center gap-2 text-xs mt-4"><input type="checkbox" checked={editData.is_double_lesson||false} onChange={e => setEditData(d => ({...d, is_double_lesson: e.target.checked}))} className="rounded" /> Double Lesson</label>
+                                                        </div>
+                                                        {/* ── KNEC/MoE Required Fields ────────────────── */}
+                                                        <div className="border-t border-dashed border-blue-200 pt-3 mt-3">
+                                                            <p className="text-[10px] font-black text-blue-700 uppercase mb-2">🇰🇪 KNEC / MoE Required Fields</p>
+                                                            <div className="grid grid-cols-2 gap-3">
+                                                                {/* Proposed Date */}
+                                                                <div><label className="text-[10px] font-bold text-blue-600 uppercase">📅 Proposed Date</label>
+                                                                    <input type="date" value={editData.proposed_date||''} onChange={e => setEditData(d => ({...d, proposed_date: e.target.value}))} className="w-full mt-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs" /></div>
+                                                                {/* Teaching Method */}
+                                                                <div><label className="text-[10px] font-bold text-indigo-600 uppercase">📖 Teaching Method</label>
+                                                                    <select value={editData.teaching_method||''} onChange={e => setEditData(d => ({...d, teaching_method: e.target.value}))} className="w-full mt-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs">
+                                                                        <option value="">Select…</option>
+                                                                        {['Discussion','Lecture','Demonstration','Practical','Q & A','Project','Group Work','Role Play','Field Visit','Brainstorming','Discovery','Problem Solving'].map(m => <option key={m} value={m}>{m}</option>)}
+                                                                    </select></div>
+                                                                {/* Textbook Reference */}
+                                                                <div><label className="text-[10px] font-bold text-amber-600 uppercase">📚 Textbook Reference</label>
+                                                                    <input value={editData.textbook_reference||''} onChange={e => setEditData(d => ({...d, textbook_reference: e.target.value}))} placeholder="e.g. KLB Form 2 pg 45-47" className="w-full mt-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs" /></div>
+                                                                {/* Syllabus Reference */}
+                                                                <div><label className="text-[10px] font-bold text-gray-600 uppercase">§ Syllabus Reference</label>
+                                                                    <input value={editData.syllabus_reference||''} onChange={e => setEditData(d => ({...d, syllabus_reference: e.target.value}))} placeholder="e.g. Section 3.2.1" className="w-full mt-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs" /></div>
+                                                            </div>
+                                                            {/* Sub-topic */}
+                                                            <div className="mt-2"><label className="text-[10px] font-bold text-teal-600 uppercase">🔖 Sub-Topic</label>
+                                                                <input value={editData.sub_topic||''} onChange={e => setEditData(d => ({...d, sub_topic: e.target.value}))} placeholder="e.g. Types of Soil Erosion" className="w-full mt-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs" /></div>
+                                                            {/* Previous Knowledge */}
+                                                            <div className="mt-2"><label className="text-[10px] font-bold text-orange-600 uppercase">🧠 Previous/Assumed Knowledge</label>
+                                                                <textarea value={editData.previous_knowledge||''} onChange={e => setEditData(d => ({...d, previous_knowledge: e.target.value}))} placeholder="What learners already know before this lesson…" className="w-full mt-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs" rows={2} /></div>
+                                                            {/* Lesson Objectives */}
+                                                            <div className="mt-2"><label className="text-[10px] font-bold text-red-600 uppercase">🎯 Lesson Objectives (SMART)</label>
+                                                                {(editData.lesson_objectives||[]).map((o,i) => (
+                                                                    <div key={i} className="flex items-center gap-1 mt-1">
+                                                                        <input value={o} onChange={e => updateArrItem('lesson_objectives', i, e.target.value)} placeholder="By end of lesson, learners should be able to…" className="flex-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs" />
+                                                                        <button onClick={() => removeArrItem('lesson_objectives', i)} className="text-red-400 hover:text-red-600"><FiX size={12}/></button>
+                                                                    </div>
+                                                                ))}
+                                                                <button onClick={() => addArrItem('lesson_objectives')} className="text-[10px] text-red-600 font-bold mt-1 hover:underline">+ Add Objective</button></div>
+                                                            {/* Chalkboard Summary */}
+                                                            <div className="mt-2"><label className="text-[10px] font-bold text-gray-700 uppercase">🖊️ Chalkboard/Board Summary</label>
+                                                                <textarea value={editData.chalkboard_summary||''} onChange={e => setEditData(d => ({...d, chalkboard_summary: e.target.value}))} placeholder="Key points to write on board during lesson…" className="w-full mt-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs" rows={2} /></div>
                                                         </div>
                                                     </div>
                                                 )}

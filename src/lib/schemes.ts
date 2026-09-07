@@ -54,8 +54,16 @@ export interface SchemeLesson {
     scheme_id: number;
     lesson_number: number;
     lesson_title: string;
+    sub_topic?: string | null;                    // 8-4-4: sub-topic within main topic
     sub_strand_id?: number | null;
     topic_id?: number | null;
+    proposed_date?: string | null;                // MoE: planned lesson date
+    previous_knowledge?: string | null;           // KNEC: assumed/previous knowledge
+    lesson_objectives?: string[];                 // KNEC: specific SMART objectives
+    teaching_method?: string | null;              // MoE: Lecture/Discussion/Demo/Practical
+    chalkboard_summary?: string | null;           // 8-4-4 MoE: board work plan
+    textbook_reference?: string | null;           // KNEC: "KLB Form 2 pg 45-47"
+    syllabus_reference?: string | null;           // KNEC 8-4-4: "Section 3.2.1"
     learning_outcomes?: string[];
     key_inquiry_questions?: string[];
     learning_activities?: string[];
@@ -113,68 +121,93 @@ export async function getSchemesOfWork(filters?: {
     status?: string;
     curriculum_type?: string;
 }) {
+    // Step 1: flat select — no joins (avoids FK dependency failures)
     let query = supabase
         .from('school_schemes_of_work')
-        .select(`
-            *,
-            school_subjects!inner(subject_name, subject_code),
-            school_forms!inner(form_name),
-            school_terms!inner(term_name, year),
-            school_teachers(first_name, last_name),
-            school_cbc_strands(strand_name),
-            school_cbc_sub_strands(sub_strand_name),
-            school_topics(topic_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-    if (filters?.subject_id) query = query.eq('subject_id', filters.subject_id);
-    if (filters?.form_id) query = query.eq('form_id', filters.form_id);
-    if (filters?.term_id) query = query.eq('term_id', filters.term_id);
-    if (filters?.status) query = query.eq('status', filters.status);
+    if (filters?.subject_id)      query = query.eq('subject_id', filters.subject_id);
+    if (filters?.form_id)         query = query.eq('form_id', filters.form_id);
+    if (filters?.term_id)         query = query.eq('term_id', filters.term_id);
+    if (filters?.status)          query = query.eq('status', filters.status);
     if (filters?.curriculum_type) query = query.eq('curriculum_type', filters.curriculum_type);
 
     const { data, error } = await query;
     if (error) throw error;
+    if (!data || data.length === 0) return [];
 
-    return (data || []).map((s: any) => ({
-        ...s,
-        subject_name: s.school_subjects?.subject_name,
-        subject_code: s.school_subjects?.subject_code,
-        form_name: s.school_forms?.form_name,
-        term_name: s.school_terms?.term_name,
-        teacher_name: s.school_teachers ? `${s.school_teachers.first_name} ${s.school_teachers.last_name}` : null,
-        strand_name: s.school_cbc_strands?.strand_name,
-        sub_strand_name: s.school_cbc_sub_strands?.sub_strand_name,
-        topic_name: s.school_topics?.topic_name,
-    })) as SchemeOfWork[];
+    // Step 2: fetch lookup tables in parallel
+    const [subjectsRes, formsRes, termsRes, teachersRes, strandsRes, subStrandsRes] = await Promise.all([
+        supabase.from('school_subjects').select('id, subject_name, subject_code'),
+        supabase.from('school_forms').select('id, form_name'),
+        supabase.from('school_terms').select('id, term_name, year, term_number'),
+        supabase.from('school_teachers').select('id, first_name, last_name'),
+        supabase.from('school_cbc_strands').select('id, strand_name'),
+        supabase.from('school_cbc_sub_strands').select('id, sub_strand_name'),
+    ]);
+
+    const subjects   = subjectsRes.data   || [];
+    const forms      = formsRes.data      || [];
+    const terms      = termsRes.data      || [];
+    const teachers   = teachersRes.data   || [];
+    const strands    = strandsRes.data    || [];
+    const subStrands = subStrandsRes.data || [];
+
+    return data.map((s: any) => {
+        const subj    = subjects.find((x: any)   => x.id === s.subject_id);
+        const form    = forms.find((x: any)      => x.id === s.form_id);
+        const term    = terms.find((x: any)      => x.id === s.term_id);
+        const teacher = teachers.find((x: any)   => x.id === s.teacher_id);
+        const strand  = strands.find((x: any)    => x.id === s.strand_id);
+        const subStr  = subStrands.find((x: any) => x.id === s.sub_strand_id);
+        return {
+            ...s,
+            subject_name:    subj?.subject_name   || '',
+            subject_code:    subj?.subject_code   || '',
+            form_name:       form?.form_name      || '',
+            term_name:       term?.term_name      || '',
+            teacher_name:    teacher ? `${teacher.first_name} ${teacher.last_name}` : null,
+            strand_name:     strand?.strand_name  || null,
+            sub_strand_name: subStr?.sub_strand_name || null,
+            topic_name:      null, // topic lookup removed (table may not exist)
+        };
+    }) as SchemeOfWork[];
 }
 
 export async function getSchemeById(id: number) {
     const { data, error } = await supabase
         .from('school_schemes_of_work')
-        .select(`
-            *,
-            school_subjects!inner(subject_name, subject_code),
-            school_forms!inner(form_name),
-            school_terms!inner(term_name, year, term_number),
-            school_teachers(first_name, last_name),
-            school_cbc_strands(strand_name),
-            school_cbc_sub_strands(sub_strand_name),
-            school_topics(topic_name)
-        `)
+        .select('*')
         .eq('id', id)
         .single();
     if (error) throw error;
+
+    const [subjectsRes, formsRes, termsRes, teachersRes, strandsRes, subStrandsRes] = await Promise.all([
+        supabase.from('school_subjects').select('id, subject_name, subject_code'),
+        supabase.from('school_forms').select('id, form_name'),
+        supabase.from('school_terms').select('id, term_name, year, term_number'),
+        supabase.from('school_teachers').select('id, first_name, last_name'),
+        supabase.from('school_cbc_strands').select('id, strand_name'),
+        supabase.from('school_cbc_sub_strands').select('id, sub_strand_name'),
+    ]);
+    const subj    = (subjectsRes.data   || []).find((x: any) => x.id === data.subject_id);
+    const form    = (formsRes.data      || []).find((x: any) => x.id === data.form_id);
+    const term    = (termsRes.data      || []).find((x: any) => x.id === data.term_id);
+    const teacher = (teachersRes.data   || []).find((x: any) => x.id === data.teacher_id);
+    const strand  = (strandsRes.data    || []).find((x: any) => x.id === data.strand_id);
+    const subStr  = (subStrandsRes.data || []).find((x: any) => x.id === data.sub_strand_id);
+
     return {
         ...data,
-        subject_name: data.school_subjects?.subject_name,
-        subject_code: data.school_subjects?.subject_code,
-        form_name: data.school_forms?.form_name,
-        term_name: data.school_terms?.term_name,
-        teacher_name: data.school_teachers ? `${data.school_teachers.first_name} ${data.school_teachers.last_name}` : null,
-        strand_name: data.school_cbc_strands?.strand_name,
-        sub_strand_name: data.school_cbc_sub_strands?.sub_strand_name,
-        topic_name: data.school_topics?.topic_name,
+        subject_name:    subj?.subject_name    || '',
+        subject_code:    subj?.subject_code    || '',
+        form_name:       form?.form_name       || '',
+        term_name:       term?.term_name       || '',
+        teacher_name:    teacher ? `${teacher.first_name} ${teacher.last_name}` : null,
+        strand_name:     strand?.strand_name   || null,
+        sub_strand_name: subStr?.sub_strand_name || null,
+        topic_name:      null,
     } as SchemeOfWork;
 }
 
@@ -314,37 +347,21 @@ export async function updateSchemeWeek(id: number, updates: Partial<SchemeWeek>)
 export async function getSchemeLessons(schemeId: number) {
     const { data, error } = await supabase
         .from('school_scheme_lessons')
-        .select(`
-            *,
-            school_cbc_sub_strands(sub_strand_name),
-            school_topics(topic_name)
-        `)
+        .select('*')
         .eq('scheme_id', schemeId)
         .order('lesson_number', { ascending: true });
     if (error) throw error;
-    return (data || []).map((l: any) => ({
-        ...l,
-        sub_strand_name: l.school_cbc_sub_strands?.sub_strand_name,
-        topic_name: l.school_topics?.topic_name,
-    })) as SchemeLesson[];
+    return (data || []) as SchemeLesson[];
 }
 
 export async function getWeekLessons(weekId: number) {
     const { data, error } = await supabase
         .from('school_scheme_lessons')
-        .select(`
-            *,
-            school_cbc_sub_strands(sub_strand_name),
-            school_topics(topic_name)
-        `)
+        .select('*')
         .eq('week_id', weekId)
         .order('lesson_number', { ascending: true });
     if (error) throw error;
-    return (data || []).map((l: any) => ({
-        ...l,
-        sub_strand_name: l.school_cbc_sub_strands?.sub_strand_name,
-        topic_name: l.school_topics?.topic_name,
-    })) as SchemeLesson[];
+    return (data || []) as SchemeLesson[];
 }
 
 export async function createSchemeLesson(lesson: Omit<SchemeLesson, 'id' | 'created_at' | 'updated_at'>) {
