@@ -140,9 +140,9 @@ export default function RemedialPage() {
       supabase.from('school_students').select('id,first_name,last_name,admission_number,form_id,stream_id').eq('status', 'Active').order('first_name'),
       supabase.from('school_forms').select('*').order('form_level'),
       supabase.from('school_streams').select('*').order('stream_name'),
-      supabase.from('school_remedial_terms').select('*').order('year', { ascending: false }),
-      supabase.from('school_remedial_enrollments').select('*, school_students(id,first_name,last_name,admission_number,form_id,stream_id), school_remedial_terms(id,term_name,year,fee_amount)').order('enrolled_at', { ascending: false }),
-      supabase.from('school_remedial_payments').select('*, school_students(id,first_name,last_name,admission_number,form_id,stream_id), school_remedial_terms(id,term_name,year)').order('created_at', { ascending: false }),
+      supabase.from('school_remedial_terms').select('*').order('id', { ascending: false }),
+      supabase.from('school_remedial_enrollments').select('*, school_students(id,first_name,last_name,admission_number,form_id,stream_id), school_remedial_terms(id,term_name,fee_amount)').order('enrolled_at', { ascending: false }),
+      supabase.from('school_remedial_payments').select('*, school_students(id,first_name,last_name,admission_number,form_id,stream_id), school_remedial_terms(id,term_name)').order('created_at', { ascending: false }),
     ]);
     setStudents(s.data || []);
     setForms(f.data || []);
@@ -271,10 +271,7 @@ export default function RemedialPage() {
     const newPaid = quickPayTarget.paid + amt;
     const credit = newPaid - quickPayTarget.due;
     if (credit > 0) {
-      const sortedTerms = [...terms].sort((a, b) => {
-        if (b.year !== a.year) return a.year - b.year;
-        return a.id - b.id;
-      });
+      const sortedTerms = [...terms].sort((a, b) => a.id - b.id);
       const currentIdx = sortedTerms.findIndex(t => t.id === Number(rosterTerm));
       const nextTerm = sortedTerms[currentIdx + 1];
       if (nextTerm) {
@@ -389,13 +386,14 @@ export default function RemedialPage() {
 
   // ── CREATE TERM ────────────────────────────────────────────────────────────
   const handleCreateTerm = async () => {
-    if (!newTermName || !newTermYear || !newTermFee) return toast.error('Fill all term fields');
+    if (!newTermName || !newTermFee) return toast.error('Fill all term fields');
     setNewTermSaving(true);
+    const fullName = newTermYear ? `${newTermName} ${newTermYear}` : newTermName;
     const { error } = await supabase.from('school_remedial_terms').insert([{
-      term_name: newTermName, year: Number(newTermYear), fee_amount: Number(newTermFee)
+      term_name: fullName, fee_amount: Number(newTermFee)
     }]);
     if (error) { toast.error('Failed: ' + error.message); setNewTermSaving(false); return; }
-    toast.success(`Term "${newTermName} ${newTermYear}" created`);
+    toast.success(`Term "${fullName}" created`);
     setNewTermName(''); setNewTermSaving(false); fetchAll(true);
   };
 
