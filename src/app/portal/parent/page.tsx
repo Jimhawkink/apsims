@@ -591,36 +591,182 @@ export default function ParentPortal() {
                     )}
 
                     {/* ══════════ RESULTS ═══════════════════════════════════ */}
-                    {tab === 'results' && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div className="px-5 py-3 border-b border-gray-100" style={{ background: 'linear-gradient(135deg,#2563EB,#1D4ED8)' }}>
-                                <h3 className="font-black text-white text-sm">Exam Results</h3>
-                                <p className="text-xs text-blue-200">{examResults.length} result records</p>
+                    {tab === 'results' && (() => {
+                        // ── KNEC CORRECT computation ─────────────────────────
+                        const KNEC_TABLE = [
+                            {g:'A',pts:12,min:75},{g:'A-',pts:11,min:70},{g:'B+',pts:10,min:65},
+                            {g:'B',pts:9,min:60},{g:'B-',pts:8,min:55},{g:'C+',pts:7,min:50},
+                            {g:'C',pts:6,min:45},{g:'C-',pts:5,min:40},{g:'D+',pts:4,min:35},
+                            {g:'D',pts:3,min:30},{g:'D-',pts:2,min:25},{g:'E',pts:1,min:0},
+                        ];
+                        const MEAN_TABLE = [
+                            {g:'A',min:81},{g:'A-',min:74},{g:'B+',min:67},{g:'B',min:60},
+                            {g:'B-',min:53},{g:'C+',min:46},{g:'C',min:40},{g:'C-',min:33},
+                            {g:'D+',min:27},{g:'D',min:21},{g:'D-',min:14},{g:'E',min:7},
+                        ];
+                        const getKG = (score: number) => KNEC_TABLE.find(r => score >= r.min) || KNEC_TABLE[KNEC_TABLE.length-1];
+                        const getMeanG = (pts: number) => MEAN_TABLE.find(r => pts >= r.min)?.g || 'E';
+                        const gc2 = (g: string) => ({'A':'#059669','A-':'#10b981','B+':'#0ea5e9','B':'#3b82f6','B-':'#6366f1','C+':'#8b5cf6','C':'#a78bfa','C-':'#f59e0b','D+':'#f97316','D':'#ef4444','D-':'#dc2626','E':'#991b1b'} as any)[g]||'#94a3b8';
+
+                        // Group by subject → CAT 30% + EndTerm 70%
+                        const bySubject = new Map<string, any[]>();
+                        examResults.forEach((r: any) => {
+                            const key = String(r.subject_id || r.school_subjects?.id || r.subject_name || 'unk');
+                            if(!bySubject.has(key)) bySubject.set(key, []);
+                            bySubject.get(key)!.push(r);
+                        });
+                        const subjectResults: any[] = [];
+                        bySubject.forEach((recs, key) => {
+                            const cats = recs.filter((r:any) => /cat\s*\d?|continuous|test\s*\d/i.test(r.exam_type||''));
+                            const endTerm = recs.find((r:any) => /end.?term|final/i.test(r.exam_type||''));
+                            let weighted: number;
+                            if(cats.length > 0 && endTerm) {
+                                const catAvg = cats.reduce((a:number,r:any)=>a+Number(r.score||0),0)/cats.length;
+                                weighted = catAvg*0.30 + Number(endTerm.score||0)*0.70;
+                            } else {
+                                weighted = recs.reduce((a:number,r:any)=>a+Number(r.score||0),0)/recs.length;
+                            }
+                            weighted = Math.round(weighted*10)/10;
+                            const subName = recs[0].school_subjects?.subject_name || recs[0].subject_name || key;
+                            const kg = getKG(weighted);
+                            subjectResults.push({ subName, weighted, grade: kg.g, points: kg.pts, catRecs: cats, endTermScore: endTerm?.score });
+                        });
+
+                        // Best-7: English + Kiswahili mandatory + best 5
+                        const english = subjectResults.find(r=>/^english$/i.test(r.subName.trim()));
+                        const kiswa = subjectResults.find(r=>/^kiswahili$/i.test(r.subName.trim()));
+                        const mandatory = [english,kiswa].filter(Boolean);
+                        const mandNames = new Set(mandatory.map((r:any)=>r.subName));
+                        const others = subjectResults.filter(r=>!mandNames.has(r.subName)).sort((a,b)=>b.points-a.points);
+                        const best7 = [...mandatory,...others.slice(0,7-mandatory.length)];
+                        const totalPoints = best7.reduce((a,r)=>a+r.points,0);
+                        const meanGrade = getMeanG(totalPoints);
+                        const schoolAvg = subjectResults.length ? Math.round(subjectResults.reduce((a,r)=>a+r.weighted,0)/subjectResults.length*10)/10 : 0;
+                        const isValid = !!english && !!kiswa && best7.length >= 7;
+
+                        // University quick-check (top 5 courses)
+                        const COURSES = [
+                            {name:'Medicine (MBChB)',minG:'A-',minPts:10.8,required:['Biology','Chemistry']},
+                            {name:'Nursing (BScN)',minG:'C+',minPts:8.5,required:['Biology','Chemistry']},
+                            {name:'Engineering',minG:'B',minPts:9.0,required:['Mathematics','Physics']},
+                            {name:'Computer Science',minG:'B-',minPts:8.5,required:['Mathematics']},
+                            {name:'Bachelor of Laws',minG:'B+',minPts:9.0,required:['English']},
+                            {name:'Bachelor of Education',minG:'C',minPts:6.0,required:[]},
+                            {name:'Bachelor of Commerce',minG:'C+',minPts:7.0,required:['Mathematics']},
+                        ];
+                        const GRADE_ORDER2 = ['A','A-','B+','B','B-','C+','C','C-','D+','D','D-','E'];
+                        const qualify = COURSES.filter(c => {
+                            const meetsGrade = GRADE_ORDER2.indexOf(meanGrade) <= GRADE_ORDER2.indexOf(c.minG);
+                            const meetsReq = c.required.every(req => subjectResults.some(r => r.subName.toLowerCase().includes(req.toLowerCase()) && r.points >= 6));
+                            return meetsGrade && meetsReq;
+                        });
+
+                        return (
+                        <div className="space-y-4 p-4">
+                            {/* KNEC Mean Grade Hero */}
+                            <div style={{background:'linear-gradient(135deg,#1e3a5f,#7c3aed)',borderRadius:14,padding:'20px 24px',color:'#fff'}}>
+                                <div style={{fontSize:11,letterSpacing:2,opacity:0.8,marginBottom:8}}>KNEC OFFICIAL MEAN GRADE — CAT 30% + END-TERM 70%</div>
+                                <div style={{display:'flex',alignItems:'center',gap:24,flexWrap:'wrap'}}>
+                                    <div style={{textAlign:'center'}}>
+                                        <div style={{fontSize:52,fontWeight:900,lineHeight:1,color:gc2(meanGrade)}}>{meanGrade}</div>
+                                        <div style={{fontSize:12,opacity:0.8,marginTop:4}}>Mean Grade</div>
+                                    </div>
+                                    <div style={{flex:1,display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+                                        {[
+                                            {l:'Total Points',v:totalPoints,s:'Best 7 subjects'},
+                                            {l:'School Average',v:`${schoolAvg}%`,s:'CAT-weighted'},
+                                            {l:'Subjects Sat',v:subjectResults.length,s:`Best 7 of ${subjectResults.length}`},
+                                        ].map((s,i)=>(
+                                            <div key={i} style={{background:'rgba(255,255,255,0.12)',borderRadius:10,padding:'10px 14px',textAlign:'center'}}>
+                                                <div style={{fontSize:20,fontWeight:900}}>{s.v}</div>
+                                                <div style={{fontSize:11,fontWeight:700,opacity:0.9}}>{s.l}</div>
+                                                <div style={{fontSize:10,opacity:0.7}}>{s.s}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                {!isValid && (
+                                    <div style={{marginTop:12,fontSize:11,background:'rgba(251,191,36,0.2)',borderRadius:8,padding:'6px 12px',color:'#fbbf24',fontWeight:700}}>
+                                        ⚠️ {!english?'English marks missing. ':''}{!kiswa?'Kiswahili marks missing. ':''}{best7.length<7?`Only ${best7.length} subjects — need 7 for valid KNEC grade.`:''}
+                                    </div>
+                                )}
                             </div>
-                            {examResults.length === 0 ? <div className="py-12 text-center text-gray-400 text-sm"><FiBarChart2 size={28} className="mx-auto mb-2 text-gray-200"/>No exam results available yet</div> : (
+
+                            {/* Best-7 subjects */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="px-5 py-3 border-b border-gray-100" style={{background:'linear-gradient(135deg,#059669,#047857)'}}>
+                                    <h3 className="font-black text-white text-sm">✅ Best 7 Subjects (KCSE Counting)</h3>
+                                    <p className="text-xs text-green-200">English + Kiswahili mandatory · Best 5 others by points</p>
+                                </div>
                                 <div className="divide-y divide-gray-50">
-                                    {examResults.map(r => {
-                                        const mk = Number(r.score || r.marks || 0);
-                                        const gr = mk >= 80 ? 'A' : mk >= 70 ? 'B' : mk >= 60 ? 'C' : mk >= 50 ? 'D' : 'E';
-                                        const gc = mk >= 70 ? '#059669' : mk >= 50 ? '#D97706' : '#DC2626';
-                                        return (
-                                            <div key={r.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50">
-                                                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg" style={{ background: mk >= 50 ? '#D1FAE5' : '#FEE2E2' }}>{mk >= 70 ? '🌟' : mk >= 50 ? '✅' : '❌'}</div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="font-bold text-gray-800 text-sm">{r.school_subjects?.subject_name || r.subject_name || 'Subject'}</p>
-                                                    <p className="text-[10px] text-gray-400">{r.exam_type || r.exam_name || 'Exam'}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-xl font-black" style={{ color: gc }}>{r.score || r.marks || '—'}</p>
-                                                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded" style={{ background: gc + '22', color: gc }}>Grade {gr}</span>
+                                    {best7.map((r:any,i:number)=>(
+                                        <div key={i} className="px-5 py-3 flex items-center gap-3">
+                                            <div style={{width:28,height:28,borderRadius:'50%',background:'#dbeafe',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,color:'#1d4ed8',flexShrink:0}}>{i+1}</div>
+                                            <div style={{flex:1}}>
+                                                <p className="font-bold text-gray-800 text-sm">{r.subName}</p>
+                                                <p className="text-[10px] text-gray-400">
+                                                    {r.catRecs.length>0 ? `CAT avg: ${(r.catRecs.reduce((a:number,x:any)=>a+Number(x.score),0)/r.catRecs.length).toFixed(0)}% (30%)` : ''}
+                                                    {r.endTermScore ? ` · End-Term: ${r.endTermScore}% (70%)` : ''}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-lg font-black" style={{color:gc2(r.grade)}}>{r.weighted}%</p>
+                                                <div className="flex items-center gap-1 justify-end">
+                                                    <span style={{background:gc2(r.grade),color:'#fff',fontWeight:900,fontSize:11,padding:'1px 7px',borderRadius:4}}>{r.grade}</span>
+                                                    <span style={{fontSize:11,color:'#7c3aed',fontWeight:700}}>{r.points}pts</span>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* All subjects */}
+                            {subjectResults.filter(r=>!best7.some(b=>b.subName===r.subName)).length>0 && (
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                    <div className="px-5 py-3 border-b border-gray-100">
+                                        <h3 className="font-black text-gray-700 text-sm">Other Subjects (Not in Best 7)</h3>
+                                    </div>
+                                    <div className="divide-y divide-gray-50">
+                                        {subjectResults.filter(r=>!best7.some(b=>b.subName===r.subName)).map((r:any,i:number)=>(
+                                            <div key={i} className="px-5 py-3 flex items-center gap-3 opacity-60">
+                                                <div style={{flex:1}}><p className="font-bold text-gray-700 text-sm">{r.subName}</p></div>
+                                                <div className="text-right">
+                                                    <p className="text-base font-black" style={{color:gc2(r.grade)}}>{r.weighted}%</p>
+                                                    <span style={{background:gc2(r.grade),color:'#fff',fontWeight:900,fontSize:10,padding:'1px 6px',borderRadius:4}}>{r.grade}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
+
+                            {/* University predictor */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="px-5 py-3 border-b border-gray-100" style={{background:'linear-gradient(135deg,#7c3aed,#6d28d9)'}}>
+                                    <h3 className="font-black text-white text-sm">🎓 University Qualification Preview</h3>
+                                    <p className="text-xs text-purple-200">Based on current performance · KUCCPS 2024</p>
+                                </div>
+                                {qualify.length > 0 ? (
+                                    <div className="p-4 space-y-2">
+                                        {qualify.map((c,i)=>(
+                                            <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,background:'#f0fdf4',border:'1px solid #86efac'}}>
+                                                <span style={{fontSize:16}}>✅</span>
+                                                <span style={{fontWeight:700,fontSize:13,color:'#1e293b'}}>{c.name}</span>
+                                                <span style={{fontSize:11,color:'#64748b',marginLeft:'auto'}}>Min: {c.minG}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-6 text-center text-gray-400 text-sm">
+                                        <div className="text-2xl mb-2">📚</div>
+                                        Current grade {meanGrade} — keep working hard to qualify for university courses!
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    )}
+                        );
+                    })()}
 
                     {/* ══════════ ATTENDANCE ════════════════════════════════ */}
                     {tab === 'attendance' && (

@@ -191,6 +191,8 @@ const menuGroups = [
             { href: '/dashboard/exams/cbc-reports/pathway-engine',   label: '🛤️ CBC Pathway Engine',  icon: FiTrendingUp, perm: 'exams' },
             { href: '/dashboard/exams/cbc-reports/rubric-analytics', label: '📏 CBC Rubric Analytics', icon: FiBarChart2, perm: 'exams' },
             { href: '/dashboard/exams/university-predictor',         label: '🎓 University Predictor', icon: FiAward,     perm: 'exams' },
+            { href: '/dashboard/exams/departmental',                 label: '🏛️ Departmental HOD View', icon: FiUsers,     perm: 'exams' },
+            { href: '/dashboard/exams/five-year-trend',              label: '📈 5-Year Trend Analysis', icon: FiTrendingUp,perm: 'exams' },
         ]
     },
     {
