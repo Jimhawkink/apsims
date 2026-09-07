@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { processStudentAllMarks, computeKNECMeanGrade, getSubjectGrade, vsNational, GRADE_ORDER } from '@/lib/knec-grading';
-import { FiPrinter, FiDownload, FiRefreshCw, FiTrendingUp, FiTrendingDown, FiMinus, FiAward, FiUsers, FiBook } from 'react-icons/fi';
+import { FiPrinter, FiRefreshCw, FiUsers } from 'react-icons/fi';
 
 export default function PrincipalReportPage() {
     const [data, setData] = useState<any>({});
@@ -106,7 +106,7 @@ export default function PrincipalReportPage() {
         }).filter(Boolean).sort((a:any,b:any)=>b.avg-a.avg) as any[];
 
         return { schoolAvg, passCount, passRate:(passCount/Math.max(allScores.length,1))*100, aCount, eCount, gradeDist, subjectStats, topStudents, atRisk, formStats, streamStats, totalStudents:termStudents.length, totalEntries:allScores.length };
-    }, [data, selTerm, selForm, forms, subjects]);
+    }, [data, selTerm, selForm, forms]);
 
     const termName = terms.find(t=>String(t.id)===selTerm)?.term_name||'';
     const formName = selForm ? forms.find(f=>String(f.id)===selForm)?.form_name||'' : 'All Forms';

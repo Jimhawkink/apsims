@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { computeWeightedMark, vsNational, getSubjectGrade, NATIONAL_AVG_2023, computeRiskScore } from '@/lib/knec-grading';
-import { FiTrendingUp, FiTrendingDown, FiMinus, FiAward, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
+import { computeWeightedMark, vsNational, getSubjectGrade } from '@/lib/knec-grading';
+import { FiBarChart2 } from 'react-icons/fi';
 
 export default function NationalReadinessPage() {
     const [subjects, setSubjects] = useState<any[]>([]);
