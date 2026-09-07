@@ -15,7 +15,7 @@ type RemTab = 'roster' | 'pay' | 'statement' | 'reports' | 'balances' | 'setting
 const PAY_METHODS = ['Cash', 'M-Pesa', 'Bank Transfer', 'Cheque', 'Card'];
 const DEFAULT_AMOUNTS = [1500, 2000, 2500, 3000, 5000];
 
-// â”€â”€ Status logic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Status logic ──────────────────────────────────────────────────────────────
 function getStatus(due: number, paid: number) {
   if (paid <= 0) return { label: 'Not Paid', color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' };
   if (paid >= due) return { label: paid > due ? 'Overpaid' : 'Fully Paid', color: '#059669', bg: '#f0fdf4', border: '#86efac' };
@@ -24,7 +24,7 @@ function getStatus(due: number, paid: number) {
   return { label: 'Low', color: '#dc2626', bg: '#fff7ed', border: '#fdba74' };
 }
 
-// â”€â”€ Modal wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Modal wrapper ─────────────────────────────────────────────────────────────
 function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {
   if (!open) return null;
   return (
@@ -41,7 +41,7 @@ function Modal({ open, onClose, title, children, wide }: { open: boolean; onClos
   );
 }
 
-// â”€â”€ Stat card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Stat card ─────────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon, color, sub }: { label: string; value: string; icon: string; color: string; sub?: string }) {
   return (
     <div style={{ background: '#fff', borderRadius: 14, border: `1.5px solid #e2e8f0`, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -66,7 +66,7 @@ export default function RemedialPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // â”€â”€ Roster filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Roster filters ─────────────────────────────────────────────────────────
   const [rosterTerm, setRosterTerm] = useState('');
   const [rosterForm, setRosterForm] = useState('');
   const [rosterStream, setRosterStream] = useState('');
@@ -74,7 +74,7 @@ export default function RemedialPage() {
   const [rosterSort, setRosterSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'name', dir: 'asc' });
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
 
-  // â”€â”€ Quick Pay modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Quick Pay modal ────────────────────────────────────────────────────────
   const [quickPayTarget, setQuickPayTarget] = useState<any>(null);
   const [qpAmount, setQpAmount] = useState('');
   const [qpMethod, setQpMethod] = useState('Cash');
@@ -82,19 +82,19 @@ export default function RemedialPage() {
   const [qpNotes, setQpNotes] = useState('');
   const [qpSaving, setQpSaving] = useState(false);
 
-  // â”€â”€ Edit enrollment modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Edit enrollment modal ──────────────────────────────────────────────────
   const [editTarget, setEditTarget] = useState<any>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
-  // â”€â”€ Delete modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Delete modal ───────────────────────────────────────────────────────────
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // â”€â”€ Statement modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Statement modal ────────────────────────────────────────────────────────
   const [stmtTarget, setStmtTarget] = useState<any>(null);
 
-  // â”€â”€ Record payment tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Record payment tab ─────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
   const [selStudent, setSelStudent] = useState<any>(null);
   const [selTermId, setSelTermId] = useState('');
@@ -104,24 +104,24 @@ export default function RemedialPage() {
   const [payNotes, setPayNotes] = useState('');
   const [paying, setPaying] = useState(false);
 
-  // â”€â”€ Statement tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Statement tab ──────────────────────────────────────────────────────────
   const [stmtSearch, setStmtSearch] = useState('');
   const [stmtStudent, setStmtStudent] = useState<any>(null);
 
-  // â”€â”€ Reports tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Reports tab ───────────────────────────────────────────────────────────
   const [rptForm, setRptForm] = useState('');
   const [rptStream, setRptStream] = useState('');
   const [rptTerm, setRptTerm] = useState('');
   const [rptDateFrom, setRptDateFrom] = useState(new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
   const [rptDateTo, setRptDateTo] = useState(new Date().toISOString().split('T')[0]);
 
-  // â”€â”€ Balances tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Balances tab ───────────────────────────────────────────────────────────
   const [balForm, setBalForm] = useState('');
   const [balStream, setBalStream] = useState('');
   const [balTerm, setBalTerm] = useState('');
   const [balSearch, setBalSearch] = useState('');
 
-  // â”€â”€ Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Settings ───────────────────────────────────────────────────────────────
   const [newTermName, setNewTermName] = useState('');
   const [newTermYear, setNewTermYear] = useState(String(new Date().getFullYear()));
   const [newTermFee, setNewTermFee] = useState('1500');
@@ -133,7 +133,7 @@ export default function RemedialPage() {
   const [massEnrollStream, setMassEnrollStream] = useState('');
   const [massEnrolling, setMassEnrolling] = useState(false);
 
-  // â”€â”€ Fetch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
     const [s, f, st, t, e, p] = await Promise.all([
@@ -163,7 +163,7 @@ export default function RemedialPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Helpers ────────────────────────────────────────────────────────────────
   const getFormName = (fid: any) => forms.find(f => f.id === fid)?.form_name || forms.find(f => f.id === fid)?.form_level?.toString() || '-';
   const getStreamName = (sid: any) => streams.find(s => s.id === sid)?.stream_name || '-';
   const getPaidForEnrollment = (studentId: number, termId: number) =>
@@ -175,7 +175,7 @@ export default function RemedialPage() {
     return `REM-${ds}-${Math.floor(1000 + Math.random() * 9000)}`;
   };
 
-  // â”€â”€ ROSTER DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── ROSTER DATA ────────────────────────────────────────────────────────────
   const rosterData = useMemo(() => {
     if (!rosterTerm) return [];
     const termNum = Number(rosterTerm);
@@ -250,7 +250,7 @@ export default function RemedialPage() {
     </span>
   );
 
-  // â”€â”€ QUICK PAY SUBMIT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── QUICK PAY SUBMIT ───────────────────────────────────────────────────────
   const submitQuickPay = async () => {
     if (!quickPayTarget || !qpAmount) return toast.error('Enter amount');
     const amt = Number(qpAmount);
@@ -280,25 +280,25 @@ export default function RemedialPage() {
             student_id: quickPayTarget.studentId,
             term_id: nextTerm.id,
           }]).then(({ error: e2 }) => {
-            if (!e2) toast(`KES ${credit.toLocaleString()} credit noted for ${nextTerm.term_name}`, { icon: 'ðŸ’³' });
+            if (!e2) toast(`KES ${credit.toLocaleString()} credit noted for ${nextTerm.term_name}`, { icon: '💳' });
           });
         }
       }
     }
 
-    toast.success(`âœ… KES ${amt.toLocaleString()} recorded`);
+    toast.success(`✅ KES ${amt.toLocaleString()} recorded`);
     setQuickPayTarget(null); setQpAmount(''); setQpReceipt(''); setQpNotes('');
     fetchAll(true);
     setQpSaving(false);
   };
 
-  // â”€â”€ EDIT ENROLLMENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── EDIT ENROLLMENT ────────────────────────────────────────────────────────
   const submitEdit = async () => {
     if (!editTarget) return;
     const amt = Number(editAmount);
     if (!amt || amt <= 0) return toast.error('Enter valid amount');
     setEditSaving(true);
-    // amount_due does not exist on enrollments â€” update the term fee instead
+    // amount_due does not exist on enrollments — update the term fee instead
     const termId = Number(rosterTerm);
     const { error } = await supabase.from('school_remedial_terms').update({ fee_amount: amt }).eq('id', termId);
     if (error) { toast.error('Update failed: ' + error.message); setEditSaving(false); return; }
@@ -306,7 +306,7 @@ export default function RemedialPage() {
     setEditTarget(null); fetchAll(true); setEditSaving(false);
   };
 
-  // â”€â”€ DELETE ENROLLMENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── DELETE ENROLLMENT ──────────────────────────────────────────────────────
   const submitDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -318,7 +318,7 @@ export default function RemedialPage() {
     setDeleteTarget(null); fetchAll(true); setDeleting(false);
   };
 
-  // â”€â”€ RECORD PAYMENT TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── RECORD PAYMENT TAB ─────────────────────────────────────────────────────
   const filteredStudents = search.length >= 2 ? students.filter(s =>
     `${s.first_name} ${s.last_name} ${s.admission_number || ''}`.toLowerCase().includes(search.toLowerCase())
   ).slice(0, 8) : [];
@@ -359,7 +359,7 @@ export default function RemedialPage() {
     fetchAll(true); setPaying(false);
   };
 
-  // â”€â”€ MASS ENROLL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── MASS ENROLL ────────────────────────────────────────────────────────────
   const handleMassEnroll = async () => {
     if (!massEnrollTerm) return toast.error('Select term');
     setMassEnrolling(true);
@@ -382,7 +382,7 @@ export default function RemedialPage() {
     fetchAll(true); setMassEnrolling(false);
   };
 
-  // â”€â”€ CREATE TERM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── CREATE TERM ────────────────────────────────────────────────────────────
   const handleCreateTerm = async () => {
     if (!newTermName || !newTermFee) return toast.error('Fill all term fields');
     setNewTermSaving(true);
@@ -395,7 +395,7 @@ export default function RemedialPage() {
     setNewTermName(''); setNewTermSaving(false); fetchAll(true);
   };
 
-  // â”€â”€ UPDATE TERM FEE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── UPDATE TERM FEE ────────────────────────────────────────────────────────
   const handleUpdateTermFee = async () => {
     if (!editTerm || !editTermFee) return;
     const { error } = await supabase.from('school_remedial_terms').update({ fee_amount: Number(editTermFee) }).eq('id', editTerm.id);
@@ -404,7 +404,7 @@ export default function RemedialPage() {
     setEditTerm(null); fetchAll(true);
   };
 
-  // â”€â”€ REPORTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── REPORTS ────────────────────────────────────────────────────────────────
   const rptPayments = payments.filter(p => {
     if (rptTerm && p.term_id !== Number(rptTerm)) return false;
     const d = new Date(p.payment_date || p.created_at).toISOString().split('T')[0];
@@ -416,7 +416,7 @@ export default function RemedialPage() {
   });
   const rptTotal = rptPayments.reduce((s, p) => s + Number(p.amount), 0);
 
-  // â”€â”€ BALANCES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── BALANCES ───────────────────────────────────────────────────────────────
   const balanceData = useMemo(() => {
     return enrollments.filter(e => {
       if (balTerm && e.term_id !== Number(balTerm)) return false;
@@ -441,7 +441,7 @@ export default function RemedialPage() {
   const totalPaid2 = balanceData.reduce((s, b) => s + b.paid, 0);
   const totalBal = balanceData.reduce((s, b) => s + b.balance, 0);
 
-  // â”€â”€ EXPORT CSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── EXPORT CSV ─────────────────────────────────────────────────────────────
   const exportCSV = (data: any[], filename: string, headers: string[], rowFn: (item: any, i: number) => any[]) => {
     const rows = data.map((d, i) => rowFn(d, i));
     const csv = [headers.join(','), ...rows.map(r => r.map((c: any) => `"${c}"`).join(','))].join('\n');
@@ -450,24 +450,24 @@ export default function RemedialPage() {
     a.download = filename; a.click(); toast.success('Exported');
   };
 
-  // â”€â”€ STATEMENT DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── STATEMENT DATA ─────────────────────────────────────────────────────────
   const stmtFilteredStudents = stmtSearch.length >= 2 ? students.filter(s =>
     `${s.first_name} ${s.last_name} ${s.admission_number || ''}`.toLowerCase().includes(stmtSearch.toLowerCase())
   ).slice(0, 8) : [];
   const stmtPayments = stmtStudent ? payments.filter(p => p.student_id === stmtStudent.id) : [];
   const stmtEnrollments = stmtStudent ? enrollments.filter(e => e.student_id === stmtStudent.id) : [];
 
-  // â”€â”€ TABS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── TABS ───────────────────────────────────────────────────────────────────
   const TABS: { key: RemTab; label: string; icon: any }[] = [
-    { key: 'roster', label: 'ðŸ“Š Class Roster', icon: FiGrid },
-    { key: 'pay', label: 'ðŸ’³ Record Payment', icon: FiDollarSign },
-    { key: 'statement', label: 'ðŸ“„ Statement', icon: FiUser },
-    { key: 'reports', label: 'ðŸ“ˆ Reports', icon: FiBarChart2 },
-    { key: 'balances', label: 'âš–ï¸ Balances', icon: FiList },
-    { key: 'settings', label: 'âš™ï¸ Settings', icon: FiSettings },
+    { key: 'roster', label: '📊 Class Roster', icon: FiGrid },
+    { key: 'pay', label: '💳 Record Payment', icon: FiDollarSign },
+    { key: 'statement', label: '📄 Statement', icon: FiUser },
+    { key: 'reports', label: '📈 Reports', icon: FiBarChart2 },
+    { key: 'balances', label: '⚖️ Balances', icon: FiList },
+    { key: 'settings', label: '⚙️ Settings', icon: FiSettings },
   ];
 
-  // â”€â”€ HEADER STATS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── HEADER STATS ───────────────────────────────────────────────────────────
   const allPaid = enrollments.reduce((s, e) => s + getPaidForEnrollment(e.student_id, e.term_id), 0);
   const allBal = enrollments.reduce((s, e) => {
     const fee = Number(terms.find(t => t.id === e.term_id)?.fee_amount || 0);
@@ -486,7 +486,7 @@ export default function RemedialPage() {
   return (
     <div style={{ background: '#f8fafc', minHeight: '100vh', padding: 24 }}>
 
-      {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -510,7 +510,7 @@ export default function RemedialPage() {
         </div>
       </div>
 
-      {/* â”€â”€ TABS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── TABS ───────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 20 }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -524,9 +524,9 @@ export default function RemedialPage() {
         ))}
       </div>
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* TAB: CLASS ROSTER (Premium Data Grid)                                 */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {tab === 'roster' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Filters row */}
@@ -537,7 +537,7 @@ export default function RemedialPage() {
                 <select value={rosterTerm} onChange={e => setRosterTerm(e.target.value)}
                   style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
                   <option value="">Select term...</option>
-                  {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year} â€” KES {Number(t.fee_amount).toLocaleString()}</option>)}
+                  {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year} — KES {Number(t.fee_amount).toLocaleString()}</option>)}
                 </select>
               </div>
               <div>
@@ -577,25 +577,25 @@ export default function RemedialPage() {
 
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10 }}>
-            <StatCard label="Total Students" value={String(rosterStats.total)} icon="ðŸ‘¥" color="#7c3aed" />
-            <StatCard label="Fully Paid" value={String(rosterStats.fullyPaid)} icon="âœ…" color="#059669" />
-            <StatCard label="Partial" value={String(rosterStats.partial)} icon="âš ï¸" color="#d97706" />
-            <StatCard label="Not Paid" value={String(rosterStats.notPaid)} icon="âŒ" color="#dc2626" />
-            <StatCard label="Total Due" value={`KES ${rosterStats.totalDue.toLocaleString()}`} icon="ðŸ’°" color="#1e40af" />
-            <StatCard label="Collected" value={`KES ${rosterStats.totalPaid.toLocaleString()}`} icon="ðŸ’µ" color="#059669" />
-            <StatCard label="Outstanding" value={`KES ${Math.max(0, rosterStats.totalBalance).toLocaleString()}`} icon="âš–ï¸" color="#dc2626" />
+            <StatCard label="Total Students" value={String(rosterStats.total)} icon="👥" color="#7c3aed" />
+            <StatCard label="Fully Paid" value={String(rosterStats.fullyPaid)} icon="✅" color="#059669" />
+            <StatCard label="Partial" value={String(rosterStats.partial)} icon="⚠️" color="#d97706" />
+            <StatCard label="Not Paid" value={String(rosterStats.notPaid)} icon="❌" color="#dc2626" />
+            <StatCard label="Total Due" value={`KES ${rosterStats.totalDue.toLocaleString()}`} icon="💰" color="#1e40af" />
+            <StatCard label="Collected" value={`KES ${rosterStats.totalPaid.toLocaleString()}`} icon="💵" color="#059669" />
+            <StatCard label="Outstanding" value={`KES ${Math.max(0, rosterStats.totalBalance).toLocaleString()}`} icon="⚖️" color="#dc2626" />
           </div>
 
           {/* Premium Data Grid */}
           <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #e2e8f0', overflow: 'hidden' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1.5px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <FiGrid size={15} style={{ color: '#7c3aed' }} /> Student Roster â€” {rosterData.length} student{rosterData.length !== 1 ? 's' : ''}
+                <FiGrid size={15} style={{ color: '#7c3aed' }} /> Student Roster — {rosterData.length} student{rosterData.length !== 1 ? 's' : ''}
               </div>
               {rosterTerm && (
                 <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 700 }}>
                   {terms.find(t => String(t.id) === rosterTerm)?.term_name} {terms.find(t => String(t.id) === rosterTerm)?.year}
-                  {' '}&nbsp;â€¢&nbsp; Fee: KES {Number(terms.find(t => String(t.id) === rosterTerm)?.fee_amount || 0).toLocaleString()}
+                  {' '}&nbsp;•&nbsp; Fee: KES {Number(terms.find(t => String(t.id) === rosterTerm)?.fee_amount || 0).toLocaleString()}
                 </div>
               )}
             </div>
@@ -618,7 +618,7 @@ export default function RemedialPage() {
                 <tbody>
                   {rosterData.length === 0 ? (
                     <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: 13 }}>
-                      {rosterTerm ? 'No students enrolled for this term. Go to Settings â†’ Mass Enroll to load students.' : 'Select a term to view the class roster.'}
+                      {rosterTerm ? 'No students enrolled for this term. Go to Settings → Mass Enroll to load students.' : 'Select a term to view the class roster.'}
                     </td></tr>
                   ) : rosterData.map((r, i) => {
                     // Progress bar width
@@ -705,9 +705,9 @@ export default function RemedialPage() {
         </div>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* TAB: RECORD PAYMENT                                                    */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {tab === 'pay' && (
         <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #e2e8f0', padding: 24 }}>
           <div style={{ background: 'linear-gradient(135deg,#7c3aed,#6366f1)', borderRadius: 12, padding: '16px 20px', color: '#fff', marginBottom: 20 }}>
@@ -735,7 +735,7 @@ export default function RemedialPage() {
                       <span style={{ fontWeight: 700 }}>{s.admission_number}</span>
                       <span style={{ margin: '0 8px', color: '#cbd5e1' }}>|</span>
                       <span>{s.first_name} {s.last_name}</span>
-                      <span style={{ marginLeft: 8, fontSize: 11, color: '#94a3b8' }}>{getFormName(s.form_id)} â€¢ {getStreamName(s.stream_id)}</span>
+                      <span style={{ marginLeft: 8, fontSize: 11, color: '#94a3b8' }}>{getFormName(s.form_id)} • {getStreamName(s.stream_id)}</span>
                     </div>
                   </button>
                 ))}
@@ -764,7 +764,7 @@ export default function RemedialPage() {
                       <span style={{ color: '#059669' }}>Paid: <b>KES {bal.paid.toLocaleString()}</b></span>
                       <span style={{ color: bal.balance > 0 ? '#dc2626' : '#059669', fontWeight: 800 }}>Balance: KES {bal.balance.toLocaleString()}</span>
                     </div>
-                  ) : <p style={{ fontSize: 11, color: '#94a3b8', margin: '4px 0 0' }}>Not yet enrolled for this term â€” will auto-enroll on payment</p>;
+                  ) : <p style={{ fontSize: 11, color: '#94a3b8', margin: '4px 0 0' }}>Not yet enrolled for this term — will auto-enroll on payment</p>;
                 })()}
               </div>
               <button onClick={() => { setSelStudent(null); setSearch(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><FiX size={18} /></button>
@@ -814,9 +814,9 @@ export default function RemedialPage() {
         </div>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* TAB: STATEMENT                                                          */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {tab === 'statement' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #e2e8f0', padding: 20 }}>
@@ -831,7 +831,7 @@ export default function RemedialPage() {
                 {stmtFilteredStudents.map(s => (
                   <button key={s.id} onClick={() => { setStmtStudent(s); setStmtSearch(`${s.admission_number} - ${s.first_name} ${s.last_name}`); }}
                     style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: 12 }}>
-                    <b>{s.admission_number}</b> | {s.first_name} {s.last_name} <span style={{ color: '#94a3b8', fontSize: 11 }}>{getFormName(s.form_id)} â€¢ {getStreamName(s.stream_id)}</span>
+                    <b>{s.admission_number}</b> | {s.first_name} {s.last_name} <span style={{ color: '#94a3b8', fontSize: 11 }}>{getFormName(s.form_id)} • {getStreamName(s.stream_id)}</span>
                   </button>
                 ))}
               </div>
@@ -904,9 +904,9 @@ export default function RemedialPage() {
         </div>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* TAB: REPORTS                                                            */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {tab === 'reports' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #e2e8f0', padding: 16 }}>
@@ -942,13 +942,13 @@ export default function RemedialPage() {
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-            <StatCard label="Payments" value={String(rptPayments.length)} icon="ðŸ“‹" color="#7c3aed" />
-            <StatCard label="Total Collected" value={`KES ${rptTotal.toLocaleString()}`} icon="ðŸ’µ" color="#059669" />
-            <StatCard label="Unique Students" value={String(new Set(rptPayments.map(p => p.student_id)).size)} icon="ðŸ‘¥" color="#1e40af" />
+            <StatCard label="Payments" value={String(rptPayments.length)} icon="📋" color="#7c3aed" />
+            <StatCard label="Total Collected" value={`KES ${rptTotal.toLocaleString()}`} icon="💵" color="#059669" />
+            <StatCard label="Unique Students" value={String(new Set(rptPayments.map(p => p.student_id)).size)} icon="👥" color="#1e40af" />
           </div>
           <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #e2e8f0', overflow: 'hidden' }}>
             <div style={{ padding: '12px 18px', borderBottom: '1.5px solid #e2e8f0', fontWeight: 800, fontSize: 13, color: '#1e293b' }}>
-              Payment Records â€” {rptPayments.length}
+              Payment Records — {rptPayments.length}
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -994,9 +994,9 @@ export default function RemedialPage() {
         </div>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* TAB: BALANCES                                                           */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {tab === 'balances' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #e2e8f0', padding: 16 }}>
@@ -1032,13 +1032,13 @@ export default function RemedialPage() {
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-            <StatCard label="Total Due" value={`KES ${totalDue.toLocaleString()}`} icon="ðŸ’°" color="#1e40af" />
-            <StatCard label="Total Paid" value={`KES ${totalPaid2.toLocaleString()}`} icon="âœ…" color="#059669" />
-            <StatCard label="Outstanding" value={`KES ${Math.max(0, totalBal).toLocaleString()}`} icon="âš ï¸" color="#dc2626" />
+            <StatCard label="Total Due" value={`KES ${totalDue.toLocaleString()}`} icon="💰" color="#1e40af" />
+            <StatCard label="Total Paid" value={`KES ${totalPaid2.toLocaleString()}`} icon="✅" color="#059669" />
+            <StatCard label="Outstanding" value={`KES ${Math.max(0, totalBal).toLocaleString()}`} icon="⚠️" color="#dc2626" />
           </div>
           <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #e2e8f0', overflow: 'hidden' }}>
             <div style={{ padding: '12px 18px', borderBottom: '1.5px solid #e2e8f0', fontWeight: 800, fontSize: 13, color: '#1e293b' }}>
-              Student Balances â€” {balanceData.length}
+              Student Balances — {balanceData.length}
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -1087,9 +1087,9 @@ export default function RemedialPage() {
         </div>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* TAB: SETTINGS                                                           */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {tab === 'settings' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           {/* Create new term */}
@@ -1119,7 +1119,7 @@ export default function RemedialPage() {
               </div>
               <button onClick={handleCreateTerm} disabled={newTermSaving}
                 style={{ padding: '11px', background: 'linear-gradient(135deg,#7c3aed,#6366f1)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                {newTermSaving ? 'Creating...' : 'âœ… Create Term'}
+                {newTermSaving ? 'Creating...' : '✅ Create Term'}
               </button>
             </div>
           </div>
@@ -1153,7 +1153,7 @@ export default function RemedialPage() {
                 <label style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Target Term *</label>
                 <select value={massEnrollTerm} onChange={e => setMassEnrollTerm(e.target.value)} style={{ width: '100%', padding: '9px 10px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
                   <option value="">Select term...</option>
-                  {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year} â€” KES {Number(t.fee_amount).toLocaleString()}</option>)}
+                  {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year} — KES {Number(t.fee_amount).toLocaleString()}</option>)}
                 </select>
               </div>
               <div>
@@ -1172,8 +1172,8 @@ export default function RemedialPage() {
               </div>
             </div>
             <div style={{ background: '#fef3c7', border: '1.5px solid #f59e0b', borderRadius: 8, padding: '10px 14px', fontSize: 11, color: '#92400e', marginBottom: 14 }}>
-              âš ï¸ This will enroll all active students matching the filter who are NOT yet enrolled in the selected term. Students already enrolled will be skipped.
-              &nbsp;â€¢ <b>{students.filter(s => (!massEnrollForm || String(s.form_id) === massEnrollForm) && (!massEnrollStream || String(s.stream_id) === massEnrollStream)).length}</b> students match current filter.
+              ⚠️ This will enroll all active students matching the filter who are NOT yet enrolled in the selected term. Students already enrolled will be skipped.
+              &nbsp;• <b>{students.filter(s => (!massEnrollForm || String(s.form_id) === massEnrollForm) && (!massEnrollStream || String(s.stream_id) === massEnrollStream)).length}</b> students match current filter.
             </div>
             <button onClick={handleMassEnroll} disabled={massEnrolling || !massEnrollTerm}
               style={{ padding: '11px 28px', background: massEnrollTerm ? 'linear-gradient(135deg,#059669,#10b981)' : '#e2e8f0', color: massEnrollTerm ? '#fff' : '#94a3b8', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: massEnrollTerm ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1183,12 +1183,12 @@ export default function RemedialPage() {
         </div>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* MODALS                                                                  */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
 
       {/* Quick Pay Modal */}
-      <Modal open={!!quickPayTarget} onClose={() => setQuickPayTarget(null)} title={`âš¡ Quick Pay â€” ${quickPayTarget?.name}`}>
+      <Modal open={!!quickPayTarget} onClose={() => setQuickPayTarget(null)} title={`⚡ Quick Pay — ${quickPayTarget?.name}`}>
         {quickPayTarget && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ background: '#f8fafc', borderRadius: 10, padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, textAlign: 'center' }}>
@@ -1229,7 +1229,7 @@ export default function RemedialPage() {
             </div>
             {Number(qpAmount) > quickPayTarget.balance && quickPayTarget.balance > 0 && (
               <div style={{ background: '#ede9fe', border: '1.5px solid #c4b5fd', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#6d28d9' }}>
-                ðŸ’³ KES {(Number(qpAmount) - quickPayTarget.balance).toLocaleString()} will be carried forward as credit to the next term automatically.
+                💳 KES {(Number(qpAmount) - quickPayTarget.balance).toLocaleString()} will be carried forward as credit to the next term automatically.
               </div>
             )}
             <button onClick={submitQuickPay} disabled={qpSaving || !qpAmount}
@@ -1241,7 +1241,7 @@ export default function RemedialPage() {
       </Modal>
 
       {/* Edit Amount Modal */}
-      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title={`âœï¸ Edit Amount Due â€” ${editTarget?.name}`}>
+      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title={`✏️ Edit Amount Due — ${editTarget?.name}`}>
         {editTarget && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Current amount due: <b>KES {editTarget.due.toLocaleString()}</b></p>
@@ -1258,14 +1258,14 @@ export default function RemedialPage() {
             </div>
             <button onClick={submitEdit} disabled={editSaving}
               style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg,#d97706,#f59e0b)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-              {editSaving ? 'Updating...' : 'âœ… Update Amount'}
+              {editSaving ? 'Updating...' : '✅ Update Amount'}
             </button>
           </div>
         )}
       </Modal>
 
       {/* Delete Modal */}
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="ðŸ—‘ï¸ Remove Enrollment">
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="🗑️ Remove Enrollment">
         {deleteTarget && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: 10, padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -1282,7 +1282,7 @@ export default function RemedialPage() {
               <button onClick={() => setDeleteTarget(null)} style={{ padding: '11px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
               <button onClick={submitDelete} disabled={deleting}
                 style={{ padding: '11px', background: 'linear-gradient(135deg,#dc2626,#ef4444)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                {deleting ? 'Deleting...' : 'ðŸ—‘ï¸ Yes, Delete'}
+                {deleting ? 'Deleting...' : '🗑️ Yes, Delete'}
               </button>
             </div>
           </div>
@@ -1290,7 +1290,7 @@ export default function RemedialPage() {
       </Modal>
 
       {/* Edit Term Fee Modal */}
-      <Modal open={!!editTerm} onClose={() => setEditTerm(null)} title={`âœï¸ Edit Fee â€” ${editTerm?.term_name} ${editTerm?.year}`}>
+      <Modal open={!!editTerm} onClose={() => setEditTerm(null)} title={`✏️ Edit Fee — ${editTerm?.term_name} ${editTerm?.year}`}>
         {editTerm && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Current fee: <b>KES {Number(editTerm.fee_amount).toLocaleString()}</b></p>
@@ -1304,13 +1304,13 @@ export default function RemedialPage() {
               <input type="number" value={editTermFee} onChange={e => setEditTermFee(e.target.value)} placeholder="New fee amount..."
                 style={{ width: '100%', padding: '10px 12px', border: '2px solid #e2e8f0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
             </div>
-            <button onClick={handleUpdateTermFee} style={{ padding: '11px', background: 'linear-gradient(135deg,#7c3aed,#6366f1)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>âœ… Update Fee</button>
+            <button onClick={handleUpdateTermFee} style={{ padding: '11px', background: 'linear-gradient(135deg,#7c3aed,#6366f1)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>✅ Update Fee</button>
           </div>
         )}
       </Modal>
 
       {/* Statement Modal (from grid) */}
-      <Modal open={!!stmtTarget} onClose={() => setStmtTarget(null)} title={`ðŸ“„ Statement â€” ${stmtTarget?.name}`} wide>
+      <Modal open={!!stmtTarget} onClose={() => setStmtTarget(null)} title={`📄 Statement — ${stmtTarget?.name}`} wide>
         {stmtTarget && (() => {
           const sp = payments.filter(p => p.student_id === stmtTarget.studentId);
           const se = enrollments.filter(e => e.student_id === stmtTarget.studentId);
@@ -1362,4 +1362,3 @@ export default function RemedialPage() {
     </div>
   );
 }
-
