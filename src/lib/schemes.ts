@@ -11,6 +11,7 @@ export interface SchemeOfWork {
     subject_id: number;
     form_id: number;
     term_id: number;
+    year?: number | null;
     teacher_id?: number | null;
     curriculum_type: 'CBC' | '8-4-4';
     strand_id?: number | null;
@@ -568,11 +569,20 @@ export async function autoGenerateScheme(params: {
 }) {
     const { subjectId, formId, termId, curriculumType, teacherId, createdBy, strandId, weeksCount = 14, lessonsPerWeek = 3 } = params;
 
+    // 0. Fetch the term to get the year
+    const { data: termData } = await supabase
+        .from('school_terms')
+        .select('year, term_name')
+        .eq('id', termId)
+        .single();
+    const termYear = termData?.year || new Date().getFullYear();
+
     // 1. Create the scheme header
     const scheme = await createScheme({
         subject_id: subjectId,
         form_id: formId,
         term_id: termId,
+        year: termYear,
         teacher_id: teacherId || null,
         curriculum_type: curriculumType,
         strand_id: strandId || null,
