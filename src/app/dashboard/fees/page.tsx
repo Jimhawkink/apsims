@@ -262,8 +262,15 @@ export default function FeeDashboardPage() {
                     { label: 'Vote Heads', href: '/dashboard/fees/vote-heads', icon: FiGrid, color: '#f59e0b' },
                     { label: 'Statements', href: '/dashboard/fees/statements', icon: FiBookOpen, color: '#0891b2' },
                     { label: 'Bulk SMS/WA', href: '/dashboard/fees/bulk-reminders', icon: FiSend, color: '#7c3aed' },
-                    { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: FiBarChart2, color: '#dc2626' },
-
+                    { label: 'P&L Report', href: '/dashboard/fees/pl-statement', icon: FiBarChart2, color: '#dc2626' },
+                    { label: 'Trial Balance', href: '/dashboard/fees/trial-balance', icon: FiBarChart2, color: '#4f46e5' },
+                    { label: 'Balance Sheet', href: '/dashboard/fees/balance-sheet', icon: FiFileText, color: '#0369a1' },
+                    { label: 'Cash Book', href: '/dashboard/fees/cashbook', icon: FiBookOpen, color: '#059669' },
+                    { label: 'Fee Waiver', href: '/dashboard/fees/fee-waiver', icon: FiGrid, color: '#db2777' },
+                    { label: 'Approvals', href: '/dashboard/fees/approval-workflow', icon: FiCreditCard, color: '#d97706' },
+                    { label: 'Govt Returns', href: '/dashboard/fees/government-returns', icon: FiBarChart2, color: '#1e293b' },
+                    { label: 'Reminders', href: '/dashboard/fees/reminder-scheduler', icon: FiSend, color: '#7c3aed' },
+                    { label: 'Audit Trail', href: '/dashboard/fees/audit', icon: FiAlertTriangle, color: '#6b7280' },
                 ].map((a, i) => {
                     const Icon = a.icon;
                     return (
@@ -283,7 +290,7 @@ export default function FeeDashboardPage() {
                     <div className="flex items-center gap-2 mb-4">
                         <span className="text-lg">🚀</span>
                         <h3 className="text-sm font-extrabold text-white tracking-wider uppercase">Ultra Finance Intelligence</h3>
-                        <span className="px-2 py-0.5 text-[9px] font-black bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full">NEW</span>
+                        <span className="px-2 py-0.5 text-[9px] font-black bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full">ULTRA</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {[
@@ -291,8 +298,16 @@ export default function FeeDashboardPage() {
                             { label: '💳 M-Pesa Reconciliation', href: '/dashboard/fees/mpesa-reconciliation', desc: 'Auto-Match Payments', color: '#22c55e' },
                             { label: '🧾 Pro Receipts', href: '/dashboard/fees/receipts', desc: 'KRA-Compliant', color: '#f59e0b' },
                             { label: '💰 Plans & Scholarships', href: '/dashboard/fees/plans-scholarships', desc: 'Installments & Waivers', color: '#8b5cf6' },
-                            { label: '📱 Bulk SMS/WA Campaign', href: '/dashboard/fees/bulk-reminders', desc: 'Send to all defaulters', color: '#7c3aed' },
-                            { label: '📊 P&L Report', href: '/dashboard/fees/reports/pl', desc: 'Full financial statement', color: '#0891b2' },
+                            { label: '📱 Reminder Scheduler', href: '/dashboard/fees/reminder-scheduler', desc: 'Auto WhatsApp & SMS', color: '#7c3aed' },
+                            { label: '📜 Trial Balance', href: '/dashboard/fees/trial-balance', desc: 'Debit vs Credit', color: '#4f46e5' },
+                            { label: '🏦 Balance Sheet', href: '/dashboard/fees/balance-sheet', desc: 'Assets & Liabilities', color: '#0369a1' },
+                            { label: '📉 P&L Statement', href: '/dashboard/fees/pl-statement', desc: 'Income vs Expenses', color: '#dc2626' },
+                            { label: '📒 Full Cash Book', href: '/dashboard/fees/cashbook', desc: 'All cash transactions', color: '#059669' },
+                            { label: '🎓 Fee Waivers', href: '/dashboard/fees/fee-waiver', desc: 'Scholarships & bursaries', color: '#db2777' },
+                            { label: '✅ Finance Approvals', href: '/dashboard/fees/approval-workflow', desc: 'Multi-level approval', color: '#d97706' },
+                            { label: '🏛️ Govt Returns', href: '/dashboard/fees/government-returns', desc: 'PAYE / NHIF / NSSF', color: '#1e293b' },
+                            { label: '📋 Demand Letters', href: '/dashboard/fees/demand-letters', desc: 'Print & WhatsApp', color: '#b91c1c' },
+                            { label: '🔒 Audit Trail', href: '/dashboard/fees/audit', desc: 'Immutable log', color: '#4b5563' },
                             { label: '📉 Ultra Expenses', href: '/dashboard/expenses', desc: 'Approval workflow & trends', color: '#ef4444' },
                             { label: '📈 Ultra Income', href: '/dashboard/income', desc: 'Revenue & grants tracker', color: '#10b981' },
                         ].map((m, i) => (

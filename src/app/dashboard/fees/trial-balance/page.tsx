@@ -2,265 +2,284 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase';
-import { FiRefreshCw, FiDownload, FiPrinter, FiBarChart2, FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiSearch } from 'react-icons/fi';
+import { FiRefreshCw, FiDownload, FiPrinter, FiFilter, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
 
-const fmt = (n: number) => Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number) => Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 });
+const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-// Account categories for a school trial balance
-const ACCOUNT_TYPES = ['Asset', 'Liability', 'Equity', 'Income', 'Expense'];
-const ACCOUNT_CATEGORIES: Record<string, string[]> = {
-    Asset: ['Current Asset', 'Fixed Asset', 'Cash & Bank', 'Receivables', 'Prepayments'],
-    Liability: ['Current Liability', 'Long-term Liability', 'Payables', 'Deferred Income'],
-    Equity: ['Capital', 'Retained Earnings', 'Reserves'],
-    Income: ['School Fees', 'Capitation', 'Grants', 'Other Income'],
-    Expense: ['Staff Costs', 'Utilities', 'Stationery', 'Repairs', 'Transport', 'Other Expense'],
+type TrialEntry = {
+    code: string;
+    account: string;
+    type: 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Expense';
+    debit: number;
+    credit: number;
 };
 
-type Account = { id?: number; account_code: string; account_name: string; account_type: string; account_category?: string; debit_balance: number; credit_balance: number; academic_year?: string; term?: string; notes?: string; created_at?: string; };
-const emptyAccount = (): Account => ({ account_code: '', account_name: '', account_type: 'Asset', account_category: 'Current Asset', debit_balance: 0, credit_balance: 0, academic_year: new Date().getFullYear().toString(), term: 'Term 1', notes: '' });
-
 export default function TrialBalancePage() {
-    const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [showModal, setShowModal] = useState(false);
-    const [editing, setEditing] = useState<Account | null>(null);
-    const [form, setForm] = useState<Account>(emptyAccount());
-    const [filterYear, setFilterYear] = useState('');
-    const [filterTerm, setFilterTerm] = useState('');
-    const [search, setSearch] = useState('');
-    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [payments, setPayments] = useState<any[]>([]);
+    const [expensesList, setExpensesList] = useState<any[]>([]);
+    const [payrollList, setPayrollList] = useState<any[]>([]);
+    const [assets, setAssets] = useState<any[]>([]);
+    const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+    const [feeStructures, setFeeStructures] = useState<any[]>([]);
+    const [terms, setTerms] = useState<any[]>([]);
+    const [dateFrom, setDateFrom] = useState(new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
+    const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
-        const { data, error } = await supabase.from('school_trial_balance').select('*').order('account_type').order('account_code');
-        if (error) toast.error('Failed to load trial balance');
-        setAccounts(data || []);
+        const [pRes, eRes, prRes, aRes, baRes, fsRes, tRes] = await Promise.all([
+            supabase.from('school_fee_payments').select('amount, payment_date, payment_method').order('payment_date'),
+            supabase.from('expenses').select('amount, expense_date, category, expense_name').order('expense_date'),
+            supabase.from('school_payroll').select('net_pay, gross_pay, paye, nhif, nssf, housing_levy, payment_date, status').eq('status', 'Paid').order('payment_date'),
+            supabase.from('school_assets').select('asset_name, category, purchase_price, current_value, status').eq('status', 'Active'),
+            supabase.from('school_bank_accounts').select('bank_name, account_name, book_balance, account_type').eq('is_active', true),
+            supabase.from('school_fee_structures').select('amount, category, form_id, term_id'),
+            supabase.from('school_terms').select('id,term_name,year,start_date,end_date,is_current').order('year').order('id'),
+        ]);
+        setPayments(pRes.data || []);
+        setExpensesList(eRes.data || []);
+        setPayrollList(prRes.data || []);
+        setAssets(aRes.data || []);
+        setBankAccounts(baRes.data || []);
+        setFeeStructures(fsRes.data || []);
+        setTerms(tRes.data || []);
         setLoading(false);
     }, []);
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    const years = useMemo(() => [...new Set(accounts.map(a => a.academic_year).filter(Boolean))].sort().reverse() as string[], [accounts]);
-
-    const filtered = useMemo(() => {
-        const q = search.toLowerCase();
-        return accounts.filter(a => {
-            if (filterYear && a.academic_year !== filterYear) return false;
-            if (filterTerm && a.term !== filterTerm) return false;
-            if (q && !a.account_name.toLowerCase().includes(q) && !a.account_code.toLowerCase().includes(q)) return false;
-            return true;
-        });
-    }, [accounts, search, filterYear, filterTerm]);
-
-    const totals = useMemo(() => {
-        const totalDebit = filtered.reduce((s, a) => s + Number(a.debit_balance || 0), 0);
-        const totalCredit = filtered.reduce((s, a) => s + Number(a.credit_balance || 0), 0);
-        const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
-        return { totalDebit, totalCredit, balanced };
-    }, [filtered]);
-
-    const grouped = useMemo(() => {
-        const groups: Record<string, Account[]> = {};
-        for (const a of filtered) {
-            if (!groups[a.account_type]) groups[a.account_type] = [];
-            groups[a.account_type].push(a);
-        }
-        return groups;
-    }, [filtered]);
-
-    const openAdd = () => { setEditing(null); setForm(emptyAccount()); setShowModal(true); };
-    const openEdit = (a: Account) => { setEditing(a); setForm({ ...a }); setShowModal(true); };
-    const closeModal = () => { setShowModal(false); setEditing(null); setForm(emptyAccount()); };
-
-    const handleSave = async () => {
-        if (!form.account_name) { toast.error('Enter account name'); return; }
-        setSaving(true);
-        const payload = { account_code: form.account_code, account_name: form.account_name, account_type: form.account_type, account_category: form.account_category, debit_balance: Number(form.debit_balance || 0), credit_balance: Number(form.credit_balance || 0), academic_year: form.academic_year, term: form.term, notes: form.notes };
-        let error;
-        if (editing?.id) ({ error } = await supabase.from('school_trial_balance').update(payload).eq('id', editing.id));
-        else ({ error } = await supabase.from('school_trial_balance').insert(payload));
-        if (error) { toast.error(error.message); setSaving(false); return; }
-        toast.success(editing ? 'Updated!' : 'Account added!');
-        closeModal(); fetchAll(); setSaving(false);
+    const inRange = (d: string) => {
+        if (!d) return false;
+        const ds = d.substring(0, 10);
+        return ds >= dateFrom && ds <= dateTo;
     };
 
-    const handleDelete = async () => {
-        if (!deleteId) return;
-        const { error } = await supabase.from('school_trial_balance').delete().eq('id', deleteId);
-        if (error) toast.error(error.message);
-        else { toast.success('Deleted'); setDeleteId(null); fetchAll(); }
+    const trialLines = useMemo((): TrialEntry[] => {
+        const lines: TrialEntry[] = [];
+
+        // 1. CASH & BANK — total fee receipts (money that came in) → ASSET (Debit)
+        const filteredPayments = payments.filter(p => inRange(p.payment_date));
+        const totalFeeReceipts = filteredPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+        if (totalFeeReceipts !== 0) {
+            lines.push({ code: '1100', account: 'Cash & Bank — Fee Receipts', type: 'Asset', debit: totalFeeReceipts, credit: 0 });
+        }
+
+        // Bank accounts (opening / current book balance)
+        bankAccounts.forEach((ba, i) => {
+            const bal = Number(ba.book_balance || 0);
+            if (bal !== 0) {
+                lines.push({ code: `1${200 + i}`, account: `${ba.bank_name} — ${ba.account_name}`, type: 'Asset', debit: bal > 0 ? bal : 0, credit: bal < 0 ? Math.abs(bal) : 0 });
+            }
+        });
+
+        // 2. FIXED ASSETS → ASSET (Debit)
+        const assetsByCategory: Record<string, number> = {};
+        assets.forEach(a => {
+            const cat = a.category || 'Other Assets';
+            assetsByCategory[cat] = (assetsByCategory[cat] || 0) + Number(a.current_value || a.purchase_price || 0);
+        });
+        let assetCode = 1500;
+        Object.entries(assetsByCategory).forEach(([cat, val]) => {
+            if (val > 0) lines.push({ code: String(assetCode++), account: `Fixed Assets — ${cat}`, type: 'Asset', debit: val, credit: 0 });
+        });
+
+        // 3. SCHOOL FEE INCOME → INCOME (Credit)
+        if (totalFeeReceipts !== 0) {
+            lines.push({ code: '4100', account: 'School Fees Income', type: 'Income', debit: 0, credit: totalFeeReceipts });
+        }
+
+        // 4. OUTSTANDING FEES (what's owed) — difference between structure total and collected
+        const totalExpectedFees = feeStructures.reduce((s, f) => s + Number(f.amount || 0), 0);
+        const outstandingFees = totalExpectedFees - totalFeeReceipts;
+        if (outstandingFees > 0) {
+            lines.push({ code: '1300', account: 'Debtors — Outstanding School Fees', type: 'Asset', debit: outstandingFees, credit: 0 });
+            lines.push({ code: '4200', account: 'Fees Income — Billed (Not Yet Collected)', type: 'Income', debit: 0, credit: outstandingFees });
+        }
+
+        // 5. GENERAL EXPENSES → EXPENSE (Debit)
+        const filteredExpenses = expensesList.filter(e => inRange(e.expense_date));
+        const expByCategory: Record<string, number> = {};
+        filteredExpenses.forEach(e => {
+            const cat = e.category || 'General Expense';
+            expByCategory[cat] = (expByCategory[cat] || 0) + Number(e.amount || 0);
+        });
+        let expCode = 5100;
+        Object.entries(expByCategory).forEach(([cat, amt]) => {
+            if (amt > 0) lines.push({ code: String(expCode++), account: `Expense — ${cat}`, type: 'Expense', debit: amt, credit: 0 });
+        });
+
+        // Total expenses paid out → reduces cash (Credit to Cash)
+        const totalExpenses = filteredExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+        if (totalExpenses > 0) {
+            lines.push({ code: '1105', account: 'Cash Paid — General Expenses', type: 'Asset', debit: 0, credit: totalExpenses });
+        }
+
+        // 6. PAYROLL → EXPENSE (Debit) + STATUTORY LIABILITY (Credit)
+        const filteredPayroll = payrollList.filter(p => inRange(p.payment_date));
+        const totalGross = filteredPayroll.reduce((s, p) => s + Number(p.gross_pay || 0), 0);
+        const totalPAYE = filteredPayroll.reduce((s, p) => s + Number(p.paye || 0), 0);
+        const totalNHIF = filteredPayroll.reduce((s, p) => s + Number(p.nhif || 0), 0);
+        const totalNSSF = filteredPayroll.reduce((s, p) => s + Number(p.nssf || 0), 0);
+        const totalNet = filteredPayroll.reduce((s, p) => s + Number(p.net_pay || 0), 0);
+
+        if (totalGross > 0) {
+            lines.push({ code: '5200', account: 'Salaries & Wages Expense', type: 'Expense', debit: totalGross, credit: 0 });
+            lines.push({ code: '1106', account: 'Cash Paid — Net Salaries', type: 'Asset', debit: 0, credit: totalNet });
+        }
+        if (totalPAYE > 0) {
+            lines.push({ code: '2100', account: 'PAYE Payable (KRA)', type: 'Liability', debit: 0, credit: totalPAYE });
+        }
+        if (totalNHIF > 0) {
+            lines.push({ code: '2200', account: 'NHIF / SHA Payable', type: 'Liability', debit: 0, credit: totalNHIF });
+        }
+        if (totalNSSF > 0) {
+            lines.push({ code: '2300', account: 'NSSF Payable', type: 'Liability', debit: 0, credit: totalNSSF });
+        }
+
+        return lines;
+    }, [payments, expensesList, payrollList, assets, bankAccounts, feeStructures, dateFrom, dateTo]);
+
+    const totalDebits = trialLines.reduce((s, l) => s + l.debit, 0);
+    const totalCredits = trialLines.reduce((s, l) => s + l.credit, 0);
+    const difference = Math.abs(totalDebits - totalCredits);
+    const isBalanced = difference < 0.01;
+
+    const typeOrder: TrialEntry['type'][] = ['Asset', 'Liability', 'Equity', 'Income', 'Expense'];
+    const sortedLines = [...trialLines].sort((a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type) || a.code.localeCompare(b.code));
+
+    const typeColors: Record<string, string> = { Asset: '#0369a1', Liability: '#dc2626', Equity: '#7c3aed', Income: '#16a34a', Expense: '#d97706' };
+
+    const printTB = () => {
+        const rows = sortedLines.map(l => `<tr><td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;color:${typeColors[l.type]};font-size:11px">${l.code}</td><td style="padding:5px 10px;border-bottom:1px solid #f1f5f9">${l.account}</td><td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;font-size:11px">${l.type}</td><td style="padding:5px 10px;text-align:right;border-bottom:1px solid #f1f5f9;font-weight:700">${l.debit > 0 ? fmt(l.debit) : ''}</td><td style="padding:5px 10px;text-align:right;border-bottom:1px solid #f1f5f9;font-weight:700">${l.credit > 0 ? fmt(l.credit) : ''}</td></tr>`).join('');
+        const w = window.open('', '_blank');
+        if (!w) return;
+        w.document.write(`<!DOCTYPE html><html><head><title>Trial Balance</title>
+        <style>@page{size:A4;margin:20mm} body{font-family:Arial,sans-serif;font-size:13px;color:#1e293b} h2{margin:0 0 4px} .meta{font-size:11px;color:#64748b;margin-bottom:16px} table{width:100%;border-collapse:collapse} th{background:#1e293b;color:#fff;padding:8px 10px;font-size:11px;text-align:left} .total{background:#f1f5f9;font-weight:900} .balanced{color:#16a34a} .unbalanced{color:#dc2626}</style>
+        </head><body>
+        <h2>📜 TRIAL BALANCE</h2>
+        <p class="meta">Period: ${fmtDate(dateFrom)} → ${fmtDate(dateTo)} &nbsp;|&nbsp; ${isBalanced ? '<span class="balanced">✓ BALANCED</span>' : '<span class="unbalanced">⚠ DOES NOT BALANCE — Diff: KES ' + fmt(difference) + '</span>'} &nbsp;|&nbsp; Printed: ${new Date().toLocaleString('en-KE')}</p>
+        <table>
+        <thead><tr><th>Code</th><th>Account Name</th><th style="text-align:center">Type</th><th style="text-align:right">Debit (KES)</th><th style="text-align:right">Credit (KES)</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr class="total"><td colspan="3" style="padding:8px 10px">TOTALS</td><td style="text-align:right;padding:8px 10px">${fmt(totalDebits)}</td><td style="text-align:right;padding:8px 10px">${fmt(totalCredits)}</td></tr></tfoot>
+        </table></body></html>`);
+        setTimeout(() => w.print(), 400);
+        toast.success('Trial balance sent to printer');
     };
 
     const exportCSV = () => {
-        const rows = [['Code', 'Account Name', 'Type', 'Category', 'Debit (KES)', 'Credit (KES)', 'Year', 'Term']];
-        filtered.forEach(a => rows.push([a.account_code, a.account_name, a.account_type, a.account_category || '', String(a.debit_balance), String(a.credit_balance), a.academic_year || '', a.term || '']));
-        rows.push(['', 'TOTAL', '', '', String(totals.totalDebit), String(totals.totalCredit), '', '']);
+        const rows = [['Code', 'Account', 'Type', 'Debit', 'Credit'], ...sortedLines.map(l => [l.code, l.account, l.type, String(l.debit), String(l.credit)]), ['', 'TOTALS', '', String(totalDebits), String(totalCredits)]];
         const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `trial_balance_${filterYear || 'all'}_${filterTerm || 'all'}.csv`; a.click();
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `trial_balance_${dateFrom}.csv`; a.click();
         toast.success('Exported!');
     };
 
-    const print = () => window.print();
-
-    if (loading) return <div className="flex items-center justify-center h-[70vh]"><div className="text-center"><div className="w-12 h-12 border-4 border-gray-100 border-t-slate-500 rounded-full animate-spin mx-auto mb-3" /><p className="text-gray-400 text-sm">Loading trial balance...</p></div></div>;
-
-    const TYPE_COLORS: Record<string, string> = { Asset: 'bg-blue-600', Liability: 'bg-red-500', Equity: 'bg-purple-600', Income: 'bg-emerald-600', Expense: 'bg-orange-500' };
+    if (loading) return <div className="flex items-center justify-center h-[70vh]"><div className="text-center"><div className="w-12 h-12 border-4 border-gray-100 border-t-indigo-500 rounded-full animate-spin mx-auto mb-3" /><p className="text-gray-400 text-sm">Generating trial balance from database...</p></div></div>;
 
     return (
         <div className="p-4 space-y-4">
-            {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                     <h1 className="text-2xl font-extrabold text-gray-900 flex items-center gap-2.5">
-                        <span className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-md" style={{ background: 'linear-gradient(135deg,#1e3a5f,#2563eb)' }}><FiBarChart2 size={18} /></span>
+                        <span className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-md" style={{ background: 'linear-gradient(135deg,#4f46e5,#312e81)' }}>📜</span>
                         Trial Balance
                     </h1>
-                    <p className="text-sm text-gray-400 mt-0.5 ml-[46px]">All accounts &bull; Debit &amp; Credit balances &bull; Balanced check &bull; Export to CSV</p>
+                    <p className="text-sm text-gray-400 mt-0.5 ml-[46px]">Auto-generated from real transaction data &bull; No manual entry</p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                    <button onClick={exportCSV} className="px-3 py-2 rounded-xl text-sm font-bold bg-emerald-600 text-white flex items-center gap-1.5"><FiDownload size={14} /> Export</button>
-                    <button onClick={print} className="px-3 py-2 rounded-xl text-sm font-bold bg-gray-700 text-white flex items-center gap-1.5"><FiPrinter size={14} /> Print</button>
-                    <button onClick={fetchAll} className="px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"><FiRefreshCw size={14} /></button>
-                    <button onClick={openAdd} className="px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-1.5 shadow-md" style={{ background: 'linear-gradient(135deg,#1e3a5f,#2563eb)' }}>
-                        <FiPlus size={16} /> Add Account
-                    </button>
+                    <button onClick={exportCSV} className="px-3 py-2 rounded-xl text-sm font-bold bg-emerald-600 text-white flex items-center gap-1.5"><FiDownload size={14} /> CSV</button>
+                    <button onClick={printTB} className="px-3 py-2 rounded-xl text-sm font-bold bg-gray-800 text-white flex items-center gap-1.5"><FiPrinter size={14} /> Print</button>
+                    <button onClick={fetchAll} className="px-3 py-2 rounded-xl bg-white border border-gray-200"><FiRefreshCw size={14} /></button>
                 </div>
             </div>
 
-            {/* Balanced indicator */}
-            <div className={`rounded-xl p-4 flex items-center justify-between ${totals.balanced ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
-                <div>
-                    <p className={`text-sm font-extrabold ${totals.balanced ? 'text-emerald-800' : 'text-red-800'}`}>
-                        {totals.balanced ? '✅ Trial Balance is BALANCED' : '⚠️ Trial Balance is NOT BALANCED'}
-                    </p>
-                    <p className={`text-xs mt-0.5 ${totals.balanced ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {!totals.balanced && `Difference: KES ${fmt(Math.abs(totals.totalDebit - totals.totalCredit))}`}
-                        {totals.balanced && 'Total Debits = Total Credits — accounts are balanced'}
-                    </p>
-                </div>
-                <div className="flex gap-6 text-right">
-                    <div><p className="text-[10px] font-bold text-gray-500 uppercase">Total Debit</p><p className="text-lg font-extrabold text-blue-700">KES {fmt(totals.totalDebit)}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-500 uppercase">Total Credit</p><p className="text-lg font-extrabold text-red-700">KES {fmt(totals.totalCredit)}</p></div>
+            {/* Period filter */}
+            <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap gap-3 items-center shadow-sm">
+                <FiFilter size={13} className="text-gray-400" />
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Period:</span>
+                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none" />
+                <span className="text-gray-400">to</span>
+                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none" />
+                <div className="ml-auto flex gap-2 flex-wrap">
+                    {terms.map(t => (
+                        <button key={t.id} onClick={() => { setDateFrom(t.start_date || ''); setDateTo(t.end_date || ''); }} className="px-3 py-1.5 text-xs font-bold rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100">{t.term_name} {t.year}</button>
+                    ))}
                 </div>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap gap-2 items-center shadow-sm">
-                <div className="relative flex-1 min-w-[160px]"><FiSearch size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search account name/code..." className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none" /></div>
-                <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="text-sm px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none"><option value="">All Years</option>{years.map(y => <option key={y}>{y}</option>)}</select>
-                <select value={filterTerm} onChange={e => setFilterTerm(e.target.value)} className="text-sm px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none"><option value="">All Terms</option><option>Term 1</option><option>Term 2</option><option>Term 3</option><option>Annual</option></select>
-                <span className="text-xs font-bold text-gray-400">{filtered.length} accounts</span>
+            {/* Balance Status Banner */}
+            <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-sm font-bold text-sm ${isBalanced ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                {isBalanced ? <FiCheckCircle size={18} className="text-emerald-600" /> : <FiAlertCircle size={18} className="text-red-600" />}
+                {isBalanced ? '✅ Trial Balance is BALANCED — Total Debits = Total Credits' : `⚠️ Does NOT Balance — Difference: KES ${fmt(difference)}`}
+                <span className="ml-auto font-mono text-sm">{trialLines.length} accounts</span>
             </div>
 
-            {/* Table grouped by type */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden print:shadow-none">
-                {/* Print header */}
-                <div className="hidden print:block p-4 text-center border-b border-gray-200">
-                    <h2 className="text-xl font-extrabold">APSIMS — Trial Balance</h2>
-                    <p className="text-sm text-gray-500">{filterYear || 'All Years'} {filterTerm || ''} &bull; Generated {new Date().toLocaleDateString('en-KE')}</p>
-                </div>
+            {/* Summary Cards by Type */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {typeOrder.map(type => {
+                    const lines = trialLines.filter(l => l.type === type);
+                    const debits = lines.reduce((s, l) => s + l.debit, 0);
+                    const credits = lines.reduce((s, l) => s + l.credit, 0);
+                    const net = debits - credits;
+                    return (
+                        <div key={type} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm" style={{ borderTopWidth: 3, borderTopColor: typeColors[type] }}>
+                            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: typeColors[type] }}>{type}</p>
+                            {debits > 0 && <p className="text-sm font-extrabold text-gray-800">DR: {fmt(debits)}</p>}
+                            {credits > 0 && <p className="text-sm font-extrabold text-gray-600">CR: {fmt(credits)}</p>}
+                            <p className="text-[10px] text-gray-400">{lines.length} accounts</p>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Trial Balance Table */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="bg-gray-800 text-white">
-                                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider">Code</th>
-                                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider">Account Name</th>
-                                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider">Category</th>
-                                <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider">Debit (KES)</th>
-                                <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider">Credit (KES)</th>
-                                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider print:hidden">Actions</th>
+                                {['Code', 'Account Name', 'Type', 'Debit (KES)', 'Credit (KES)'].map(h => (
+                                    <th key={h} className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider ${['Debit (KES)', 'Credit (KES)'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.length === 0 && (
-                                <tr><td colSpan={6} className="py-16 text-center text-gray-400">
-                                    <FiBarChart2 size={36} className="mx-auto mb-3 text-gray-300" />
-                                    <p className="font-medium">No accounts yet</p>
-                                    <p className="text-xs mt-1">Add income, expense, asset and liability accounts to build your trial balance</p>
-                                    <button onClick={openAdd} className="mt-4 px-5 py-2 rounded-xl text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg,#1e3a5f,#2563eb)' }}>Add First Account</button>
-                                </td></tr>
-                            )}
-                            {ACCOUNT_TYPES.map(type => {
-                                const group = grouped[type];
-                                if (!group || group.length === 0) return null;
-                                const subtotalDebit = group.reduce((s, a) => s + Number(a.debit_balance || 0), 0);
-                                const subtotalCredit = group.reduce((s, a) => s + Number(a.credit_balance || 0), 0);
+                            {typeOrder.map(type => {
+                                const lines = sortedLines.filter(l => l.type === type);
+                                if (lines.length === 0) return null;
                                 return (
                                     <>
-                                        <tr key={`header-${type}`} className="bg-gray-100">
-                                            <td colSpan={6} className="px-4 py-2">
-                                                <span className={`text-xs font-extrabold text-white px-3 py-1 rounded-full uppercase tracking-wider ${TYPE_COLORS[type] || 'bg-gray-500'}`}>{type} Accounts</span>
+                                        <tr key={`hdr-${type}`} style={{ background: typeColors[type] + '10' }}>
+                                            <td colSpan={5} className="px-4 py-2 text-[10px] font-extrabold uppercase tracking-widest" style={{ color: typeColors[type] }}>
+                                                {type === 'Asset' ? '💰' : type === 'Liability' ? '⚖️' : type === 'Equity' ? '🏛️' : type === 'Income' ? '📈' : '📉'} {type}S
                                             </td>
                                         </tr>
-                                        {group.map(a => (
-                                            <tr key={a.id} className="border-b border-gray-50 hover:bg-blue-50/20">
-                                                <td className="px-4 py-2.5 font-mono text-xs text-indigo-600 font-bold">{a.account_code || '\u2014'}</td>
-                                                <td className="px-4 py-2.5 font-medium text-gray-800">{a.account_name}</td>
-                                                <td className="px-4 py-2.5 text-xs text-gray-500">{a.account_category}</td>
-                                                <td className="px-4 py-2.5 text-right font-bold text-blue-700">{a.debit_balance ? fmt(a.debit_balance) : '\u2014'}</td>
-                                                <td className="px-4 py-2.5 text-right font-bold text-red-600">{a.credit_balance ? fmt(a.credit_balance) : '\u2014'}</td>
-                                                <td className="px-4 py-2.5 print:hidden"><div className="flex gap-1"><button onClick={() => openEdit(a)} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"><FiEdit2 size={12} /></button><button onClick={() => setDeleteId(a.id!)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100"><FiTrash2 size={12} /></button></div></td>
+                                        {lines.map((l, i) => (
+                                            <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/60">
+                                                <td className="px-4 py-2.5 font-mono text-xs text-gray-400">{l.code}</td>
+                                                <td className="px-4 py-2.5 font-medium text-gray-800">{l.account}</td>
+                                                <td className="px-4 py-2.5">
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: typeColors[l.type] + '15', color: typeColors[l.type] }}>{l.type}</span>
+                                                </td>
+                                                <td className="px-4 py-2.5 text-right font-extrabold text-gray-800">{l.debit > 0 ? fmt(l.debit) : ''}</td>
+                                                <td className="px-4 py-2.5 text-right font-extrabold text-gray-600">{l.credit > 0 ? fmt(l.credit) : ''}</td>
                                             </tr>
                                         ))}
-                                        <tr key={`sub-${type}`} className="bg-gray-50 border-t border-gray-200">
-                                            <td colSpan={3} className="px-4 py-2 font-extrabold text-gray-600 text-xs uppercase">{type} Subtotal</td>
-                                            <td className="px-4 py-2 text-right font-extrabold text-blue-700">{fmt(subtotalDebit)}</td>
-                                            <td className="px-4 py-2 text-right font-extrabold text-red-600">{fmt(subtotalCredit)}</td>
-                                            <td className="print:hidden"></td>
-                                        </tr>
                                     </>
                                 );
                             })}
                         </tbody>
                         <tfoot>
-                            <tr className="bg-gray-900 text-white">
-                                <td colSpan={3} className="px-4 py-4 font-extrabold text-sm uppercase tracking-wider">GRAND TOTAL</td>
-                                <td className="px-4 py-4 text-right font-extrabold text-lg">KES {fmt(totals.totalDebit)}</td>
-                                <td className="px-4 py-4 text-right font-extrabold text-lg">KES {fmt(totals.totalCredit)}</td>
-                                <td className="print:hidden"></td>
-                            </tr>
-                            <tr className={totals.balanced ? 'bg-emerald-600' : 'bg-red-600'}>
-                                <td colSpan={6} className="px-4 py-2 text-center font-extrabold text-white text-sm">
-                                    {totals.balanced ? '✅ BALANCED — Total Debits equal Total Credits' : `⚠️ NOT BALANCED — Difference: KES ${fmt(Math.abs(totals.totalDebit - totals.totalCredit))}`}
-                                </td>
+                            <tr className={`font-extrabold text-lg ${isBalanced ? 'bg-emerald-600' : 'bg-red-600'} text-white`}>
+                                <td colSpan={3} className="px-4 py-4">TOTALS</td>
+                                <td className="px-4 py-4 text-right">{fmt(totalDebits)}</td>
+                                <td className="px-4 py-4 text-right">{fmt(totalCredits)}</td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             </div>
-
-            {/* Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
-                        <div className="flex items-center justify-between p-5 border-b border-gray-100"><h2 className="text-lg font-extrabold text-gray-900">{editing ? 'Edit Account' : 'Add Account'}</h2><button onClick={closeModal} className="p-2 rounded-xl hover:bg-gray-100"><FiX size={18} /></button></div>
-                        <div className="p-5 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Account Code</label><input value={form.account_code} onChange={e => setForm(f => ({ ...f, account_code: e.target.value }))} placeholder="e.g. 1001" className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400" /></div>
-                                <div><label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Account Type</label>
-                                    <select value={form.account_type} onChange={e => setForm(f => ({ ...f, account_type: e.target.value, account_category: ACCOUNT_CATEGORIES[e.target.value]?.[0] }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400">{ACCOUNT_TYPES.map(t => <option key={t}>{t}</option>)}</select>
-                                </div>
-                                <div className="col-span-2"><label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Account Name *</label><input value={form.account_name} onChange={e => setForm(f => ({ ...f, account_name: e.target.value }))} placeholder="e.g. Cash at Hand, School Fees Receivable..." className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400" /></div>
-                                <div><label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Category</label>
-                                    <select value={form.account_category} onChange={e => setForm(f => ({ ...f, account_category: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400">{(ACCOUNT_CATEGORIES[form.account_type] || []).map(c => <option key={c}>{c}</option>)}</select>
-                                </div>
-                                <div><label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Academic Year</label><input value={form.academic_year || ''} onChange={e => setForm(f => ({ ...f, academic_year: e.target.value }))} placeholder="2024" className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400" /></div>
-                                <div><label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Debit Balance (KES)</label><input type="number" value={form.debit_balance} onChange={e => setForm(f => ({ ...f, debit_balance: Number(e.target.value) }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400" /></div>
-                                <div><label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Credit Balance (KES)</label><input type="number" value={form.credit_balance} onChange={e => setForm(f => ({ ...f, credit_balance: Number(e.target.value) }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400" /></div>
-                                <div><label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Term</label>
-                                    <select value={form.term || ''} onChange={e => setForm(f => ({ ...f, term: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400"><option>Term 1</option><option>Term 2</option><option>Term 3</option><option>Annual</option></select>
-                                </div>
-                            </div>
-                            <div><label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Notes</label><textarea value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:border-blue-400 resize-none" /></div>
-                        </div>
-                        <div className="flex gap-3 p-5 border-t border-gray-100">
-                            <button onClick={closeModal} className="flex-1 py-2.5 rounded-xl font-bold text-gray-600 bg-gray-100">Cancel</button>
-                            <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: 'linear-gradient(135deg,#1e3a5f,#2563eb)' }}><FiSave size={16} />{saving ? 'Saving...' : editing ? 'Update' : 'Add'}</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {deleteId && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"><div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4"><div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4"><FiTrash2 className="text-red-500" size={20} /></div><h3 className="text-center font-extrabold text-gray-900 mb-2">Delete Account?</h3><p className="text-center text-sm text-gray-400 mb-4">This account entry will be permanently deleted.</p><div className="flex gap-3"><button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-gray-100 text-gray-600">Cancel</button><button onClick={handleDelete} className="flex-1 py-2.5 rounded-xl font-bold bg-red-600 text-white">Delete</button></div></div></div>}
         </div>
     );
 }
