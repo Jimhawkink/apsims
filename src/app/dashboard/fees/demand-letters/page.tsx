@@ -1,282 +1,315 @@
 'use client';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { supabase } from '@/lib/supabase';
+import { FiFileText, FiRefreshCw, FiDownload, FiSend, FiPrinter, FiSearch, FiMail, FiUsers, FiAlertTriangle, FiCheck, FiFilter } from 'react-icons/fi';
 
-const FONT = "ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
-const fmt = (n: number) => `KES ${Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2})}`;
-const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-KE',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-const daysDiff = (d: string) => { const diff = Math.floor((new Date().getTime()-new Date(d).getTime())/86400000); return diff; };
+const fmt = (n: number) => `KES ${Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 0 })}`;
+const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+
+const LETTER_TEMPLATES: Record<string, { subject: string; body: (s: any) => string }> = {
+    first: {
+        subject: 'Fee Reminder Notice',
+        body: (s) => `Dear Parent/Guardian of ${s.name},\n\nThis is a friendly reminder that fee balance of ${fmt(s.balance)} for ${s.form || 'your ward'} (Adm: ${s.admNo}) is outstanding.\n\nPlease make payment by END OF THIS WEEK to avoid disruption of studies.\n\nPayment Methods:\n• MPESA Paybill: [PAYBILL] — Account: ${s.admNo}\n• Bank: [BANK NAME]\n\nFor queries, contact the school bursar.\n\nThank you for your continued support.\n\nYours faithfully,\nThe Principal`
+    },
+    second: {
+        subject: 'Second & Final Fee Demand Notice',
+        body: (s) => `Dear Parent/Guardian,\n\nRE: SECOND DEMAND NOTICE — ${s.name} (Adm: ${s.admNo})\n\nDespite our previous reminder, fee arrears of ${fmt(s.balance)} remain UNPAID.\n\nYou are hereby notified that failure to settle this balance within 48 HOURS will result in:\n1. Exclusion from class and examinations\n2. Withholding of academic certificates and results\n3. Referral to the school Board of Governors\n\nWe urge you to treat this as URGENT.\n\nPrincipal,\n[School Name]`
+    },
+    suspension: {
+        subject: 'NOTICE OF FEE SUSPENSION',
+        body: (s) => `Dear Parent/Guardian of ${s.name},\n\nRE: SUSPENSION DUE TO NON-PAYMENT\n\nWe regret to inform you that ${s.name} (Form ${s.form || '?'}, Adm: ${s.admNo}) has been SUSPENDED from school due to outstanding fees of ${fmt(s.balance)}.\n\nYour child will be readmitted ONLY upon full payment or an approved payment plan.\n\nReport to the school with full payment or to discuss a payment arrangement.\n\nPrincipal,\n[School Name]`
+    },
+    boa_referral: {
+        subject: 'Board of Governors Fee Referral',
+        body: (s) => `Dear Parent/Guardian of ${s.name},\n\nRE: REFERRAL TO BOARD OF GOVERNORS\n\nThis is to inform you that the matter of outstanding fees of ${fmt(s.balance)} for ${s.name} (Adm: ${s.admNo}) has been referred to the Board of Governors for further action.\n\nYou are required to appear before the BOG on [DATE] at [TIME] at the school office.\n\nFailure to appear may result in legal action to recover the debt.\n\nSecretary,\nBoard of Governors`
+    }
+};
+
+type Defaulter = {
+    id: number; name: string; admNo: string; form: string;
+    balance: number; phone?: string; lastPayment?: string; selected?: boolean;
+};
 
 export default function DemandLettersPage() {
-  const [students, setStudents] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [structures, setStructures] = useState<any[]>([]);
-  const [forms, setForms] = useState<any[]>([]);
-  const [streams, setStreams] = useState<any[]>([]);
-  const [school, setSchool] = useState<any>({});
-  const [terms, setTerms] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selForm, setSelForm] = useState('');
-  const [selStream, setSelStream] = useState('');
-  const [minBalance, setMinBalance] = useState('1000');
-  const [selTermId, setSelTermId] = useState('');
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [previewStudent, setPreviewStudent] = useState<any>(null);
-  const [sending, setSending] = useState<Set<number>>(new Set());
-  const printRef = useRef<HTMLDivElement>(null);
+    const [students, setStudents] = useState<any[]>([]);
+    const [payments, setPayments] = useState<any[]>([]);
+    const [structures, setStructures] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [filterForm, setFilterForm] = useState('');
+    const [minBalance, setMinBalance] = useState(500);
+    const [selected, setSelected] = useState<Set<number>>(new Set());
+    const [template, setTemplate] = useState<keyof typeof LETTER_TEMPLATES>('first');
+    const [previewStudent, setPreviewStudent] = useState<Defaulter | null>(null);
+    const [sentMap, setSentMap] = useState<Record<number, boolean>>({});
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [sRes, pRes, fRes, stRes, schRes, tRes, strRes] = await Promise.all([
-        supabase.from('school_students').select('id,first_name,last_name,admission_no,guardian_name,guardian_phone,form_id,stream_id,status').eq('status','Active').order('first_name'),
-        supabase.from('school_fee_payments').select('student_id,term_id,amount_paid,payment_date'),
-        supabase.from('school_fee_structures').select('form_id,term_id,fee_type,amount'),
-        supabase.from('school_forms').select('*').order('form_level'),
-        supabase.from('school_details').select('*').limit(1).single(),
-        supabase.from('school_terms').select('*').order('id',{ascending:false}),
-        supabase.from('school_streams').select('*').order('stream_name'),
-      ]);
-      setStudents(sRes.data||[]);
-      setPayments(pRes.data||[]);
-      setStructures(fRes.data||[]);
-      setForms(fRes.data ? [...new Map((sRes.data||[]).map((s:any)=>s.form_id)).keys()] as any : []);
-      setForms(fRes.data||[]);
-      setStreams(strRes.data||[]);
-      if(schRes.data) setSchool(schRes.data);
-      const tData=tRes.data||[];
-      setTerms(tData);
-      const cur=tData.find((t:any)=>t.is_current)||tData[0];
-      if(cur&&!selTermId) setSelTermId(String(cur.id));
-    } catch { toast.error('Failed to load data'); }
-    setLoading(false);
-  }, []);
+    const fetchAll = useCallback(async () => {
+        setLoading(true);
+        const [sRes, pRes, stRes] = await Promise.all([
+            supabase.from('school_students').select('id, first_name, last_name, admission_no, admission_number, form_id, status').eq('status', 'Active'),
+            supabase.from('school_fee_payments').select('student_id, amount, payment_date').order('payment_date', { ascending: false }),
+            supabase.from('school_fee_structures').select('form_id, annual_amount, term1_amount, term2_amount, term3_amount'),
+        ]);
+        setStudents(sRes.data || []);
+        setPayments(pRes.data || []);
+        setStructures(stRes.data || []);
+        setLoading(false);
+    }, []);
+    useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  useEffect(()=>{load();},[load]);
+    const defaulters: Defaulter[] = useMemo(() => {
+        return students.map(s => {
+            const st = structures.find(x => x.form_id === s.form_id);
+            const expected = Number(st?.annual_amount || st?.term1_amount || 0);
+            const paid = payments.filter(p => p.student_id === s.id).reduce((acc, p) => acc + Number(p.amount || 0), 0);
+            const balance = Math.max(0, expected - paid);
+            const lastPmt = payments.filter(p => p.student_id === s.id)[0];
+            return {
+                id: s.id,
+                name: `${s.first_name} ${s.last_name}`,
+                admNo: s.admission_no || s.admission_number || String(s.id),
+                form: String(s.form_id || ''),
+                balance,
+                phone: s.phone,
+                lastPayment: lastPmt?.payment_date,
+            };
+        }).filter(d => d.balance >= minBalance);
+    }, [students, payments, structures, minBalance]);
 
-  const defaulters = useMemo(()=>{
-    const termId = parseInt(selTermId)||0;
-    return students.map(s=>{
-      const formStructures = structures.filter(st=>st.form_id===s.form_id&&(termId?st.term_id===termId:true));
-      const totalDue = formStructures.reduce((a:number,st:any)=>a+Number(st.amount||0),0);
-      const totalPaid = payments.filter(p=>p.student_id===s.id&&(termId?p.term_id===termId:true)).reduce((a:number,p:any)=>a+Number(p.amount_paid||0),0);
-      const balance = Math.max(0,totalDue-totalPaid);
-      const lastPayment = payments.filter(p=>p.student_id===s.id).sort((a:any,b:any)=>new Date(b.payment_date).getTime()-new Date(a.payment_date).getTime())[0];
-      const daysOld = lastPayment ? daysDiff(lastPayment.payment_date) : 999;
-      const form = forms.find((f:any)=>f.id===s.form_id);
-      const stream = streams.find((st:any)=>st.id===s.stream_id);
-      return { ...s, totalDue, totalPaid, balance, daysOld, formName:form?.form_name||'', streamName:stream?.stream_name||'' };
-    })
-    .filter(s=>s.balance>=parseInt(minBalance||'0'))
-    .filter(s=>!selForm||String(s.form_id)===selForm)
-    .filter(s=>!selStream||String(s.stream_id)===selStream)
-    .filter(s=>!search||`${s.first_name} ${s.last_name} ${s.admission_no}`.toLowerCase().includes(search.toLowerCase()))
-    .sort((a,b)=>b.balance-a.balance);
-  },[students,payments,structures,selTermId,minBalance,selForm,selStream,search,forms,streams]);
+    const filtered = useMemo(() => {
+        const q = search.toLowerCase();
+        return defaulters.filter(d => {
+            if (filterForm && d.form !== filterForm) return false;
+            if (q && !d.name.toLowerCase().includes(q) && !d.admNo.toLowerCase().includes(q)) return false;
+            return true;
+        });
+    }, [defaulters, search, filterForm]);
 
-  const kpis = useMemo(()=>({
-    defaulters: defaulters.length,
-    outstanding: defaulters.reduce((a,s)=>a+s.balance,0),
-    generated: 0,
-    sent: 0,
-  }),[defaulters]);
+    const totalOutstanding = useMemo(() => defaulters.reduce((s, d) => s + d.balance, 0), [defaulters]);
+    const forms = useMemo(() => [...new Set(defaulters.map(d => d.form).filter(Boolean))].sort(), [defaulters]);
 
-  const handleSendSMS = async (s: any) => {
-    setSending(prev=>new Set(prev).add(s.id));
-    await new Promise(r=>setTimeout(r,800));
-    toast.success(`📲 SMS sent to ${s.guardian_phone||'parent'} — Balance: ${fmt(s.balance)}`);
-    setSending(prev=>{const n=new Set(prev);n.delete(s.id);return n;});
-  };
+    const toggleSelect = (id: number) => setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+    const selectAll = () => setSelected(new Set(filtered.map(d => d.id)));
+    const clearAll = () => setSelected(new Set());
 
-  const handlePrint = (s: any) => {
-    setPreviewStudent(s);
-    setTimeout(()=>window.print(),400);
-  };
+    const selectedDefaulters = useMemo(() => filtered.filter(d => selected.has(d.id)), [filtered, selected]);
 
-  const exportCSV = () => {
-    const rows = [['Adm No','Name','Guardian','Phone','Form','Stream','Total Due','Paid','Balance'],...defaulters.map(s=>[s.admission_no,`${s.first_name} ${s.last_name}`,s.guardian_name||'',s.guardian_phone||'',s.formName,s.streamName,s.totalDue,s.totalPaid,s.balance])];
-    const csv = rows.map(r=>r.join(',')).join('\n');
-    const blob = new Blob([csv],{type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download='defaulters.csv'; a.click();
-    URL.revokeObjectURL(url);
-    toast.success('CSV exported');
-  };
+    const printLetter = (d: Defaulter) => {
+        const tmpl = LETTER_TEMPLATES[template];
+        const w = window.open('', '_blank');
+        if (!w) return;
+        const body = tmpl.body(d).replace(/\n/g, '<br>');
+        w.document.write(`<!DOCTYPE html><html><head><title>Demand Letter - ${d.name}</title><style>
+        @page{size:A4;margin:25mm 20mm} body{font-family:'Times New Roman',serif;font-size:13px;color:#111;line-height:1.8}
+        .header{text-align:center;border-bottom:3px solid #1e3a5f;padding-bottom:12px;margin-bottom:20px}
+        h2{font-size:16px;margin:4px 0} .school-name{font-size:20px;font-weight:bold;color:#1e3a5f}
+        .subject{font-weight:bold;text-decoration:underline;margin:16px 0}
+        .date{text-align:right;margin-bottom:16px} .footer{margin-top:30px}
+        .stamp{border:2px dashed #dc2626;padding:8px 16px;display:inline-block;color:#dc2626;font-weight:bold;transform:rotate(-5deg);margin-top:10px}
+        </style></head><body>
+        <div class="header"><p class="school-name">APSIMS SCHOOL</p><p>P.O. Box [BOX] - [TOWN] | Tel: [TEL] | Email: [EMAIL]</p></div>
+        <div class="date">Date: ${fmtDate(new Date().toISOString())}</div>
+        <p>The Parent/Guardian,</p><p>${d.name},</p><p>Adm No: ${d.admNo}</p><br>
+        <p class="subject">RE: ${tmpl.subject.toUpperCase()}</p>
+        <p>${body}</p>
+        <div class="footer"><p>Yours faithfully,</p><br><br><p>________________________________</p><p><b>THE PRINCIPAL</b></p>
+        ${template === 'suspension' || template === 'boa_referral' ? '<div class="stamp">URGENT — IMMEDIATE ACTION REQUIRED</div>' : ''}
+        </div></body></html>`);
+        setTimeout(() => w.print(), 400);
+        setSentMap(prev => ({ ...prev, [d.id]: true }));
+        toast.success(`Letter printed for ${d.name}`);
+    };
 
-  const hdr: React.CSSProperties = { fontFamily:FONT, background:'linear-gradient(135deg,#7f1d1d 0%,#991b1b 50%,#b91c1c 100%)', padding:'32px 36px 28px', position:'relative', overflow:'hidden' };
+    const printBulk = () => {
+        const toProcess = selectedDefaulters.length > 0 ? selectedDefaulters : filtered.slice(0, 50);
+        if (toProcess.length === 0) { toast.error('No students selected'); return; }
+        const tmpl = LETTER_TEMPLATES[template];
+        const w = window.open('', '_blank');
+        if (!w) return;
+        const letters = toProcess.map(d => {
+            const body = tmpl.body(d).replace(/\n/g, '<br>');
+            return `<div class="letter" style="page-break-after:always">
+            <div class="header"><p class="school-name">APSIMS SCHOOL</p><p>P.O. Box [BOX] - [TOWN] | Tel: [TEL]</p></div>
+            <div style="text-align:right">Date: ${fmtDate(new Date().toISOString())}</div>
+            <p>The Parent/Guardian of <b>${d.name}</b>, Adm: ${d.admNo}</p><br>
+            <p style="font-weight:bold;text-decoration:underline">RE: ${tmpl.subject.toUpperCase()}</p>
+            <p>${body}</p>
+            <div style="margin-top:30px"><p>Yours faithfully,</p><br><br><p>________________________________</p><p><b>THE PRINCIPAL</b></p></div>
+            </div>`;
+        }).join('');
+        w.document.write(`<!DOCTYPE html><html><head><title>Bulk Demand Letters</title><style>
+        @page{size:A4;margin:20mm} body{font-family:'Times New Roman',serif;font-size:12px;line-height:1.8}
+        .header{text-align:center;border-bottom:2px solid #1e3a5f;padding-bottom:8px;margin-bottom:16px}
+        .school-name{font-size:18px;font-weight:bold;color:#1e3a5f}
+        </style></head><body>${letters}</body></html>`);
+        setTimeout(() => w.print(), 400);
+        const s = new Set(toProcess.map(d => d.id));
+        setSentMap(prev => { const n = { ...prev }; s.forEach(id => { n[id] = true; }); return n; });
+        toast.success(`${toProcess.length} letters sent to print!`);
+    };
 
-  return (
-    <div style={{fontFamily:FONT,background:'#f8fafc',minHeight:'100vh'}}>
-      {/* Print-only letter */}
-      {previewStudent && (
-        <div ref={printRef} style={{display:'none'}} className="print-only">
-          <div style={{fontFamily:FONT,padding:'40px',maxWidth:700,margin:'0 auto',border:'2px solid #991b1b'}}>
-            <div style={{textAlign:'center',borderBottom:'3px double #991b1b',paddingBottom:16,marginBottom:24}}>
-              <h1 style={{margin:0,fontSize:22,fontWeight:900}}>{school.school_name||'SCHOOL NAME'}</h1>
-              <p style={{margin:'4px 0 0',fontSize:12,color:'#64748b'}}>{school.address||''} · {school.phone||''} · {school.email||''}</p>
-              <h2 style={{margin:'16px 0 0',color:'#991b1b',fontSize:16,fontWeight:900,textTransform:'uppercase',letterSpacing:2}}>DEMAND LETTER — SCHOOL FEES</h2>
+    const sendWhatsApp = (d: Defaulter) => {
+        const tmpl = LETTER_TEMPLATES[template];
+        const msg = encodeURIComponent(tmpl.body(d));
+        const phone = (d.phone || '254700000000').replace(/\D/g, '');
+        window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${msg}`, '_blank');
+        setSentMap(prev => ({ ...prev, [d.id]: true }));
+        toast.success(`WhatsApp opened for ${d.name}`);
+    };
+
+    const sendBulkWhatsApp = () => {
+        const toProcess = selectedDefaulters.length > 0 ? selectedDefaulters : filtered.slice(0, 20);
+        if (toProcess.length === 0) { toast.error('No students to process'); return; }
+        toast(`Opening WhatsApp for ${toProcess.length} parents...`, { icon: '📱' });
+        toProcess.forEach((d, i) => {
+            setTimeout(() => {
+                const tmpl = LETTER_TEMPLATES[template];
+                const msg = encodeURIComponent(tmpl.body(d));
+                const phone = (d.phone || '254700000000').replace(/\D/g, '');
+                window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${msg}`, '_blank');
+            }, i * 1200);
+        });
+        const s = new Set(toProcess.map(d => d.id));
+        setSentMap(prev => { const n = { ...prev }; s.forEach(id => { n[id] = true; }); return n; });
+    };
+
+    const exportCSV = () => {
+        const rows = [['Name', 'Adm No', 'Class/Form', 'Balance (KES)', 'Last Payment']];
+        filtered.forEach(d => rows.push([d.name, d.admNo, d.form, String(d.balance), d.lastPayment ? fmtDate(d.lastPayment) : 'Never']));
+        rows.push(['', '', 'TOTAL OUTSTANDING', String(totalOutstanding), '']);
+        const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `defaulters_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+        toast.success('Exported!');
+    };
+
+    if (loading) return <div className="flex items-center justify-center h-[70vh]"><div className="text-center"><div className="w-12 h-12 border-4 border-gray-100 border-t-rose-500 rounded-full animate-spin mx-auto mb-3" /><p className="text-gray-400 text-sm">Loading defaulters list...</p></div></div>;
+
+    return (
+        <div className="p-4 space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                    <h1 className="text-2xl font-extrabold text-gray-900 flex items-center gap-2.5">
+                        <span className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-md" style={{ background: 'linear-gradient(135deg,#dc2626,#b91c1c)' }}><FiFileText size={18} /></span>
+                        Demand Letters
+                    </h1>
+                    <p className="text-sm text-gray-400 mt-0.5 ml-[46px]">Fee defaulters &bull; Print letters &bull; Bulk WhatsApp &bull; 4 letter templates</p>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                    <button onClick={exportCSV} className="px-3 py-2 rounded-xl text-sm font-bold bg-emerald-600 text-white flex items-center gap-1.5"><FiDownload size={14} /> Export List</button>
+                    <button onClick={fetchAll} className="px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"><FiRefreshCw size={14} /></button>
+                    <button onClick={printBulk} className="px-3 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg,#1e3a5f,#0f172a)' }}><FiPrinter size={14} /> {selected.size > 0 ? `Print ${selected.size}` : 'Print All'}</button>
+                    <button onClick={sendBulkWhatsApp} className="px-3 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}><FiSend size={14} /> {selected.size > 0 ? `WhatsApp ${selected.size}` : 'Bulk WhatsApp'}</button>
+                </div>
             </div>
-            <div style={{marginBottom:20}}>
-              <p style={{margin:'0 0 4px'}}><strong>Date:</strong> {new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</p>
-              <p style={{margin:'0 0 4px'}}><strong>To:</strong> Parent/Guardian of {previewStudent.first_name} {previewStudent.last_name}</p>
-              <p style={{margin:0}}><strong>Re:</strong> Outstanding School Fees — {previewStudent.first_name} {previewStudent.last_name} ({previewStudent.admission_no})</p>
+
+            {/* KPI Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4"><p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Total Defaulters</p><p className="text-2xl font-extrabold text-red-700">{defaulters.length}</p><p className="text-xs text-red-400">Balance ≥ {fmt(minBalance)}</p></div>
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4"><p className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">Total Outstanding</p><p className="text-2xl font-extrabold text-orange-700">{fmt(totalOutstanding)}</p><p className="text-xs text-orange-400">from {defaulters.length} students</p></div>
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4"><p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Filtered</p><p className="text-2xl font-extrabold text-blue-700">{filtered.length}</p><p className="text-xs text-blue-400">matching filter</p></div>
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4"><p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Selected</p><p className="text-2xl font-extrabold text-emerald-700">{selected.size}</p><div className="flex gap-1 mt-1"><button onClick={selectAll} className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">All</button><button onClick={clearAll} className="text-[10px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">Clear</button></div></div>
             </div>
-            <p>Dear Parent/Guardian,</p>
-            <p>We write to bring to your urgent attention that your child, <strong>{previewStudent.first_name} {previewStudent.last_name}</strong> (Admission No: <strong>{previewStudent.admission_no}</strong>), currently in <strong>{previewStudent.formName} {previewStudent.streamName}</strong>, has an outstanding fee balance as detailed below:</p>
-            <table style={{width:'100%',borderCollapse:'collapse',margin:'20px 0'}}>
-              <thead><tr style={{background:'#991b1b'}}>{['Description','Amount (KES)'].map(h=><th key={h} style={{padding:'8px 12px',color:'#fff',fontSize:12,fontWeight:700,textAlign:'left'}}>{h}</th>)}</tr></thead>
-              <tbody>
-                <tr><td style={{padding:'8px 12px',borderBottom:'1px solid #fca5a5',fontSize:13}}>Total Fee for Term</td><td style={{padding:'8px 12px',borderBottom:'1px solid #fca5a5',fontSize:13,fontWeight:700}}>{fmt(previewStudent.totalDue)}</td></tr>
-                <tr><td style={{padding:'8px 12px',borderBottom:'1px solid #fca5a5',fontSize:13}}>Amount Paid</td><td style={{padding:'8px 12px',borderBottom:'1px solid #fca5a5',fontSize:13,fontWeight:700,color:'#059669'}}>{fmt(previewStudent.totalPaid)}</td></tr>
-                <tr style={{background:'#fee2e2'}}><td style={{padding:'10px 12px',fontSize:14,fontWeight:900,color:'#991b1b'}}>OUTSTANDING BALANCE</td><td style={{padding:'10px 12px',fontSize:16,fontWeight:900,color:'#991b1b'}}>{fmt(previewStudent.balance)}</td></tr>
-              </tbody>
-            </table>
-            <p>You are <strong>hereby requested to settle the above outstanding balance within <u>7 days</u></strong> from the date of this letter. Failure to clear the balance may result in your child being sent home or denied access to school services.</p>
-            <p>Please contact the school bursar for payment arrangements. M-Pesa payments can be made to <strong>Till/Paybill: {school.mpesa_paybill||'[PAYBILL]'}</strong> with your child's admission number as the account reference.</p>
-            <div style={{marginTop:40,display:'grid',gridTemplateColumns:'1fr 1fr',gap:40}}>
-              <div><p style={{margin:0,fontWeight:700}}>Bursar's Signature</p><div style={{marginTop:30,borderTop:'1px solid #64748b',paddingTop:4,fontSize:11,color:'#64748b'}}>Name & Stamp</div></div>
-              <div><p style={{margin:0,fontWeight:700}}>Principal's Signature</p><div style={{marginTop:30,borderTop:'1px solid #64748b',paddingTop:4,fontSize:11,color:'#64748b'}}>Name & Stamp</div></div>
+
+            {/* Letter Template Selector */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">📄 Letter Template</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {(Object.keys(LETTER_TEMPLATES) as Array<keyof typeof LETTER_TEMPLATES>).map(key => (
+                        <button key={key} onClick={() => setTemplate(key)} className={`px-3 py-2.5 rounded-xl text-xs font-bold border-2 transition-all text-left ${template === key ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                            {key === 'first' && '📋 1st Reminder'}
+                            {key === 'second' && '⚠️ 2nd & Final'}
+                            {key === 'suspension' && '🔴 Suspension Notice'}
+                            {key === 'boa_referral' && '🏛️ BOG Referral'}
+                        </button>
+                    ))}
+                </div>
+                <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs text-gray-500">
+                    <b className="text-gray-700">{LETTER_TEMPLATES[template].subject}:</b> Preview template — placeholders like [PAYBILL] and [BANK NAME] will be replaced with your school details.
+                </div>
             </div>
-          </div>
+
+            {/* Filters */}
+            <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap gap-2 items-center shadow-sm">
+                <div className="relative flex-1 min-w-[180px]"><FiSearch size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search student name or adm no..." className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none" /></div>
+                <select value={filterForm} onChange={e => setFilterForm(e.target.value)} className="text-sm px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none"><option value="">All Classes</option>{forms.map(f => <option key={f}>{f}</option>)}</select>
+                <div className="flex items-center gap-2 text-sm"><FiFilter size={13} className="text-gray-400" /><label className="text-[10px] font-bold text-gray-500">Min Balance:</label><input type="number" value={minBalance} onChange={e => setMinBalance(Number(e.target.value))} className="w-28 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm focus:outline-none" /></div>
+                <button onClick={selectAll} className="px-3 py-2 text-xs font-bold bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200">Select All Filtered</button>
+            </div>
+
+            {/* Defaulters Table */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead><tr className="bg-gray-800 text-white">
+                            <th className="px-3 py-3 text-left"><input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={e => e.target.checked ? selectAll() : clearAll()} className="rounded" /></th>
+                            {['Student', 'Adm No', 'Class', 'Outstanding Balance', 'Last Payment', 'Status', 'Actions'].map(h => <th key={h} className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider">{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                            {filtered.length === 0 && <tr><td colSpan={8} className="py-14 text-center text-gray-400"><FiFileText size={32} className="mx-auto mb-3 text-gray-300" /><p>No defaulters with balance ≥ {fmt(minBalance)}</p></td></tr>}
+                            {filtered.map(d => (
+                                <tr key={d.id} className={`border-b border-gray-50 hover:bg-red-50/10 transition-colors ${selected.has(d.id) ? 'bg-red-50/20' : ''}`}>
+                                    <td className="px-3 py-3"><input type="checkbox" checked={selected.has(d.id)} onChange={() => toggleSelect(d.id)} className="rounded" /></td>
+                                    <td className="px-3 py-3 font-bold text-gray-800">{d.name}</td>
+                                    <td className="px-3 py-3 text-xs font-mono text-indigo-600">{d.admNo}</td>
+                                    <td className="px-3 py-3 text-xs text-gray-500">{d.form || '—'}</td>
+                                    <td className="px-3 py-3">
+                                        <span className={`font-extrabold ${d.balance > 20000 ? 'text-red-700' : d.balance > 10000 ? 'text-orange-600' : 'text-yellow-600'}`}>{fmt(d.balance)}</span>
+                                    </td>
+                                    <td className="px-3 py-3 text-xs text-gray-500">{d.lastPayment ? fmtDate(d.lastPayment) : <span className="text-red-500 font-bold">Never</span>}</td>
+                                    <td className="px-3 py-3">
+                                        {sentMap[d.id] ? <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><FiCheck size={12} /> Sent</span> :
+                                            <span className="text-xs font-bold text-orange-500 flex items-center gap-1"><FiAlertTriangle size={12} /> Pending</span>}
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <div className="flex gap-1.5">
+                                            <button onClick={() => setPreviewStudent(d)} className="px-2 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 text-xs font-bold hover:bg-indigo-100">Preview</button>
+                                            <button onClick={() => printLetter(d)} className="p-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200" title="Print"><FiPrinter size={13} /></button>
+                                            <button onClick={() => sendWhatsApp(d)} className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100" title="WhatsApp"><FiSend size={13} /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        {filtered.length > 0 && <tfoot>
+                            <tr className="bg-red-700">
+                                <td colSpan={3} className="px-3 py-3 font-extrabold text-white uppercase tracking-wider">TOTAL OUTSTANDING ({filtered.length} students)</td>
+                                <td className="px-3 py-3"></td>
+                                <td className="px-3 py-3 font-extrabold text-white text-lg">{fmt(filtered.reduce((s, d) => s + d.balance, 0))}</td>
+                                <td colSpan={3}></td>
+                            </tr>
+                        </tfoot>}
+                    </table>
+                </div>
+            </div>
+
+            {/* Letter Preview Modal */}
+            {previewStudent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
+                        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+                            <h2 className="text-lg font-extrabold text-gray-900">Letter Preview — {previewStudent.name}</h2>
+                            <div className="flex gap-2">
+                                <button onClick={() => printLetter(previewStudent)} className="px-3 py-1.5 rounded-xl text-sm font-bold bg-gray-800 text-white flex items-center gap-1.5"><FiPrinter size={14} /> Print</button>
+                                <button onClick={() => sendWhatsApp(previewStudent)} className="px-3 py-1.5 rounded-xl text-sm font-bold bg-green-600 text-white flex items-center gap-1.5"><FiSend size={14} /> WhatsApp</button>
+                                <button onClick={() => setPreviewStudent(null)} className="px-3 py-1.5 rounded-xl text-sm font-bold bg-gray-100 text-gray-600">Close</button>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-6 font-mono text-sm whitespace-pre-wrap leading-relaxed text-gray-700">
+                                <div className="text-center border-b border-gray-300 pb-4 mb-4">
+                                    <p className="font-extrabold text-lg text-gray-900">APSIMS SCHOOL</p>
+                                    <p className="text-gray-500 text-xs">P.O. Box [BOX] · [TOWN] · Tel: [TEL]</p>
+                                </div>
+                                <p className="text-right text-xs mb-4">Date: {fmtDate(new Date().toISOString())}</p>
+                                <p className="font-extrabold underline mb-4">RE: {LETTER_TEMPLATES[template].subject.toUpperCase()}</p>
+                                {LETTER_TEMPLATES[template].body(previewStudent)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
-      )}
-
-      {/* Header */}
-      <div style={hdr}>
-        <div style={{position:'absolute',inset:0,opacity:0.04,backgroundImage:'repeating-linear-gradient(0deg,transparent,transparent 30px,rgba(255,255,255,0.5) 30px,rgba(255,255,255,0.5) 31px)',zIndex:0}}/>
-        <div style={{position:'relative',zIndex:1}}>
-          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
-            <div>
-              <h1 style={{margin:0,fontSize:26,fontWeight:900,color:'#fff',letterSpacing:'-0.5px'}}>📨 Demand Letters Generator</h1>
-              <p style={{margin:'6px 0 0',fontSize:13,color:'rgba(255,255,255,0.65)',fontWeight:600}}>Auto-generate professional demand letters for fee defaulters · Print, Email or WhatsApp</p>
-            </div>
-            <div style={{display:'flex',gap:8}}>
-              <button onClick={exportCSV} style={{background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.25)',color:'#fff',borderRadius:10,padding:'10px 16px',fontWeight:800,fontSize:12,cursor:'pointer',fontFamily:FONT,backdropFilter:'blur(8px)'}}>📥 Export CSV</button>
-              {selected.size>0&&<button onClick={()=>toast.success(`Generating ${selected.size} demand letters…`)} style={{background:'#fff',border:'none',color:'#991b1b',borderRadius:10,padding:'10px 16px',fontWeight:800,fontSize:12,cursor:'pointer',fontFamily:FONT}}>📄 Generate {selected.size} Letters</button>}
-            </div>
-          </div>
-          <div style={{display:'flex',gap:10,marginTop:20,flexWrap:'wrap'}}>
-            {[
-              {icon:'🚨',label:'Defaulters',value:kpis.defaulters},
-              {icon:'💰',label:'Total Outstanding',value:fmt(kpis.outstanding)},
-              {icon:'📄',label:'Letters Generated',value:0},
-              {icon:'📲',label:'SMS Sent Today',value:0},
-            ].map(k=>(
-              <div key={k.label} style={{background:'rgba(255,255,255,0.1)',backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,0.16)',borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:8,minWidth:140}}>
-                <span style={{fontSize:20}}>{k.icon}</span>
-                <div><div style={{fontSize:15,fontWeight:900,color:'#fff',lineHeight:1.1}}>{k.value}</div><div style={{fontSize:9,color:'rgba(255,255,255,0.5)',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em'}}>{k.label}</div></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div style={{padding:'24px 28px'}}>
-        {/* Filters */}
-        <div style={{background:'#fff',borderRadius:14,border:'1px solid #e2e8f0',padding:'16px 20px',marginBottom:20,display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search student…" style={{...inp,flex:1,minWidth:200}}/>
-          <select value={selForm} onChange={e=>setSelForm(e.target.value)} style={{...inp,width:140}}><option value="">All Forms</option>{forms.map((f:any)=><option key={f.id} value={f.id}>{f.form_name}</option>)}</select>
-          <select value={selStream} onChange={e=>setSelStream(e.target.value)} style={{...inp,width:140}}><option value="">All Streams</option>{streams.map((s:any)=><option key={s.id} value={s.id}>{s.stream_name}</option>)}</select>
-          <select value={selTermId} onChange={e=>setSelTermId(e.target.value)} style={{...inp,width:140}}><option value="">Current Term</option>{terms.map(t=><option key={t.id} value={t.id}>{t.term_name}</option>)}</select>
-          <div style={{display:'flex',alignItems:'center',gap:6}}><label style={{fontSize:11,fontWeight:700,color:'#64748b',whiteSpace:'nowrap'}}>Min Balance (KES)</label><input type="number" value={minBalance} onChange={e=>setMinBalance(e.target.value)} style={{...inp,width:100}}/></div>
-        </div>
-
-        {loading ? (
-          <div style={{textAlign:'center',padding:60,color:'#94a3b8',fontSize:16}}>⏳ Loading defaulters…</div>
-        ) : defaulters.length===0 ? (
-          <div style={{textAlign:'center',padding:'60px 0',background:'#fff',borderRadius:16,border:'1px solid #e2e8f0'}}>
-            <div style={{fontSize:56}}>🎉</div>
-            <div style={{fontSize:18,fontWeight:900,color:'#059669',marginTop:12}}>No Defaulters Found!</div>
-            <div style={{fontSize:13,color:'#64748b',marginTop:4}}>All students within the minimum balance threshold have paid</div>
-          </div>
-        ) : (
-          <div style={{background:'#fff',borderRadius:16,border:'1px solid #e2e8f0',overflow:'hidden'}}>
-            <div style={{padding:'14px 20px',borderBottom:'1px solid #e2e8f0',background:'#fef2f2',display:'flex',alignItems:'center',gap:12}}>
-              <input type="checkbox" onChange={e=>setSelected(e.target.checked?new Set(defaulters.map(s=>s.id)):new Set())}/>
-              <span style={{fontSize:13,fontWeight:800,color:'#991b1b'}}>🚨 {defaulters.length} Defaulters · Total Outstanding: {fmt(kpis.outstanding)}</span>
-              {selected.size>0&&<span style={{marginLeft:'auto',fontSize:12,color:'#64748b',fontWeight:600}}>{selected.size} selected</span>}
-            </div>
-            <table style={{width:'100%',borderCollapse:'collapse'}}>
-              <thead>
-                <tr style={{background:'#f8fafc'}}>
-                  <th style={th}>#</th>
-                  {['Student','Form/Stream','Total Due','Paid','Balance','Days Old','Guardian','Actions'].map(h=><th key={h} style={th}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {defaulters.map((s,i)=>(
-                  <tr key={s.id} style={{borderBottom:'1px solid #f1f5f9',background:i%2===0?'#fff':'#fafbfc'}}>
-                    <td style={tc}><input type="checkbox" checked={selected.has(s.id)} onChange={e=>{const ns=new Set(selected);e.target.checked?ns.add(s.id):ns.delete(s.id);setSelected(ns);}}/></td>
-                    <td style={tc}>
-                      <div style={{fontWeight:800,color:'#0f172a',fontSize:13}}>{s.first_name} {s.last_name}</div>
-                      <div style={{fontSize:10,color:'#94a3b8',fontWeight:600}}>{s.admission_no}</div>
-                    </td>
-                    <td style={tc}><span style={{background:'#ede9fe',color:'#6d28d9',fontSize:10,fontWeight:800,padding:'3px 8px',borderRadius:6}}>{s.formName} {s.streamName}</span></td>
-                    <td style={{...tc,fontWeight:700}}>{fmt(s.totalDue)}</td>
-                    <td style={{...tc,color:'#059669',fontWeight:700}}>{fmt(s.totalPaid)}</td>
-                    <td style={{...tc,color:'#dc2626',fontWeight:900,fontSize:14}}>{fmt(s.balance)}</td>
-                    <td style={tc}>
-                      <div style={{background:s.daysOld>90?'#fee2e2':s.daysOld>30?'#fef3c7':'#f1f5f9',color:s.daysOld>90?'#dc2626':s.daysOld>30?'#92400e':'#64748b',padding:'3px 8px',borderRadius:6,fontSize:10,fontWeight:800,display:'inline-block'}}>
-                        {s.daysOld>900?'Never paid':`${s.daysOld}d ago`}
-                      </div>
-                    </td>
-                    <td style={tc}>
-                      <div style={{fontSize:11,fontWeight:700,color:'#0f172a'}}>{s.guardian_name||'—'}</div>
-                      <div style={{fontSize:10,color:'#64748b'}}>{s.guardian_phone||'No phone'}</div>
-                    </td>
-                    <td style={tc}>
-                      <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                        <button onClick={()=>setPreviewStudent(s)} style={ab('#dc2626')}>📄 Preview</button>
-                        <button onClick={()=>handlePrint(s)} style={ab('#7c3aed')}>🖨 Print</button>
-                        <button onClick={()=>handleSendSMS(s)} disabled={sending.has(s.id)} style={ab('#059669')}>{sending.has(s.id)?'⏳':'📲'} SMS</button>
-                        <button onClick={()=>toast.success(`WhatsApp message queued for ${s.guardian_phone}`)} style={ab('#16a34a')}>💬 WA</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Preview Modal */}
-      {previewStudent&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:24}} onClick={()=>setPreviewStudent(null)}>
-          <div style={{background:'#fff',borderRadius:20,maxWidth:680,width:'100%',maxHeight:'90vh',overflow:'auto',padding:40,fontFamily:FONT}} onClick={e=>e.stopPropagation()}>
-            <div style={{textAlign:'center',borderBottom:'3px double #991b1b',paddingBottom:16,marginBottom:24}}>
-              <h1 style={{margin:0,fontSize:22,fontWeight:900}}>{school.school_name||'SCHOOL NAME'}</h1>
-              <p style={{margin:'4px 0 0',fontSize:12,color:'#64748b'}}>{school.address||''}</p>
-              <h2 style={{margin:'16px 0 0',color:'#991b1b',fontSize:16,fontWeight:900,textTransform:'uppercase',letterSpacing:2}}>DEMAND LETTER — SCHOOL FEES</h2>
-            </div>
-            <p style={{margin:'0 0 4px'}}><strong>Date:</strong> {new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</p>
-            <p style={{margin:'0 0 4px'}}><strong>To:</strong> Parent/Guardian of {previewStudent.first_name} {previewStudent.last_name}</p>
-            <p style={{margin:'0 0 16px'}}><strong>Re:</strong> Outstanding Fees — {previewStudent.admission_no}</p>
-            <p>Dear Parent/Guardian,</p>
-            <p>Your child <strong>{previewStudent.first_name} {previewStudent.last_name}</strong> ({previewStudent.formName} {previewStudent.streamName}) has an outstanding fee balance of <strong style={{color:'#dc2626',fontSize:18}}>{fmt(previewStudent.balance)}</strong> which requires immediate attention.</p>
-            <table style={{width:'100%',borderCollapse:'collapse',margin:'16px 0'}}>
-              <thead><tr style={{background:'#991b1b'}}><th style={{padding:'8px',color:'#fff',textAlign:'left',fontSize:12}}>Description</th><th style={{padding:'8px',color:'#fff',textAlign:'left',fontSize:12}}>Amount</th></tr></thead>
-              <tbody>
-                <tr><td style={{padding:'8px',borderBottom:'1px solid #fca5a5'}}>Total Fee</td><td style={{padding:'8px',borderBottom:'1px solid #fca5a5',fontWeight:700}}>{fmt(previewStudent.totalDue)}</td></tr>
-                <tr><td style={{padding:'8px',borderBottom:'1px solid #fca5a5'}}>Amount Paid</td><td style={{padding:'8px',borderBottom:'1px solid #fca5a5',fontWeight:700,color:'#059669'}}>{fmt(previewStudent.totalPaid)}</td></tr>
-                <tr style={{background:'#fee2e2'}}><td style={{padding:'10px 8px',fontWeight:900,color:'#991b1b'}}>BALANCE DUE</td><td style={{padding:'10px 8px',fontWeight:900,color:'#dc2626',fontSize:16}}>{fmt(previewStudent.balance)}</td></tr>
-              </tbody>
-            </table>
-            <p>Please settle this balance within <strong>7 days</strong>. Contact the bursar for payment plans.</p>
-            <div style={{display:'flex',gap:10,marginTop:24,justifyContent:'flex-end'}}>
-              <button onClick={()=>setPreviewStudent(null)} style={{padding:'10px 20px',background:'#f1f5f9',border:'1px solid #e2e8f0',borderRadius:10,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:FONT}}>Close</button>
-              <button onClick={()=>handlePrint(previewStudent)} style={{padding:'10px 20px',background:'#dc2626',border:'none',borderRadius:10,color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer',fontFamily:FONT}}>🖨 Print Letter</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    );
 }
-
-const inp: React.CSSProperties = {padding:'9px 12px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:12,fontFamily:'inherit',outline:'none',background:'#f8fafc',boxSizing:'border-box'};
-const th: React.CSSProperties = {padding:'10px 12px',fontSize:10,fontWeight:800,color:'#64748b',textTransform:'uppercase',letterSpacing:'0.05em',textAlign:'left',borderBottom:'1px solid #e2e8f0',whiteSpace:'nowrap'};
-const tc: React.CSSProperties = {padding:'11px 12px',fontSize:12,color:'#0f172a',verticalAlign:'middle'};
-const ab = (c:string): React.CSSProperties => ({background:c+'12',border:`1px solid ${c}28`,color:c,borderRadius:6,padding:'4px 8px',fontSize:10,fontWeight:800,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'});

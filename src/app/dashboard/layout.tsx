@@ -283,6 +283,7 @@ const menuGroups = [
             { href: '/dashboard/fees/cashbook', label: '📒 Cash Book (Full)', icon: FiBookOpen, perm: 'fees' },
             { href: '/dashboard/fees/fee-waiver', label: '🎓 Fee Waiver Management', icon: FiShield, perm: 'fees' },
             { href: '/dashboard/fees/approval-workflow', label: '✅ Finance Approvals', icon: FiLayers, perm: 'fees' },
+            { href: '/dashboard/fees/reminder-scheduler', label: '⏰ Reminder Scheduler', icon: FiClock, perm: 'fees' },
         ]
     },
     {
