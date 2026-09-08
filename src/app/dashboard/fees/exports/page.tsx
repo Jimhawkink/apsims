@@ -54,7 +54,7 @@ export default function ExportCenterPage() {
       if (exp.custom === 'defaulters') {
         // Build defaulters from real tables
         const [sRes, pRes, fsRes, fRes] = await Promise.all([
-          supabase.from('school_students').select('id,first_name,last_name,admission_no,admission_number,form_id,guardian_name,guardian_phone,status').eq('status','Active'),
+          supabase.from('school_students').select('id,first_name,last_name,admission_no,admission_number,form_id,guardian_name,guardian_phone,status'),
           supabase.from('school_fee_payments').select('student_id,amount'),
           supabase.from('school_fee_structures').select('form_id,amount,tuition'),
           supabase.from('school_forms').select('id,form_name').order('form_level'),

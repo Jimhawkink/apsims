@@ -56,7 +56,7 @@ export default function KCBBuniPushPage() {
     const { data } = await supabase.from('school_students')
       .select('id,first_name,last_name,admission_no,admission_number,guardian_name,guardian_phone,form_id,status')
       .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,admission_no.ilike.%${q}%,admission_number.ilike.%${q}%`)
-      .eq('status', 'Active').limit(10);
+      .limit(10);
     setStudents(data || []);
   }, []);
 

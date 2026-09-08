@@ -24,8 +24,8 @@ export default function ProjectionsPage() {
     setLoading(true);
     const [pRes, payRes, sRes, fsRes, fRes, tRes, eRes] = await Promise.all([
       supabase.from('school_fee_payments').select('amount,payment_date,term_id').order('payment_date'),
-      supabase.from('school_payroll').select('gross_pay,net_pay,payment_date,status').eq('status','Paid'),
-      supabase.from('school_students').select('id,form_id,status').eq('status','Active'),
+      supabase.from('school_payroll').select('gross_pay,net_pay,payment_date,status').order('id', { ascending: false }),
+      supabase.from('school_students').select('id,form_id,status'),
       supabase.from('school_fee_structures').select('form_id,amount,tuition'),
       supabase.from('school_forms').select('id,form_name,form_level').order('form_level'),
       supabase.from('school_terms').select('id,term_name,start_date,end_date,is_current,year').order('id',{ascending:false}),

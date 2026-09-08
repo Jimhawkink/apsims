@@ -22,7 +22,7 @@ export default function CapitationPage() {
     setLoading(true);
     const [cRes, sRes, tRes, fRes] = await Promise.all([
       supabase.from('school_capitation').select('*').order('id', { ascending: false }),
-      supabase.from('school_students').select('id,status,form_id').eq('status', 'Active'),
+      supabase.from('school_students').select('id,status,form_id'),
       supabase.from('school_terms').select('id,term_name,year,start_date,end_date,is_current').order('id', { ascending: false }),
       supabase.from('school_forms').select('id,form_name,form_level').order('form_level'),
     ]);
