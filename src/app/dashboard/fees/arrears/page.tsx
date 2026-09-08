@@ -1,10 +1,20 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 const fmt = (n: number) =>
   'KES ' + Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 0 });
+
+// Aging buckets helper: days since last payment
+function getAgingBucket(lastPaymentDate: string | undefined): '0-30' | '31-60' | '61-90' | '90+' | 'Never' {
+  if (!lastPaymentDate) return 'Never';
+  const days = Math.floor((Date.now() - new Date(lastPaymentDate).getTime()) / 86400000);
+  if (days <= 30) return '0-30';
+  if (days <= 60) return '31-60';
+  if (days <= 90) return '61-90';
+  return '90+';
+}
 
 export default function ArrearsPage() {
   const [terms, setTerms] = useState<any[]>([]);
@@ -26,6 +36,7 @@ export default function ArrearsPage() {
   const [obNotes, setObNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [allPayments, setAllPayments] = useState<any[]>([]); // for aging buckets
 
   // ── Load terms & forms ────────────────────────────────────────
   useEffect(() => {
@@ -33,7 +44,8 @@ export default function ArrearsPage() {
       supabase.from('school_terms').select('id,term_name,year,is_current').order('year').order('id'),
       supabase.from('school_forms').select('id,form_name').order('form_name'),
       supabase.from('school_students').select('id,first_name,last_name,admission_no,admission_number,form_id').order('last_name').order('first_name'),
-    ]).then(([tRes, fRes, sRes]) => {
+      supabase.from('school_fee_payments').select('student_id,amount,payment_date').order('payment_date', { ascending: false }),
+    ]).then(([tRes, fRes, sRes, pRes]) => {
       const ts = tRes.data || [];
       setTerms(ts);
       const prev = ts.find(t => !t.is_current) || ts[0];
@@ -41,8 +53,30 @@ export default function ArrearsPage() {
       setForms(fRes.data || []);
       setAllStudents(sRes.data || []);
       setFilteredStudents(sRes.data || []);
+      setAllPayments(pRes.data || []);
     });
   }, []);
+
+  // ── Aging bucket computation ────────────────────────────────────
+  const agingBuckets = useMemo(() => {
+    const buckets: Record<string, { count: number; amount: number }> = {
+      '0-30': { count: 0, amount: 0 }, '31-60': { count: 0, amount: 0 },
+      '61-90': { count: 0, amount: 0 }, '90+': { count: 0, amount: 0 }, 'Never': { count: 0, amount: 0 },
+    };
+    // Map last payment date per student
+    const lastPayMap: Record<number, string> = {};
+    allPayments.forEach(p => {
+      if (!lastPayMap[p.student_id] || p.payment_date > lastPayMap[p.student_id]) lastPayMap[p.student_id] = p.payment_date;
+    });
+    allStudents.forEach(s => {
+      const lastPay = lastPayMap[s.id];
+      const bucket = getAgingBucket(lastPay);
+      buckets[bucket].count++;
+      // estimate arrears = 0 for now (no structure context), just count
+    });
+    return buckets;
+  }, [allStudents, allPayments]);
+
 
   // ── Filter students by search ────────────────────────────────
   useEffect(() => {
@@ -148,6 +182,26 @@ export default function ArrearsPage() {
           Search a student → select the term → enter how much they already paid before this system started.
           Arrears are then deducted automatically (Priority 1) when they next pay fees.
         </p>
+      </div>
+
+      {/* ── Aging Buckets Summary ── */}
+      <div style={{ padding: '12px 24px', background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', alignSelf: 'center' }}>Aging Analysis:</span>
+        {[
+          { label: '0–30 Days', key: '0-30', color: '#22c55e', bg: '#f0fdf4', border: '#bbf7d0' },
+          { label: '31–60 Days', key: '31-60', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a' },
+          { label: '61–90 Days', key: '61-90', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
+          { label: '90+ Days', key: '90+', color: '#7c2d12', bg: '#fef2f2', border: '#dc2626' },
+          { label: 'Never Paid', key: 'Never', color: '#1e293b', bg: '#f8fafc', border: '#cbd5e1' },
+        ].map(b => (
+          <div key={b.key} style={{ display: 'flex', alignItems: 'center', gap: 8, background: b.bg, border: `1.5px solid ${b.border}`, borderRadius: 10, padding: '6px 14px' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: b.color }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: b.color }}>{b.label}</span>
+            <span style={{ fontSize: 18, fontWeight: 900, color: b.color }}>{agingBuckets[b.key]?.count || 0}</span>
+            <span style={{ fontSize: 10, color: '#94a3b8' }}>students</span>
+          </div>
+        ))}
+        <span style={{ fontSize: 11, color: '#94a3b8', alignSelf: 'center', marginLeft: 'auto' }}>Based on days since last payment</span>
       </div>
 
       <div style={{ display: 'flex', flex: 1, gap: 0 }}>
