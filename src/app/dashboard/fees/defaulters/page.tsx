@@ -77,7 +77,9 @@ export default function FeeDefaultersPage() {
       }
       // Annual total
       const total = yearFiltered.reduce((a, f) => a + Number(f.amount || 0), 0);
-      const paid = payments.filter(p => p.student_id === s.id).reduce((a, p) => a + Number(p.amount || 0), 0);
+      // CRITICAL: coerce student_id to string for comparison — Supabase may return different types
+      const sid = String(s.id);
+      const paid = payments.filter(p => String(p.student_id) === sid).reduce((a, p) => a + Number(p.amount || 0), 0);
       const balance = Math.max(0, total - paid);
       const daysSinceTerm = Math.floor((Date.now() - termStart.getTime()) / 86400000);
       const bucket = balance <= 0 ? 'Cleared'

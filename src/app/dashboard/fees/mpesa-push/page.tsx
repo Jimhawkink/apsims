@@ -44,8 +44,41 @@ export default function KCBBuniPushPage() {
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
-    const { data } = await supabase.from('school_mpesa_transactions').select('*').eq('payment_method', 'KCB').order('created_at', { ascending: false }).limit(30);
-    setHistory(data || []);
+    // Read from BOTH tables:
+    // 1. school_mpesa_transactions = STK push requests (pending/polling)
+    // 2. school_fee_payments = completed KCB payments (method = 'KCB' or contains 'KCB')
+    const [txRes, feeRes] = await Promise.all([
+      supabase.from('school_mpesa_transactions')
+        .select('checkout_request_id,student_id,amount,phone_number,status,mpesa_receipt,payment_method,created_at')
+        .order('created_at', { ascending: false }).limit(30),
+      supabase.from('school_fee_payments')
+        .select('id,student_id,amount,payment_date,payment_method,receipt_number,mpesa_code')
+        .ilike('payment_method', '%KCB%')
+        .order('payment_date', { ascending: false }).limit(30),
+    ]);
+    // Merge: STK push requests + completed fee payments (mark completed ones as 'Completed')
+    const txRows = (txRes.data || []).map((r: any) => ({ ...r, _source: 'stk' }));
+    const feeRows = (feeRes.data || []).map((r: any) => ({
+      checkout_request_id: r.receipt_number || r.id,
+      student_id: r.student_id,
+      amount: r.amount,
+      phone_number: '',
+      status: 'Completed',
+      mpesa_receipt: r.mpesa_code || r.receipt_number,
+      payment_method: r.payment_method,
+      created_at: r.payment_date,
+      _source: 'fee',
+    }));
+    // Deduplicate by receipt — STK entries take precedence
+    const all = [...txRows, ...feeRows];
+    const seen = new Set<string>();
+    const deduped = all.filter(r => {
+      const key = String(r.mpesa_receipt || r.checkout_request_id || r.amount);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    setHistory(deduped.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
     setLoadingHistory(false);
   }, []);
 

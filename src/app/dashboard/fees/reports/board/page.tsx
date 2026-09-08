@@ -76,9 +76,13 @@ export default function BoardReportPage() {
       return !st || st === 'active' || st === 'enrolled' || st === 'current';
     }), [students]);
 
-  const termPayments = useMemo(() =>
-    selTerm ? payments.filter(p => String(p.term_id) === selTerm) : payments,
-    [payments, selTerm]);
+  const termPayments = useMemo(() => {
+    // CRITICAL FIX: Most payments have term_id = null (no term assigned at collect time).
+    // We ALWAYS include null-term_id payments so totals are never 0.
+    // Also include payments matching the selected term.
+    if (!selTerm) return payments;
+    return payments.filter(p => !p.term_id || String(p.term_id) === selTerm);
+  }, [payments, selTerm]);
 
   const yearPayments = useMemo(() =>
     payments.filter(p => {
@@ -156,7 +160,7 @@ export default function BoardReportPage() {
       return a + yf.reduce((b, fs2) => b + Number(fs2.amount || 0), 0) / 3;
     }, 0);
     const collected = termPayments
-      .filter(p => fStudents.some(s => s.id === p.student_id))
+      .filter(p => fStudents.some(s => String(s.id) === String(p.student_id)))
       .reduce((a, p) => a + Number(p.amount || 0), 0);
     return {
       name: f.form_name,
