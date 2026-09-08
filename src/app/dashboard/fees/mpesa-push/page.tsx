@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiSearch, FiSend, FiRefreshCw, FiCheckCircle, FiXCircle, FiClock, FiPhone, FiDollarSign, FiUser, FiAlertTriangle, FiList } from 'react-icons/fi';
+import { FiSearch, FiSend, FiRefreshCw, FiCheckCircle, FiXCircle, FiClock, FiList } from 'react-icons/fi';
 
 const KES = (n: number) => `KES ${Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}`;
 
@@ -44,75 +44,59 @@ export default function KCBBuniPushPage() {
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-
-    // Read from BOTH tables in parallel
     const [txRes, feeRes, stuRes] = await Promise.all([
       supabase.from('school_mpesa_transactions')
         .select('checkout_request_id,student_id,amount,phone_number,status,mpesa_receipt,payment_method,created_at,updated_at')
         .order('created_at', { ascending: false }).limit(50),
       supabase.from('school_fee_payments')
-        .select('id,student_id,amount,payment_date,payment_method,receipt_number,mpesa_code,notes,created_at')
+        .select('id,student_id,amount,payment_date,payment_method,receipt_number,mpesa_code,created_at')
         .ilike('payment_method', '%KCB%')
         .order('created_at', { ascending: false }).limit(50),
       supabase.from('school_students')
-        .select('id,first_name,last_name,admission_no,admission_number,guardian_phone'),
+        .select('id,first_name,last_name,guardian_phone'),
     ]);
 
-    // Build student lookup map
     const stuMap: Record<string, any> = {};
     (stuRes.data || []).forEach((s: any) => { stuMap[String(s.id)] = s; });
 
-    const getStudentName = (sid: any) => {
+    const getName = (sid: any) => {
       const s = stuMap[String(sid)];
       return s ? `${s.first_name} ${s.last_name}` : '';
     };
-    const getStudentPhone = (sid: any, fallbackPhone?: string) => {
-      if (fallbackPhone && fallbackPhone.length > 5) return fallbackPhone;
-      const s = stuMap[String(sid)];
-      return s?.guardian_phone || '';
+    const getPhone = (sid: any, fallback?: string) => {
+      if (fallback && fallback.length > 5) return fallback;
+      return stuMap[String(sid)]?.guardian_phone || '';
     };
 
-    // STK push rows
     const txRows = (txRes.data || []).map((r: any) => ({
-      checkout_request_id: r.checkout_request_id,
-      student_id: r.student_id,
-      student_name: getStudentName(r.student_id),
-      amount: r.amount,
-      phone_number: getStudentPhone(r.student_id, r.phone_number),
-      status: r.status || 'Pending',
+      key: r.mpesa_receipt || r.checkout_request_id,
+      student_name: getName(r.student_id),
+      phone_number: getPhone(r.student_id, r.phone_number),
       transaction_code: r.mpesa_receipt || '',
-      payment_method: r.payment_method || 'KCB',
-      created_at: r.updated_at || r.created_at,
-      _source: 'stk',
-    }));
-
-    // Completed fee payment rows
-    const feeRows = (feeRes.data || []).map((r: any) => ({
-      checkout_request_id: r.receipt_number || String(r.id),
-      student_id: r.student_id,
-      student_name: getStudentName(r.student_id),
       amount: r.amount,
-      phone_number: getStudentPhone(r.student_id, ''),
-      status: 'Completed',
-      transaction_code: r.mpesa_code || r.receipt_number || '',
-      payment_method: r.payment_method || 'KCB',
-      created_at: r.created_at || r.payment_date,
-      _source: 'fee',
+      status: r.status || 'Pending',
+      created_at: r.updated_at || r.created_at,
     }));
 
-    // Merge & deduplicate by transaction_code
+    const feeRows = (feeRes.data || []).map((r: any) => ({
+      key: r.mpesa_code || r.receipt_number || String(r.id),
+      student_name: getName(r.student_id),
+      phone_number: getPhone(r.student_id),
+      transaction_code: r.mpesa_code || r.receipt_number || '',
+      amount: r.amount,
+      status: 'Completed',
+      created_at: r.created_at || r.payment_date,
+    }));
+
     const seen = new Set<string>();
-    const all = [...txRows, ...feeRows].filter(r => {
-      const key = r.transaction_code || r.checkout_request_id || String(r.amount);
-      if (seen.has(key)) return false;
-      seen.add(key);
+    const merged = [...txRows, ...feeRows].filter(r => {
+      const k = r.key || String(r.amount);
+      if (seen.has(k)) return false;
+      seen.add(k);
       return true;
     });
-
-    // Sort newest first
-    all.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-    setHistory(all);
+    merged.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    setHistory(merged);
     setLoadingHistory(false);
   }, []);
 
@@ -139,8 +123,8 @@ export default function KCBBuniPushPage() {
     const phone_val = s.guardian_phone || '';
     setPhone(phone_val);
     const fs = structures.filter(f => f.form_id === s.form_id);
-    const total = fs.reduce((a, f) => a + Number(f.amount || f.tuition || 0), 0);
-    const paid = payments.filter(p => p.student_id === s.id).reduce((a, p) => a + Number(p.amount || 0), 0);
+    const total = fs.reduce((a: number, f: any) => a + Number(f.amount || f.tuition || 0), 0);
+    const paid = payments.filter(p => String(p.student_id) === String(s.id)).reduce((a: number, p: any) => a + Number(p.amount || 0), 0);
     setFeeInfo({ total, paid, balance: Math.max(0, total - paid) });
     setAmount(String(Math.max(0, total - paid)));
     setPushStatus('idle');
@@ -161,7 +145,6 @@ export default function KCBBuniPushPage() {
         return c - 1;
       });
     }, 1000);
-
     pollRef.current = setInterval(async () => {
       try {
         const res = await fetch(`/api/payments/kcb-status?checkoutRequestId=${encodeURIComponent(cId)}`);
@@ -180,7 +163,7 @@ export default function KCBBuniPushPage() {
           setFailMsg(data.result_desc || 'Payment was cancelled or failed.');
           toast.error('❌ KCB payment failed');
         }
-      } catch {}
+      } catch { /* keep polling */ }
     }, 3000);
   };
 
@@ -207,21 +190,25 @@ export default function KCBBuniPushPage() {
 
   useEffect(() => () => stopPolling(), []);
 
-  const formName = (id: number) => forms.find(f => f.id === id)?.form_name || '';
-
   const statusBg: Record<string, string> = { success: '#dcfce7', failed: '#fee2e2', completed: '#dcfce7', pending: '#fef9c3' };
   const statusColor: Record<string, string> = { success: '#15803d', failed: '#dc2626', completed: '#15803d', pending: '#854d0e' };
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const pushesToday = history.filter(h => (h.created_at || '').slice(0, 10) === todayStr).length;
+  const successful = history.filter(h => ['success', 'completed'].includes((h.status || '').toLowerCase())).length;
+  const pending = history.filter(h => (h.status || '').toLowerCase() === 'pending').length;
+  const totalCollected = history.filter(h => ['success', 'completed'].includes((h.status || '').toLowerCase())).reduce((a, h) => a + Number(h.amount || 0), 0);
+
   return (
     <div style={{ fontFamily: "ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif", minHeight: '100vh', background: '#f8fafc' }}>
-      {/* ── HERO ── */}
+      {/* HERO */}
       <div style={{ background: 'linear-gradient(135deg,#0c4a6e 0%,#0891b2 60%,#06b6d4 100%)', padding: '32px 24px', color: '#fff' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, backdropFilter: 'blur(8px)', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>🏦</div>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, backdropFilter: 'blur(8px)' }}>🏦</div>
             <div>
-              <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, letterSpacing: '-0.5px' }}>KCB Buni Push</h1>
-              <p style={{ margin: 0, fontSize: 13, opacity: 0.8, marginTop: 2 }}>Instant payment prompt directly to parent's KCB / Safaricom phone — no other system in Kenya does this</p>
+              <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900 }}>KCB Buni Push</h1>
+              <p style={{ margin: 0, fontSize: 13, opacity: 0.8, marginTop: 2 }}>Instant payment prompt directly to parent&apos;s KCB / Safaricom phone</p>
             </div>
             <div style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 12, padding: '8px 16px', fontSize: 13, fontWeight: 700, backdropFilter: 'blur(8px)' }}>
               🟢 LIVE API
@@ -230,13 +217,10 @@ export default function KCBBuniPushPage() {
           {/* KPI row */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {[
-              { icon: '📨', label: 'Pushes Today', val: history.filter(h => {
-                const d = (h.created_at || '').slice(0, 10);
-                return d === new Date().toISOString().slice(0, 10);
-              }).length },
-              { icon: '✅', label: 'Successful', val: history.filter(h => ['success','completed'].includes((h.status||'').toLowerCase())).length },
-              { icon: '⏳', label: 'Pending', val: history.filter(h => (h.status||'').toLowerCase() === 'pending').length },
-              { icon: '💰', label: 'Total Collected', val: KES(history.filter(h => ['success','completed'].includes((h.status||'').toLowerCase())).reduce((a, h) => a + Number(h.amount || 0), 0)) },
+              { icon: '📨', label: 'Pushes Today', val: pushesToday },
+              { icon: '✅', label: 'Successful', val: successful },
+              { icon: '⏳', label: 'Pending', val: pending },
+              { icon: '💰', label: 'Total Collected', val: KES(totalCollected) },
             ].map((k, i) => (
               <div key={i} style={{ flex: '1 1 140px', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', borderRadius: 12, padding: '12px 16px', border: '1px solid rgba(255,255,255,0.2)' }}>
                 <div style={{ fontSize: 20 }}>{k.icon}</div>
@@ -248,8 +232,8 @@ export default function KCBBuniPushPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {/* ── LEFT: PUSH FORM ── */}
+      <div style={{ maxWidth: 1000, margin: '24px auto', padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20 }}>
+        {/* LEFT: PUSH FORM */}
         <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
           <div style={{ padding: '18px 20px', borderBottom: '1px solid #f1f5f9', background: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)' }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#0c4a6e', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -265,64 +249,31 @@ export default function KCBBuniPushPage() {
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Name or admission no..." style={{ width: '100%', paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
               </div>
               {students.length > 0 && (
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, marginTop: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', background: '#fff', maxHeight: 220, overflow: 'auto', position: 'relative', zIndex: 50 }}>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, marginTop: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', background: '#fff', maxHeight: 200, overflow: 'auto' }}>
                   {students.map(s => (
-                    <div key={s.id} onClick={() => selectStudent(s)} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#f0f9ff')} onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>{s.first_name} {s.last_name}</div>
-                        <div style={{ fontSize: 11, color: '#64748b' }}>{s.admission_no || s.admission_number} · {formName(s.form_id)}</div>
-                      </div>
-                      <div style={{ fontSize: 11, color: '#0891b2', fontWeight: 700 }}>{s.guardian_phone}</div>
+                    <div key={s.id} onClick={() => selectStudent(s)} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 13 }}>
+                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{s.first_name} {s.last_name}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{s.admission_no || s.admission_number} · {s.guardian_phone || 'No phone'}</div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Student info card */}
-            {selected && (
-              <div style={{ background: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', border: '1px solid #bae6fd', borderRadius: 12, padding: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg,#0c4a6e,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 15 }}>{selected.first_name[0]}{selected.last_name[0]}</div>
-                  <div>
-                    <div style={{ fontWeight: 900, fontSize: 14, color: '#0c4a6e' }}>{selected.first_name} {selected.last_name}</div>
-                    <div style={{ fontSize: 11, color: '#0891b2' }}>{selected.admission_no || selected.admission_number} · {formName(selected.form_id)}</div>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                  {[['Total Fees', KES(feeInfo.total), '#0c4a6e'], ['Paid', KES(feeInfo.paid), '#15803d'], ['Balance', KES(feeInfo.balance), feeInfo.balance > 0 ? '#dc2626' : '#15803d']].map(([l, v, c]) => (
-                    <div key={l as string} style={{ background: '#fff', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: c as string }}>{v}</div>
-                      <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>{l}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Phone */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🏦 KCB / Safaricom Phone</label>
-              <div style={{ position: 'relative' }}>
-                <FiPhone style={{ position: 'absolute', left: 10, top: 11, color: '#94a3b8' }} size={16} />
-                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0712345678" style={{ width: '100%', paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-              </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Enter guardian's KCB or Safaricom number. STK prompt will appear on their phone.</div>
+              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0712345678" type="tel" style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Enter guardian&apos;s KCB or Safaricom number. STK prompt will appear on their phone.</div>
             </div>
 
             {/* Amount */}
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount (KES)</label>
-              <div style={{ position: 'relative' }}>
-                <FiDollarSign style={{ position: 'absolute', left: 10, top: 11, color: '#94a3b8' }} size={16} />
-                <input value={amount} onChange={e => setAmount(e.target.value)} type="number" min={1} placeholder="Enter amount" style={{ width: '100%', paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-              </div>
-              {feeInfo.balance > 0 && (
-                <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                  {[feeInfo.balance, Math.round(feeInfo.balance / 2), 5000, 10000].filter((v, i, a) => v > 0 && a.indexOf(v) === i).slice(0, 4).map(v => (
-                    <button key={v} onClick={() => setAmount(String(v))} style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700, color: '#0891b2', cursor: 'pointer' }}>{KES(v)}</button>
-                  ))}
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>💰 Amount (KES)</label>
+              <input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" type="number" min="1" style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              {selected && (
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                  Balance: <strong style={{ color: feeInfo.balance > 0 ? '#dc2626' : '#15803d' }}>{KES(feeInfo.balance)}</strong> | Paid: {KES(feeInfo.paid)} | Total: {KES(feeInfo.total)}
                 </div>
               )}
             </div>
@@ -356,8 +307,8 @@ export default function KCBBuniPushPage() {
 
             {/* Send button */}
             {(pushStatus === 'idle' || pushStatus === 'failed') && (
-              <button onClick={handlePush} disabled={!selected || pushStatus === 'sending'} style={{ background: selected ? 'linear-gradient(135deg,#0c4a6e,#0891b2)' : '#e2e8f0', color: selected ? '#fff' : '#94a3b8', border: 'none', borderRadius: 12, padding: '14px 20px', fontWeight: 900, fontSize: 15, cursor: selected ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', fontFamily: 'inherit', transition: 'all 0.2s' }}>
-                <span>🏦</span> {pushStatus === 'sending' ? 'Sending KCB Push…' : `Send KCB Buni Push${amount ? ` — ${KES(Number(amount))}` : ''}`}
+              <button onClick={handlePush} disabled={!selected || pushStatus === 'sending'} style={{ background: selected ? 'linear-gradient(135deg,#0c4a6e,#0891b2)' : '#e2e8f0', color: selected ? '#fff' : '#94a3b8', border: 'none', borderRadius: 12, padding: '14px 20px', fontWeight: 900, fontSize: 15, cursor: selected ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', fontFamily: 'inherit' }}>
+                <span>🏦</span> {`Send KCB Buni Push${amount ? ` — ${KES(Number(amount))}` : ''}`}
               </button>
             )}
             {pushStatus === 'sending' && (
@@ -369,13 +320,13 @@ export default function KCBBuniPushPage() {
           </div>
         </div>
 
-        {/* ── RIGHT: TRANSACTION HISTORY ── */}
+        {/* RIGHT: TRANSACTION HISTORY */}
         <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
           <div style={{ padding: '18px 20px', borderBottom: '1px solid #f1f5f9', background: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#0c4a6e', display: 'flex', alignItems: 'center', gap: 8 }}><FiList size={16} /> KCB Push History</h2>
             <button onClick={loadHistory} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0891b2', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700 }}><FiRefreshCw size={14} /> Refresh</button>
           </div>
-          <div style={{ overflow: 'auto', maxHeight: 520 }}>
+          <div style={{ overflow: 'auto', maxHeight: 560 }}>
             {loadingHistory ? (
               <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
             ) : history.length === 0 ? (
@@ -384,41 +335,39 @@ export default function KCBBuniPushPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: '#f8fafc' }}>
-                    {['Student', 'Phone', 'Code', 'Amount', 'Status', 'Time'].map(h => (
-                      <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 700, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: 10, textTransform: 'uppercase' }}>{h}</th>
+                    {['Student', 'Phone', 'Tx Code', 'Amount', 'Status', 'Date/Time'].map(h => (
+                      <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 700, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: 10, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {history.map((h, i) => {
                     const st = (h.status || 'pending').toLowerCase();
-                    const phone = (h.phone_number || '').replace('254', '0').replace('+254', '0');
-                    const displayTime = h.created_at
+                    const ph = (h.phone_number || '').replace('254', '0').replace('+254', '0');
+                    const dt = h.created_at
                       ? new Date(h.created_at).toLocaleString('en-KE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                       : '—';
                     return (
                       <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                        <td style={{ padding: '8px', color: '#0f172a', fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '8px', color: '#0f172a', fontWeight: 600, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {h.student_name || <span style={{ color: '#94a3b8' }}>—</span>}
                         </td>
-                        <td style={{ padding: '8px', color: '#374151', fontFamily: 'monospace', fontSize: 11 }}>
-                          {phone || <span style={{ color: '#94a3b8' }}>—</span>}
+                        <td style={{ padding: '8px', color: '#374151', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap' }}>
+                          {ph || <span style={{ color: '#94a3b8' }}>—</span>}
                         </td>
                         <td style={{ padding: '8px', fontWeight: 700, color: '#0891b2', fontFamily: 'monospace', fontSize: 11 }}>
                           {h.transaction_code
-                            ? <span title={h.transaction_code}>{h.transaction_code.slice(0, 12)}</span>
+                            ? <span title={h.transaction_code} style={{ cursor: 'help' }}>{h.transaction_code.slice(0, 14)}</span>
                             : <span style={{ color: '#94a3b8' }}>—</span>}
                         </td>
-                        <td style={{ padding: '8px', fontWeight: 900, color: '#0c4a6e' }}>{KES(Number(h.amount || 0))}</td>
+                        <td style={{ padding: '8px', fontWeight: 900, color: '#0c4a6e', whiteSpace: 'nowrap' }}>{KES(Number(h.amount || 0))}</td>
                         <td style={{ padding: '8px' }}>
-                          <span style={{ background: statusBg[st] || '#f1f5f9', color: statusColor[st] || '#374151', fontSize: 10, fontWeight: 900, padding: '3px 6px', borderRadius: 99, textTransform: 'uppercase' }}>{h.status || 'Pending'}</span>
+                          <span style={{ background: statusBg[st] || '#f1f5f9', color: statusColor[st] || '#374151', fontSize: 10, fontWeight: 900, padding: '3px 7px', borderRadius: 99, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h.status || 'Pending'}</span>
                         </td>
-                        <td style={{ padding: '8px', color: '#64748b', fontSize: 10 }}>{displayTime}</td>
+                        <td style={{ padding: '8px', color: '#64748b', fontSize: 10, whiteSpace: 'nowrap' }}>{dt}</td>
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
                 </tbody>
               </table>
             )}
