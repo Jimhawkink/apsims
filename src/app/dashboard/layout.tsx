@@ -284,6 +284,18 @@ const menuGroups = [
             { href: '/dashboard/fees/fee-waiver', label: '🎓 Fee Waiver Management', icon: FiShield, perm: 'fees' },
             { href: '/dashboard/fees/approval-workflow', label: '✅ Finance Approvals', icon: FiLayers, perm: 'fees' },
             { href: '/dashboard/fees/reminder-scheduler', label: '⏰ Reminder Scheduler', icon: FiClock, perm: 'fees' },
+
+            // ── ULTRA PREMIUM MODULES (NEW) ──────────────────────────
+            { href: '/dashboard/fees/mpesa-push', label: '📱 KCB Buni STK Push', icon: FiSmartphone, perm: 'fees' },
+            { href: '/dashboard/fees/defaulters', label: '🚨 Fee Defaulters List', icon: FiAlertCircle, perm: 'fees' },
+            { href: '/dashboard/fees/budget', label: '📊 Budget Module', icon: FiBarChart2, perm: 'fees' },
+            { href: '/dashboard/fees/projections', label: '🔮 Fee Projections', icon: FiTrendingUp, perm: 'fees' },
+            { href: '/dashboard/fees/reports/board', label: '👔 Board Financial Report', icon: FiFileText, perm: 'fees' },
+            { href: '/dashboard/fees/exports', label: '📤 Export Centre', icon: FiDownload, perm: 'fees' },
+            { href: '/dashboard/fees/bank-reconciliation', label: '🧾 Bank Reconciliation', icon: FiCreditCard, perm: 'fees' },
+            { href: '/dashboard/fees/notifications', label: '🔔 Notification Centre', icon: FiBell, perm: 'fees' },
+            { href: '/dashboard/fees/vote-heads/ledger', label: '📋 Vote Head Ledger', icon: FiLayers, perm: 'fees' },
+            { href: '/dashboard/fees/capitation', label: '🏫 Capitation Tracking', icon: FiDollarSign, perm: 'fees' },
         ]
     },
     {
