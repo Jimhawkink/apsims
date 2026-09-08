@@ -24,18 +24,27 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // ── 1. Validate the receipt code exists in school_mpesa_transactions ──
-        // This proves KCB actually confirmed this payment via callback.
-        // Prevents fake payment injection attacks.
-        const { data: txn } = await supabase
+        // ── 1. Validate the receipt exists in school_mpesa_transactions ──
+        // Look up by mpesa_receipt first, then by checkout_request_id as fallback
+        let txn: any = null;
+        const { data: txnByReceipt } = await supabase
             .from('school_mpesa_transactions')
-            .select('id, amount, status, mpesa_receipt')
+            .select('id, amount, status, mpesa_receipt, checkout_request_id')
             .eq('mpesa_receipt', String(receiptCode).trim())
-            .eq('status', 'success')
             .maybeSingle();
+        txn = txnByReceipt;
+
+        if (!txn && checkoutRequestId) {
+            const { data: txnByCheckout } = await supabase
+                .from('school_mpesa_transactions')
+                .select('id, amount, status, mpesa_receipt, checkout_request_id')
+                .eq('checkout_request_id', String(checkoutRequestId).trim())
+                .maybeSingle();
+            txn = txnByCheckout;
+        }
 
         if (!txn) {
-            console.error('[record-fee-payment] Receipt not found in mpesa_transactions:', receiptCode);
+            console.error('[record-fee-payment] Receipt not found:', receiptCode, 'checkoutId:', checkoutRequestId);
             return NextResponse.json(
                 { error: 'Receipt code not confirmed by KCB. Payment not recorded.' },
                 { status: 422 }

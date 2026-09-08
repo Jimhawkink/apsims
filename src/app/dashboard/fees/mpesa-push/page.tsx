@@ -155,8 +155,27 @@ export default function KCBBuniPushPage() {
           setPushStatus('success');
           setReceipt(data.receipt || '');
           toast.success(`✅ KCB Payment confirmed! Code: ${data.receipt}`);
-          loadHistory();
-          loadBase();
+          // ✅ CRITICAL: Always record fee to school_fee_payments
+          // This guarantees recording even if the KCB callback had issues
+          if (data.receipt && selected) {
+            fetch('/api/payments/record-fee-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                studentId: selected.id,
+                receiptCode: data.receipt,
+                amount: data.amount || Number(amount),
+                checkoutRequestId: cId,
+                phone: phone,
+              }),
+            })
+              .then(r => r.json())
+              .then(d => { console.log('[KCBPush] recorded:', d); loadHistory(); loadBase(); })
+              .catch(e => console.warn('[KCBPush] record error:', e));
+          } else {
+            loadHistory();
+            loadBase();
+          }
         } else if (s === 'failed') {
           stopPolling();
           setPushStatus('failed');
