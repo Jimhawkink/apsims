@@ -269,9 +269,10 @@ const menuGroups = [
 
             { href: '/dashboard/fees/mpesa-reconciliation', label: '💳 M-Pesa Reconciliation', icon: FiCreditCard, perm: 'fees' },
             { href: '/dashboard/fees/receipt', label: '🧾 Pro Receipts & PDF', icon: FiFileText, perm: 'fees' },
+            { href: '/dashboard/fees/receipts', label: '🧾 Receipts Manager', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/plans-scholarships', label: '💰 Plans & Scholarships', icon: FiCalendar, perm: 'fees' },
             { href: '/dashboard/fees/audit', label: '🔒 Fee Audit Trail', icon: FiShield, perm: 'fees' },
-            { href: '/dashboard/payments/integration', label: '📲 M-Pesa STK Push', icon: FiSmartphone, perm: 'fees' },
+            { href: '/dashboard/fees/defaulter-automation', label: '🤖 Defaulter Automation', icon: FiAlertCircle, perm: 'fees' },
             { href: '/dashboard/fees/petty-cash', label: '💵 Petty Cash / Cash Book', icon: FiDollarSign, perm: 'fees' },
             { href: '/dashboard/fees/grants', label: '🏦 Grant Management', icon: FiTrendingUp, perm: 'fees' },
             { href: '/dashboard/fees/insurance', label: '🛡️ Insurance Tracker', icon: FiShield, perm: 'fees' },
