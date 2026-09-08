@@ -15,7 +15,7 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
     try {
-        const { studentId, receiptCode, amount, checkoutRequestId } = await req.json();
+        const { studentId, receiptCode, amount, checkoutRequestId, phone } = await req.json();
 
         if (!studentId || !receiptCode || !amount) {
             return NextResponse.json(
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
             payment_method: 'KCB',
             receipt_number: String(receiptCode),
             mpesa_code:     String(receiptCode),
-            notes:          `KCB Buni M-Pesa. Code: ${receiptCode}. CheckoutID: ${checkoutRequestId || 'N/A'}`,
+            notes:          `KCB Buni M-Pesa. Code: ${receiptCode}. Phone: ${phone || 'N/A'}. CheckoutID: ${checkoutRequestId || 'N/A'}`,
             year:           new Date().getFullYear(),
             created_at:     new Date().toISOString(),
         }]);
@@ -73,11 +73,15 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 });
         }
 
-        // ── 4. Update school_mpesa_transactions with student_id ──
+        // ── 4. Update school_mpesa_transactions with student_id and phone ──
         if (checkoutRequestId) {
             await supabase
                 .from('school_mpesa_transactions')
-                .update({ student_id: Number(studentId), updated_at: new Date().toISOString() })
+                .update({
+                    student_id:   Number(studentId),
+                    phone_number: phone || null,
+                    updated_at:   new Date().toISOString(),
+                })
                 .eq('mpesa_receipt', String(receiptCode));
         }
 

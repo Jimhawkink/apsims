@@ -44,41 +44,75 @@ export default function KCBBuniPushPage() {
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
-    // Read from BOTH tables:
-    // 1. school_mpesa_transactions = STK push requests (pending/polling)
-    // 2. school_fee_payments = completed KCB payments (method = 'KCB' or contains 'KCB')
-    const [txRes, feeRes] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // Read from BOTH tables in parallel
+    const [txRes, feeRes, stuRes] = await Promise.all([
       supabase.from('school_mpesa_transactions')
-        .select('checkout_request_id,student_id,amount,phone_number,status,mpesa_receipt,payment_method,created_at')
-        .order('created_at', { ascending: false }).limit(30),
+        .select('checkout_request_id,student_id,amount,phone_number,status,mpesa_receipt,payment_method,created_at,updated_at')
+        .order('created_at', { ascending: false }).limit(50),
       supabase.from('school_fee_payments')
-        .select('id,student_id,amount,payment_date,payment_method,receipt_number,mpesa_code')
+        .select('id,student_id,amount,payment_date,payment_method,receipt_number,mpesa_code,notes,created_at')
         .ilike('payment_method', '%KCB%')
-        .order('payment_date', { ascending: false }).limit(30),
+        .order('created_at', { ascending: false }).limit(50),
+      supabase.from('school_students')
+        .select('id,first_name,last_name,admission_no,admission_number,guardian_phone'),
     ]);
-    // Merge: STK push requests + completed fee payments (mark completed ones as 'Completed')
-    const txRows = (txRes.data || []).map((r: any) => ({ ...r, _source: 'stk' }));
-    const feeRows = (feeRes.data || []).map((r: any) => ({
-      checkout_request_id: r.receipt_number || r.id,
+
+    // Build student lookup map
+    const stuMap: Record<string, any> = {};
+    (stuRes.data || []).forEach((s: any) => { stuMap[String(s.id)] = s; });
+
+    const getStudentName = (sid: any) => {
+      const s = stuMap[String(sid)];
+      return s ? `${s.first_name} ${s.last_name}` : '';
+    };
+    const getStudentPhone = (sid: any, fallbackPhone?: string) => {
+      if (fallbackPhone && fallbackPhone.length > 5) return fallbackPhone;
+      const s = stuMap[String(sid)];
+      return s?.guardian_phone || '';
+    };
+
+    // STK push rows
+    const txRows = (txRes.data || []).map((r: any) => ({
+      checkout_request_id: r.checkout_request_id,
       student_id: r.student_id,
+      student_name: getStudentName(r.student_id),
       amount: r.amount,
-      phone_number: '',
+      phone_number: getStudentPhone(r.student_id, r.phone_number),
+      status: r.status || 'Pending',
+      transaction_code: r.mpesa_receipt || '',
+      payment_method: r.payment_method || 'KCB',
+      created_at: r.updated_at || r.created_at,
+      _source: 'stk',
+    }));
+
+    // Completed fee payment rows
+    const feeRows = (feeRes.data || []).map((r: any) => ({
+      checkout_request_id: r.receipt_number || String(r.id),
+      student_id: r.student_id,
+      student_name: getStudentName(r.student_id),
+      amount: r.amount,
+      phone_number: getStudentPhone(r.student_id, ''),
       status: 'Completed',
-      mpesa_receipt: r.mpesa_code || r.receipt_number,
-      payment_method: r.payment_method,
-      created_at: r.payment_date,
+      transaction_code: r.mpesa_code || r.receipt_number || '',
+      payment_method: r.payment_method || 'KCB',
+      created_at: r.created_at || r.payment_date,
       _source: 'fee',
     }));
-    // Deduplicate by receipt — STK entries take precedence
-    const all = [...txRows, ...feeRows];
+
+    // Merge & deduplicate by transaction_code
     const seen = new Set<string>();
-    const deduped = all.filter(r => {
-      const key = String(r.mpesa_receipt || r.checkout_request_id || r.amount);
+    const all = [...txRows, ...feeRows].filter(r => {
+      const key = r.transaction_code || r.checkout_request_id || String(r.amount);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
-    setHistory(deduped.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+
+    // Sort newest first
+    all.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    setHistory(all);
     setLoadingHistory(false);
   }, []);
 
@@ -196,7 +230,10 @@ export default function KCBBuniPushPage() {
           {/* KPI row */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {[
-              { icon: '📨', label: 'Pushes Today', val: history.filter(h => h.created_at?.startsWith(new Date().toISOString().slice(0, 10))).length },
+              { icon: '📨', label: 'Pushes Today', val: history.filter(h => {
+                const d = (h.created_at || '').slice(0, 10);
+                return d === new Date().toISOString().slice(0, 10);
+              }).length },
               { icon: '✅', label: 'Successful', val: history.filter(h => ['success','completed'].includes((h.status||'').toLowerCase())).length },
               { icon: '⏳', label: 'Pending', val: history.filter(h => (h.status||'').toLowerCase() === 'pending').length },
               { icon: '💰', label: 'Total Collected', val: KES(history.filter(h => ['success','completed'].includes((h.status||'').toLowerCase())).reduce((a, h) => a + Number(h.amount || 0), 0)) },
@@ -347,25 +384,41 @@ export default function KCBBuniPushPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: '#f8fafc' }}>
-                    {['Phone', 'Amount', 'Status', 'Time'].map(h => (
-                      <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: 11, textTransform: 'uppercase' }}>{h}</th>
+                    {['Student', 'Phone', 'Code', 'Amount', 'Status', 'Time'].map(h => (
+                      <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 700, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: 10, textTransform: 'uppercase' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {history.map((h, i) => {
                     const st = (h.status || 'pending').toLowerCase();
+                    const phone = (h.phone_number || '').replace('254', '0').replace('+254', '0');
+                    const displayTime = h.created_at
+                      ? new Date(h.created_at).toLocaleString('en-KE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      : '—';
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '10px 12px', color: '#0f172a', fontWeight: 600 }}>{(h.phone_number || '').replace('254', '0').slice(0, 11)}</td>
-                        <td style={{ padding: '10px 12px', fontWeight: 900, color: '#0c4a6e' }}>{KES(Number(h.amount || 0))}</td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <span style={{ background: statusBg[st] || '#f1f5f9', color: statusColor[st] || '#374151', fontSize: 10, fontWeight: 900, padding: '3px 8px', borderRadius: 99, textTransform: 'uppercase' }}>{h.status || 'Pending'}</span>
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                        <td style={{ padding: '8px', color: '#0f172a', fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {h.student_name || <span style={{ color: '#94a3b8' }}>—</span>}
                         </td>
-                        <td style={{ padding: '10px 12px', color: '#64748b' }}>{h.created_at ? new Date(h.created_at).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                        <td style={{ padding: '8px', color: '#374151', fontFamily: 'monospace', fontSize: 11 }}>
+                          {phone || <span style={{ color: '#94a3b8' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '8px', fontWeight: 700, color: '#0891b2', fontFamily: 'monospace', fontSize: 11 }}>
+                          {h.transaction_code
+                            ? <span title={h.transaction_code}>{h.transaction_code.slice(0, 12)}</span>
+                            : <span style={{ color: '#94a3b8' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '8px', fontWeight: 900, color: '#0c4a6e' }}>{KES(Number(h.amount || 0))}</td>
+                        <td style={{ padding: '8px' }}>
+                          <span style={{ background: statusBg[st] || '#f1f5f9', color: statusColor[st] || '#374151', fontSize: 10, fontWeight: 900, padding: '3px 6px', borderRadius: 99, textTransform: 'uppercase' }}>{h.status || 'Pending'}</span>
+                        </td>
+                        <td style={{ padding: '8px', color: '#64748b', fontSize: 10 }}>{displayTime}</td>
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
                 </tbody>
               </table>
             )}
