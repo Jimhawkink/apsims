@@ -277,6 +277,12 @@ const menuGroups = [
             { href: '/dashboard/fees/insurance', label: '🛡️ Insurance Tracker', icon: FiShield, perm: 'fees' },
             { href: '/dashboard/fees/cheques', label: '📄 Cheque Management', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/government-returns', label: '🏛️ Government Returns', icon: FiShield, perm: 'fees' },
+            { href: '/dashboard/fees/trial-balance', label: '⚖️ Trial Balance', icon: FiBarChart2, perm: 'fees' },
+            { href: '/dashboard/fees/balance-sheet', label: '📋 Balance Sheet', icon: FiBarChart2, perm: 'fees' },
+            { href: '/dashboard/fees/pl-statement', label: '📈 P&L Statement', icon: FiTrendingUp, perm: 'fees' },
+            { href: '/dashboard/fees/cashbook', label: '📒 Cash Book (Full)', icon: FiBookOpen, perm: 'fees' },
+            { href: '/dashboard/fees/fee-waiver', label: '🎓 Fee Waiver Management', icon: FiShield, perm: 'fees' },
+            { href: '/dashboard/fees/approval-workflow', label: '✅ Finance Approvals', icon: FiLayers, perm: 'fees' },
         ]
     },
     {
