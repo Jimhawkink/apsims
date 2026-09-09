@@ -143,7 +143,8 @@ export default function AssetsPage() {
       asset_name: form.asset_name.trim(),
       asset_code: form.asset_code.trim() || null,
       category: form.category,
-      description: form.description.trim() || null,
+      // DB has 'notes' column only (no 'description') — combine both fields
+      notes: [form.description.trim(), form.notes.trim()].filter(Boolean).join(' | ') || null,
       purchase_date: form.purchase_date || null,
       purchase_price: Number(form.purchase_price) || 0,
       current_value: Number(form.current_value) || 0,
@@ -152,7 +153,6 @@ export default function AssetsPage() {
       quantity: Number(form.quantity) || 1,
       supplier: form.supplier.trim() || null,
       status: form.status,
-      notes: form.notes.trim() || null,
       updated_at: new Date().toISOString(),
     };
     let error;
