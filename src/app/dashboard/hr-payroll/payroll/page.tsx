@@ -496,7 +496,7 @@ function PayslipViewer({ record, onClose }: { record: PayrollRecord; onClose: ()
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// PAYROLL FORM â€” ULTRA PREMIUM 4-TAB MODAL
+// PAYROLL FORM - ULTRA PREMIUM 4-TAB MODAL
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
     staff: StaffMember[]; advances: SalaryAdvance[];
@@ -571,10 +571,10 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
     );
 
     const TABS = [
-        { key: 'staff', label: 'Staff & Period', color: '#6366f1', icon: 'ðŸ‘¤' },
-        { key: 'earnings', label: 'Earnings', color: '#10b981', icon: 'ðŸ’¹' },
-        { key: 'deductions', label: 'Deductions', color: '#ef4444', icon: 'ðŸ“Š' },
-        { key: 'payment', label: 'Payment', color: '#0284c7', icon: 'ðŸ’³' },
+        { key: 'staff', label: 'Staff & Period', color: '#6366f1', icon: '' },
+        { key: 'earnings', label: 'Earnings', color: '#10b981', icon: '' },
+        { key: 'deductions', label: 'Deductions', color: '#ef4444', icon: '' },
+        { key: 'payment', label: 'Payment', color: '#0284c7', icon: '' },
     ];
 
     const selStyle = { width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '11px 14px', fontSize: 12, fontWeight: 600, color: T.text.heading, outline: 'none', fontFamily: T.fontBase, background: '#fff', boxSizing: 'border-box' as const };
@@ -590,7 +590,7 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                 <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: selectedStaff ? 14 : 20, fontWeight: 900, color: '#fff' }}>
-                            {selectedStaff ? `${selectedStaff.first_name[0]}${selectedStaff.last_name[0]}` : 'ðŸ“‹'}
+                            {selectedStaff ? `${selectedStaff.first_name[0]}${selectedStaff.last_name[0]}` : ''}
                         </div>
                         <div>
                             <p style={{ margin: 0, fontSize: 9, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{editRecord ? 'Edit Payroll Record' : 'New Payroll Record'}</p>
@@ -643,23 +643,23 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                         <div>
                             <label style={lblStyle}>Staff Member *</label>
                             <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} style={selStyle}>
-                                <option value="">â€” Select Staff Member â€”</option>
+                                <option value="">-- Select Staff Member --</option>
                                 {staff.filter(s => s.status === 'Active').map(s => (
-                                    <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s._type}) â€” Basic: {fmt(s.basic_salary)}</option>
+                                    <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s._type}) — Basic: {fmt(s.basic_salary)}</option>
                                 ))}
                             </select>
                         </div>
                         {selectedStaff && (
                             <div style={{ background: 'linear-gradient(135deg,#f0f4ff,#f8faff)', border: '1.5px solid #c7d2fe', borderRadius: 14, padding: '12px 14px' }}>
-                                <p style={{ margin: '0 0 10px', fontSize: 9, fontWeight: 800, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: T.fontBase }}>ðŸ‘¤ Staff Profile Card</p>
+                                <p style={{ margin: '0 0 10px', fontSize: 9, fontWeight: 800, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: T.fontBase }}>Staff Profile Card</p>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                                     {[
                                         ['Staff Type', selectedStaff._type],
                                         ['Basic Salary', fmt(basicSalary)],
                                         ['Status', selectedStaff.status],
-                                        ['TSC No.', (selectedStaff as any).tsc_number || 'â€”'],
-                                        ['Bank', (selectedStaff as any).bank_name || 'â€”'],
-                                        ['Account No.', (selectedStaff as any).bank_account || 'â€”'],
+                                        ['TSC No.', (selectedStaff as any).tsc_number || '-'],
+                                        ['Bank', (selectedStaff as any).bank_name || '-'],
+                                        ['Account No.', (selectedStaff as any).bank_account || '-'],
                                     ].map(([l, v]) => (
                                         <div key={l} style={{ background: '#fff', border: '1px solid #ddd6fe', borderRadius: 9, padding: '7px 10px' }}>
                                             <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>{l}</p>
@@ -696,7 +696,7 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                 {activeTab === 'earnings' && (
                     <>
                         <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 11, padding: '9px 13px', fontSize: 11, color: '#14532d', fontWeight: 600, fontFamily: T.fontBase }}>
-                            âœ… Allowances auto-filled from staff profile on selection. Override if needed for this pay period.
+                            Allowances auto-filled from staff profile on selection. Override if needed for this pay period.
                         </div>
                         <div>
                             <label style={lblStyle}>Basic Salary (read-only)</label>
@@ -724,7 +724,7 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                 {activeTab === 'deductions' && (
                     <>
                         <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 13, padding: '12px 14px' }}>
-                            <p style={{ margin: '0 0 10px', fontSize: 9, fontWeight: 800, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>ðŸ›ï¸ Statutory Deductions â€” KRA 2025/2026 (Auto-Computed)</p>
+                            <p style={{ margin: '0 0 10px', fontSize: 9, fontWeight: 800, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>Statutory Deductions - KRA 2025/2026 (Auto-Computed)</p>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
                                 {[
                                     { l: 'PAYE', v: calc.paye, n: 'After relief', c: '#7f1d1d' },
@@ -752,7 +752,7 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                         </div>
                         {/* Live KRA Dark Card */}
                         <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', borderRadius: 14, padding: '14px 16px' }}>
-                            <p style={{ margin: '0 0 10px', fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: T.fontBase }}>ðŸ§® Live Tax Engine â€” KRA 2025/2026</p>
+                            <p style={{ margin: '0 0 10px', fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: T.fontBase }}>Live Tax Engine - KRA 2025/2026</p>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
                                 {[
                                     ['Gross Pay', fmt(calc.grossPay), '#34d399'],
@@ -785,7 +785,7 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                 {activeTab === 'payment' && (
                     <>
                         <div style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8,#6366f1)', borderRadius: 16, padding: '16px 20px', color: '#fff', textAlign: 'center' }}>
-                            <p style={{ margin: 0, fontSize: 9, color: '#bfdbfe', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: T.fontBase }}>Net Pay â€” Take Home</p>
+                            <p style={{ margin: 0, fontSize: 9, color: '#bfdbfe', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: T.fontBase }}>Net Pay - Take Home</p>
                             <p style={{ margin: '5px 0 3px', fontSize: 30, fontWeight: 900, color: '#34d399', letterSpacing: '-0.02em', fontFamily: T.fontBase }}>{fmt(calc.netPay)}</p>
                             <p style={{ margin: 0, fontSize: 11, color: '#93c5fd', fontFamily: T.fontBase }}>Gross {fmt(calc.grossPay)} &minus; Deductions {fmt(calc.totalDeductions)}</p>
                         </div>
@@ -805,7 +805,7 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 12, padding: '10px 14px' }}>
                                 <FiCreditCard size={15} color="#1d4ed8" />
                                 <p style={{ margin: 0, fontSize: 11, color: '#1e3a8a', fontWeight: 700, fontFamily: T.fontBase }}>
-                                    Bank: <strong>{(selectedStaff as any).bank_name}</strong> &nbsp;|&nbsp; A/C: {(selectedStaff as any).bank_account || 'â€”'}
+                                    Bank: <strong>{(selectedStaff as any).bank_name}</strong> &nbsp;|&nbsp; A/C: {(selectedStaff as any).bank_account || '-'}
                                 </p>
                             </div>
                         )}
@@ -820,7 +820,7 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                             <p style={{ margin: '0 0 8px', fontSize: 9, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>Payroll Summary</p>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                                 {[
-                                    { l: 'Staff', v: selectedStaff ? `${selectedStaff.first_name} ${selectedStaff.last_name}` : 'â€”', c: '#0f172a' },
+                                    { l: 'Staff', v: selectedStaff ? `${selectedStaff.first_name} ${selectedStaff.last_name}` : '-', c: '#0f172a' },
                                     { l: 'Period', v: `${MONTHS[month - 1]} ${year}`, c: '#0f172a' },
                                     { l: 'Basic', v: fmt(basicSalary), c: '#1d4ed8' },
                                     { l: 'Gross Pay', v: fmt(calc.grossPay), c: '#16a34a' },
@@ -838,7 +838,7 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
                 )}
             </div>
 
-            {/* FOOTER â€” Tab progress + buttons */}
+            {/* FOOTER - Tab progress + buttons */}
             <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12, display: 'flex', gap: 10, alignItems: 'center', margin: '0 0 0 0' }}>
                 <div style={{ display: 'flex', gap: 3, flex: 1 }}>
                     {TABS.map(t => (
