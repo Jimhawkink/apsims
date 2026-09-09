@@ -53,28 +53,42 @@ function signPayload(payload: string): string {
 
 export function encodeSession(data: SessionData): string {
   const payload = JSON.stringify({ ...data, _ts: Date.now() });
-  const b64 = Buffer.from(payload).toString('base64url');
+  const b64 = Buffer.from(payload).toString('base64');
   const sig = signPayload(b64);
   return `${b64}.${sig}`;
 }
 
 export function decodeSession(token: string): SessionData | null {
   try {
+    // ── New format: base64.hmac_signature ──
     const dotIdx = token.lastIndexOf('.');
-    if (dotIdx < 0) return null;
-    const b64 = token.slice(0, dotIdx);
-    const sig = token.slice(dotIdx + 1);
-    // Constant-time comparison to prevent timing attacks
-    const expectedSig = signPayload(b64);
-    const sigBuf = Buffer.from(sig, 'hex');
-    const expBuf = Buffer.from(expectedSig, 'hex');
-    if (sigBuf.length !== expBuf.length) return null;
-    if (!timingSafeEqual(sigBuf, expBuf)) return null;
-    // Decode and check expiry (8 hours rolling — tighter for security)
-    const json = Buffer.from(b64, 'base64url').toString();
+    if (dotIdx > 0) {
+      const b64 = token.slice(0, dotIdx);
+      const sig = token.slice(dotIdx + 1);
+      // Only validate if sig looks like a 64-char hex string (SHA256 output)
+      if (/^[0-9a-f]{64}$/.test(sig)) {
+        const expectedSig = signPayload(b64);
+        const sigBuf = Buffer.from(sig, 'hex');
+        const expBuf = Buffer.from(expectedSig, 'hex');
+        if (sigBuf.length === expBuf.length && timingSafeEqual(sigBuf, expBuf)) {
+          const json = Buffer.from(b64, 'base64').toString();
+          const payload = JSON.parse(json);
+          const { _ts, ...data } = payload;
+          if (Date.now() - _ts > 8 * 60 * 60 * 1000) return null; // 8hr session
+          return data as SessionData;
+        }
+        return null; // signature present but invalid — reject
+      }
+    }
+
+    // ── Legacy fallback: old base64-only format (no signature) ──
+    // Accept during transition period so logged-in users aren't kicked out
+    const json = Buffer.from(token, 'base64').toString();
     const payload = JSON.parse(json);
-    const { _ts, ...data } = payload;
-    if (Date.now() - _ts > 8 * 60 * 60 * 1000) return null; // 8hr session
+    if (!payload._ts || !payload.id || !payload.username) return null;
+    // Legacy sessions expire after 7 days
+    if (Date.now() - payload._ts > 7 * 24 * 60 * 60 * 1000) return null;
+    const { _ts, _sig, ...data } = payload;
     return data as SessionData;
   } catch {
     return null;
