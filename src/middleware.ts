@@ -75,12 +75,22 @@ export async function middleware(req: NextRequest) {
   }
 
   // Validate session (basic decode check — full validation happens server-side)
+  // Supports BOTH old format (plain base64) and new format (base64.hmac_hex)
   let decoded: any;
   try {
-    decoded = JSON.parse(Buffer.from(sessionCookie, 'base64').toString());
+    let b64 = sessionCookie;
+    // New format: base64payload.64hexchars — strip the signature part
+    const dotIdx = sessionCookie.lastIndexOf('.');
+    if (dotIdx > 0) {
+      const possibleSig = sessionCookie.slice(dotIdx + 1);
+      if (/^[0-9a-f]{64}$/.test(possibleSig)) {
+        b64 = sessionCookie.slice(0, dotIdx);
+      }
+    }
+    decoded = JSON.parse(Buffer.from(b64, 'base64').toString());
 
-    // Check expiry (7 days rolling — matches auth.ts)
-    if (!decoded._ts || Date.now() - decoded._ts > 7 * 24 * 60 * 60 * 1000) {
+    // Check expiry (8 hours rolling)
+    if (!decoded._ts || Date.now() - decoded._ts > 8 * 60 * 60 * 1000) {
       // Expired — clear and redirect
       const res = pathname.startsWith('/portal/')
         ? NextResponse.redirect(new URL('/portal/login', req.url))
