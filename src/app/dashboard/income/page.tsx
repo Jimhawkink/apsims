@@ -139,10 +139,17 @@ export default function IncomePage() {
         ev.preventDefault();
         if (!form.description || !form.amount || !form.source) { toast.error('Fill required fields'); return; }
         const payload = {
-            income_date: form.income_date, source: form.source,
-            description: form.description.trim(), amount: Number(form.amount),
-            payment_method: form.payment_method, reference_number: form.reference_number || null,
-            received_by: form.received_by || null, notes: form.notes || null, year: currentYear,
+            income_date: form.income_date,
+            category: form.source,
+            notes: [
+                form.description?.trim(),
+                form.payment_method ? `Method: ${form.payment_method}` : '',
+                form.reference_number ? `Ref: ${form.reference_number}` : '',
+                form.notes,
+            ].filter(Boolean).join(' | ') || null,
+            received_by: form.received_by || null,
+            amount: Number(form.amount),
+            year: currentYear,
         };
         if (editingId) {
             const { error } = await supabase.from('school_income').update(payload).eq('id', editingId);

@@ -518,7 +518,7 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
     const [notes, setNotes] = useState(editRecord?.notes || '');
     const [saving, setSaving] = useState(false);
 
-    const selectedStaff = staff.find(s => s.id === selectedStaffId);
+    const selectedStaff = staff.find(s => String(s.id) === String(selectedStaffId));
     const basicSalary = selectedStaff?.basic_salary ?? 0;
 
     useEffect(() => {

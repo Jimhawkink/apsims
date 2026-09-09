@@ -174,12 +174,17 @@ export default function ExpensesPage() {
     const handleSubmit = async (ev: React.FormEvent) => {
         ev.preventDefault();
         if (!form.description || !form.amount || !form.category_id) { toast.error('Fill required fields'); return; }
+        const catName = categories.find(c => c.id === Number(form.category_id))?.category_name || 'General';
         const payload = {
-            expense_date: form.expense_date, category_id: Number(form.category_id),
-            description: form.description.trim(), amount: Number(form.amount),
-            payment_method: form.payment_method, reference_number: form.reference_number || null,
-            approved_by: form.approved_by || null, notes: form.notes || null,
-            year: currentYear, status: form.status || 'approved',
+            expense_date: form.expense_date,
+            title: catName,
+            description: [form.description.trim(), form.notes?.trim()].filter(Boolean).join(' | ') || form.description.trim(),
+            amount: Number(form.amount),
+            payment_method: form.payment_method,
+            reference_number: form.reference_number || null,
+            approved_by: form.approved_by || null,
+            year: currentYear,
+            status: form.status || 'approved',
         };
         if (editingId) {
             const { error } = await supabase.from('school_expenses').update(payload).eq('id', editingId);
