@@ -32,7 +32,7 @@ export default function BoardReportPage() {
       // NO .eq filter on payroll status — get all, filter in JS
       supabase.from('school_payroll').select('gross_pay,net_pay,paye,nhif,nssf,housing_levy,payment_date,status,staff_type').order('payment_date', { ascending: false }),
       // NO .eq filter on assets — get all, filter in JS
-      supabase.from('school_assets').select('purchase_price,current_value,category,status'),
+      supabase.from('school_assets').select('purchase_price,current_value,category,status,quantity'),
       supabase.from('school_bank_accounts').select('bank_name,account_name,book_balance,bank_balance,is_active'),
       // FIXED: removed expense_type column (doesn't exist). Use actual columns.
       supabase.from('school_expenses').select('amount,category,expense_date,year,status,vote_head,expense_name').order('expense_date', { ascending: false }),
