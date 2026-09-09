@@ -19,6 +19,8 @@ export default function BoardReportPage() {
   const [forms, setForms] = useState<any[]>([]);
   const [terms, setTerms] = useState<any[]>([]);
   const [capitation, setCapitation] = useState<any[]>([]);
+  const [lpos, setLpos] = useState<any[]>([]);
+  const [storeItems, setStoreItems] = useState<any[]>([]);
   const [selTerm, setSelTerm] = useState('');
 
   const loadAll = useCallback(async () => {
@@ -50,6 +52,18 @@ export default function BoardReportPage() {
     setExpenses(eRes.data || []);
     setForms(fRes.data || []);
     setTerms(tRes.data || []);
+
+    // Procurement LPOs
+    try {
+      const { data: lpoData } = await supabase.from('school_lpos').select('total_amount,status,lpo_date,year');
+      setLpos(lpoData || []);
+    } catch { setLpos([]); }
+
+    // Store inventory
+    try {
+      const { data: storeData } = await supabase.from('school_store_items').select('quantity,unit_price,total_value,status,category');
+      setStoreItems(storeData || []);
+    } catch { setStoreItems([]); }
 
     // Safe capitation query — table now exists after batch4 SQL
     try {
@@ -130,8 +144,7 @@ export default function BoardReportPage() {
     return ey === year && st !== 'rejected' && st !== 'cancelled';
   });
   const totalExpenseAmt = yearExpenses.reduce((a, e) => a + Number(e.amount || 0), 0);
-  const totalExpenditureAll = salaries + totalExpenseAmt;
-  const netSurplus = totalIncome - totalExpenditureAll;
+
 
   // Assets — all active/in-use
   const activeAssets = assets.filter(a => {
@@ -140,11 +153,27 @@ export default function BoardReportPage() {
   });
   const fixedAssets = activeAssets.reduce((a, ast) => a + Number(ast.current_value || ast.purchase_price || 0) * Number(ast.quantity || 1), 0);
 
+  // Procurement — LPO total spend for year (approved/delivered LPOs)
+  const procurementTotal = lpos.filter(l => {
+    const ly = l.year ? Number(l.year) : (l.lpo_date ? new Date(l.lpo_date).getFullYear() : 0);
+    const st = (l.status || '').toLowerCase();
+    return ly === year && st !== 'cancelled' && st !== 'rejected';
+  }).reduce((a, l) => a + Number(l.total_amount || 0), 0);
+
+  // Store inventory — total value of current stock
+  const storeInventoryValue = storeItems.reduce((a, s) => {
+    // try total_value first, else quantity * unit_price
+    const tv = Number(s.total_value || 0) || (Number(s.quantity || 0) * Number(s.unit_price || 0));
+    return a + tv;
+  }, 0);
+
   // Bank — all active accounts
   const activeAccounts = bankAccounts.filter(b => b.is_active !== false);
   const cashAtBank = activeAccounts.reduce((a, b) => a + Number(b.book_balance || b.bank_balance || 0), 0);
   const feesReceivable = outstanding;
-  const totalAssetsVal = fixedAssets + cashAtBank + feesReceivable;
+  const totalAssetsVal = fixedAssets + cashAtBank + feesReceivable + storeInventoryValue;
+  const totalExpenditureAll = salaries + totalExpenseAmt + procurementTotal;
+  const netSurplus = totalIncome - totalExpenditureAll;
   const totalLiabilities = paye + nhif + nssf;
 
   // Form analysis
@@ -299,10 +328,12 @@ export default function BoardReportPage() {
           { label: 'Collection Rate', value: collRate.toFixed(1) + '%', icon: '📊', color: collRate >= 70 ? '#16a34a' : collRate >= 40 ? '#d97706' : '#dc2626', bg: '#eff6ff', border: '#bfdbfe', sub: `${KES(totalExpected)} expected` },
           { label: 'Outstanding Fees', value: KES(outstanding), icon: '⏳', color: '#d97706', bg: '#fffbeb', border: '#fde68a', sub: `${activeStudents.length} active students` },
           { label: 'Total Income', value: KES(totalIncome), icon: '📈', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', sub: `Incl. KES ${(capitationTotal/1000).toFixed(0)}K capitation` },
-          { label: 'Total Expenditure', value: KES(totalExpenditureAll), icon: '📉', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', sub: `Salaries + Expenses` },
+          { label: 'Total Expenditure', value: KES(totalExpenditureAll), icon: '📉', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', sub: `Salaries + Expenses + Procurement` },
           { label: netSurplus >= 0 ? 'Net Surplus' : 'Net Deficit', value: KES(Math.abs(netSurplus)), icon: netSurplus >= 0 ? '🏆' : '⚠️', color: netSurplus >= 0 ? '#059669' : '#dc2626', bg: netSurplus >= 0 ? '#f0fdf4' : '#fef2f2', border: netSurplus >= 0 ? '#86efac' : '#fca5a5', sub: netSurplus >= 0 ? 'School in surplus' : 'School in deficit' },
           { label: 'Fixed Assets', value: KES(fixedAssets), icon: '🏗️', color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe', sub: `${activeAssets.length} assets` },
           { label: 'Cash at Bank', value: KES(cashAtBank), icon: '🏦', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc', sub: `${activeAccounts.length} accounts` },
+          { label: 'Procurement Spend', value: KES(procurementTotal), icon: '📦', color: '#b45309', bg: '#fffbeb', border: '#fde68a', sub: `${lpos.length} LPOs issued` },
+          { label: 'Store Inventory', value: KES(storeInventoryValue), icon: '🏪', color: '#0f766e', bg: '#f0fdfa', border: '#99f6e4', sub: `${storeItems.length} item types in stock` },
         ].map((k, i) => (
           <div key={i} style={{ background: k.bg, border: `1.5px solid ${k.border}`, borderRadius: 16, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: -10, right: -10, width: 50, height: 50, borderRadius: '50%', background: k.color, opacity: 0.08 }} />
@@ -334,6 +365,7 @@ export default function BoardReportPage() {
                 { label: '', value: null, indent: false, bold: false },
                 { label: 'Staff Salaries (Gross)', value: salaries, indent: false, bold: false },
                 { label: 'Other Expenses', value: totalExpenseAmt, indent: false, bold: false },
+                { label: 'Procurement Spend (LPOs)', value: procurementTotal, indent: false, bold: false },
                 { label: 'TOTAL EXPENDITURE', value: totalExpenditureAll, indent: false, bold: true, highlight: '#fee2e2' },
                 { label: '', value: null, indent: false, bold: false },
                 { label: netSurplus >= 0 ? '✅ NET SURPLUS' : '⚠️ NET DEFICIT', value: Math.abs(netSurplus), indent: false, bold: true, highlight: netSurplus >= 0 ? '#dcfce7' : '#fee2e2', color: netSurplus >= 0 ? '#16a34a' : '#dc2626' },
@@ -361,6 +393,7 @@ export default function BoardReportPage() {
               <tr style={{ borderBottom: '1px solid #f1f5f9' }}><td style={{ padding: '10px 20px', color: '#374151' }}>Fixed Assets (Net Book Value)</td><td style={{ padding: '10px 20px', textAlign: 'right', fontWeight: 700 }}>{KES(fixedAssets)}</td></tr>
               <tr style={{ borderBottom: '1px solid #f1f5f9' }}><td style={{ padding: '10px 20px', color: '#374151' }}>Cash & Bank Balances</td><td style={{ padding: '10px 20px', textAlign: 'right', fontWeight: 700 }}>{KES(cashAtBank)}</td></tr>
               <tr style={{ borderBottom: '1px solid #f1f5f9' }}><td style={{ padding: '10px 20px', color: '#374151' }}>Fees Receivable (Debtors)</td><td style={{ padding: '10px 20px', textAlign: 'right', fontWeight: 700 }}>{KES(feesReceivable)}</td></tr>
+              <tr style={{ borderBottom: '1px solid #f1f5f9' }}><td style={{ padding: '10px 20px', color: '#374151' }}>🏪 Store Inventory / Stock</td><td style={{ padding: '10px 20px', textAlign: 'right', fontWeight: 700, color: '#0f766e' }}>{KES(storeInventoryValue)}</td></tr>
               <tr style={{ background: '#dbeafe', borderBottom: '2px solid #93c5fd' }}><td style={{ padding: '11px 20px', fontWeight: 900, color: '#1d4ed8' }}>TOTAL ASSETS</td><td style={{ padding: '11px 20px', textAlign: 'right', fontWeight: 900, color: '#1d4ed8' }}>{KES(totalAssetsVal)}</td></tr>
               <tr style={{ background: '#fef2f2' }}><td colSpan={2} style={{ padding: '8px 20px', fontWeight: 900, fontSize: 11, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.06em' }}>LIABILITIES</td></tr>
               <tr style={{ borderBottom: '1px solid #f1f5f9' }}><td style={{ padding: '10px 20px', color: '#374151' }}>PAYE Payable (KRA)</td><td style={{ padding: '10px 20px', textAlign: 'right', fontWeight: 700 }}>{KES(paye)}</td></tr>

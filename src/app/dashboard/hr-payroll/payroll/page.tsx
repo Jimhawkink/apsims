@@ -12,6 +12,7 @@ import {
 } from 'react-icons/fi';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
+import toast from 'react-hot-toast';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
@@ -494,9 +495,9 @@ function PayslipViewer({ record, onClose }: { record: PayrollRecord; onClose: ()
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PAYROLL FORM
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// PAYROLL FORM â€” ULTRA PREMIUM 4-TAB MODAL
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
     staff: StaffMember[]; advances: SalaryAdvance[];
     onSave: (data: Partial<PayrollRecord>) => Promise<void>;
@@ -517,21 +518,27 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
     const [payRef, setPayRef] = useState(editRecord?.payment_ref || '');
     const [notes, setNotes] = useState(editRecord?.notes || '');
     const [saving, setSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState<'staff'|'earnings'|'deductions'|'payment'>('staff');
 
     const selectedStaff = staff.find(s => String(s.id) === String(selectedStaffId));
     const basicSalary = selectedStaff?.basic_salary ?? 0;
 
     useEffect(() => {
-        if (!selectedStaffId) return;
+        if (!selectedStaffId || editRecord) return;
+        const s = staff.find(st => String(st.id) === String(selectedStaffId));
+        if (s) {
+            setHouseAllow((s as any).house_allowance || 0);
+            setTransportAllow((s as any).transport_allowance || 0);
+        }
         const activeAdvance = advances.find(a => a.staff_id === selectedStaffId && a.status === 'Active');
         if (activeAdvance) setAdvanceDeduct(activeAdvance.monthly_deduction);
-    }, [selectedStaffId, advances]);
+    }, [selectedStaffId]);
 
     const calc = computePayroll(basicSalary, houseAllow, transportAllow, medicalAllow, otherAllow,
         loanDeduct, advanceDeduct, saccoDeduct, otherDeduct);
 
     const handleSave = async () => {
-        if (!selectedStaffId) return alert('Please select a staff member');
+        if (!selectedStaffId) { toast.error('Please select a staff member'); return; }
         setSaving(true);
         const s = selectedStaff!;
         await onSave({
@@ -551,143 +558,309 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
         setSaving(false);
     };
 
-    const fStyle = { ...inputStyle };
+    const NumInput = ({ label, value, onChange, readOnly }: { label: string; value: number; onChange?: (v: number) => void; readOnly?: boolean }) => (
+        <div>
+            <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5, fontFamily: T.fontBase }}>{label}</label>
+            <div style={{ display: 'flex', alignItems: 'center', border: `1.5px solid ${readOnly ? '#f1f5f9' : '#e2e8f0'}`, borderRadius: 12, overflow: 'hidden', background: readOnly ? '#f8fafc' : '#fff' }}>
+                <span style={{ padding: '10px 12px', background: '#f8fafc', borderRight: '1px solid #e2e8f0', fontSize: 11, fontWeight: 700, color: '#94a3b8', flexShrink: 0, fontFamily: T.fontBase }}>KES</span>
+                <input type="number" min={0} value={value} readOnly={readOnly}
+                    onChange={e => onChange && onChange(Number(e.target.value))}
+                    style={{ flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 13, fontWeight: 700, color: readOnly ? '#94a3b8' : T.text.heading, background: 'transparent', width: 0, fontFamily: T.fontBase }} />
+            </div>
+        </div>
+    );
 
-    const FieldLabel = ({ children }: { children: string }) => <label style={labelStyle}>{children}</label>;
+    const TABS = [
+        { key: 'staff', label: 'Staff & Period', color: '#6366f1', icon: 'ðŸ‘¤' },
+        { key: 'earnings', label: 'Earnings', color: '#10b981', icon: 'ðŸ’¹' },
+        { key: 'deductions', label: 'Deductions', color: '#ef4444', icon: 'ðŸ“Š' },
+        { key: 'payment', label: 'Payment', color: '#0284c7', icon: 'ðŸ’³' },
+    ];
+
+    const selStyle = { width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '11px 14px', fontSize: 12, fontWeight: 600, color: T.text.heading, outline: 'none', fontFamily: T.fontBase, background: '#fff', boxSizing: 'border-box' as const };
+    const inpStyle = { width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '11px 14px', fontSize: 12, fontWeight: 600, color: T.text.heading, outline: 'none', fontFamily: T.fontBase, boxSizing: 'border-box' as const };
+    const lblStyle = { display: 'block', fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 6, fontFamily: T.fontBase };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, fontFamily: T.fontBase }}>
-            {/* Staff + Period */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                <div style={{ gridColumn: '1 / -1' }}>
-                    <FieldLabel>Staff Member *</FieldLabel>
-                    <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} style={fStyle}>
-                        <option value="">— Select Staff —</option>
-                        {staff.filter(s => s.status === 'Active').map(s => (
-                            <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s._type}) — Basic: {fmt(s.basic_salary)}</option>
+        <div style={{ display: 'flex', flexDirection: 'column', fontFamily: T.fontBase }}>
+
+            {/* PREMIUM GRADIENT HEADER */}
+            <div style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 55%,#1d4ed8 100%)', borderRadius: '22px 22px 0 0', padding: '18px 22px', color: '#fff', margin: '-20px -22px 0', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, opacity: 0.05, backgroundImage: 'radial-gradient(circle,#fff 1px,transparent 1px)', backgroundSize: '18px 18px', pointerEvents: 'none' }} />
+                <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: selectedStaff ? 14 : 20, fontWeight: 900, color: '#fff' }}>
+                            {selectedStaff ? `${selectedStaff.first_name[0]}${selectedStaff.last_name[0]}` : 'ðŸ“‹'}
+                        </div>
+                        <div>
+                            <p style={{ margin: 0, fontSize: 9, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{editRecord ? 'Edit Payroll Record' : 'New Payroll Record'}</p>
+                            <p style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 900, letterSpacing: '-0.01em' }}>{selectedStaff ? `${selectedStaff.first_name} ${selectedStaff.last_name}` : 'Select Staff Member'}</p>
+                            {selectedStaff && <p style={{ margin: '2px 0 0', fontSize: 10, color: '#93c5fd' }}>{selectedStaff._type} &middot; {MONTHS[month - 1]} {year}</p>}
+                        </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                        <p style={{ margin: 0, fontSize: 9, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>NET PAY</p>
+                        <p style={{ margin: '3px 0 0', fontSize: 24, fontWeight: 900, color: '#34d399', letterSpacing: '-0.02em' }}>{fmt(calc.netPay)}</p>
+                    </div>
+                </div>
+                {selectedStaff && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginTop: 14 }}>
+                        {[
+                            { l: 'Basic', v: fmt(basicSalary), c: '#e2e8f0' },
+                            { l: 'Gross', v: fmt(calc.grossPay), c: '#4ade80' },
+                            { l: 'Deductions', v: fmt(calc.totalDeductions), c: '#f87171' },
+                            { l: 'PAYE', v: fmt(calc.paye), c: '#fbbf24' },
+                        ].map(({ l, v, c }) => (
+                            <div key={l} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, padding: '7px 10px' }}>
+                                <p style={{ margin: 0, fontSize: 8, color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{l}</p>
+                                <p style={{ margin: '2px 0 0', fontSize: 11, fontWeight: 800, color: c }}>{v}</p>
+                            </div>
                         ))}
-                    </select>
-                </div>
-                <div>
-                    <FieldLabel>Month</FieldLabel>
-                    <select value={month} onChange={e => setMonth(Number(e.target.value))} style={fStyle}>
-                        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <FieldLabel>Year</FieldLabel>
-                    <select value={year} onChange={e => setYear(Number(e.target.value))} style={fStyle}>
-                        {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <FieldLabel>Basic Salary</FieldLabel>
-                    <input type="text" value={fmt(basicSalary)} disabled style={{ ...fStyle, background: '#f1f5f9', color: T.text.muted }} />
-                </div>
+                    </div>
+                )}
             </div>
 
-            {/* Allowances */}
-            <div>
-                <p style={{ ...labelStyle, color: '#10b981', marginBottom: 10 }}>↑ Allowances</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    {[
-                        ['House Allowance', houseAllow, setHouseAllow],
-                        ['Transport Allowance', transportAllow, setTransportAllow],
-                        ['Medical Allowance', medicalAllow, setMedicalAllow],
-                        ['Other Allowances', otherAllow, setOtherAllow],
-                    ].map(([l, v, set]) => (
-                        <div key={l as string}>
-                            <FieldLabel>{l as string}</FieldLabel>
-                            <input type="number" min="0" value={v as number} onChange={e => (set as any)(Number(e.target.value))} style={fStyle} />
+            {/* TABS */}
+            <div style={{ display: 'flex', borderBottom: '2px solid #f1f5f9', margin: '0 -22px', padding: '0 22px', background: '#fafafa' }}>
+                {TABS.map(tab => (
+                    <button key={tab.key} onClick={() => setActiveTab(tab.key as any)} style={{
+                        display: 'flex', alignItems: 'center', gap: 5, padding: '10px 11px',
+                        border: 'none', background: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                        color: activeTab === tab.key ? tab.color : '#94a3b8',
+                        borderBottom: activeTab === tab.key ? `2.5px solid ${tab.color}` : '2.5px solid transparent',
+                        marginBottom: -2, transition: 'all 0.15s', fontFamily: T.fontBase, whiteSpace: 'nowrap',
+                    }}>
+                        <span style={{ fontSize: 14 }}>{tab.icon}</span>{tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* TAB BODY */}
+            <div style={{ padding: '18px 0', display: 'flex', flexDirection: 'column', gap: 14, minHeight: 320 }}>
+
+                {activeTab === 'staff' && (
+                    <>
+                        <div>
+                            <label style={lblStyle}>Staff Member *</label>
+                            <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} style={selStyle}>
+                                <option value="">â€” Select Staff Member â€”</option>
+                                {staff.filter(s => s.status === 'Active').map(s => (
+                                    <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s._type}) â€” Basic: {fmt(s.basic_salary)}</option>
+                                ))}
+                            </select>
                         </div>
+                        {selectedStaff && (
+                            <div style={{ background: 'linear-gradient(135deg,#f0f4ff,#f8faff)', border: '1.5px solid #c7d2fe', borderRadius: 14, padding: '12px 14px' }}>
+                                <p style={{ margin: '0 0 10px', fontSize: 9, fontWeight: 800, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: T.fontBase }}>ðŸ‘¤ Staff Profile Card</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                                    {[
+                                        ['Staff Type', selectedStaff._type],
+                                        ['Basic Salary', fmt(basicSalary)],
+                                        ['Status', selectedStaff.status],
+                                        ['TSC No.', (selectedStaff as any).tsc_number || 'â€”'],
+                                        ['Bank', (selectedStaff as any).bank_name || 'â€”'],
+                                        ['Account No.', (selectedStaff as any).bank_account || 'â€”'],
+                                    ].map(([l, v]) => (
+                                        <div key={l} style={{ background: '#fff', border: '1px solid #ddd6fe', borderRadius: 9, padding: '7px 10px' }}>
+                                            <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>{l}</p>
+                                            <p style={{ margin: '2px 0 0', fontSize: 11, fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: T.fontBase }}>{v}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <div>
+                                <label style={lblStyle}>Pay Month</label>
+                                <select value={month} onChange={e => setMonth(Number(e.target.value))} style={selStyle}>
+                                    {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label style={lblStyle}>Pay Year</label>
+                                <select value={year} onChange={e => setYear(Number(e.target.value))} style={selStyle}>
+                                    {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style={lblStyle}>Basic Salary (auto-loaded from staff record)</label>
+                            <div style={{ border: '1.5px solid #f1f5f9', borderRadius: 12, display: 'flex', alignItems: 'center', overflow: 'hidden', background: '#f8fafc' }}>
+                                <span style={{ padding: '10px 12px', borderRight: '1px solid #e2e8f0', fontSize: 11, fontWeight: 700, color: '#94a3b8', fontFamily: T.fontBase }}>KES</span>
+                                <span style={{ padding: '10px 14px', fontSize: 14, fontWeight: 900, color: '#1d4ed8', fontFamily: T.fontBase }}>{fmt(basicSalary)}</span>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {activeTab === 'earnings' && (
+                    <>
+                        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 11, padding: '9px 13px', fontSize: 11, color: '#14532d', fontWeight: 600, fontFamily: T.fontBase }}>
+                            âœ… Allowances auto-filled from staff profile on selection. Override if needed for this pay period.
+                        </div>
+                        <div>
+                            <label style={lblStyle}>Basic Salary (read-only)</label>
+                            <div style={{ border: '1.5px solid #f1f5f9', borderRadius: 12, display: 'flex', alignItems: 'center', overflow: 'hidden', background: '#f8fafc' }}>
+                                <span style={{ padding: '10px 12px', borderRight: '1px solid #e2e8f0', fontSize: 11, fontWeight: 700, color: '#94a3b8', fontFamily: T.fontBase }}>KES</span>
+                                <span style={{ padding: '10px 14px', fontSize: 14, fontWeight: 900, color: '#1d4ed8', fontFamily: T.fontBase }}>{fmt(basicSalary)}</span>
+                            </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <NumInput label="House Allowance" value={houseAllow} onChange={setHouseAllow} />
+                            <NumInput label="Transport Allowance" value={transportAllow} onChange={setTransportAllow} />
+                            <NumInput label="Medical Allowance" value={medicalAllow} onChange={setMedicalAllow} />
+                            <NumInput label="Other Allowances" value={otherAllow} onChange={setOtherAllow} />
+                        </div>
+                        <div style={{ background: 'linear-gradient(135deg,#0f172a,#064e3b)', borderRadius: 14, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <p style={{ margin: 0, fontSize: 9, color: '#6ee7b7', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>GROSS PAY</p>
+                                <p style={{ margin: '2px 0 0', fontSize: 10, color: 'rgba(110,231,183,0.7)', fontFamily: T.fontBase }}>Basic + All Allowances</p>
+                            </div>
+                            <p style={{ margin: 0, fontSize: 24, fontWeight: 900, color: '#34d399', letterSpacing: '-0.02em', fontFamily: T.fontBase }}>{fmt(calc.grossPay)}</p>
+                        </div>
+                    </>
+                )}
+
+                {activeTab === 'deductions' && (
+                    <>
+                        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 13, padding: '12px 14px' }}>
+                            <p style={{ margin: '0 0 10px', fontSize: 9, fontWeight: 800, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>ðŸ›ï¸ Statutory Deductions â€” KRA 2025/2026 (Auto-Computed)</p>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                                {[
+                                    { l: 'PAYE', v: calc.paye, n: 'After relief', c: '#7f1d1d' },
+                                    { l: 'SHIF', v: calc.shif, n: '2.75%', c: '#7f1d1d' },
+                                    { l: 'NSSF', v: calc.nssf, n: 'Tier I + II', c: '#7f1d1d' },
+                                    { l: 'Hsg Levy', v: calc.housingLevy, n: '1.5%', c: '#7f1d1d' },
+                                ].map(({ l, v, n, c }) => (
+                                    <div key={l} style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 9, padding: '9px', textAlign: 'center' }}>
+                                        <p style={{ margin: 0, fontSize: 8, fontWeight: 800, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: T.fontBase }}>{l}</p>
+                                        <p style={{ margin: '3px 0 1px', fontSize: 13, fontWeight: 900, color: c, fontFamily: T.fontBase }}>{fmt(v)}</p>
+                                        <p style={{ margin: 0, fontSize: 8, color: '#b91c1c', fontFamily: T.fontBase }}>{n}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <p style={{ margin: '8px 0 0', fontSize: 10, color: '#7f1d1d', fontFamily: T.fontBase }}>
+                                NSSF T1: {fmt(calc.nssfTier1)} &nbsp;|&nbsp; T2: {fmt(calc.nssfTier2)} &nbsp;|&nbsp; Taxable: {fmt(calc.taxable)} &nbsp;|&nbsp; Ins. Relief: -{fmt(calc.insuranceRelief)}
+                            </p>
+                        </div>
+                        <p style={{ margin: '4px 0 0', fontSize: 10, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>Extra / Manual Deductions</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <NumInput label="Loan Deductions" value={loanDeduct} onChange={setLoanDeduct} />
+                            <NumInput label="Advance Recovery" value={advanceDeduct} onChange={setAdvanceDeduct} />
+                            <NumInput label="SACCO Contributions" value={saccoDeduct} onChange={setSaccoDeduct} />
+                            <NumInput label="Other Deductions" value={otherDeduct} onChange={setOtherDeduct} />
+                        </div>
+                        {/* Live KRA Dark Card */}
+                        <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', borderRadius: 14, padding: '14px 16px' }}>
+                            <p style={{ margin: '0 0 10px', fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: T.fontBase }}>ðŸ§® Live Tax Engine â€” KRA 2025/2026</p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                                {[
+                                    ['Gross Pay', fmt(calc.grossPay), '#34d399'],
+                                    ['NSSF Tier I', fmt(calc.nssfTier1), '#f87171'],
+                                    ['NSSF Tier II', fmt(calc.nssfTier2), '#f87171'],
+                                    ['Total NSSF', fmt(calc.nssf), '#fb923c'],
+                                    ['Taxable Income', fmt(calc.taxable), '#93c5fd'],
+                                    ['PAYE Tax', fmt(calc.paye), '#f87171'],
+                                    ['SHIF (2.75%)', fmt(calc.shif), '#f87171'],
+                                    ['Housing Levy', fmt(calc.housingLevy), '#f87171'],
+                                    ['Ins. Relief', `-${fmt(calc.insuranceRelief)}`, '#34d399'],
+                                    ['Extra Deductions', fmt(loanDeduct + advanceDeduct + saccoDeduct + otherDeduct), '#fb923c'],
+                                    ['Total Deductions', fmt(calc.totalDeductions), '#fb923c'],
+                                    ['NET PAY', fmt(calc.netPay), '#34d399'],
+                                ].map(([l, v, c]) => (
+                                    <div key={l as string} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: (l as string) === 'NET PAY' ? '1px solid rgba(255,255,255,0.1)' : 'none', fontFamily: T.fontBase }}>
+                                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>{l}</span>
+                                        <span style={{ fontSize: 10, fontWeight: 800, color: c as string }}>{v}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontFamily: T.fontBase }}>NET PAY</span>
+                                <span style={{ fontSize: 26, fontWeight: 900, color: '#34d399', letterSpacing: '-0.02em', fontFamily: T.fontBase }}>{fmt(calc.netPay)}</span>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {activeTab === 'payment' && (
+                    <>
+                        <div style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8,#6366f1)', borderRadius: 16, padding: '16px 20px', color: '#fff', textAlign: 'center' }}>
+                            <p style={{ margin: 0, fontSize: 9, color: '#bfdbfe', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: T.fontBase }}>Net Pay â€” Take Home</p>
+                            <p style={{ margin: '5px 0 3px', fontSize: 30, fontWeight: 900, color: '#34d399', letterSpacing: '-0.02em', fontFamily: T.fontBase }}>{fmt(calc.netPay)}</p>
+                            <p style={{ margin: 0, fontSize: 11, color: '#93c5fd', fontFamily: T.fontBase }}>Gross {fmt(calc.grossPay)} &minus; Deductions {fmt(calc.totalDeductions)}</p>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <div>
+                                <label style={lblStyle}>Payment Method</label>
+                                <select value={payMethod} onChange={e => setPayMethod(e.target.value)} style={selStyle}>
+                                    {['Bank Transfer', 'M-Pesa', 'Cash', 'Cheque', 'RTGS', 'EFT'].map(m => <option key={m}>{m}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label style={lblStyle}>Payment Reference</label>
+                                <input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="TXN12345 / Cheque No." style={inpStyle} />
+                            </div>
+                        </div>
+                        {selectedStaff && (selectedStaff as any).bank_name && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 12, padding: '10px 14px' }}>
+                                <FiCreditCard size={15} color="#1d4ed8" />
+                                <p style={{ margin: 0, fontSize: 11, color: '#1e3a8a', fontWeight: 700, fontFamily: T.fontBase }}>
+                                    Bank: <strong>{(selectedStaff as any).bank_name}</strong> &nbsp;|&nbsp; A/C: {(selectedStaff as any).bank_account || 'â€”'}
+                                </p>
+                            </div>
+                        )}
+                        <div>
+                            <label style={lblStyle}>Notes / Remarks</label>
+                            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+                                placeholder="Any remarks for this payroll entry..."
+                                style={{ ...inpStyle, resize: 'none' }} />
+                        </div>
+                        {/* Summary card */}
+                        <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 13, padding: '12px 14px' }}>
+                            <p style={{ margin: '0 0 8px', fontSize: 9, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: T.fontBase }}>Payroll Summary</p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                                {[
+                                    { l: 'Staff', v: selectedStaff ? `${selectedStaff.first_name} ${selectedStaff.last_name}` : 'â€”', c: '#0f172a' },
+                                    { l: 'Period', v: `${MONTHS[month - 1]} ${year}`, c: '#0f172a' },
+                                    { l: 'Basic', v: fmt(basicSalary), c: '#1d4ed8' },
+                                    { l: 'Gross Pay', v: fmt(calc.grossPay), c: '#16a34a' },
+                                    { l: 'Deductions', v: fmt(calc.totalDeductions), c: '#dc2626' },
+                                    { l: 'Net Pay', v: fmt(calc.netPay), c: '#059669' },
+                                ].map(({ l, v, c }) => (
+                                    <div key={l} style={{ padding: '6px 0' }}>
+                                        <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', fontFamily: T.fontBase }}>{l}</p>
+                                        <p style={{ margin: '2px 0 0', fontSize: 11, fontWeight: 800, color: c, fontFamily: T.fontBase, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* FOOTER â€” Tab progress + buttons */}
+            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12, display: 'flex', gap: 10, alignItems: 'center', margin: '0 0 0 0' }}>
+                <div style={{ display: 'flex', gap: 3, flex: 1 }}>
+                    {TABS.map(t => (
+                        <div key={t.key} onClick={() => setActiveTab(t.key as any)}
+                            style={{ height: 4, borderRadius: 99, flex: activeTab === t.key ? 2.5 : 1, background: activeTab === t.key ? t.color : '#e2e8f0', cursor: 'pointer', transition: 'all 0.25s' }} />
                     ))}
                 </div>
-            </div>
-
-            {/* Deductions */}
-            <div>
-                <p style={{ ...labelStyle, color: '#ef4444', marginBottom: 10 }}>↓ Extra Deductions</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    {[
-                        ['Loan Deductions', loanDeduct, setLoanDeduct],
-                        ['Advance Deductions', advanceDeduct, setAdvanceDeduct],
-                        ['SACCO Contributions', saccoDeduct, setSaccoDeduct],
-                        ['Other Deductions', otherDeduct, setOtherDeduct],
-                    ].map(([l, v, set]) => (
-                        <div key={l as string}>
-                            <FieldLabel>{l as string}</FieldLabel>
-                            <input type="number" min="0" value={v as number} onChange={e => (set as any)(Number(e.target.value))} style={fStyle} />
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Live tax computation — dark card */}
-            <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', borderRadius: 18, padding: '18px 20px' }}>
-                <p style={{ margin: '0 0 14px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>🧮 Live KRA 2025/2026 Tax Computation (NSSF Tier I & II + SHIF)</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {[
-                        ['Gross Pay', fmt(calc.grossPay), '#34d399'],
-                        ['NSSF Tier I (6% to 7K)', fmt(calc.nssfTier1), '#f87171'],
-                        ['NSSF Tier II (6% 7K-36K)', fmt(calc.nssfTier2), '#f87171'],
-                        ['Total NSSF', fmt(calc.nssf), '#fb923c'],
-                        ['Taxable Income', fmt(calc.taxable), '#93c5fd'],
-                        ['PAYE Tax', fmt(calc.paye), '#f87171'],
-                        ['SHIF (2.75%)', fmt(calc.shif), '#f87171'],
-                        ['Insurance Relief', `-${fmt(calc.insuranceRelief)}`, '#34d399'],
-                        ['Housing Levy (1.5%)', fmt(calc.housingLevy), '#f87171'],
-                        ['Total Deductions', fmt(calc.totalDeductions), '#fb923c'],
-                    ].map(([l, v, c]) => (
-                        <div key={l as string} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.fontBase }}>
-                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>{l}</span>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: c as string }}>{v}</span>
-                        </div>
-                    ))}
-                </div>
-                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: T.fontBase }}>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>NET PAY</span>
-                    <span style={{ fontSize: 26, fontWeight: 900, color: '#34d399', letterSpacing: '-0.02em' }}>{fmt(calc.netPay)}</span>
-                </div>
-            </div>
-
-            {/* Payment method */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                    <FieldLabel>Payment Method</FieldLabel>
-                    <select value={payMethod} onChange={e => setPayMethod(e.target.value)} style={fStyle}>
-                        {['Bank Transfer', 'M-Pesa', 'Cash', 'Cheque'].map(m => <option key={m}>{m}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <FieldLabel>Payment Reference</FieldLabel>
-                    <input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="e.g. TXN12345" style={fStyle} />
-                </div>
-            </div>
-            <div>
-                <FieldLabel>Notes</FieldLabel>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                    placeholder="Any notes for this payroll entry..."
-                    style={{ ...fStyle, resize: 'none' }} />
-            </div>
-
-            <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={onClose} style={{
-                    flex: 1, padding: '12px', borderRadius: 14, border: '1px solid #e2e8f0',
-                    background: '#f8fafc', color: T.text.body, cursor: 'pointer',
-                    fontSize: 12, fontWeight: 700, fontFamily: T.fontBase, transition: 'all 0.15s',
-                }}>Cancel</button>
-                <button onClick={handleSave} disabled={saving} style={{
-                    flex: 2, padding: '12px', borderRadius: 14, border: 'none',
-                    background: saving ? '#a5b4fc' : 'linear-gradient(135deg,#4f46e5,#2563eb)',
-                    color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
-                    fontSize: 12, fontWeight: 800, fontFamily: T.fontBase,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    letterSpacing: '-0.01em', transition: 'all 0.15s',
-                }}>
-                    {saving
-                        ? <><div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Saving...</>
-                        : <><FiCheck size={14} /> Save Payroll Record</>}
+                <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#374151', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: T.fontBase }}>
+                    Cancel
                 </button>
+                {activeTab !== 'payment' ? (
+                    <button onClick={() => { const o = ['staff','earnings','deductions','payment']; const nx = o[o.indexOf(activeTab) + 1]; if (nx) setActiveTab(nx as any); }}
+                        style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#4f46e5,#1d4ed8)', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 800, fontFamily: T.fontBase, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        Next <FiArrowRight size={12} />
+                    </button>
+                ) : (
+                    <button onClick={handleSave} disabled={saving} style={{ padding: '10px 22px', borderRadius: 12, border: 'none', background: saving ? '#a5b4fc' : 'linear-gradient(135deg,#4f46e5,#2563eb)', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 800, fontFamily: T.fontBase, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {saving
+                            ? <><div style={{ width: 13, height: 13, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Saving...</>
+                            : <><FiCheck size={13} /> Save Payroll</>}
+                    </button>
+                )}
             </div>
         </div>
     );
