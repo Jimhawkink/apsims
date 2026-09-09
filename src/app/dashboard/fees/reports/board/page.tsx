@@ -138,7 +138,7 @@ export default function BoardReportPage() {
     const st = (a.status || '').toLowerCase();
     return st === 'active' || st === 'in use' || st === 'in-use' || !st;
   });
-  const fixedAssets = activeAssets.reduce((a, ast) => a + Number(ast.current_value || ast.purchase_price || 0), 0);
+  const fixedAssets = activeAssets.reduce((a, ast) => a + Number(ast.current_value || ast.purchase_price || 0) * Number(ast.quantity || 1), 0);
 
   // Bank — all active accounts
   const activeAccounts = bankAccounts.filter(b => b.is_active !== false);
