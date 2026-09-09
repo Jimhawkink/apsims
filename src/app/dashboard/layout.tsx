@@ -753,7 +753,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="flex items-center gap-2">
                         {/* Network status indicator */}
                         <div className={`flex items-center justify-center w-7 h-7 rounded-full ${isOffline ? 'bg-amber-100' : 'bg-green-100'}`} title={isOffline ? 'Offline' : 'Online'}>
-                          {isOffline 
+                          {isOffline
                             ? <FiWifiOff size={13} className="text-amber-600" />
                             : <FiWifi size={13} className="text-green-600" />
                           }
@@ -766,6 +766,77 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </Link>
                         {/* 🎨 Theme Switcher */}
                         <ThemeSwitcher />
+
+                        {/* ══ ULTRA USER CHIP ══ */}
+                        {user && (
+                            <div className="relative group ml-1">
+                                <button
+                                    className="flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full border border-gray-200 bg-gradient-to-r from-gray-50 to-indigo-50/40 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-100/60 transition-all duration-200 cursor-pointer"
+                                    title={`${user.full_name} — ${user.role}`}
+                                >
+                                    {/* Avatar */}
+                                    <div
+                                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-sm flex-shrink-0"
+                                        style={{ background: 'linear-gradient(135deg,#3b82f6 0%,#6366f1 60%,#8b5cf6 100%)' }}
+                                    >
+                                        {user.full_name?.charAt(0)?.toUpperCase() || '?'}
+                                    </div>
+                                    {/* Name + role */}
+                                    <div className="hidden md:block text-left leading-tight">
+                                        <p className="text-[12px] font-bold text-gray-800 leading-none">{user.full_name}</p>
+                                        <p className="text-[10px] text-indigo-600 font-semibold capitalize leading-none mt-0.5">{user.role}</p>
+                                    </div>
+                                    {/* Role badge */}
+                                    <span className="hidden lg:inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full ml-1"
+                                        style={{
+                                            background: user.role === 'admin' ? '#dbeafe' : user.role === 'principal' ? '#fef3c7' : user.role === 'bursar' ? '#dcfce7' : '#f3e8ff',
+                                            color: user.role === 'admin' ? '#1d4ed8' : user.role === 'principal' ? '#92400e' : user.role === 'bursar' ? '#15803d' : '#7c3aed',
+                                        }}
+                                    >
+                                        {user.role === 'admin' ? '🔑' : user.role === 'principal' ? '🎓' : user.role === 'bursar' ? '💰' : user.role === 'teacher' ? '👨‍🏫' : '👤'} {user.role}
+                                    </span>
+                                    <FiChevronDown size={12} className="text-gray-400 hidden md:block" />
+                                </button>
+
+                                {/* Dropdown */}
+                                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl shadow-gray-200/60 border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 overflow-hidden">
+                                    {/* Header */}
+                                    <div className="px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-black text-base">
+                                                {user.full_name?.charAt(0)?.toUpperCase() || '?'}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-sm truncate">{user.full_name}</p>
+                                                <p className="text-indigo-200 text-xs">@{user.username}</p>
+                                                <span className="inline-block mt-0.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 bg-white/20 rounded-full">{user.role}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* Actions */}
+                                    <div className="p-2">
+                                        <Link href="/dashboard/settings" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-sm font-medium">
+                                            <FiUser size={14} /> My Profile
+                                        </Link>
+                                        <Link href="/dashboard/settings" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-sm font-medium">
+                                            <FiKey size={14} /> Change Password
+                                        </Link>
+                                        <Link href="/dashboard/audit" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-sm font-medium">
+                                            <FiShield size={14} /> Audit Log
+                                        </Link>
+                                        <hr className="my-1 border-gray-100" />
+                                        <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-sm font-bold">
+                                            <FiLogOut size={14} /> Sign Out
+                                        </button>
+                                    </div>
+                                    {/* Security badge */}
+                                    <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center gap-1.5 text-[10px] text-gray-400">
+                                        <FiShield size={10} className="text-green-500" />
+                                        <span>Session secured · APSIMS v2.1</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </header>
 

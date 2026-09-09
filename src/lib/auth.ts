@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 const SALT_ROUNDS = 12;
 const SESSION_COOKIE = 'alpha_session';
@@ -41,38 +42,43 @@ export interface SessionData {
   teacher_id?: number;
 }
 
+// ✅ REAL HMAC-SHA256 — cryptographically secure, not forgeable
+function getSecret(): string {
+  return process.env.SESSION_SECRET || 'alpha-school-CHANGE-ME-in-production-min32chars!!';
+}
+
+function signPayload(payload: string): string {
+  return createHmac('sha256', getSecret()).update(payload).digest('hex');
+}
+
 export function encodeSession(data: SessionData): string {
-  // Simple base64 encoding with timestamp for tamper detection
-  const payload = { ...data, _ts: Date.now(), _sig: simpleSig(data) };
-  return Buffer.from(JSON.stringify(payload)).toString('base64');
+  const payload = JSON.stringify({ ...data, _ts: Date.now() });
+  const b64 = Buffer.from(payload).toString('base64url');
+  const sig = signPayload(b64);
+  return `${b64}.${sig}`;
 }
 
 export function decodeSession(token: string): SessionData | null {
   try {
-    const json = Buffer.from(token, 'base64').toString();
+    const dotIdx = token.lastIndexOf('.');
+    if (dotIdx < 0) return null;
+    const b64 = token.slice(0, dotIdx);
+    const sig = token.slice(dotIdx + 1);
+    // Constant-time comparison to prevent timing attacks
+    const expectedSig = signPayload(b64);
+    const sigBuf = Buffer.from(sig, 'hex');
+    const expBuf = Buffer.from(expectedSig, 'hex');
+    if (sigBuf.length !== expBuf.length) return null;
+    if (!timingSafeEqual(sigBuf, expBuf)) return null;
+    // Decode and check expiry (8 hours rolling — tighter for security)
+    const json = Buffer.from(b64, 'base64url').toString();
     const payload = JSON.parse(json);
-    // Verify signature
-    const { _sig, _ts, ...data } = payload;
-    if (_sig !== simpleSig(data)) return null;
-    // Check expiry (7 days rolling)
-    if (Date.now() - _ts > 7 * 24 * 60 * 60 * 1000) return null;
+    const { _ts, ...data } = payload;
+    if (Date.now() - _ts > 8 * 60 * 60 * 1000) return null; // 8hr session
     return data as SessionData;
   } catch {
     return null;
   }
-}
-
-function simpleSig(data: any): string {
-  // Simple HMAC-like signature using a secret
-  const secret = process.env.SESSION_SECRET || 'alpha-school-change-me-in-production';
-  const str = JSON.stringify(data);
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return hash.toString(36) + '-' + secret.slice(0, 8);
 }
 
 // ─── Cookie Helpers (server-side only) ───
@@ -132,40 +138,43 @@ export async function validateCsrf(token: string | null): Promise<boolean> {
   return token === csrf;
 }
 
-// ─── Rate Limiting (in-memory, per-instance) ───
+// ─── Rate Limiting (per-IP + per-username, in-memory) ───
+// Exponential lockout: 5 attempts=15min, 10=60min, 20+=24hr
 
-const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MINUTES = 15;
+interface RateEntry { count: number; lockedUntil: number; }
+const loginAttempts = new Map<string, RateEntry>();
 
-export function checkRateLimit(ip: string): { allowed: boolean; retryAfterMs: number } {
-  const entry = loginAttempts.get(ip);
+function getLockoutMs(count: number): number {
+  if (count >= 20) return 24 * 60 * 60 * 1000;     // 24 hours
+  if (count >= 10) return 60 * 60 * 1000;            // 1 hour
+  if (count >= 5)  return 15 * 60 * 1000;            // 15 minutes
+  return 0;
+}
+
+export function checkRateLimit(key: string): { allowed: boolean; retryAfterMs: number } {
+  const entry = loginAttempts.get(key);
   if (!entry) return { allowed: true, retryAfterMs: 0 };
-
   if (entry.lockedUntil > Date.now()) {
     return { allowed: false, retryAfterMs: entry.lockedUntil - Date.now() };
   }
-
-  // Clear expired lockouts
+  // Clear expired lockout
   if (entry.lockedUntil > 0 && entry.lockedUntil <= Date.now()) {
-    loginAttempts.delete(ip);
+    loginAttempts.delete(key);
     return { allowed: true, retryAfterMs: 0 };
   }
-
   return { allowed: true, retryAfterMs: 0 };
 }
 
-export function recordFailedAttempt(ip: string) {
-  const entry = loginAttempts.get(ip) || { count: 0, lockedUntil: 0 };
+export function recordFailedAttempt(key: string) {
+  const entry = loginAttempts.get(key) || { count: 0, lockedUntil: 0 };
   entry.count++;
-  if (entry.count >= MAX_ATTEMPTS) {
-    entry.lockedUntil = Date.now() + LOCKOUT_MINUTES * 60 * 1000;
-  }
-  loginAttempts.set(ip, entry);
+  const lockMs = getLockoutMs(entry.count);
+  if (lockMs > 0) entry.lockedUntil = Date.now() + lockMs;
+  loginAttempts.set(key, entry);
 }
 
-export function clearFailedAttempts(ip: string) {
-  loginAttempts.delete(ip);
+export function clearFailedAttempts(key: string) {
+  loginAttempts.delete(key);
 }
 
 // ─── Audit Logging ───

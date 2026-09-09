@@ -1,11 +1,9 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyPassword, isBcryptHash, hashPassword, setSessionCookie, clearSession, checkRateLimit, recordFailedAttempt, clearFailedAttempts, auditLog } from '@/lib/auth';
+import { verifyPassword, isBcryptHash, hashPassword, setSessionCookie, checkRateLimit, recordFailedAttempt, clearFailedAttempts, auditLog } from '@/lib/auth';
 
 function getSupabase() {
   const { createClient } = require('@supabase/supabase-js');
-  // Use service_role key — this is a server-side API route only, never exposed to client.
-  // Anon key is blocked by RLS on school_users, causing all logins to fail.
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -15,16 +13,7 @@ function getSupabase() {
 export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
 
-  // ─── Rate Limiting ───
-  const { allowed, retryAfterMs } = checkRateLimit(ip);
-  if (!allowed) {
-    return NextResponse.json(
-      { error: `Too many login attempts. Try again in ${Math.ceil(retryAfterMs / 60000)} minutes.` },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
-    );
-  }
-
-  // ─── Parse Input ───
+  // ─── Parse Input FIRST ───
   let body: { username?: string; password?: string };
   try {
     body = await req.json();
@@ -32,9 +21,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const { username, password } = body;
-  if (!username?.trim() || !password?.trim()) {
+  const username = body?.username?.trim() || '';
+  const password = body?.password?.trim() || '';
+
+  if (!username || !password) {
     return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
+  }
+
+  // ─── Rate Limiting by IP AND by username ───
+  // Prevents brute force AND password-spraying via IP rotation / VPN
+  const ipKey = `ip:${ip}`;
+  const userKey = `user:${username.toLowerCase()}`;
+
+  const { allowed: ipAllowed, retryAfterMs: ipRetry } = checkRateLimit(ipKey);
+  if (!ipAllowed) {
+    return NextResponse.json(
+      { error: `Too many attempts from your network. Try again in ${Math.ceil(ipRetry / 60000)} min.` },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(ipRetry / 1000)) } }
+    );
+  }
+  const { allowed: userAllowed, retryAfterMs: userRetry } = checkRateLimit(userKey);
+  if (!userAllowed) {
+    return NextResponse.json(
+      { error: `Account locked. Try again in ${Math.ceil(userRetry / 60000)} min.` },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(userRetry / 1000)) } }
+    );
   }
 
   // ─── Lookup User ───
@@ -42,21 +53,22 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('school_users')
     .select('*')
-    .ilike('username', username.trim())
+    .ilike('username', username)
     .eq('is_active', true)
     .single();
 
   if (error || !data) {
-    recordFailedAttempt(ip);
-    await auditLog({ action: 'login_failed', details: { username: username.trim(), reason: 'not_found' }, ip_address: ip });
+    recordFailedAttempt(ipKey);
+    recordFailedAttempt(userKey);
+    await auditLog({ action: 'login_failed', details: { username, reason: 'not_found' }, ip_address: ip });
     return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
   }
 
   // ─── Verify Password ───
   const isValid = await verifyPassword(password, data.password_hash);
   if (!isValid) {
-    // Remove hardcoded backdoor — no admin123 bypass
-    recordFailedAttempt(ip);
+    recordFailedAttempt(ipKey);
+    recordFailedAttempt(userKey);
     await auditLog({ action: 'login_failed', actor_name: data.username, details: { reason: 'wrong_password' }, ip_address: ip });
     return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
   }
@@ -67,8 +79,9 @@ export async function POST(req: NextRequest) {
     await supabase.from('school_users').update({ password_hash: newHash }).eq('id', data.id);
   }
 
-  // ─── Clear rate limit on success ───
-  clearFailedAttempts(ip);
+  // ─── Clear rate limits on success ───
+  clearFailedAttempts(ipKey);
+  clearFailedAttempts(userKey);
 
   // ─── Update last login ───
   await supabase.from('school_users').update({ last_login: new Date().toISOString() }).eq('id', data.id);
@@ -87,7 +100,7 @@ export async function POST(req: NextRequest) {
 
   await setSessionCookie(sessionData);
 
-  // ─── Audit Log ───
+  // ─── Audit Log success ───
   await auditLog({
     action: 'login_success',
     actor_id: data.id,
@@ -98,3 +111,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ success: true, user: sessionData });
 }
+
+
