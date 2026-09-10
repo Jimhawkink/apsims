@@ -64,16 +64,22 @@ export default function SettingsPage() {
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
-        const [f, st, su, t] = await Promise.all([
+        const [f, st, su, t, sp] = await Promise.all([
             supabase.from('school_forms').select('*').order('form_level'),
             supabase.from('school_streams').select('*').order('stream_name'),
             supabase.from('school_subjects').select('*').order('subject_name'),
             supabase.from('school_teachers').select('id, first_name, last_name, tsc_number').order('first_name'),
+            supabase.from('school_support_teachers').select('id, first_name, last_name, staff_no').order('first_name'),
         ]);
         setForms(f.data || []);
         setStreams(st.data || []);
         setSubjects(su.data || []);
-        setTeachers(t.data || []);
+        // Merge TSC teachers + support teachers into one list for all dropdowns
+        const allTeachers = [
+            ...(t.data || []).map((x: any) => ({ ...x, _source: 'tsc' })),
+            ...(sp.data || []).map((x: any) => ({ ...x, tsc_number: x.staff_no || 'Support', _source: 'support' })),
+        ];
+        setTeachers(allTeachers);
 
         // Fetch classes (form-stream linking)
         try {
