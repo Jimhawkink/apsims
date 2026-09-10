@@ -559,230 +559,313 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
         setSaving(false);
     };
 
-    const inp = "w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all";
-    const sel = "w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 transition-all";
-    const lbl = "block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide";
-    const sec = "text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2";
+    const inp = "w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-800 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-gray-300";
+    const sel = "w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-800 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all";
+    const lbl = "block text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-widest";
+    const roInp = "w-full px-3.5 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-sm font-black text-indigo-700 cursor-default";
 
     return (
-        <form onSubmit={e => { e.preventDefault(); handleSave(); }} className="flex flex-col" style={{ fontFamily: T.fontBase }}>
+        <div className="flex flex-col" style={{ fontFamily: T.fontBase, maxHeight: '94vh' }}>
 
-            {/* HEADER */}
-            <div className="px-6 py-4 flex items-center justify-between rounded-t-2xl" style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)' }}>
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-base"
-                        style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}>
-                        {selectedStaff ? `${selectedStaff.first_name[0]}${selectedStaff.last_name[0]}` : 'PR'}
-                    </div>
-                    <div>
-                        <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest">{editRecord ? 'Edit Payroll Record' : 'New Payroll Record'}</p>
-                        <p className="text-white font-black text-sm">{selectedStaff ? `${selectedStaff.first_name} ${selectedStaff.last_name}` : 'Select Staff Member'}</p>
-                        {selectedStaff && <p className="text-blue-300 text-[10px] mt-0.5">{selectedStaff._type} &middot; {MONTHS[month - 1]} {year}</p>}
-                    </div>
-                </div>
-                <div className="text-right">
-                    <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">NET PAY</p>
-                    <p className="font-black text-xl mt-0.5" style={{ color: '#34d399' }}>{fmt(calc.netPay)}</p>
-                </div>
-            </div>
-
-            {/* LIVE CHIPS */}
-            {selectedStaff && (
-                <div className="grid grid-cols-4 gap-0 border-b border-gray-100">
-                    {[
-                        { l: 'Basic', v: fmt(basicSalary), c: '#6366f1' },
-                        { l: 'Gross', v: fmt(calc.grossPay), c: '#10b981' },
-                        { l: 'Deductions', v: fmt(calc.totalDeductions), c: '#ef4444' },
-                        { l: 'PAYE', v: fmt(calc.paye), c: '#f59e0b' },
-                    ].map(({ l, v, c }) => (
-                        <div key={l} className="py-2.5 px-3 text-center border-r border-gray-100 last:border-r-0">
-                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{l}</p>
-                            <p className="text-xs font-black mt-0.5" style={{ color: c }}>{v}</p>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* SCROLLABLE BODY */}
-            <div className="overflow-y-auto px-6 py-5 space-y-5" style={{ maxHeight: '62vh' }}>
-
-                {/* SECTION 1 - STAFF & PERIOD */}
-                <div>
-                    <p className={sec}><span className="w-5 h-0.5 bg-indigo-400 inline-block rounded" />Staff &amp; Period</p>
-                    <div className="grid grid-cols-1 gap-4">
-                        <div>
-                            <label className={lbl}>Staff Member *</label>
-                            <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} required className={sel}>
-                                <option value="">-- Select Staff Member --</option>
-                                {staff.filter(s => s.status === 'Active').map(s => (
-                                    <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s._type}) - Basic: {fmt(s.basic_salary)}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className={lbl}>Pay Month</label>
-                                <select value={month} onChange={e => setMonth(Number(e.target.value))} className={sel}>
-                                    {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className={lbl}>Pay Year</label>
-                                <select value={year} onChange={e => setYear(Number(e.target.value))} className={sel}>
-                                    {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                                </select>
-                            </div>
+            {/* ══ ULTRA PREMIUM HEADER ══════════════════════════════════════════ */}
+            <div style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 45%,#1d4ed8 100%)', padding: '18px 24px', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
+                {/* dot grid decoration */}
+                <div style={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: 'radial-gradient(circle,#fff 1px,transparent 1px)', backgroundSize: '18px 18px', pointerEvents: 'none' }} />
+                {/* top row */}
+                <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(255,255,255,0.12)', border: '1.5px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: selectedStaff ? 15 : 20, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em', flexShrink: 0 }}>
+                            {selectedStaff ? `${selectedStaff.first_name[0]}${selectedStaff.last_name[0]}` : 'PR'}
                         </div>
                         <div>
-                            <label className={lbl}>Basic Salary (auto-loaded)</label>
-                            <input readOnly value={fmt(basicSalary)} className={inp + " font-black text-indigo-700 bg-indigo-50 border-indigo-200 cursor-default"} />
+                            <p style={{ margin: 0, fontSize: 9, color: '#93c5fd', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{editRecord ? 'Edit Payroll Record' : 'New Payroll Record'}</p>
+                            <p style={{ margin: '3px 0 0', fontSize: 16, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{selectedStaff ? `${selectedStaff.first_name} ${selectedStaff.last_name}` : 'Select Staff Member'}</p>
+                            {selectedStaff && <p style={{ margin: '2px 0 0', fontSize: 10, color: '#93c5fd' }}>{selectedStaff._type} &middot; {(selectedStaff as any).designation || 'Staff'} &middot; {MONTHS[month - 1]} {year}</p>}
                         </div>
                     </div>
-                </div>
-
-                {/* SECTION 2 - ALLOWANCES */}
-                <div>
-                    <p className={sec}><span className="w-5 h-0.5 bg-emerald-400 inline-block rounded" />Allowances &amp; Earnings</p>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className={lbl}>House Allowance (KES)</label>
-                            <input type="number" min={0} value={houseAllow} onChange={e => setHouseAllow(Number(e.target.value))} className={inp} />
-                        </div>
-                        <div>
-                            <label className={lbl}>Transport Allowance (KES)</label>
-                            <input type="number" min={0} value={transportAllow} onChange={e => setTransportAllow(Number(e.target.value))} className={inp} />
-                        </div>
-                        <div>
-                            <label className={lbl}>Medical Allowance (KES)</label>
-                            <input type="number" min={0} value={medicalAllow} onChange={e => setMedicalAllow(Number(e.target.value))} className={inp} />
-                        </div>
-                        <div>
-                            <label className={lbl}>Other Allowances (KES)</label>
-                            <input type="number" min={0} value={otherAllow} onChange={e => setOtherAllow(Number(e.target.value))} className={inp} />
-                        </div>
-                    </div>
-                    <div className="mt-3 rounded-xl px-4 py-3 flex justify-between items-center" style={{ background: 'linear-gradient(135deg,#0f172a,#064e3b)' }}>
-                        <div>
-                            <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Gross Pay</p>
-                            <p className="text-[10px] text-emerald-700 mt-0.5">Basic + All Allowances</p>
-                        </div>
-                        <p className="font-black text-xl text-emerald-400">{fmt(calc.grossPay)}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                        <p style={{ margin: 0, fontSize: 9, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>NET PAY</p>
+                        <p style={{ margin: 0, fontSize: 26, fontWeight: 900, color: '#34d399', letterSpacing: '-0.03em' }}>{fmt(calc.netPay)}</p>
+                        <button onClick={onClose} style={{ marginTop: 4, width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <FiXCircle size={14} />
+                        </button>
                     </div>
                 </div>
-
-                {/* SECTION 3 - STATUTORY DEDUCTIONS (auto-computed) */}
-                <div>
-                    <p className={sec}><span className="w-5 h-0.5 bg-red-400 inline-block rounded" />Statutory Deductions - KRA 2025/2026 (Auto-Computed)</p>
-                    <div className="grid grid-cols-4 gap-3">
+                {/* mini stat chips */}
+                {selectedStaff && (
+                    <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginTop: 14 }}>
                         {[
-                            { l: 'PAYE', v: calc.paye, n: 'After relief' },
-                            { l: 'SHIF', v: calc.shif, n: '2.75%' },
-                            { l: 'NSSF', v: calc.nssf, n: 'Tier I + II' },
-                            { l: 'Housing Levy', v: calc.housingLevy, n: '1.5%' },
-                        ].map(({ l, v, n }) => (
-                            <div key={l} className="bg-red-50 border border-red-200 rounded-xl p-2.5 text-center">
-                                <p className="text-[8px] font-black text-red-700 uppercase tracking-wide">{l}</p>
-                                <p className="text-sm font-black text-red-800 mt-1">{fmt(v)}</p>
-                                <p className="text-[8px] text-red-500 mt-0.5">{n}</p>
-                            </div>
-                        ))}
-                    </div>
-                    <p className="text-[10px] text-gray-500 mt-2">NSSF Tier I: {fmt(calc.nssfTier1)} | Tier II: {fmt(calc.nssfTier2)} | Taxable: {fmt(calc.taxable)} | Ins. Relief: -{fmt(calc.insuranceRelief)}</p>
-                </div>
-
-                {/* SECTION 4 - EXTRA DEDUCTIONS */}
-                <div>
-                    <p className={sec}><span className="w-5 h-0.5 bg-amber-400 inline-block rounded" />Additional Deductions</p>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className={lbl}>Loan Deductions (KES)</label>
-                            <input type="number" min={0} value={loanDeduct} onChange={e => setLoanDeduct(Number(e.target.value))} className={inp} />
-                        </div>
-                        <div>
-                            <label className={lbl}>Advance Recovery (KES)</label>
-                            <input type="number" min={0} value={advanceDeduct} onChange={e => setAdvanceDeduct(Number(e.target.value))} className={inp} />
-                        </div>
-                        <div>
-                            <label className={lbl}>SACCO Contributions (KES)</label>
-                            <input type="number" min={0} value={saccoDeduct} onChange={e => setSaccoDeduct(Number(e.target.value))} className={inp} />
-                        </div>
-                        <div>
-                            <label className={lbl}>Other Deductions (KES)</label>
-                            <input type="number" min={0} value={otherDeduct} onChange={e => setOtherDeduct(Number(e.target.value))} className={inp} />
-                        </div>
-                    </div>
-                </div>
-
-                {/* SECTION 5 - PAYMENT */}
-                <div>
-                    <p className={sec}><span className="w-5 h-0.5 bg-blue-400 inline-block rounded" />Payment Details</p>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className={lbl}>Payment Method</label>
-                            <select value={payMethod} onChange={e => setPayMethod(e.target.value)} className={sel}>
-                                {['Bank Transfer', 'M-Pesa', 'Cash', 'Cheque', 'RTGS', 'EFT'].map(m => <option key={m}>{m}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className={lbl}>Payment Date</label>
-                            <input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className={inp} />
-                        </div>
-                        <div className="col-span-2">
-                            <label className={lbl}>Payment Reference</label>
-                            <input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="TXN ref / Cheque No. / M-Pesa code" className={inp} />
-                        </div>
-                        {selectedStaff && (selectedStaff as any).bank_name && (
-                            <div className="col-span-2 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
-                                <FiCreditCard size={14} className="text-blue-600 shrink-0" />
-                                <p className="text-xs font-bold text-blue-900">Bank: <strong>{(selectedStaff as any).bank_name}</strong> &nbsp;|&nbsp; A/C: {(selectedStaff as any).bank_account || '-'}</p>
-                            </div>
-                        )}
-                    </div>
-                    <div className="mt-4">
-                        <label className={lbl}>Notes / Remarks</label>
-                        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                            placeholder="Any remarks for this payroll entry..."
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all" />
-                    </div>
-                </div>
-
-                {/* SECTION 6 - SUMMARY CARD */}
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-                    <p className={sec + " mb-3"}><span className="w-5 h-0.5 bg-gray-400 inline-block rounded" />Payroll Summary</p>
-                    <div className="grid grid-cols-3 gap-3">
-                        {[
-                            { l: 'Staff', v: selectedStaff ? `${selectedStaff.first_name} ${selectedStaff.last_name}` : '-', c: '#0f172a' },
-                            { l: 'Period', v: `${MONTHS[month - 1]} ${year}`, c: '#0f172a' },
-                            { l: 'Basic Salary', v: fmt(basicSalary), c: '#4f46e5' },
-                            { l: 'Gross Pay', v: fmt(calc.grossPay), c: '#16a34a' },
-                            { l: 'Total Deductions', v: fmt(calc.totalDeductions), c: '#dc2626' },
-                            { l: 'NET PAY', v: fmt(calc.netPay), c: '#059669' },
+                            { l: 'Basic', v: fmt(basicSalary), c: '#c7d2fe' },
+                            { l: 'Gross Pay', v: fmt(calc.grossPay), c: '#6ee7b7' },
+                            { l: 'Deductions', v: fmt(calc.totalDeductions), c: '#fca5a5' },
+                            { l: 'PAYE Tax', v: fmt(calc.paye), c: '#fde68a' },
                         ].map(({ l, v, c }) => (
-                            <div key={l} className="bg-white border border-gray-100 rounded-xl p-2.5">
-                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{l}</p>
-                                <p className="text-xs font-black mt-1 truncate" style={{ color: c }}>{v}</p>
+                            <div key={l} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '7px 10px' }}>
+                                <p style={{ margin: 0, fontSize: 8, color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{l}</p>
+                                <p style={{ margin: '3px 0 0', fontSize: 12, fontWeight: 900, color: c }}>{v}</p>
                             </div>
                         ))}
                     </div>
-                </div>
-
+                )}
             </div>
 
-            {/* FOOTER BUTTONS */}
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-                <button type="button" onClick={onClose}
-                    className="flex-1 py-3 rounded-xl text-sm font-bold border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
-                    Cancel
-                </button>
-                <button type="submit" disabled={saving}
-                    className="flex-1 py-3 rounded-xl text-sm font-black text-white transition flex items-center justify-center gap-2 disabled:opacity-60"
-                    style={{ background: saving ? '#a5b4fc' : 'linear-gradient(135deg,#4f46e5,#2563eb)' }}>
-                    {saving
-                        ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
-                        : <><FiCheck size={14} /> {editRecord ? 'Update Payroll' : 'Save Payroll'}</>}
-                </button>
+            {/* ══ SCROLLABLE FORM BODY ═════════════════════════════════════════ */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>
+                <form onSubmit={e => { e.preventDefault(); handleSave(); }} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                    {/* ─── STAFF & PERIOD ─────────────────────────────────── */}
+                    <div>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-1 h-4 rounded-full bg-indigo-500" />
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff &amp; Pay Period</p>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className={lbl}>Staff Member *</label>
+                                <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} required className={sel}>
+                                    <option value="">-- Select Staff Member --</option>
+                                    {staff.filter(s => s.status === 'Active').map(s => (
+                                        <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s._type}) — Basic: {fmt(s.basic_salary)}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {selectedStaff && (
+                                <div className="grid grid-cols-3 gap-3 bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                                    {[
+                                        ['Staff Type', selectedStaff._type],
+                                        ['TSC / Staff ID', (selectedStaff as any).tsc_number || (selectedStaff as any).id_number || '-'],
+                                        ['Designation', (selectedStaff as any).designation || '-'],
+                                        ['Email', (selectedStaff as any).email || '-'],
+                                        ['Phone', (selectedStaff as any).phone || '-'],
+                                        ['Status', selectedStaff.status],
+                                    ].map(([l, v]) => (
+                                        <div key={l}>
+                                            <p className="text-[8px] font-black text-indigo-400 uppercase tracking-wider">{l}</p>
+                                            <p className="text-xs font-bold text-indigo-900 mt-0.5 truncate">{v}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className={lbl}>Pay Month</label>
+                                    <select value={month} onChange={e => setMonth(Number(e.target.value))} className={sel}>
+                                        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={lbl}>Pay Year</label>
+                                    <select value={year} onChange={e => setYear(Number(e.target.value))} className={sel}>
+                                        {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={lbl}>Basic Salary (KES)</label>
+                                    <input readOnly value={basicSalary.toLocaleString()} className={roInp} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ─── EARNINGS / ALLOWANCES ──────────────────────────── */}
+                    <div>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-1 h-4 rounded-full bg-emerald-500" />
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Allowances &amp; Earnings</p>
+                            <span className="ml-auto text-[10px] font-bold text-gray-400">Auto-filled from staff record — override if needed</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={lbl}>House Allowance (KES)</label>
+                                <input type="number" min={0} value={houseAllow} onChange={e => setHouseAllow(Number(e.target.value))} className={inp} />
+                            </div>
+                            <div>
+                                <label className={lbl}>Transport Allowance (KES)</label>
+                                <input type="number" min={0} value={transportAllow} onChange={e => setTransportAllow(Number(e.target.value))} className={inp} />
+                            </div>
+                            <div>
+                                <label className={lbl}>Medical Allowance (KES)</label>
+                                <input type="number" min={0} value={medicalAllow} onChange={e => setMedicalAllow(Number(e.target.value))} className={inp} />
+                            </div>
+                            <div>
+                                <label className={lbl}>Other Allowances (KES)</label>
+                                <input type="number" min={0} value={otherAllow} onChange={e => setOtherAllow(Number(e.target.value))} className={inp} />
+                            </div>
+                        </div>
+                        <div className="mt-3 rounded-xl px-4 py-3 flex justify-between items-center" style={{ background: 'linear-gradient(135deg,#0f172a,#064e3b)' }}>
+                            <div>
+                                <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Gross Pay</p>
+                                <p className="text-[10px] text-emerald-800 mt-0.5">Basic {fmt(basicSalary)} + Allowances {fmt(houseAllow + transportAllow + medicalAllow + otherAllow)}</p>
+                            </div>
+                            <p className="text-2xl font-black text-emerald-400">{fmt(calc.grossPay)}</p>
+                        </div>
+                    </div>
+
+                    {/* ─── STATUTORY DEDUCTIONS (KRA Auto-computed) ───────── */}
+                    <div>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-1 h-4 rounded-full bg-red-500" />
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Statutory Deductions — KRA 2025/2026</p>
+                            <span className="ml-auto text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Auto-Computed</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-3">
+                            {[
+                                { l: 'PAYE', v: calc.paye, sub: 'After ins. relief', c: '#7f1d1d', bg: '#fef2f2', border: '#fecaca' },
+                                { l: 'SHIF', v: calc.shif, sub: '2.75% gross', c: '#92400e', bg: '#fffbeb', border: '#fde68a' },
+                                { l: 'NSSF', v: calc.nssf, sub: 'Tier I + II', c: '#1e3a8a', bg: '#eff6ff', border: '#bfdbfe' },
+                                { l: 'Housing Levy', v: calc.housingLevy, sub: '1.5% gross', c: '#064e3b', bg: '#f0fdf4', border: '#bbf7d0' },
+                            ].map(({ l, v, sub, c, bg, border }) => (
+                                <div key={l} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 12, padding: '10px 12px', textAlign: 'center' }}>
+                                    <p style={{ margin: 0, fontSize: 8, fontWeight: 800, color: c, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{l}</p>
+                                    <p style={{ margin: '4px 0 2px', fontSize: 14, fontWeight: 900, color: c }}>{fmt(v)}</p>
+                                    <p style={{ margin: 0, fontSize: 8, color: c, opacity: 0.7 }}>{sub}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-2 px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg">
+                            <p className="text-[10px] text-gray-500 font-semibold">
+                                NSSF Tier I: {fmt(calc.nssfTier1)} &nbsp;|&nbsp; Tier II: {fmt(calc.nssfTier2)} &nbsp;|&nbsp; Taxable Income: {fmt(calc.taxable)} &nbsp;|&nbsp; Insurance Relief: -{fmt(calc.insuranceRelief)}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* ─── ADDITIONAL DEDUCTIONS ──────────────────────────── */}
+                    <div>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-1 h-4 rounded-full bg-amber-500" />
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Additional Deductions</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={lbl}>Loan Deductions (KES)</label>
+                                <input type="number" min={0} value={loanDeduct} onChange={e => setLoanDeduct(Number(e.target.value))} className={inp} />
+                            </div>
+                            <div>
+                                <label className={lbl}>Advance Recovery (KES)</label>
+                                <input type="number" min={0} value={advanceDeduct} onChange={e => setAdvanceDeduct(Number(e.target.value))} className={inp} />
+                            </div>
+                            <div>
+                                <label className={lbl}>SACCO Contributions (KES)</label>
+                                <input type="number" min={0} value={saccoDeduct} onChange={e => setSaccoDeduct(Number(e.target.value))} className={inp} />
+                            </div>
+                            <div>
+                                <label className={lbl}>Other Deductions (KES)</label>
+                                <input type="number" min={0} value={otherDeduct} onChange={e => setOtherDeduct(Number(e.target.value))} className={inp} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ─── LIVE TAX BREAKDOWN ─────────────────────────────── */}
+                    <div className="rounded-xl p-4" style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)' }}>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Live KRA Tax Breakdown — 2025/2026 Rates</p>
+                        <div className="grid grid-cols-2 gap-1">
+                            {[
+                                ['Gross Pay', fmt(calc.grossPay), '#34d399'],
+                                ['NSSF Tier I', fmt(calc.nssfTier1), '#f87171'],
+                                ['NSSF Tier II', fmt(calc.nssfTier2), '#f87171'],
+                                ['Taxable Income', fmt(calc.taxable), '#93c5fd'],
+                                ['PAYE Tax', fmt(calc.paye), '#f87171'],
+                                ['SHIF (2.75%)', fmt(calc.shif), '#f87171'],
+                                ['Housing Levy (1.5%)', fmt(calc.housingLevy), '#f87171'],
+                                ['Insurance Relief', `-${fmt(calc.insuranceRelief)}`, '#34d399'],
+                                ['Statutory Deductions', fmt(calc.nssf + calc.paye + calc.shif + calc.housingLevy - calc.insuranceRelief), '#fb923c'],
+                                ['Extra Deductions', fmt(loanDeduct + advanceDeduct + saccoDeduct + otherDeduct), '#fb923c'],
+                                ['Total Deductions', fmt(calc.totalDeductions), '#fb923c'],
+                                ['NET PAY', fmt(calc.netPay), '#34d399'],
+                            ].map(([l, v, c]) => (
+                                <div key={l as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: (l as string) === 'NET PAY' ? '1px solid rgba(255,255,255,0.1)' : 'none' }}>
+                                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>{l}</span>
+                                    <span style={{ fontSize: 10, fontWeight: 800, color: c as string }}>{v}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.8)' }}>NET TAKE HOME</span>
+                            <span style={{ fontSize: 28, fontWeight: 900, color: '#34d399', letterSpacing: '-0.03em' }}>{fmt(calc.netPay)}</span>
+                        </div>
+                    </div>
+
+                    {/* ─── PAYMENT DETAILS ────────────────────────────────── */}
+                    <div>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-1 h-4 rounded-full bg-blue-500" />
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Details</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={lbl}>Payment Method</label>
+                                <select value={payMethod} onChange={e => setPayMethod(e.target.value)} className={sel}>
+                                    {['Bank Transfer', 'M-Pesa', 'Cash', 'Cheque', 'RTGS', 'EFT'].map(m => <option key={m}>{m}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className={lbl}>Payment Date</label>
+                                <input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className={inp} />
+                            </div>
+                            <div className="col-span-2">
+                                <label className={lbl}>Payment Reference / TXN Code</label>
+                                <input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="e.g. MPESA code, Cheque No., Bank Ref..." className={inp} />
+                            </div>
+                            {selectedStaff && (selectedStaff as any).bank_name && (
+                                <div className="col-span-2 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
+                                    <FiCreditCard size={15} className="text-blue-600 shrink-0" />
+                                    <p className="text-xs font-bold text-blue-900">
+                                        Bank: <strong>{(selectedStaff as any).bank_name}</strong> &nbsp;|&nbsp;
+                                        A/C: {(selectedStaff as any).bank_account || '-'} &nbsp;|&nbsp;
+                                        KRA PIN: {(selectedStaff as any).kra_pin || '-'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-3">
+                            <label className={lbl}>Notes / Remarks</label>
+                            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+                                placeholder="Any remarks for this payroll entry (e.g. deduction reasons, special instructions)..."
+                                className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-gray-300" />
+                        </div>
+                    </div>
+
+                    {/* ─── PAYROLL SUMMARY CARD ───────────────────────────── */}
+                    <div className="bg-gradient-to-br from-slate-50 to-indigo-50 border border-indigo-100 rounded-2xl p-4">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payroll Summary — Confirm Before Saving</p>
+                        <div className="grid grid-cols-3 gap-3">
+                            {[
+                                { l: 'Staff Member', v: selectedStaff ? `${selectedStaff.first_name} ${selectedStaff.last_name}` : '-', c: '#0f172a' },
+                                { l: 'Pay Period', v: `${MONTHS[month - 1]} ${year}`, c: '#0f172a' },
+                                { l: 'Staff Type', v: selectedStaff?._type || '-', c: '#4f46e5' },
+                                { l: 'Basic Salary', v: fmt(basicSalary), c: '#4f46e5' },
+                                { l: 'Gross Pay', v: fmt(calc.grossPay), c: '#16a34a' },
+                                { l: 'Total Deductions', v: fmt(calc.totalDeductions), c: '#dc2626' },
+                                { l: 'PAYE Tax', v: fmt(calc.paye), c: '#b45309' },
+                                { l: 'NSSF', v: fmt(calc.nssf), c: '#1d4ed8' },
+                                { l: 'NET PAY', v: fmt(calc.netPay), c: '#059669' },
+                            ].map(({ l, v, c }) => (
+                                <div key={l} className="bg-white border border-indigo-100 rounded-xl p-2.5 shadow-sm">
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">{l}</p>
+                                    <p className="text-xs font-black mt-1.5 truncate" style={{ color: c }}>{v}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ─── FOOTER BUTTONS ─────────────────────────────────── */}
+                    <div className="flex gap-3 pt-1 pb-2">
+                        <button type="button" onClick={onClose}
+                            className="flex-1 py-3.5 rounded-xl text-sm font-bold border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                            Cancel
+                        </button>
+                        <button type="submit" disabled={saving}
+                            className="flex-2 py-3.5 px-8 rounded-xl text-sm font-black text-white transition flex items-center justify-center gap-2 disabled:opacity-60"
+                            style={{ flex: 2, background: saving ? '#a5b4fc' : 'linear-gradient(135deg,#4f46e5,#2563eb)', boxShadow: saving ? 'none' : '0 4px 20px rgba(79,70,229,0.4)' }}>
+                            {saving
+                                ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving...</>
+                                : <><FiCheck size={15} />{editRecord ? 'Update Payroll Record' : 'Save Payroll Record'}</>}
+                        </button>
+                    </div>
+
+                </form>
             </div>
-        </form>
+        </div>
     );
 }
 
@@ -1094,9 +1177,21 @@ export default function PayrollPage() {
         await fetchAll();
     };
     const handleSavePayroll = async (data: Partial<PayrollRecord>) => {
-        if (editRecord) await supabase.from('school_payroll').update(data).eq('id', editRecord.id);
-        else await supabase.from('school_payroll').insert(data);
-        await fetchAll(); setShowAddPayroll(false); setEditRecord(null);
+        try {
+            if (editRecord) {
+                const { error } = await supabase.from('school_payroll').update(data).eq('id', editRecord.id);
+                if (error) throw error;
+                toast.success('Payroll record updated!');
+            } else {
+                const { error } = await supabase.from('school_payroll').insert(data);
+                if (error) throw error;
+                toast.success('Payroll saved successfully!');
+            }
+            await fetchAll(); setShowAddPayroll(false); setEditRecord(null);
+        } catch (err: any) {
+            toast.error('Save failed: ' + (err?.message || 'Unknown error'));
+            console.error('Payroll save error:', err);
+        }
     };
     const handleSaveAdvance = async (data: Partial<SalaryAdvance>) => {
         await supabase.from('school_salary_advances').insert(data);
@@ -1561,11 +1656,14 @@ export default function PayrollPage() {
                 {viewRecord && <PayslipViewer record={viewRecord} onClose={() => setViewRecord(null)} />}
             </Modal>
 
-            <Modal open={showAddPayroll} onClose={() => { setShowAddPayroll(false); setEditRecord(null); }}
-                title={editRecord ? 'Edit Payroll Record' : 'Add Payroll Record'} size="lg">
-                <PayrollForm staff={staff} advances={advances} editRecord={editRecord}
-                    onSave={handleSavePayroll} onClose={() => { setShowAddPayroll(false); setEditRecord(null); }} />
-            </Modal>
+            {showAddPayroll && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(8px)' }}>
+                    <div style={{ background: '#fff', borderRadius: 24, width: '100%', maxWidth: 680, maxHeight: '94vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.06)', overflow: 'hidden', animation: 'modalIn 0.22s cubic-bezier(0.34,1.56,0.64,1)' }}>
+                        <PayrollForm staff={staff} advances={advances} editRecord={editRecord}
+                            onSave={handleSavePayroll} onClose={() => { setShowAddPayroll(false); setEditRecord(null); }} />
+                    </div>
+                </div>
+            )}
 
             <Modal open={showBulk} onClose={() => setShowBulk(false)} title="⚡ Bulk Payroll Runner" size="xl">
                 <BulkPayrollRunner staff={staff} advances={advances} onComplete={fetchAll} onClose={() => setShowBulk(false)} />

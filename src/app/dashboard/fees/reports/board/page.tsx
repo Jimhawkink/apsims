@@ -21,6 +21,7 @@ export default function BoardReportPage() {
   const [capitation, setCapitation] = useState<any[]>([]);
   const [lpos, setLpos] = useState<any[]>([]);
   const [storeItems, setStoreItems] = useState<any[]>([]);
+  const [schoolIncome, setSchoolIncome] = useState<any[]>([]);
   const [selTerm, setSelTerm] = useState('');
 
   const loadAll = useCallback(async () => {
@@ -32,12 +33,12 @@ export default function BoardReportPage() {
       supabase.from('school_fee_payments').select('amount,payment_date,term_id,payment_method,student_id').order('payment_date', { ascending: false }),
       supabase.from('school_fee_structures').select('*'),
       // NO .eq filter on payroll status — get all, filter in JS
-      supabase.from('school_payroll').select('gross_pay,net_pay,paye,nhif,nssf,housing_levy,payment_date,status,staff_type').order('payment_date', { ascending: false }),
+      supabase.from('school_payroll').select('gross_pay,net_pay,paye,nhif,nssf,housing_levy,payment_date,status,staff_type,year,month').order('created_at', { ascending: false }),
       // NO .eq filter on assets — get all, filter in JS
       supabase.from('school_assets').select('purchase_price,current_value,category,status,quantity'),
       supabase.from('school_bank_accounts').select('bank_name,account_name,book_balance,bank_balance,is_active'),
-      // FIXED: removed expense_type column (doesn't exist). Use actual columns.
-      supabase.from('school_expenses').select('amount,category,expense_date,year,status,vote_head,expense_name').order('expense_date', { ascending: false }),
+      // FIXED: use actual columns — title (category name), description, amount, expense_date, year, status
+      supabase.from('school_expenses').select('amount,title,description,expense_date,year,status,reference_number').order('expense_date', { ascending: false }),
       supabase.from('school_forms').select('id,form_name,form_level').order('form_level'),
       supabase.from('school_terms').select('id,term_name,start_date,end_date,is_current,year').order('id', { ascending: false }),
     ]);
@@ -71,6 +72,12 @@ export default function BoardReportPage() {
         .select('amount_received,term_id,year,status').order('id', { ascending: false }).limit(20);
       setCapitation(capData || []);
     } catch { setCapitation([]); }
+
+    // Other income (grants, donations, rent, etc.)
+    try {
+      const { data: incomeData } = await supabase.from('school_income').select('amount,category,income_date,year,received_by,notes');
+      setSchoolIncome(incomeData || []);
+    } catch { setSchoolIncome([]); }
 
     const cur = (tRes.data || []).find((t: any) => t.is_current) || (tRes.data || [])[0];
     if (cur) setSelTerm(String(cur.id));
@@ -124,27 +131,35 @@ export default function BoardReportPage() {
 
   // Capitation — filter by year
   const capitationTotal = capitation.filter(c => Number(c.year) === year).reduce((a, c) => a + Number(c.amount_received || 0), 0);
-  const totalIncome = totalFeeIncome + capitationTotal;
 
-  // Payroll — filter by year, include all paid/approved statuses
+  // Other income (school_income table — grants, donations, rent, etc.) — filter by year
+  const otherIncomeTotal = schoolIncome.filter(i => {
+    const iy = i.year ? Number(i.year) : (i.income_date ? new Date(i.income_date).getFullYear() : 0);
+    return iy === year || iy === 0; // include untagged rows too
+  }).reduce((a, i) => a + Number(i.amount || 0), 0);
+
+  const totalIncome = totalFeeIncome + capitationTotal + otherIncomeTotal;
+
+  // Payroll — filter by year, include ALL statuses (Pending/Approved/Paid/Processed)
+  // Use created_at or month/year fields since payment_date may be null for Pending records
   const yearPayroll = payroll.filter(p => {
-    const y = p.payment_date ? new Date(p.payment_date).getFullYear() : 0;
-    const st = (p.status || '').toLowerCase();
-    return y === year && (st === 'paid' || st === 'approved' || st === 'processed' || !st);
+    // Try payment_date first, fall back to year column if present, then include all
+    const pd = p.payment_date ? new Date(p.payment_date).getFullYear() : 0;
+    const py = (p as any).year ? Number((p as any).year) : 0;
+    return pd === year || py === year || (pd === 0 && py === 0); // include if no date (just saved)
   });
   const salaries = yearPayroll.reduce((a, p) => a + Number(p.gross_pay || 0), 0);
   const paye = yearPayroll.reduce((a, p) => a + Number(p.paye || 0), 0);
   const nhif = yearPayroll.reduce((a, p) => a + Number(p.nhif || 0), 0);
   const nssf = yearPayroll.reduce((a, p) => a + Number(p.nssf || 0), 0);
 
-  // Expenses — use expense_date or year column
+  // Expenses — use expense_date or year column, include all except rejected/cancelled
   const yearExpenses = expenses.filter(e => {
     const ey = e.year ? Number(e.year) : (e.expense_date ? new Date(e.expense_date).getFullYear() : 0);
     const st = (e.status || '').toLowerCase();
-    return ey === year && st !== 'rejected' && st !== 'cancelled';
+    return (ey === year || ey === 0) && st !== 'rejected' && st !== 'cancelled';
   });
   const totalExpenseAmt = yearExpenses.reduce((a, e) => a + Number(e.amount || 0), 0);
-
 
   // Assets — all active/in-use
   const activeAssets = assets.filter(a => {
@@ -153,16 +168,15 @@ export default function BoardReportPage() {
   });
   const fixedAssets = activeAssets.reduce((a, ast) => a + Number(ast.current_value || ast.purchase_price || 0) * Number(ast.quantity || 1), 0);
 
-  // Procurement — LPO total spend for year (approved/delivered LPOs)
+  // Procurement — LPO total spend for year (all non-cancelled LPOs)
   const procurementTotal = lpos.filter(l => {
     const ly = l.year ? Number(l.year) : (l.lpo_date ? new Date(l.lpo_date).getFullYear() : 0);
     const st = (l.status || '').toLowerCase();
-    return ly === year && st !== 'cancelled' && st !== 'rejected';
+    return (ly === year || ly === 0) && st !== 'cancelled' && st !== 'rejected';
   }).reduce((a, l) => a + Number(l.total_amount || 0), 0);
 
-  // Store inventory — total value of current stock
+  // Store inventory — total value of all current stock
   const storeInventoryValue = storeItems.reduce((a, s) => {
-    // try total_value first, else quantity * unit_price
     const tv = Number(s.total_value || 0) || (Number(s.quantity || 0) * Number(s.unit_price || 0));
     return a + tv;
   }, 0);
@@ -361,14 +375,16 @@ export default function BoardReportPage() {
               {[
                 { label: 'Fee Income (Term)', value: totalFeeIncome, indent: false, bold: false },
                 { label: 'Govt Capitation', value: capitationTotal, indent: false, bold: false },
+                { label: 'Other Income (Grants/Donations/Rent)', value: otherIncomeTotal, indent: false, bold: false },
                 { label: 'TOTAL INCOME', value: totalIncome, indent: false, bold: true, highlight: '#dbeafe' },
                 { label: '', value: null, indent: false, bold: false },
                 { label: 'Staff Salaries (Gross)', value: salaries, indent: false, bold: false },
                 { label: 'Other Expenses', value: totalExpenseAmt, indent: false, bold: false },
                 { label: 'Procurement Spend (LPOs)', value: procurementTotal, indent: false, bold: false },
+                { label: 'Store Inventory Value', value: storeInventoryValue, indent: false, bold: false },
                 { label: 'TOTAL EXPENDITURE', value: totalExpenditureAll, indent: false, bold: true, highlight: '#fee2e2' },
                 { label: '', value: null, indent: false, bold: false },
-                { label: netSurplus >= 0 ? '✅ NET SURPLUS' : '⚠️ NET DEFICIT', value: Math.abs(netSurplus), indent: false, bold: true, highlight: netSurplus >= 0 ? '#dcfce7' : '#fee2e2', color: netSurplus >= 0 ? '#16a34a' : '#dc2626' },
+                { label: netSurplus >= 0 ? 'NET SURPLUS' : 'NET DEFICIT', value: Math.abs(netSurplus), indent: false, bold: true, highlight: netSurplus >= 0 ? '#dcfce7' : '#fee2e2', color: netSurplus >= 0 ? '#16a34a' : '#dc2626' },
               ].map((row, i) => row.value === null ? (
                 <tr key={i}><td colSpan={2} style={{ padding: '4px 0', borderBottom: '1px solid #f1f5f9' }} /></tr>
               ) : (
