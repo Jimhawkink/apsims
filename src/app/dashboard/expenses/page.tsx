@@ -20,9 +20,9 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointEleme
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Expense {
-    id: number; expense_date: string; category_id: number; description: string;
+    id: number; expense_date: string; title: string; description: string;
     amount: number; payment_method: string; reference_number?: string;
-    approved_by?: string; notes?: string; year: number;
+    approved_by?: string; year: number;
     status?: 'pending' | 'approved' | 'rejected';
 }
 interface Category { id: number; category_name: string; icon: string; budget_amount?: number; }
@@ -138,7 +138,7 @@ export default function ExpensesPage() {
 
     const catTotals = useMemo(() => categories.map(c => ({
         ...c,
-        total: expenses.filter(e => e.category_id === c.id).reduce((s, e) => s + Number(e.amount), 0),
+        total: expenses.filter(e => (e.title || '') === c.category_name).reduce((s, e) => s + Number(e.amount), 0),
     })).filter(c => c.total > 0).sort((a, b) => b.total - a.total), [categories, expenses]);
     const topCat = catTotals[0];
 
@@ -158,7 +158,7 @@ export default function ExpensesPage() {
     const filtered = useMemo(() => {
         let list = [...expenses];
         if (searchTerm) { const q = searchTerm.toLowerCase(); list = list.filter(e => e.description.toLowerCase().includes(q) || (e.reference_number || '').toLowerCase().includes(q)); }
-        if (filterCat) list = list.filter(e => String(e.category_id) === filterCat);
+        if (filterCat) list = list.filter(e => e.title === filterCat);
         if (filterStatus) list = list.filter(e => (e.status || 'approved') === filterStatus);
         if (filterMonth) list = list.filter(e => e.expense_date.startsWith(filterMonth));
         if (sortBy === 'date_desc') list.sort((a, b) => b.expense_date.localeCompare(a.expense_date));
@@ -168,7 +168,7 @@ export default function ExpensesPage() {
         return list;
     }, [expenses, searchTerm, filterCat, filterStatus, filterMonth, sortBy]);
 
-    const getCat = (id: number) => categories.find(c => c.id === id);
+    const getCat = (title: string) => categories.find(c => c.category_name === title);
 
     // ── CRUD ───────────────────────────────────────────────────────────────────
     const handleSubmit = async (ev: React.FormEvent) => {
@@ -199,12 +199,14 @@ export default function ExpensesPage() {
     };
 
     const openEdit = (e: Expense) => {
+        // Find the category id from the title stored in DB
+        const cat = categories.find(c => c.category_name === e.title);
         setEditingId(e.id);
         setForm({
-            expense_date: e.expense_date, category_id: String(e.category_id),
+            expense_date: e.expense_date, category_id: cat ? String(cat.id) : '',
             description: e.description, amount: String(e.amount),
             payment_method: e.payment_method, reference_number: e.reference_number || '',
-            approved_by: e.approved_by || '', notes: e.notes || '', status: e.status || 'approved',
+            approved_by: e.approved_by || '', notes: '', status: e.status || 'approved',
         });
         setShowModal(true);
     };
@@ -218,7 +220,7 @@ export default function ExpensesPage() {
     const updateStatus = async (expense: Expense, status: 'approved' | 'rejected') => {
         const { error } = await supabase.from('school_expenses').update({ status }).eq('id', expense.id);
         if (error) { toast.error('Failed to update status'); return; }
-        const catName = getCat(expense.category_id)?.category_name || '';
+        const catName = getCat(expense.title)?.category_name || expense.title || '';
         toast.success(`${status === 'approved' ? '✅ Approved' : '❌ Rejected'}!`);
         notifyApproval(status, expense, catName, principalPhone);
         fetchData();
@@ -234,7 +236,7 @@ export default function ExpensesPage() {
                 const XLSX = xlsxLib;
                 const wb = XLSX.utils.book_new();
                 const headers = ['#', 'Date', 'Category', 'Description', 'Amount (KES)', 'Method', 'Reference', 'Approved By', 'Status'];
-                const rows = filtered.map((e, i) => [i + 1, e.expense_date, getCat(e.category_id)?.category_name || '-', e.description, Number(e.amount), e.payment_method, e.reference_number || '-', e.approved_by || '-', e.status || 'approved']);
+                const rows = filtered.map((e, i) => [i + 1, e.expense_date, e.title || '-', e.description, Number(e.amount), e.payment_method, e.reference_number || '-', e.approved_by || '-', e.status || 'approved']);
                 const wsData = [[`${schoolName} — Expenses Report ${currentYear}`], [`Generated: ${new Date().toLocaleDateString('en-KE')} | Total: ${fmt(filtered.reduce((s, e) => s + Number(e.amount), 0))}`], [], headers, ...rows];
                 const ws = XLSX.utils.aoa_to_sheet(wsData);
                 ws['!cols'] = [{ wch: 5 }, { wch: 14 }, { wch: 20 }, { wch: 35 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 12 }];
@@ -243,7 +245,7 @@ export default function ExpensesPage() {
                 XLSX.writeFile(wb, `${schoolName.replace(/\s+/g, '_')}_Expenses_${currentYear}.xlsx`);
                 toast.dismiss(tid); toast.success('✅ Excel exported!');
             } else {
-                const csv = ['Date,Category,Description,Amount,Method,Reference,Status', ...filtered.map(e => `${e.expense_date},"${getCat(e.category_id)?.category_name || ''}","${e.description}",${e.amount},${e.payment_method},${e.reference_number || ''},${e.status || 'approved'}`)].join('\n');
+                const csv = ['Date,Category,Description,Amount,Method,Reference,Status', ...filtered.map(e => `${e.expense_date},"${e.title || ''}","${e.description}",${e.amount},${e.payment_method},${e.reference_number || ''},${e.status || 'approved'}`)].join('\n');
                 const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `Expenses_${currentYear}.csv`; a.click();
                 toast.dismiss(tid); toast.success('✅ CSV exported!');
             }
@@ -412,7 +414,7 @@ export default function ExpensesPage() {
                             </div>
                             <select value={filterCat} onChange={e => setFilterCat(e.target.value)} className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-red-300 transition-all">
                                 <option value="">All Categories</option>
-                                {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.category_name}</option>)}
+                                {categories.map(c => <option key={c.id} value={c.category_name}>{c.icon} {c.category_name}</option>)}
                             </select>
                             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-red-300 transition-all">
                                 <option value="">All Statuses</option>
@@ -469,7 +471,7 @@ export default function ExpensesPage() {
                             </thead>
                             <tbody>
                                 {filtered.map((e, i) => {
-                                    const cat = getCat(e.category_id);
+                                    const cat = getCat(e.title);
                                     const status = (e.status || 'approved') as 'approved' | 'pending' | 'rejected';
                                     return (
                                         <tr key={e.id} className={`border-b border-gray-50 hover:bg-red-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>

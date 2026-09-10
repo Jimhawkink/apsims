@@ -529,6 +529,8 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
         if (s) {
             setHouseAllow((s as any).house_allowance || 0);
             setTransportAllow((s as any).transport_allowance || 0);
+            // Pre-fill medical allowance from teacher profile if it has one
+            if ((s as any).medical_allowance) setMedicalAllow((s as any).medical_allowance);
         }
         const activeAdvance = advances.find(a => a.staff_id === selectedStaffId && a.status === 'Active');
         if (activeAdvance) setAdvanceDeduct(activeAdvance.monthly_deduction);
@@ -541,20 +543,35 @@ function PayrollForm({ staff, advances, onSave, onClose, editRecord }: {
         if (!selectedStaffId) { toast.error('Please select a staff member'); return; }
         setSaving(true);
         const s = selectedStaff!;
+        // other_allowances = medical + other inputs (medical_allowance column added via migration)
+        // loan_deductions = loan; advance_deductions, sacco_deductions, housing_levy added via migration
         await onSave({
             staff_id: selectedStaffId,
             staff_name: `${s.first_name} ${s.last_name}`,
             staff_type: s._type, month, year,
             pay_period: `${MONTHS[month - 1]} ${year}`,
             basic_salary: basicSalary,
-            house_allowance: houseAllow, transport_allowance: transportAllow,
-            medical_allowance: medicalAllow, other_allowances: otherAllow,
-            paye: calc.paye, nhif: calc.nhif, nssf: calc.nssf, housing_levy: calc.housingLevy,
-            loan_deductions: loanDeduct, advance_deductions: advanceDeduct,
-            sacco_deductions: saccoDeduct, other_deductions: otherDeduct,
-            gross_pay: calc.grossPay, total_deductions: calc.totalDeductions, net_pay: calc.netPay,
-            status: 'Pending', payment_method: payMethod, payment_ref: payRef,
-            payment_date: payDate, notes,
+            house_allowance: houseAllow,
+            transport_allowance: transportAllow,
+            medical_allowance: medicalAllow,
+            other_allowances: otherAllow,
+            paye: calc.paye,
+            nhif: calc.nhif,
+            nssf: calc.nssf,
+            housing_levy: calc.housingLevy,
+            loan_deduction: loanDeduct,        // singular — original column
+            loan_deductions: loanDeduct,       // plural — new column
+            advance_deductions: advanceDeduct,
+            sacco_deductions: saccoDeduct,
+            other_deductions: otherDeduct,
+            gross_pay: calc.grossPay,
+            total_deductions: calc.totalDeductions,
+            net_pay: calc.netPay,
+            status: 'Pending',
+            payment_method: payMethod,
+            payment_ref: payRef,
+            payment_date: payDate || null,
+            notes,
         } as any);
         setSaving(false);
     };
@@ -982,7 +999,7 @@ function BulkPayrollRunner({ staff, advances, onComplete, onClose }: {
                 basic_salary: s.basic_salary, house_allowance: s.houseAllow,
                 transport_allowance: transportFlat, medical_allowance: medicalFlat, other_allowances: 0,
                 paye: s.calc.paye, nhif: s.calc.nhif, nssf: s.calc.nssf, housing_levy: s.calc.housingLevy,
-                loan_deductions: 0, advance_deductions: s.calc.advanceDeductions,
+                loan_deduction: 0, loan_deductions: 0, advance_deductions: s.calc.advanceDeductions,
                 sacco_deductions: 0, other_deductions: 0,
                 gross_pay: s.calc.grossPay, total_deductions: s.calc.totalDeductions, net_pay: s.calc.netPay,
                 status: 'Pending',
