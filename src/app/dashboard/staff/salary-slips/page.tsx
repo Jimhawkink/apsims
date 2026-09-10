@@ -564,7 +564,7 @@ export default function SalarySlipPage() {
 <div class="hdr"><div><div class="school">${sn}</div><div class="sub">${schoolDetails.postal_address||''} ${schoolDetails.county?'· '+schoolDetails.county:''}</div><div class="sub">${schoolDetails.phone1||schoolDetails.phone||''} ${schoolDetails.email?'· '+schoolDetails.email:''}</div></div><div class="badge"><div class="badge-t">SALARY SLIP</div><div class="badge-s">${MONTHS[month]} ${year}</div>${sl.fromPayroll?'<div style="font-size:9px;color:#86efac;margin-top:4px">✔ Payroll Record</div>':'<div style="font-size:9px;color:#fde68a;margin-top:4px">⚠ Estimate</div>'}</div></div>
 <div class="info-grid">${[['Employee',`${t.first_name} ${t.middle_name||''} ${t.last_name}`.trim()],['Staff Type',t.staff_type||'—'],['Designation',t.designation||'—'],['Department',t.department||'—'],['TSC No.',t.tsc_number||'—'],['KRA PIN',t.kra_pin||'—'],['NHIF No.',t.nhif_no||'—'],['NSSF No.',t.nssf_no||'—'],['Pay Period',`${MONTHS[month]} ${year}`],['Bank',t.bank_name||'—'],['Account',t.bank_account||'—'],['Payment',pr?.payment_method||'Bank Transfer']].map(([l,v])=>`<div class="info-cell"><div class="info-lbl">${l}</div><div class="info-val">${v}</div></div>`).join('')}</div>
 <div class="cols"><div><div class="sec">↑ EARNINGS</div><table>${[['Basic Salary',sl.basic],['House Allowance',sl.house],['Transport Allow.',sl.transport],['Medical Allow.',sl.medical],...(sl.otherAllow>0?[['Other Allowances',sl.otherAllow]]:[])].map(([l,v])=>`<tr><td>${l}</td><td>${fmt(v as number)}</td></tr>`).join('')}<tr class="tot"><td>GROSS PAY</td><td>${fmt(sl.gross)}</td></tr></table></div>
-<div><div class="sec">↓ DEDUCTIONS</div><table>${[['PAYE (Income Tax)',sl.paye],['NHIF / SHIF',sl.shif],['NSSF',sl.nssf],...(sl.housing>0?[['Housing Levy 1.5%',sl.housing]]:[]),...(sl.loans>0?[['Loan Repayment',sl.loans]]:[]),...(sl.advance>0?[['Salary Advance',sl.advance]]:[]),...(sl.sacco>0?[['SACCO',sl.sacco]]:[]),...(sl.otherDed>0?[['Other Deductions',sl.otherDed]]:[])].map(([l,v])=>`<tr><td>${l}</td><td style="color:#dc2626">${fmt(v as number)}</td></tr>`).join('')}<tr class="tot"><td>TOTAL DEDUCTIONS</td><td style="color:#dc2626">${fmt(sl.totalDed)}</td></tr></table></div></div>
+<div><div class="sec">↓ DEDUCTIONS</div><table>${[['PAYE (Income Tax)',sl.paye],['NHIF / SHIF',sl.shif],['NSSF',sl.nssf],...(sl.housing>0?[['Housing Levy 1.5%',sl.housing]]:[]),...((sl.loans||0)>0?[['Loan Repayment',(sl.loans||0)]]:[]),...((sl.advance||0)>0?[['Salary Advance',(sl.advance||0)]]:[]),...((sl.sacco||0)>0?[['SACCO',(sl.sacco||0)]]:[]),...((sl.otherDed||0)>0?[['Other Deductions',(sl.otherDed||0)]]:[])].map(([l,v])=>`<tr><td>${l}</td><td style="color:#dc2626">${fmt(v as number)}</td></tr>`).join('')}<tr class="tot"><td>TOTAL DEDUCTIONS</td><td style="color:#dc2626">${fmt(sl.totalDed)}</td></tr></table></div></div>
 <div class="net"><div class="net-lbl">NET PAY (TAKE HOME)</div><div class="net-amt">${fmt(sl.net)}</div><div style="font-size:11px;margin-top:6px;color:rgba(255,255,255,.6)">Gross ${fmt(sl.gross)} − Deductions ${fmt(sl.totalDed)}</div></div>
 <div class="sigs"><div><div class="sig">Employee: ${t.first_name} ${t.last_name}</div></div><div><div class="sig">Principal: ${schoolDetails.principal_name||'________________'}</div></div></div>
 <div class="ftr">Computer-generated salary slip. Generated: ${new Date().toLocaleDateString('en-KE')} · ${sn} · APSIMS</div>
@@ -629,10 +629,10 @@ export default function SalarySlipPage() {
         a(rw('NHIF / SHIF', fmtT(sl.shif)));
         a(rw('NSSF', fmtT(sl.nssf)));
         if (sl.housing > 0)  a(rw('Housing Levy 1.5%', fmtT(sl.housing)));
-        if (sl.loans > 0)    a(rw('Loan Repayment', fmtT(sl.loans)));
-        if (sl.advance > 0)  a(rw('Salary Advance', fmtT(sl.advance)));
-        if (sl.sacco > 0)    a(rw('SACCO', fmtT(sl.sacco)));
-        if (sl.otherDed > 0) a(rw('Other Deductions', fmtT(sl.otherDed)));
+        if ((sl.loans||0) > 0)    a(rw('Loan Repayment', fmtT((sl.loans||0))));
+        if ((sl.advance||0) > 0)  a(rw('Salary Advance', fmtT((sl.advance||0))));
+        if ((sl.sacco||0) > 0)    a(rw('SACCO', fmtT((sl.sacco||0))));
+        if ((sl.otherDed||0) > 0) a(rw('Other Deductions', fmtT((sl.otherDed||0))));
         a(DO);
         a(rw('TOTAL DEDUCTIONS', fmtT(sl.totalDed)));
         a(EQ);
@@ -820,7 +820,7 @@ export default function SalarySlipPage() {
                                     <FiSettings size={13} />Configure Salary
                                 </button>
                                 <button onClick={() => printSlip('thermal')} disabled={printing} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', border: 'none', borderRadius: 12, fontSize: 12, fontWeight: 800, color: '#fff', cursor: 'pointer', flexShrink: 0, boxShadow: '0 4px 14px rgba(15,23,42,0.4)' }}>
-                                    <FiPrinter size={13} />{printing ? 'Printing...' : '🖨 Thermal (80mm)'}
+                                    <FiPrinter size={13} />{printing ? 'Printing...' : 'Thermal (80mm)'}
                                 </button>
                                 <button onClick={() => printSlip('a4')} disabled={printing} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: 'linear-gradient(135deg,#1d4ed8,#6366f1)', border: 'none', borderRadius: 12, fontSize: 12, fontWeight: 800, color: '#fff', cursor: 'pointer', flexShrink: 0, boxShadow: '0 4px 14px rgba(29,78,216,0.35)' }}>
                                     <FiPrinter size={13} />A4 / PDF
@@ -908,10 +908,10 @@ export default function SalarySlipPage() {
                                                 { l: 'NHIF / SHIF', v: selectedSlip.shif },
                                                 { l: 'NSSF', v: selectedSlip.nssf },
                                                 ...(selectedSlip.housing > 0 ? [{ l: 'Housing Levy (1.5%)', v: selectedSlip.housing }] : []),
-                                                ...(selectedSlip.loans > 0 ? [{ l: 'Loan Repayment', v: selectedSlip.loans }] : []),
-                                                ...(selectedSlip.advance > 0 ? [{ l: 'Salary Advance', v: selectedSlip.advance }] : []),
-                                                ...(selectedSlip.sacco > 0 ? [{ l: 'SACCO Contribution', v: selectedSlip.sacco }] : []),
-                                                ...(selectedSlip.otherDed > 0 ? [{ l: selectedConfig.other_deduction_name || 'Other Deduction', v: selectedSlip.otherDed }] : []),
+                                                ...((selectedSlip.loans||0) > 0 ? [{ l: 'Loan Repayment', v: (selectedSlip.loans||0) }] : []),
+                                                ...((selectedSlip.advance||0) > 0 ? [{ l: 'Salary Advance', v: (selectedSlip.advance||0) }] : []),
+                                                ...((selectedSlip.sacco||0) > 0 ? [{ l: 'SACCO Contribution', v: (selectedSlip.sacco||0) }] : []),
+                                                ...((selectedSlip.otherDed||0) > 0 ? [{ l: selectedConfig.other_deduction_name || 'Other Deduction', v: (selectedSlip.otherDed||0) }] : []),
                                             ].map((row, i) => (
                                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 8px', background: i % 2 === 0 ? '#f8fafc' : 'transparent', borderRadius: 6, marginBottom: 2 }}>
                                                     <span style={{ fontSize: 12, color: '#475569' }}>{row.l}</span>
