@@ -545,93 +545,134 @@ export default function SalarySlipPage() {
     const totalGrossAll = filtered.reduce((s, t) => s + computeSlipForTeacher(t).gross, 0);
     const withPayroll = filtered.filter(t => !!getPayrollRecord(t.id)).length;
 
-    const printSlip = async () => {
-        if (!printRef.current || !selectedTeacher || !selectedSlip) return;
+    // ── 80mm THERMAL RECEIPT PRINT (default) ────────────────────────────────
+    const printSlip = async (mode: 'a4' | 'thermal' = 'thermal') => {
+        if (!selectedTeacher || !selectedSlip) return;
         setPrinting(true);
-        const win = window.open('', '_blank', 'width=900,height=700');
-        if (!win) { toast.error('Allow popups'); setPrinting(false); return; }
-        win.document.write(`<!DOCTYPE html><html><head><title>Salary Slip — ${selectedTeacher.first_name} ${selectedTeacher.last_name}</title>
-        <style>
-            *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
-            body{background:#fff;color:#1e293b;padding:32px}
-            .hdr{background:linear-gradient(135deg,#1e3a5f,#1d4ed8);color:#fff;padding:24px 28px;border-radius:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start}
-            .school{font-size:22px;font-weight:900;letter-spacing:-0.5px}
-            .sub{font-size:11px;color:#93c5fd;margin-top:4px}
-            .badge{background:rgba(255,255,255,0.2);padding:8px 14px;border-radius:8px;text-align:right}
-            .badge-t{font-size:13px;font-weight:800}
-            .badge-s{font-size:11px;color:#bfdbfe;margin-top:2px}
-            .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
-            .info-cell{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px}
-            .info-lbl{font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px}
-            .info-val{font-size:12px;font-weight:700;color:#0f172a;margin-top:2px}
-            .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
-            .section-title{font-size:10px;font-weight:800;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.5px;background:#eff6ff;padding:6px 10px;border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:4px}
-            table{width:100%;border-collapse:collapse}
-            tr:nth-child(even){background:#f8fafc}
-            td{padding:7px 10px;font-size:12px;border-bottom:1px solid #f1f5f9}
-            td:last-child{text-align:right;font-weight:600}
-            .total-row td{font-weight:800;font-size:13px;border-top:2px solid #1e3a5f;color:#1e3a5f}
-            .net-box{background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;padding:18px 24px;border-radius:12px;text-align:center;margin-bottom:16px}
-            .net-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.6)}
-            .net-amt{font-size:36px;font-weight:900;letter-spacing:-1px;margin-top:4px}
-            .sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:20px;padding-top:20px;border-top:1px solid #e2e8f0}
-            .sig-line{border-top:1.5px solid #94a3b8;padding-top:6px;margin-top:32px;font-size:11px;color:#64748b}
-            .footer{text-align:center;margin-top:16px;font-size:9px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px}
-        </style></head><body>
-        <div class="hdr">
-            <div><div class="school">${schoolDetails.school_name || 'APSIMS SCHOOL'}</div><div class="sub">${schoolDetails.postal_address || ''} ${schoolDetails.county ? '· ' + schoolDetails.county : ''}</div><div class="sub">${schoolDetails.phone1 || schoolDetails.phone || ''} ${schoolDetails.email ? '· ' + schoolDetails.email : ''}</div></div>
-            <div class="badge"><div class="badge-t">SALARY SLIP</div><div class="badge-s">${MONTHS[month]} ${year}</div>${selectedSlip.fromPayroll ? '<div style="margin-top:4px;font-size:9px;color:#86efac">✔ From Payroll Record</div>' : '<div style="margin-top:4px;font-size:9px;color:#fde68a">⚠ Computed (No Payroll Record)</div>'}</div>
-        </div>
-        <div class="info-grid">
-            ${[
-                ['Employee Name', `${selectedTeacher.first_name} ${selectedTeacher.middle_name || ''} ${selectedTeacher.last_name}`.trim()],
-                ['Staff Type', selectedTeacher.staff_type || '—'],
-                ['Designation', selectedTeacher.designation || '—'],
-                ['Department', selectedTeacher.department || '—'],
-                ['TSC Number', selectedTeacher.tsc_number || '—'],
-                ['KRA PIN', selectedTeacher.kra_pin || '—'],
-                ['NHIF No.', selectedTeacher.nhif_no || '—'],
-                ['NSSF No.', selectedTeacher.nssf_no || '—'],
-                ['Pay Period', `${MONTHS[month]} ${year}`],
-                ['Bank', selectedTeacher.bank_name || '—'],
-                ['Account No.', selectedTeacher.bank_account || '—'],
-                ['Payment Method', selectedPayroll?.payment_method || 'Bank Transfer'],
-            ].map(([l, v]) => `<div class="info-cell"><div class="info-lbl">${l}</div><div class="info-val">${v}</div></div>`).join('')}
-        </div>
-        <div class="cols">
-            <div><div class="section-title">↑ Earnings</div>
-                <table>${[
-                    ['Basic Salary', selectedSlip.basic],
-                    ['House Allowance', selectedSlip.house],
-                    ['Transport Allowance', selectedSlip.transport],
-                    ['Medical Allowance', selectedSlip.medical],
-                    ...(selectedSlip.responsibility > 0 ? [['Responsibility Allowance', selectedSlip.responsibility]] : []),
-                    ...(selectedSlip.otherAllow > 0 ? [[selectedConfig.other_allowance_name || 'Other Allowance', selectedSlip.otherAllow]] : []),
-                ].map(([l, v]) => `<tr><td>${l}</td><td>${fmt(v as number)}</td></tr>`).join('')}
-                <tr class="total-row"><td>GROSS PAY</td><td>${fmt(selectedSlip.gross)}</td></tr></table></div>
-            <div><div class="section-title">↓ Deductions</div>
-                <table>${[
-                    ['PAYE (Income Tax)', selectedSlip.paye],
-                    ['NHIF / SHIF', selectedSlip.shif],
-                    ['NSSF', selectedSlip.nssf],
-                    ...(selectedSlip.housing > 0 ? [['Housing Levy (1.5%)', selectedSlip.housing]] : []),
-                    ...(selectedSlip.loans > 0 ? [['Loan Repayment', selectedSlip.loans]] : []),
-                    ...(selectedSlip.advance > 0 ? [['Salary Advance', selectedSlip.advance]] : []),
-                    ...(selectedSlip.sacco > 0 ? [['SACCO', selectedSlip.sacco]] : []),
-                    ...(selectedSlip.otherDed > 0 ? [[selectedConfig.other_deduction_name || 'Other Deduction', selectedSlip.otherDed]] : []),
-                ].map(([l, v]) => `<tr><td>${l}</td><td style="color:#dc2626">${fmt(v as number)}</td></tr>`).join('')}
-                <tr class="total-row"><td>TOTAL DEDUCTIONS</td><td style="color:#dc2626">${fmt(selectedSlip.totalDed)}</td></tr></table></div>
-        </div>
-        <div class="net-box"><div class="net-label">NET PAY (TAKE HOME)</div><div class="net-amt">${fmt(selectedSlip.net)}</div><div style="font-size:11px;margin-top:6px;color:rgba(255,255,255,0.6)">Gross ${fmt(selectedSlip.gross)} − Deductions ${fmt(selectedSlip.totalDed)}</div></div>
-        <div class="sigs">
-            <div><div class="sig-line">Employee: ${selectedTeacher.first_name} ${selectedTeacher.last_name}</div></div>
-            <div><div class="sig-line">Principal: ${schoolDetails.principal_name || '________________'}</div></div>
-        </div>
-        <div class="footer">This is a computer-generated salary slip. For queries contact HR. Generated: ${new Date().toLocaleDateString('en-KE')} · ${schoolDetails.school_name} · Powered by APSIMS</div>
-        <script>window.onload=()=>{window.print();}</script></body></html>`);
+        const win = window.open('', '_blank', mode === 'thermal' ? 'width=420,height=860' : 'width=920,height=720');
+        if (!win) { toast.error('Allow popups to print'); setPrinting(false); return; }
+
+        const t = selectedTeacher;
+        const sl = selectedSlip;
+        const pr = selectedPayroll;
+        const sn = schoolDetails.school_name || 'APSIMS SCHOOL';
+        const fmt = (n: number) => `KES ${(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}`;
+
+        if (mode === 'a4') {
+            win.document.write(`<!DOCTYPE html><html><head><title>Salary Slip — ${t.first_name} ${t.last_name}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}body{background:#fff;color:#1e293b;padding:32px}.hdr{background:linear-gradient(135deg,#1e3a5f,#1d4ed8);color:#fff;padding:24px 28px;border-radius:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start}.school{font-size:22px;font-weight:900}.sub{font-size:11px;color:#93c5fd;margin-top:4px}.badge{background:rgba(255,255,255,0.2);padding:8px 14px;border-radius:8px;text-align:right}.badge-t{font-size:13px;font-weight:800}.badge-s{font-size:11px;color:#bfdbfe;margin-top:2px}.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}.info-cell{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px}.info-lbl{font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px}.info-val{font-size:12px;font-weight:700;color:#0f172a;margin-top:2px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}.sec{font-size:10px;font-weight:800;color:#1e3a5f;text-transform:uppercase;background:#eff6ff;padding:6px 10px;border-radius:6px;margin-bottom:8px}table{width:100%;border-collapse:collapse}tr:nth-child(even){background:#f8fafc}td{padding:7px 10px;font-size:12px;border-bottom:1px solid #f1f5f9}td:last-child{text-align:right;font-weight:600}.tot td{font-weight:800;font-size:13px;border-top:2px solid #1e3a5f;color:#1e3a5f}.net{background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;padding:18px 24px;border-radius:12px;text-align:center;margin-bottom:16px}.net-lbl{font-size:11px;font-weight:700;letter-spacing:1px;color:rgba(255,255,255,.6)}.net-amt{font-size:36px;font-weight:900;margin-top:4px}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:20px;padding-top:20px;border-top:1px solid #e2e8f0}.sig{border-top:1.5px solid #94a3b8;padding-top:6px;margin-top:32px;font-size:11px;color:#64748b}.ftr{text-align:center;margin-top:16px;font-size:9px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px}</style></head><body>
+<div class="hdr"><div><div class="school">${sn}</div><div class="sub">${schoolDetails.postal_address||''} ${schoolDetails.county?'· '+schoolDetails.county:''}</div><div class="sub">${schoolDetails.phone1||schoolDetails.phone||''} ${schoolDetails.email?'· '+schoolDetails.email:''}</div></div><div class="badge"><div class="badge-t">SALARY SLIP</div><div class="badge-s">${MONTHS[month]} ${year}</div>${sl.fromPayroll?'<div style="font-size:9px;color:#86efac;margin-top:4px">✔ Payroll Record</div>':'<div style="font-size:9px;color:#fde68a;margin-top:4px">⚠ Estimate</div>'}</div></div>
+<div class="info-grid">${[['Employee',`${t.first_name} ${t.middle_name||''} ${t.last_name}`.trim()],['Staff Type',t.staff_type||'—'],['Designation',t.designation||'—'],['Department',t.department||'—'],['TSC No.',t.tsc_number||'—'],['KRA PIN',t.kra_pin||'—'],['NHIF No.',t.nhif_no||'—'],['NSSF No.',t.nssf_no||'—'],['Pay Period',`${MONTHS[month]} ${year}`],['Bank',t.bank_name||'—'],['Account',t.bank_account||'—'],['Payment',pr?.payment_method||'Bank Transfer']].map(([l,v])=>`<div class="info-cell"><div class="info-lbl">${l}</div><div class="info-val">${v}</div></div>`).join('')}</div>
+<div class="cols"><div><div class="sec">↑ EARNINGS</div><table>${[['Basic Salary',sl.basic],['House Allowance',sl.house],['Transport Allow.',sl.transport],['Medical Allow.',sl.medical],...(sl.otherAllow>0?[['Other Allowances',sl.otherAllow]]:[])].map(([l,v])=>`<tr><td>${l}</td><td>${fmt(v as number)}</td></tr>`).join('')}<tr class="tot"><td>GROSS PAY</td><td>${fmt(sl.gross)}</td></tr></table></div>
+<div><div class="sec">↓ DEDUCTIONS</div><table>${[['PAYE (Income Tax)',sl.paye],['NHIF / SHIF',sl.shif],['NSSF',sl.nssf],...(sl.housing>0?[['Housing Levy 1.5%',sl.housing]]:[]),...(sl.loans>0?[['Loan Repayment',sl.loans]]:[]),...(sl.advance>0?[['Salary Advance',sl.advance]]:[]),...(sl.sacco>0?[['SACCO',sl.sacco]]:[]),...(sl.otherDed>0?[['Other Deductions',sl.otherDed]]:[])].map(([l,v])=>`<tr><td>${l}</td><td style="color:#dc2626">${fmt(v as number)}</td></tr>`).join('')}<tr class="tot"><td>TOTAL DEDUCTIONS</td><td style="color:#dc2626">${fmt(sl.totalDed)}</td></tr></table></div></div>
+<div class="net"><div class="net-lbl">NET PAY (TAKE HOME)</div><div class="net-amt">${fmt(sl.net)}</div><div style="font-size:11px;margin-top:6px;color:rgba(255,255,255,.6)">Gross ${fmt(sl.gross)} − Deductions ${fmt(sl.totalDed)}</div></div>
+<div class="sigs"><div><div class="sig">Employee: ${t.first_name} ${t.last_name}</div></div><div><div class="sig">Principal: ${schoolDetails.principal_name||'________________'}</div></div></div>
+<div class="ftr">Computer-generated salary slip. Generated: ${new Date().toLocaleDateString('en-KE')} · ${sn} · APSIMS</div>
+<script>window.onload=()=>{window.print();}</script></body></html>`);
+            win.document.close();
+            setPrinting(false);
+            return;
+        }
+
+        // ── 80mm THERMAL RECEIPT ─────────────────────────────────────────────
+        const W = 32;
+        const EQ = '='.repeat(W);
+        const DA = '-'.repeat(W);
+        const DO = String.fromCharCode(183).repeat(W); // · · · · · 
+        const ST = '*'.repeat(W);
+        const ctr = (s: string) => { const p = Math.max(0, Math.floor((W - s.length) / 2)); return ' '.repeat(p) + s; };
+        const rw  = (lbl: string, val: string) => {
+            const max = W - val.length - 1;
+            const l = lbl.length > max ? lbl.slice(0, max - 1) + '.' : lbl;
+            return l + ' '.repeat(Math.max(1, W - l.length - val.length)) + val;
+        };
+        const fmtT = (n: number) => `KES ${(n||0).toLocaleString('en-KE',{minimumFractionDigits:2})}`;
+
+        const R: string[] = [];
+        const a = (s: string) => R.push(s);
+
+        a(EQ);
+        a(ctr('*** SALARY SLIP ***'));
+        a(ctr(sn.toUpperCase()));
+        if (schoolDetails.postal_address) a(ctr(schoolDetails.postal_address));
+        if (schoolDetails.phone1||schoolDetails.phone) a(ctr((schoolDetails.phone1||schoolDetails.phone)+''));
+        if (schoolDetails.email) a(ctr(schoolDetails.email));
+        a(EQ);
+        a(ctr(`PAY PERIOD: ${(MONTHS[month]||'').toUpperCase()} ${year}`));
+        if (pr?.payroll_number) a(ctr(`Payroll No: ${pr.payroll_number}`));
+        a(ctr(sl.fromPayroll ? '[OFFICIAL PAYROLL RECORD]' : '[COMPUTED ESTIMATE]'));
+        a(DA);
+        a('EMPLOYEE DETAILS');
+        a(rw('Name:', `${t.first_name} ${t.last_name}`));
+        if (t.staff_type)   a(rw('Type:', t.staff_type));
+        if (t.designation)  a(rw('Designation:', t.designation));
+        if (t.department)   a(rw('Department:', t.department));
+        if (t.tsc_number)   a(rw('TSC No:', t.tsc_number));
+        if (t.kra_pin)      a(rw('KRA PIN:', t.kra_pin));
+        if (t.nhif_no)      a(rw('NHIF No:', t.nhif_no));
+        if (t.nssf_no)      a(rw('NSSF No:', t.nssf_no));
+        if (t.bank_name)    a(rw('Bank:', t.bank_name));
+        if (t.bank_account) a(rw('A/C No:', t.bank_account));
+        a(rw('Payment:', pr?.payment_method || 'Bank Transfer'));
+        a(DA);
+        a('EARNINGS');
+        a(rw('Basic Salary', fmtT(sl.basic)));
+        if (sl.house)      a(rw('House Allow.', fmtT(sl.house)));
+        if (sl.transport)  a(rw('Transport Allow.', fmtT(sl.transport)));
+        if (sl.medical)    a(rw('Medical Allow.', fmtT(sl.medical)));
+        if (sl.otherAllow) a(rw('Other Allow.', fmtT(sl.otherAllow)));
+        a(DO);
+        a(rw('GROSS PAY', fmtT(sl.gross)));
+        a(DA);
+        a('DEDUCTIONS');
+        a(rw('PAYE (Income Tax)', fmtT(sl.paye)));
+        a(rw('NHIF / SHIF', fmtT(sl.shif)));
+        a(rw('NSSF', fmtT(sl.nssf)));
+        if (sl.housing > 0)  a(rw('Housing Levy 1.5%', fmtT(sl.housing)));
+        if (sl.loans > 0)    a(rw('Loan Repayment', fmtT(sl.loans)));
+        if (sl.advance > 0)  a(rw('Salary Advance', fmtT(sl.advance)));
+        if (sl.sacco > 0)    a(rw('SACCO', fmtT(sl.sacco)));
+        if (sl.otherDed > 0) a(rw('Other Deductions', fmtT(sl.otherDed)));
+        a(DO);
+        a(rw('TOTAL DEDUCTIONS', fmtT(sl.totalDed)));
+        a(EQ);
+        a(ctr('NET PAY (TAKE HOME)'));
+        a(ctr(fmtT(sl.net)));
+        a(ctr(`Gross ${fmtT(sl.gross)}`));
+        a(ctr(`Less Deductions ${fmtT(sl.totalDed)}`));
+        a(EQ);
+        a('');
+        a('Prepared by: ___________________');
+        a('');
+        a(`Employee: ${t.first_name} ${t.last_name}`);
+        a('Sign: _____________ Date: _______');
+        a('');
+        a(`Principal: ${schoolDetails.principal_name||'__________________'}`);
+        a('Sign: _____________ Date: _______');
+        a(DA);
+        a(ctr('CONFIDENTIAL DOCUMENT'));
+        a(ctr('Not valid without official stamp'));
+        a(ctr(`Printed: ${new Date().toLocaleDateString('en-KE')}`));
+        a(ctr('Powered by APSIMS'));
+        a(ST);
+
+        win.document.write(`<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<title>Salary Slip - ${t.first_name} ${t.last_name} - ${MONTHS[month]} ${year}</title>
+<style>
+  @page { size: 80mm auto; margin: 4mm 3mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', Courier, monospace; font-size: 11.5px; color: #000; background: #fff; width: 74mm; margin: 0 auto; line-height: 1.5; }
+  pre { font-family: 'Courier New', Courier, monospace; font-size: 11.5px; white-space: pre; line-height: 1.5; word-break: break-all; }
+  @media print { body { width: 74mm; } }
+</style></head><body>
+<pre>${R.join('\n')}</pre>
+<script>window.onload=()=>{ setTimeout(()=>{ window.print(); }, 300); }</script>
+</body></html>`);
         win.document.close();
         setPrinting(false);
     };
+
 
     return (
         <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#f0f4ff 0%,#f8fafc 50%,#f0fdf4 100%)', padding: '20px 24px', fontFamily: "'Inter','Segoe UI',sans-serif" }}>
@@ -778,8 +819,11 @@ export default function SalarySlipPage() {
                                 <button onClick={() => setShowConfig(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#0f172a', cursor: 'pointer', flexShrink: 0 }}>
                                     <FiSettings size={13} />Configure Salary
                                 </button>
-                                <button onClick={printSlip} disabled={printing} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', background: 'linear-gradient(135deg,#1d4ed8,#6366f1)', border: 'none', borderRadius: 12, fontSize: 12, fontWeight: 800, color: '#fff', cursor: 'pointer', flexShrink: 0, boxShadow: '0 4px 14px rgba(29,78,216,0.35)' }}>
-                                    <FiPrinter size={13} />{printing ? 'Generating...' : 'Print / PDF'}
+                                <button onClick={() => printSlip('thermal')} disabled={printing} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', border: 'none', borderRadius: 12, fontSize: 12, fontWeight: 800, color: '#fff', cursor: 'pointer', flexShrink: 0, boxShadow: '0 4px 14px rgba(15,23,42,0.4)' }}>
+                                    <FiPrinter size={13} />{printing ? 'Printing...' : '🖨 Thermal (80mm)'}
+                                </button>
+                                <button onClick={() => printSlip('a4')} disabled={printing} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: 'linear-gradient(135deg,#1d4ed8,#6366f1)', border: 'none', borderRadius: 12, fontSize: 12, fontWeight: 800, color: '#fff', cursor: 'pointer', flexShrink: 0, boxShadow: '0 4px 14px rgba(29,78,216,0.35)' }}>
+                                    <FiPrinter size={13} />A4 / PDF
                                 </button>
                             </div>
 

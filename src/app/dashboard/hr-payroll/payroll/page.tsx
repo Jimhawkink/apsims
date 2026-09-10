@@ -349,80 +349,142 @@ const labelStyle: React.CSSProperties = {
 // PAYSLIP VIEWER
 // ─────────────────────────────────────────────────────────────────────────────
 function PayslipViewer({ record, onClose }: { record: PayrollRecord; onClose: () => void }) {
-    const handlePrint = () => {
-        const w = window.open('', '_blank');
+    const handlePrint = (mode: 'a4' | 'thermal' = 'thermal') => {
+        const w = window.open('', '_blank', mode === 'thermal' ? 'width=420,height=860' : 'width=920,height=720');
         if (!w) return;
+
+        const fmtT = (n: number) => `KES ${(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}`;
+
+        if (mode === 'a4') {
+            w.document.write(`<html><head><title>Payslip - ${record.staff_name}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}body{padding:40px;color:#1a1a2e;background:#fff}.header{text-align:center;border-bottom:3px solid #1e3a5f;padding-bottom:20px;margin-bottom:24px}.logo{font-size:28px;font-weight:900;color:#1e3a5f}.sub{font-size:13px;color:#666;margin-top:4px}.payslip-title{background:#1e3a5f;color:white;text-align:center;padding:10px;font-weight:700;font-size:15px;border-radius:8px;margin-bottom:20px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}.info-item{background:#f8fafc;padding:12px;border-radius:8px}.info-label{font-size:10px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px}.info-value{font-size:14px;font-weight:700;color:#1a1a2e;margin-top:2px}.ed{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}table{width:100%;border-collapse:collapse}th{font-size:11px;font-weight:700;text-transform:uppercase;color:#1e3a5f;padding:8px;text-align:left;border-bottom:2px solid #e2e8f0}td{font-size:13px;padding:8px;border-bottom:1px solid #f1f5f9}td:last-child{text-align:right;font-weight:600}.tot td{font-weight:800;font-size:14px;border-top:2px solid #1e3a5f;color:#1e3a5f}.net-box{background:linear-gradient(135deg,#1e3a5f,#2d6a4f);color:white;padding:16px 24px;border-radius:12px;text-align:center;margin-top:20px}.net-label{font-size:12px;opacity:.8;font-weight:600;text-transform:uppercase;letter-spacing:1px}.net-amount{font-size:32px;font-weight:900;margin-top:4px}.sec{font-size:12px;font-weight:800;color:#1e3a5f;text-transform:uppercase;margin-bottom:8px;padding:6px 8px;background:#eff6ff;border-radius:6px}.ftr{text-align:center;margin-top:24px;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:16px}</style></head><body>
+<div class="header"><div class="logo">ALPHA SCHOOL</div><div class="sub">HR &amp; Payroll Department • Payslip</div></div>
+<div class="payslip-title">EMPLOYEE PAY ADVICE — ${MONTHS[record.month - 1].toUpperCase()} ${record.year}</div>
+<div class="info-grid">
+  <div class="info-item"><div class="info-label">Employee Name</div><div class="info-value">${record.staff_name}</div></div>
+  <div class="info-item"><div class="info-label">Employee Type</div><div class="info-value">${record.staff_type}</div></div>
+  <div class="info-item"><div class="info-label">Pay Period</div><div class="info-value">${record.pay_period}</div></div>
+  <div class="info-item"><div class="info-label">Payment Method</div><div class="info-value">${record.payment_method || 'Bank Transfer'}</div></div>
+  <div class="info-item"><div class="info-label">Payment Reference</div><div class="info-value">${(record as any).payment_ref || '—'}</div></div>
+  <div class="info-item"><div class="info-label">Status</div><div class="info-value">${record.status}</div></div>
+</div>
+<div class="ed">
+  <div><div class="sec">Earnings</div><table>
+    <tr><th>Description</th><th style="text-align:right">Amount (KES)</th></tr>
+    <tr><td>Basic Salary</td><td>${fmtNum(record.basic_salary)}</td></tr>
+    <tr><td>House Allowance</td><td>${fmtNum(record.house_allowance)}</td></tr>
+    <tr><td>Transport Allowance</td><td>${fmtNum(record.transport_allowance)}</td></tr>
+    <tr><td>Medical Allowance</td><td>${fmtNum(record.medical_allowance)}</td></tr>
+    <tr><td>Other Allowances</td><td>${fmtNum(record.other_allowances)}</td></tr>
+    <tr class="tot"><td>GROSS PAY</td><td>${fmtNum(record.gross_pay)}</td></tr>
+  </table></div>
+  <div><div class="sec">Deductions</div><table>
+    <tr><th>Description</th><th style="text-align:right">Amount (KES)</th></tr>
+    <tr><td>PAYE Tax</td><td>${fmtNum(record.paye)}</td></tr>
+    <tr><td>NHIF / SHIF</td><td>${fmtNum(record.nhif)}</td></tr>
+    <tr><td>NSSF</td><td>${fmtNum(record.nssf)}</td></tr>
+    <tr><td>Housing Levy (1.5%)</td><td>${fmtNum(record.housing_levy)}</td></tr>
+    <tr><td>Loans</td><td>${fmtNum(record.loan_deductions)}</td></tr>
+    <tr><td>Salary Advances</td><td>${fmtNum(record.advance_deductions)}</td></tr>
+    <tr><td>SACCO</td><td>${fmtNum(record.sacco_deductions)}</td></tr>
+    <tr><td>Other Deductions</td><td>${fmtNum(record.other_deductions)}</td></tr>
+    <tr class="tot"><td>TOTAL DEDUCTIONS</td><td>${fmtNum(record.total_deductions)}</td></tr>
+  </table></div>
+</div>
+<div class="net-box"><div class="net-label">Net Pay (Take Home)</div><div class="net-amount">${fmtT(record.net_pay)}</div></div>
+<div class="ftr">Computer-generated payslip. Generated: ${new Date().toLocaleDateString('en-KE')} · APSIMS</div>
+<script>window.onload=()=>{window.print();}</script></body></html>`);
+            w.document.close();
+            return;
+        }
+
+        // ── 80mm THERMAL RECEIPT ─────────────────────────────────────────────
+        const W = 32;
+        const EQ = '='.repeat(W);
+        const DA = '-'.repeat(W);
+        const DO = String.fromCharCode(183).repeat(W);
+        const ST = '*'.repeat(W);
+        const ctr = (s: string) => { const p = Math.max(0, Math.floor((W - s.length) / 2)); return ' '.repeat(p) + s; };
+        const rw  = (lbl: string, val: string) => { const max = W - val.length - 1; const l = lbl.length > max ? lbl.slice(0, max - 1) + '.' : lbl; return l + ' '.repeat(Math.max(1, W - l.length - val.length)) + val; };
+
+        const R: string[] = [];
+        const a = (s: string) => R.push(s);
+
+        a(EQ);
+        a(ctr('*** SALARY SLIP ***'));
+        a(ctr('ALPHA SCHOOL'));
+        a(ctr('HR & Payroll Department'));
+        a(EQ);
+        a(ctr(`${(MONTHS[record.month - 1] || '').toUpperCase()} ${record.year}`));
+        if (record.payroll_number) a(ctr(`Payroll No: ${record.payroll_number}`));
+        a(ctr(`Status: ${record.status}`));
+        a(DA);
+        a('EMPLOYEE DETAILS');
+        a(rw('Name:', record.staff_name));
+        a(rw('Type:', record.staff_type));
+        a(rw('Pay Period:', record.pay_period));
+        a(rw('Payment:', record.payment_method || 'Bank Transfer'));
+        if ((record as any).payment_ref) a(rw('Ref:', (record as any).payment_ref));
+        a(DA);
+        a('EARNINGS');
+        a(rw('Basic Salary', fmtT(record.basic_salary)));
+        if (record.house_allowance)     a(rw('House Allow.', fmtT(record.house_allowance)));
+        if (record.transport_allowance) a(rw('Transport Allow.', fmtT(record.transport_allowance)));
+        if (record.medical_allowance)   a(rw('Medical Allow.', fmtT(record.medical_allowance)));
+        if (record.other_allowances)    a(rw('Other Allow.', fmtT(record.other_allowances)));
+        a(DO);
+        a(rw('GROSS PAY', fmtT(record.gross_pay)));
+        a(DA);
+        a('DEDUCTIONS');
+        a(rw('PAYE (Income Tax)', fmtT(record.paye)));
+        a(rw('NHIF / SHIF', fmtT(record.nhif)));
+        a(rw('NSSF', fmtT(record.nssf)));
+        if (record.housing_levy)       a(rw('Housing Levy 1.5%', fmtT(record.housing_levy)));
+        if (record.loan_deductions)    a(rw('Loan Repayment', fmtT(record.loan_deductions)));
+        if (record.advance_deductions) a(rw('Salary Advance', fmtT(record.advance_deductions)));
+        if (record.sacco_deductions)   a(rw('SACCO', fmtT(record.sacco_deductions)));
+        if (record.other_deductions)   a(rw('Other Deductions', fmtT(record.other_deductions)));
+        a(DO);
+        a(rw('TOTAL DEDUCTIONS', fmtT(record.total_deductions)));
+        a(EQ);
+        a(ctr('NET PAY (TAKE HOME)'));
+        a(ctr(fmtT(record.net_pay)));
+        a(ctr(`Gross ${fmtT(record.gross_pay)}`));
+        a(ctr(`Less Ded. ${fmtT(record.total_deductions)}`));
+        a(EQ);
+        a('');
+        a('Prepared by: ___________________');
+        a('');
+        a(`Employee: ${record.staff_name}`);
+        a('Sign: _____________ Date: _______');
+        a('');
+        a('Principal: _____________________');
+        a('Sign: _____________ Date: _______');
+        a(DA);
+        a(ctr('CONFIDENTIAL DOCUMENT'));
+        a(ctr('Not valid without official stamp'));
+        a(ctr(`Printed: ${new Date().toLocaleDateString('en-KE')}`));
+        a(ctr('Powered by APSIMS'));
+        a(ST);
+
+        w.document.write(`<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<title>Payslip - ${record.staff_name} - ${record.pay_period}</title>
+<style>
+  @page { size: 80mm auto; margin: 4mm 3mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', Courier, monospace; font-size: 11.5px; color: #000; background: #fff; width: 74mm; margin: 0 auto; line-height: 1.5; }
+  pre { font-family: 'Courier New', Courier, monospace; font-size: 11.5px; white-space: pre; line-height: 1.5; }
+  @media print { body { width: 74mm; } }
+</style></head><body>
+<pre>${R.join('\n')}</pre>
+<script>window.onload=()=>{ setTimeout(()=>{ window.print(); }, 300); }</script>
+</body></html>`);
+        w.document.close();
+    };
+
         w.document.write(`<html><head><title>Payslip - ${record.staff_name}</title>
         <style>
-            * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
-            body { padding:40px; color:#1a1a2e; background:#fff; }
-            .header { text-align:center; border-bottom:3px solid #1e3a5f; padding-bottom:20px; margin-bottom:24px; }
-            .logo { font-size:28px; font-weight:900; color:#1e3a5f; letter-spacing:-1px; }
-            .sub { font-size:13px; color:#666; margin-top:4px; }
-            .payslip-title { background:#1e3a5f; color:white; text-align:center; padding:10px; font-weight:700; font-size:15px; border-radius:8px; margin-bottom:20px; }
-            .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
-            .info-item { background:#f8fafc; padding:12px; border-radius:8px; }
-            .info-label { font-size:10px; color:#888; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
-            .info-value { font-size:14px; font-weight:700; color:#1a1a2e; margin-top:2px; }
-            .earnings-deductions { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
-            table { width:100%; border-collapse:collapse; }
-            th { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#1e3a5f; padding:8px; text-align:left; border-bottom:2px solid #e2e8f0; }
-            td { font-size:13px; padding:8px; border-bottom:1px solid #f1f5f9; }
-            td:last-child { text-align:right; font-weight:600; }
-            .total-row td { font-weight:800; font-size:14px; border-top:2px solid #1e3a5f; color:#1e3a5f; }
-            .net-box { background:linear-gradient(135deg,#1e3a5f,#2d6a4f); color:white; padding:16px 24px; border-radius:12px; text-align:center; margin-top:20px; }
-            .net-label { font-size:12px; opacity:0.8; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
-            .net-amount { font-size:32px; font-weight:900; margin-top:4px; letter-spacing:-1px; }
-            .section-title { font-size:12px; font-weight:800; color:#1e3a5f; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; padding:6px 8px; background:#eff6ff; border-radius:6px; }
-            .footer { text-align:center; margin-top:24px; font-size:11px; color:#aaa; border-top:1px solid #eee; padding-top:16px; }
-        </style></head><body>
-        <div class="header"><div class="logo">ALPHA SCHOOL</div><div class="sub">HR & Payroll Department • Payslip</div></div>
-        <div class="payslip-title">EMPLOYEE PAY ADVICE — ${MONTHS[record.month - 1].toUpperCase()} ${record.year}</div>
-        <div class="info-grid">
-            <div class="info-item"><div class="info-label">Employee Name</div><div class="info-value">${record.staff_name}</div></div>
-            <div class="info-item"><div class="info-label">Employee Type</div><div class="info-value">${record.staff_type}</div></div>
-            <div class="info-item"><div class="info-label">Pay Period</div><div class="info-value">${record.pay_period}</div></div>
-            <div class="info-item"><div class="info-label">Payment Method</div><div class="info-value">${record.payment_method || 'Bank Transfer'}</div></div>
-            <div class="info-item"><div class="info-label">Payment Reference</div><div class="info-value">${record.payment_ref || '—'}</div></div>
-            <div class="info-item"><div class="info-label">Status</div><div class="info-value">${record.status}</div></div>
-        </div>
-        <div class="earnings-deductions">
-            <div>
-                <div class="section-title">Earnings</div>
-                <table>
-                    <tr><th>Description</th><th style="text-align:right">Amount (KES)</th></tr>
-                    <tr><td>Basic Salary</td><td>${fmtNum(record.basic_salary)}</td></tr>
-                    <tr><td>House Allowance</td><td>${fmtNum(record.house_allowance)}</td></tr>
-                    <tr><td>Transport Allowance</td><td>${fmtNum(record.transport_allowance)}</td></tr>
-                    <tr><td>Medical Allowance</td><td>${fmtNum(record.medical_allowance)}</td></tr>
-                    <tr><td>Other Allowances</td><td>${fmtNum(record.other_allowances)}</td></tr>
-                    <tr class="total-row"><td>GROSS PAY</td><td>${fmtNum(record.gross_pay)}</td></tr>
-                </table>
-            </div>
-            <div>
-                <div class="section-title">Deductions</div>
-                <table>
-                    <tr><th>Description</th><th style="text-align:right">Amount (KES)</th></tr>
-                    <tr><td>PAYE Tax</td><td>${fmtNum(record.paye)}</td></tr>
-                    <tr><td>NHIF</td><td>${fmtNum(record.nhif)}</td></tr>
-                    <tr><td>NSSF</td><td>${fmtNum(record.nssf)}</td></tr>
-                    <tr><td>Housing Levy (1.5%)</td><td>${fmtNum(record.housing_levy)}</td></tr>
-                    <tr><td>Loan Deductions</td><td>${fmtNum(record.loan_deductions)}</td></tr>
-                    <tr><td>Salary Advances</td><td>${fmtNum(record.advance_deductions)}</td></tr>
-                    <tr><td>SACCO</td><td>${fmtNum(record.sacco_deductions)}</td></tr>
-                    <tr><td>Other Deductions</td><td>${fmtNum(record.other_deductions)}</td></tr>
-                    <tr class="total-row"><td>TOTAL DEDUCTIONS</td><td>${fmtNum(record.total_deductions)}</td></tr>
-                </table>
-            </div>
-        </div>
-        <div class="net-box">
-            <div class="net-label">Net Pay (Take Home)</div>
-            <div class="net-amount">KES ${fmtNum(record.net_pay)}</div>
-        </div>
-        <div class="footer">This is a computer-generated payslip. For queries, contact HR Department. Generated: ${new Date().toLocaleDateString('en-KE')}</div>
-        </body></html>`);
-        w.document.close(); w.print();
-    };
 
     const row = (label: string, val: number, accent?: string) => (
         <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9', fontFamily: T.fontBase }}>
@@ -483,13 +545,21 @@ function PayslipViewer({ record, onClose }: { record: PayrollRecord; onClose: ()
                 <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Payment: {record.payment_method || 'Bank Transfer'} {record.payment_ref ? `· Ref: ${record.payment_ref}` : ''}</p>
             </div>
 
-            <button onClick={handlePrint} style={{
+            <button onClick={() => handlePrint('thermal')} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 background: '#0f172a', color: '#fff', border: 'none', borderRadius: 14,
-                padding: '12px 24px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                fontFamily: T.fontBase, letterSpacing: '-0.01em', transition: 'background 0.15s',
+                padding: '12px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: T.fontBase, letterSpacing: '-0.01em',
             }}>
-                <FiPrinter size={15} /> Print / Download Payslip
+                <FiPrinter size={15} /> 🖨 Thermal (80mm)
+            </button>
+            <button onClick={() => handlePrint('a4')} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: 'linear-gradient(135deg,#1d4ed8,#6366f1)', color: '#fff', border: 'none', borderRadius: 14,
+                padding: '12px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: T.fontBase, letterSpacing: '-0.01em',
+            }}>
+                <FiPrinter size={15} /> A4 / PDF
             </button>
         </div>
     );
