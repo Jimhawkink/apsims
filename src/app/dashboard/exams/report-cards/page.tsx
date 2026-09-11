@@ -213,7 +213,6 @@ export default function ReportCardsPage() {
                 .select('*')
                 .eq('term_id', Number(selTerm))
                 .eq('is_active', true)
-                .eq('is_combined', false)   // exclude auto-combined rows
                 .order('id');
             const types = data || [];
             setDbExamTypes(types);
