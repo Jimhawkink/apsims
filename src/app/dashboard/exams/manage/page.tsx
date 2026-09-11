@@ -321,7 +321,9 @@ export default function ExamManagerPage() {
     };
     const getMarkCount844 = (name: string) => marks844.filter(m => m.exam_type === name).length;
     const filtered844 = tab844 === 'active' ? examTypes.filter(e => e.is_active) : examTypes;
-    const totalWeight = examTypes.filter(e => e.is_active).reduce((a, e) => a + (e.weight || 0), 0);
+    const currentTerm = terms.find(t => t.is_current);
+    const totalWeight = examTypes.filter(e => e.is_active && (!currentTerm || e.term_id === currentTerm.id)).reduce((a, e) => a + (e.weight || 0), 0);
+
 
     const filteredCBC = cbcFilter === 'All'
         ? cbcAssessments
