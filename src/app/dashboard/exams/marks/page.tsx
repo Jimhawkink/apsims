@@ -204,7 +204,10 @@ export default function MarkEntryPage() {
     const [marksLoading, setMarksLoading] = useState(false);
     const autoSaveRef                     = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const examTypes = ['CAT 1', 'CAT 2', 'CAT 3', 'Mid-Term', 'End-Term', 'Mock', 'KCSE Trial', 'Assignment', 'Practical'];
+    // Exam types from DB (school_exam_types filtered by selected term)
+    const [dbExamTypes, setDbExamTypes] = useState<any[]>([]);
+    const fallbackExamTypes = ['CAT 1', 'CAT 2', 'Mid-Term', 'End-Term', 'Mock', 'KCSE Trial'];
+
 
     // ── Load all reference data ───────────────────────────────────────────────
     const fetchAll = useCallback(async () => {
@@ -274,6 +277,26 @@ export default function MarkEntryPage() {
                 }
             });
     }, [selTerm, selForm, selExamType, isSuperUser]);
+
+    // ── Load exam types from DB when term changes (matches report card logic) ─
+    useEffect(() => {
+        if (!selTerm) { setDbExamTypes([]); return; }
+        supabase
+            .from('school_exam_types')
+            .select('*')
+            .eq('term_id', Number(selTerm))
+            .eq('is_active', true)
+            .order('id')
+            .then(({ data }) => {
+                const types = data || [];
+                setDbExamTypes(types);
+                // If current selExamType not in new list, default to first
+                if (types.length > 0 && !types.find((t: any) => t.exam_name === selExamType)) {
+                    setSelExamType(types[0].exam_name);
+                }
+            });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selTerm]);
 
     // ── Grade resolution ──────────────────────────────────────────────────────
     const getGrade = useCallback((rawScore: number): any => {
@@ -630,7 +653,7 @@ export default function MarkEntryPage() {
                             <div>
                                 <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Exam Type</label>
                                 <select value={selExamType} onChange={e => setSelExamType(e.target.value)} className={sel}>
-                                    {examTypes.map(e => <option key={e} value={e}>{e}</option>)}
+                                    {(dbExamTypes.length > 0 ? dbExamTypes.map((et: any) => et.exam_name) : fallbackExamTypes).map(e => <option key={e} value={e}>{e}</option>)}
                                 </select>
                             </div>
                             <div>
