@@ -358,31 +358,66 @@ export default function SettingsPage() {
     const addLabel = tab === 'forms' ? 'Form' : tab === 'streams' ? 'Stream' : tab === 'subjects' ? 'Subject' : tab === 'classes' ? 'Class' : 'Link';
 
     return (
-        <div className="space-y-5 animate-fade-in">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">⚙️ School Settings</h1>
-                    <p className="text-sm text-gray-500 mt-1">Manage forms, streams, subjects, classes & teacher assignments</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            {/* ══ PREMIUM HERO HEADER ══ */}
+            <div style={{ background: 'linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#6d28d9 100%)', borderRadius: 22, padding: '26px 30px', position: 'relative', overflow: 'hidden', boxShadow: '0 12px 40px rgba(99,102,241,0.3)' }}>
+                <div style={{ position: 'absolute', top: -45, right: -35, width: 170, height: 170, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+                <div style={{ position: 'absolute', bottom: -28, left: 60, width: 110, height: 110, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 18 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <div style={{ width: 54, height: 54, background: 'rgba(255,255,255,0.15)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0, boxShadow: '0 4px 14px rgba(0,0,0,0.15)' }}>⚙️</div>
+                        <div>
+                            <h1 style={{ fontSize: 23, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.3px' }}>School Settings</h1>
+                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0', fontWeight: 500 }}>System control centre — forms, subjects, CBC, SMS, M-Pesa, WhatsApp</p>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        {[
+                            { label: 'Forms', val: forms.length },
+                            { label: 'Subjects', val: subjects.length },
+                            { label: 'Teachers', val: teachers.length },
+                            { label: 'Classes', val: classes.length },
+                        ].map(function(s) { return (
+                            <div key={s.label} style={{ textAlign: 'center', minWidth: 58, padding: '8px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.13)', border: '1px solid rgba(255,255,255,0.18)' }}>
+                                <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{s.val}</div>
+                                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginTop: 3 }}>{s.label}</div>
+                            </div>
+                        ); })}
+                        {tab !== 'school-details' && (
+                            <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 13, border: '1.5px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.18)', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' as const }}>
+                                <FiPlus size={15} /> Add {addLabel}
+                            </button>
+                        )}
+                    </div>
                 </div>
-                {tab !== 'school-details' && <button onClick={openAdd} className="btn-primary flex items-center gap-2 self-start"><FiPlus size={16} /> Add {addLabel}</button>}
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-1.5 bg-white rounded-2xl p-1.5 border border-gray-200 overflow-x-auto">
-                {tabs.map(t => (
+            {/* ══ PREMIUM TAB BAR ══ */}
+            <div style={{ background: '#fff', borderRadius: 18, padding: '6px 8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', display: 'flex', gap: 4, overflowX: 'auto', scrollbarWidth: 'none' as const }}>
+                {tabs.map(function(t) { return (
                     <button key={t.key} onClick={() => setTab(t.key)}
-                        className={`px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${tab === t.key ? 'text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
-                        style={tab === t.key ? { background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' } : {}}>
-                        <span>{t.icon}</span> {t.label}
-                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${tab === t.key ? 'bg-white/20' : 'bg-gray-200'}`}>{t.count}</span>
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '9px 14px', borderRadius: 12, border: 'none', cursor: 'pointer',
+                            whiteSpace: 'nowrap' as const, fontSize: 12, fontWeight: 700,
+                            transition: 'all 0.18s ease',
+                            background: tab === t.key ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'transparent',
+                            color: tab === t.key ? '#fff' : '#64748b',
+                            boxShadow: tab === t.key ? '0 4px 14px rgba(99,102,241,0.35)' : 'none',
+                        }}>
+                        <span style={{ fontSize: 14 }}>{t.icon}</span>
+                        {t.label}
+                        <span style={{ padding: '1px 6px', borderRadius: 8, fontSize: 10, fontWeight: 800, background: tab === t.key ? 'rgba(255,255,255,0.25)' : '#f1f5f9', color: tab === t.key ? '#fff' : '#94a3b8', minWidth: 18, textAlign: 'center' as const }}>{t.count}</span>
                     </button>
-                ))}
+                ); })}
             </div>
+
 
             {loading ? (
                 <div className="flex justify-center py-20"><div className="spinner" style={{ borderTopColor: '#6366f1', borderColor: '#e2e8f0', width: 32, height: 32, borderWidth: 3 }} /></div>
             ) : (
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div style={{ background: '#fff', borderRadius: 20, border: '1px solid #e8edf5', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
                     {/* ========== SCHOOL DETAILS ========== */}
                     {tab === 'school-details' && (
                         <div className="p-6 space-y-8">
@@ -583,35 +618,130 @@ export default function SettingsPage() {
 
                     {/* ========== FORMS TABLE ========== */}
                     {tab === 'forms' && (forms.length === 0 ? (
-                        <div className="text-center py-16 text-gray-400"><span className="text-4xl mb-3 block">📋</span><p className="font-medium">No forms yet</p></div>
+                        <div style={{ textAlign: 'center', padding: '60px 24px', color: '#94a3b8' }}>
+                            <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+                            <p style={{ fontWeight: 700, margin: '0 0 4px', color: '#64748b' }}>No forms configured yet</p>
+                            <p style={{ fontSize: 13, margin: 0 }}>Click Add Form above to get started</p>
+                        </div>
                     ) : (
-                        <div className="overflow-x-auto"><table className="table-modern"><thead><tr><th>#</th><th>Form Name</th><th>Level</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-                            {forms.map((item, i) => (
-                                <tr key={item.id}><td className="text-xs text-gray-400">{i + 1}</td><td className="font-semibold">{item.form_name}</td><td className="font-bold text-blue-600">{item.form_level}</td><td className="text-sm">{item.description || '-'}</td><td><span className="badge badge-success">Active</span></td><td><div className="flex gap-1"><button onClick={() => openEditForm(item)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600"><FiEdit2 size={14} /></button><button onClick={() => deleteForm(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><FiTrash2 size={14} /></button></div></td></tr>
-                            ))}
-                        </tbody></table></div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                <thead>
+                                    <tr style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em', width: 40 }}>#</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Form Name</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Level</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Description</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Status</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'right', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {forms.map((item, i) => (
+                                        <tr key={item.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbff', borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}>
+                                            <td style={{ padding: '12px 16px', color: '#cbd5e1', fontWeight: 600, fontSize: 12 }}>{i + 1}</td>
+                                            <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1e293b' }}>{item.form_name}</td>
+                                            <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 10px', borderRadius: 8, background: '#eef2ff', color: '#4338ca', fontWeight: 800, fontSize: 12 }}>Level {item.form_level}</span></td>
+                                            <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{item.description || '—'}</td>
+                                            <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 10px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', fontWeight: 700, fontSize: 11 }}>Active</span></td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                                    <button onClick={() => openEditForm(item)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #dbeafe', background: '#eff6ff', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiEdit2 size={13} /></button>
+                                                    <button onClick={() => deleteForm(item.id)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiTrash2 size={13} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     ))}
 
                     {/* ========== STREAMS TABLE ========== */}
                     {tab === 'streams' && (streams.length === 0 ? (
-                        <div className="text-center py-16 text-gray-400"><span className="text-4xl mb-3 block">🏷️</span><p className="font-medium">No streams yet</p></div>
+                        <div style={{ textAlign: 'center', padding: '60px 24px', color: '#94a3b8' }}>
+                            <div style={{ fontSize: 40, marginBottom: 12 }}>🏷️</div>
+                            <p style={{ fontWeight: 700, margin: '0 0 4px', color: '#64748b' }}>No streams yet</p>
+                            <p style={{ fontSize: 13, margin: 0 }}>Click Add Stream to create your first stream</p>
+                        </div>
                     ) : (
-                        <div className="overflow-x-auto"><table className="table-modern"><thead><tr><th>#</th><th>Stream Name</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-                            {streams.map((item, i) => (
-                                <tr key={item.id}><td className="text-xs text-gray-400">{i + 1}</td><td className="font-semibold">{item.stream_name}</td><td className="text-sm">{item.description || '-'}</td><td><span className="badge badge-success">Active</span></td><td><div className="flex gap-1"><button onClick={() => openEditStream(item)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600"><FiEdit2 size={14} /></button><button onClick={() => deleteStream(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><FiTrash2 size={14} /></button></div></td></tr>
-                            ))}
-                        </tbody></table></div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                <thead>
+                                    <tr style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em', width: 40 }}>#</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Stream Name</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Description</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Status</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'right', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {streams.map((item, i) => (
+                                        <tr key={item.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbff', borderBottom: '1px solid #f1f5f9' }}>
+                                            <td style={{ padding: '12px 16px', color: '#cbd5e1', fontWeight: 600, fontSize: 12 }}>{i + 1}</td>
+                                            <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1e293b' }}>{item.stream_name}</td>
+                                            <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{item.description || '—'}</td>
+                                            <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 10px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', fontWeight: 700, fontSize: 11 }}>Active</span></td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                                    <button onClick={() => openEditStream(item)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #dbeafe', background: '#eff6ff', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiEdit2 size={13} /></button>
+                                                    <button onClick={() => deleteStream(item.id)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiTrash2 size={13} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     ))}
 
                     {/* ========== SUBJECTS TABLE ========== */}
                     {tab === 'subjects' && (subjects.length === 0 ? (
-                        <div className="text-center py-16 text-gray-400"><span className="text-4xl mb-3 block">📚</span><p className="font-medium">No subjects yet</p></div>
+                        <div style={{ textAlign: 'center', padding: '60px 24px', color: '#94a3b8' }}>
+                            <div style={{ fontSize: 40, marginBottom: 12 }}>📚</div>
+                            <p style={{ fontWeight: 700, margin: '0 0 4px', color: '#64748b' }}>No subjects yet</p>
+                            <p style={{ fontSize: 13, margin: 0 }}>Click Add Subject to configure your curriculum</p>
+                        </div>
                     ) : (
-                        <div className="overflow-x-auto"><table className="table-modern"><thead><tr><th>#</th><th>Subject</th><th>Code</th><th>Category</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-                            {subjects.map((item, i) => (
-                                <tr key={item.id}><td className="text-xs text-gray-400">{i + 1}</td><td className="font-semibold">{item.subject_name}</td><td className="font-bold text-blue-600">{item.subject_code || '-'}</td><td><span className={`badge ${item.category === 'Core' ? 'badge-purple' : item.category === 'Elective' ? 'badge-blue' : 'badge-orange'}`}>{item.category}</span></td><td><span className="badge badge-success">Active</span></td><td><div className="flex gap-1"><button onClick={() => openEditSubject(item)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600"><FiEdit2 size={14} /></button><button onClick={() => deleteSubject(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><FiTrash2 size={14} /></button></div></td></tr>
-                            ))}
-                        </tbody></table></div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                <thead>
+                                    <tr style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em', width: 40 }}>#</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Subject</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Code</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Category</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Status</th>
+                                        <th style={{ padding: '13px 16px', textAlign: 'right', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {subjects.map((item, i) => {
+                                        const catStyle = item.category === 'Core'
+                                            ? { background: '#eef2ff', color: '#4338ca' }
+                                            : item.category === 'Elective'
+                                            ? { background: '#eff6ff', color: '#1d4ed8' }
+                                            : { background: '#fff7ed', color: '#c2410c' };
+                                        return (
+                                            <tr key={item.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbff', borderBottom: '1px solid #f1f5f9' }}>
+                                                <td style={{ padding: '12px 16px', color: '#cbd5e1', fontWeight: 600, fontSize: 12 }}>{i + 1}</td>
+                                                <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1e293b' }}>{item.subject_name}</td>
+                                                <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 8px', borderRadius: 6, background: '#f1f5f9', color: '#475569', fontWeight: 700, fontSize: 11, fontFamily: 'monospace' }}>{item.subject_code || '—'}</span></td>
+                                                <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 10px', borderRadius: 8, fontWeight: 700, fontSize: 11, ...catStyle }}>{item.category}</span></td>
+                                                <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 10px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', fontWeight: 700, fontSize: 11 }}>Active</span></td>
+                                                <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                                        <button onClick={() => openEditSubject(item)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #dbeafe', background: '#eff6ff', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiEdit2 size={13} /></button>
+                                                        <button onClick={() => deleteSubject(item.id)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiTrash2 size={13} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     ))}
 
                     {/* ========== CLASSES (Form + Stream + Class Teacher) ========== */}
@@ -1201,18 +1331,22 @@ export default function SettingsPage() {
                 </div>
             )}
 
-            {/* ========== MODAL ========== */}
+            {/* ═════ PREMIUM MODAL ═════ */}
             {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal-content w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-5">
-                            <h3 className="text-lg font-bold text-gray-800">
-                                {editId ? '✏️ Edit' : '➕ Add'} {addLabel}
-                            </h3>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><FiX size={20} /></button>
+                <div onClick={() => setShowModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
+                    <div onClick={function(e){ e.stopPropagation(); }} style={{ background: '#fff', borderRadius: 24, width: '100%', maxWidth: 500, boxShadow: '0 32px 80px rgba(0,0,0,0.22)', overflow: 'hidden' }}>
+                        {/* Gradient Header */}
+                        <div style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', padding: '20px 26px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                                <h3 style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: 0 }}>
+                                    {editId ? 'Edit' : 'Add New'} {addLabel}
+                                </h3>
+                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '3px 0 0' }}>Fill in the details below and save</p>
+                            </div>
+                            <button onClick={() => setShowModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 10, width: 34, height: 34, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><FiX size={18} /></button>
                         </div>
 
-                        <div className="space-y-4">
+                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                             {/* FORM fields */}
                             {tab === 'forms' && <>
                                 <div><label className="lbl">Form Name *</label><input type="text" value={formData.form_name} onChange={e => setFormData({ ...formData, form_name: e.target.value })} className="input-modern pl-4 py-2.5 text-sm" placeholder="e.g. Form 1" /></div>
@@ -1269,9 +1403,9 @@ export default function SettingsPage() {
                                 </div>
                             </>}
 
-                            <div className="flex gap-3 pt-2">
-                                <button onClick={() => setShowModal(false)} className="btn-outline flex-1">Cancel</button>
-                                <button onClick={handleSave} className="btn-primary flex-1 flex items-center justify-center gap-2"><FiSave size={14} /> Save</button>
+                            <div style={{ display: 'flex', gap: 12, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
+                                <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+                                <button onClick={handleSave} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}><FiSave size={14} /> Save</button>
                             </div>
                         </div>
                     </div>
