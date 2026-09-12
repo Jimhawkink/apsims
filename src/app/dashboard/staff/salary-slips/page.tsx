@@ -494,7 +494,7 @@ export default function SalarySlipPage() {
 
     // Find payroll record for selected teacher + selected month/year
     const getPayrollRecord = (teacherId: number) =>
-        payrolls.find(p => String(p.staff_id) === String(teacherId) && p.month === (month + 1) && p.year === year) || null;
+        payrolls.find(p => String(p.staff_id) === String(teacherId) && Number(p.month) === (month + 1) && Number(p.year) === year) || null;
 
     // Build salary config: prefer school_salary_details override, else teacher's own columns, else defaults
     const getSalaryConfig = (t: Teacher): SalaryConfig => {
