@@ -186,7 +186,8 @@ export default function UltraBroadsheetPage() {
     const [showTopN, setShowTopN] = useState(0); // 0 = all
     const [searchQ, setSearchQ] = useState('');
 
-    const examTypes = ['CAT 1', 'CAT 2', 'Mid-Term', 'End-Term', 'Mock', 'KCSE Trial'];
+    const [dbExamTypes, setDbExamTypes] = useState<any[]>([]);
+    const fallbackExamTypes = ['CAT 1', 'CAT 2', 'Mid-Term', 'End-Term', 'Mock', 'KCSE Trial'];
 
     // ─── Fetch base data ──────────────────────────────────────────────────────
     const fetchBase = useCallback(async () => {
@@ -213,6 +214,22 @@ export default function UltraBroadsheetPage() {
     }, []);
 
     useEffect(() => { fetchBase(); }, [fetchBase]);
+
+    // ─── Load exam types from DB when term changes ────────────────────────────
+    useEffect(() => {
+        if (!selTerm) { setDbExamTypes([]); return; }
+        supabase.from('school_exam_types').select('*')
+            .eq('term_id', Number(selTerm)).eq('is_active', true).order('id')
+            .then(({ data }) => {
+                const types = data || [];
+                setDbExamTypes(types);
+                if (types.length > 0 && !types.find((t: any) => t.exam_name === selExamType)) {
+                    setSelExamType(types[0].exam_name);
+                }
+            });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selTerm]);
+
 
     // ─── Grade calculator ─────────────────────────────────────────────────────
     const getGrade = useCallback((score: number): GradeEntry => {
@@ -553,7 +570,7 @@ export default function UltraBroadsheetPage() {
                     <div>
                         <label className="lbl">Exam Type *</label>
                         <select value={selExamType} onChange={e => setSelExamType(e.target.value)} className="select-modern w-full text-sm">
-                            {examTypes.map(e => <option key={e} value={e}>{e}</option>)}
+                            {(dbExamTypes.length > 0 ? dbExamTypes.map((et: any) => et.exam_name) : fallbackExamTypes).map(e => <option key={e} value={e}>{e}</option>)}
                         </select>
                     </div>
                     <div>
