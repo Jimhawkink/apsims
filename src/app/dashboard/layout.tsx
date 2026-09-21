@@ -83,6 +83,8 @@ const menuGroups = [
             { href: '/dashboard/exams/ai-insights', label: '🤖 AI Performance Chatbot', icon: FiZap, perm: 'exams' },
             { href: '/dashboard/exams/analysis', label: 'Performance Analysis', icon: FiPieChart, perm: 'exams' },
             { href: '/dashboard/exams/manage', label: 'Exam Manager', icon: FiSettings, perm: 'exams' },
+            { href: '/dashboard/exams/exam-integrity', label: '🛡️ Exam Integrity', icon: FiShield, perm: 'exams' },
+            { href: '/dashboard/exams/detailed-analysis', label: '📊 Detailed Analysis', icon: FiBarChart2, perm: 'exams' },
             { href: '/dashboard/exams/question-bank', label: 'Question Bank', icon: FiCopy, perm: 'exams' },
             { href: '/dashboard/exams/paper-generator', label: 'Paper Generator', icon: FiFileText, perm: 'exams' },
             { href: '/dashboard/exams/ai-generate', label: 'AI Question Gen', icon: FiZap, perm: 'exams' },
@@ -96,7 +98,6 @@ const menuGroups = [
             { href: '/dashboard/students/subject-registration', label: '📚 8-4-4 Subject Registration', icon: FiBook, perm: 'students' },
             { href: '/dashboard/remedial', label: 'Remedial Programs', icon: FiTrendingUp, perm: 'remedial' },
             { href: '/dashboard/exams/kcse-prediction', label: '🎯 KCSE/KCPE Prediction', icon: FiBarChart2, perm: 'exams' },
-            { href: '/dashboard/exams/exam-integrity', label: '🛡️ Exam Integrity', icon: FiShield, perm: 'exams' },
         ]
     },
     {
