@@ -21,13 +21,15 @@ export function useAnalysisData() {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [subjectTeachers, setSubjectTeachers] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<any[]>([]);
+  const [examTypes, setExamTypes] = useState<any[]>([]);
   const [selTerm, setSelTerm] = useState('');
   const [selForm, setSelForm] = useState('');
   const [selSubject, setSelSubject] = useState('');
+  const [selExamType, setSelExamType] = useState('');
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [gR,mR,sR,subR,tR,fR,stR,tchR,stchrR,attR] = await Promise.all([
+    const [gR,mR,sR,subR,tR,fR,stR,tchR,stchrR,attR,etR] = await Promise.all([
       supabase.from('school_grading_system').select('*').order('points',{ascending:false}),
       supabase.from('school_exam_marks').select('*'),
       supabase.from('school_students').select('*').eq('status','Active'),
@@ -38,11 +40,13 @@ export function useAnalysisData() {
       supabase.from('school_teachers').select('*').eq('status','Active'),
       supabase.from('school_subject_teachers').select('*'),
       supabase.from('school_attendance').select('*'),
+      supabase.from('school_exam_types').select('*').eq('is_active',true).order('id'),
     ]);
     setGrading(gR.data||[]); setMarks(mR.data||[]); setStudents(sR.data||[]);
     setSubjects(subR.data||[]); setTerms(tR.data||[]); setForms(fR.data||[]);
     setStreams(stR.data||[]); setTeachers(tchR.data||[]);
     setSubjectTeachers(stchrR.data||[]); setAttendance(attR.data||[]);
+    setExamTypes(etR.data||[]);
     const cur = (tR.data||[]).find((t:any)=>t.is_current);
     if (cur) setSelTerm(String(cur.id));
     setLoading(false);
@@ -56,7 +60,8 @@ export function useAnalysisData() {
   };
 
   const termMarks = marks.filter(m=>!selTerm||String(m.term_id)===selTerm);
-  const formMarks = termMarks.filter(m=>{
+  const examTypeMarks = termMarks.filter(m=>!selExamType||(m.exam_name===selExamType||m.exam_type===selExamType));
+  const formMarks = examTypeMarks.filter(m=>{
     if(!selForm) return true;
     const student = students.find(s=>s.id===m.student_id);
     return student?.form_id===Number(selForm);
@@ -201,8 +206,8 @@ export function useAnalysisData() {
   };
 
   return {
-    loading,grading,marks,students,subjects,terms,forms,streams,teachers,
-    selTerm,setSelTerm,selForm,setSelForm,selSubject,setSelSubject,
+    loading,grading,marks,students,subjects,terms,forms,streams,teachers,examTypes,
+    selTerm,setSelTerm,selForm,setSelForm,selSubject,setSelSubject,selExamType,setSelExamType,
     getGrade,formMarks,totalEntries,schoolMean,schoolMeanGrade,passRate,
     highestScore,lowestScore,distinctStudents,
     getGradeDistribution,subjectAvgs,streamComparison,teacherPerformance,

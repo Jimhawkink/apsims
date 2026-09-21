@@ -64,6 +64,10 @@ export default function DetailedAnalysisPage() {
               <option value="" className="text-gray-800">All Subjects</option>
               {d.subjects.map((s:any)=><option key={s.id} value={s.id} className="text-gray-800">{s.subject_name}</option>)}
             </select>
+            <select value={d.selExamType} onChange={e=>d.setSelExamType(e.target.value)} className="px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white backdrop-blur-sm focus:outline-none">
+              <option value="" className="text-gray-800">All Exam Types</option>
+              {d.examTypes.map((et:any)=><option key={et.id} value={et.exam_name} className="text-gray-800">{et.exam_name}</option>)}
+            </select>
           </div>
         </div>
       </div>

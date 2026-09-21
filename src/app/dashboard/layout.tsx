@@ -96,6 +96,7 @@ const menuGroups = [
             { href: '/dashboard/students/subject-registration', label: '📚 8-4-4 Subject Registration', icon: FiBook, perm: 'students' },
             { href: '/dashboard/remedial', label: 'Remedial Programs', icon: FiTrendingUp, perm: 'remedial' },
             { href: '/dashboard/exams/kcse-prediction', label: '🎯 KCSE/KCPE Prediction', icon: FiBarChart2, perm: 'exams' },
+            { href: '/dashboard/exams/exam-integrity', label: '🛡️ Exam Integrity', icon: FiShield, perm: 'exams' },
         ]
     },
     {
@@ -355,7 +356,9 @@ const menuGroups = [
             { href: '/dashboard/communication/hub', label: '📬 Communication Hub', icon: FiSend, perm: 'fees' },
             { href: '/dashboard/communication/whatsapp-reports', label: '💬 WhatsApp Reports', icon: FiSend, perm: 'fees' },
             { href: '/dashboard/communication/cbc-templates', label: '📲 CBC SMS & WA Templates', icon: FiMessageSquare, perm: 'fees' },
-            { href: '/dashboard/portals', label: 'Parent & Student Portal', icon: FiUsers, perm: 'students' },
+            { href: '/dashboard/portals', label: 'Parent & Student Portal Admin', icon: FiUsers, perm: 'students' },
+            { href: '/portal', label: '🌐 Open Parent Portal', icon: FiExternalLink, perm: 'students' },
+            { href: '/portal/student', label: '🎓 Open Student Portal', icon: FiExternalLink, perm: 'students' },
         ]
     },
     {
