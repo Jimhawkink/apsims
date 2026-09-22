@@ -12,8 +12,7 @@ import {
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
     FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive,
     FiWifi, FiWifiOff, FiTruck, FiAward, FiFolder, FiCpu, FiTarget, FiActivity, FiBook, FiDownload,
-    FiCheckCircle, FiUser, FiMail, FiSliders
-
+    FiCheckCircle, FiUser, FiMail, FiSliders, FiStar
 } from 'react-icons/fi';
 import OfflineBanner from '@/components/pwa/OfflineBanner';
 import CommandPalette from '@/components/CommandPalette';
@@ -116,6 +115,7 @@ const menuGroups = [
             { href: '/dashboard/jss/pathways',           label: '🛤️ Pathway Selection',           icon: FiLayers,     perm: 'curriculum' },
             { href: '/dashboard/exams/sba-manager',      label: '📋 SBA Manager',                  icon: FiAward,      perm: 'exams' },
             { href: '/dashboard/cbc/portfolio',          label: '🗂️ Student Portfolio',           icon: FiFolder,     perm: 'curriculum' },
+            { href: '/dashboard/exams/kpsea',            label: '🏆 KPSEA (Grade 6)',              icon: FiShield,     perm: 'exams' },
         ]
     },
     {
@@ -125,6 +125,7 @@ const menuGroups = [
         collapsible: true,
         items: [
             { href: '/dashboard/cbc/command-centre',                      label: '⚙️ CBC Command Centre',         icon: FiCpu,        perm: 'curriculum' },
+            { href: '/dashboard/cbc/senior-school',                       label: '🎓 Senior School Hub (G10-12)', icon: FiStar,       perm: 'curriculum' },
             { href: '/dashboard/curriculum/schemes',                      label: '📗 KICD Schemes (8-4-4)',        icon: FiBook,       perm: 'curriculum' },
             { href: '/dashboard/curriculum/cbc-schemes',                  label: '🟢 CBC Schemes of Work',         icon: FiLayers,     perm: 'curriculum' },
             { href: '/dashboard/curriculum/kicd-lesson-plans',            label: '📝 KICD Lesson Plans (CBC)',     icon: FiFileText,   perm: 'curriculum' },
