@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Outfit } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import ServiceWorkerRegistration from '@/components/pwa/ServiceWorkerRegistration';
 import InstallPrompt from '@/components/pwa/InstallPrompt';
@@ -7,7 +7,7 @@ import UpdateBanner from '@/components/pwa/UpdateBanner';
 import QueryProvider from '@/providers/QueryProvider';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const outfit = Outfit({ subsets: ['latin'], weight: ['300','400','500','600','700','800','900'] });
 
 export const metadata: Metadata = {
     title: 'APSIMS - School Management System',
@@ -33,7 +33,7 @@ export default function RootLayout({
                 <meta name="apple-mobile-web-app-title" content="APSIMS" />
                 <link rel="apple-touch-icon" href="/icon-192.png" />
             </head>
-            <body className={inter.className}>
+            <body className={outfit.className}>
                 <QueryProvider>
                 <ServiceWorkerRegistration />
                 <Toaster
