@@ -594,33 +594,55 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `}>
                 {/* Logo Header */}
-                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'px-5'} h-[60px] border-b border-gray-100`}>
+                <div className={`relative flex items-center h-[64px] border-b border-gray-100 ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'}`}>
+
+                    {/* School icon */}
+                    <div className={`flex-shrink-0 ${sidebarCollapsed ? 'w-9 h-9' : 'w-9 h-9'} rounded-xl overflow-hidden shadow-md`}>
+                        <img src="/school-icon.jpg" alt="School" className="w-full h-full object-cover" />
+                    </div>
+
+                    {/* School name — hidden when collapsed */}
                     {!sidebarCollapsed && (
-                        <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm" style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
-                                <FiHome size={16} />
-                            </div>
-                            <div>
-                                <h1 className="text-[16px] font-bold text-gray-900 tracking-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>Alpha<span className="text-blue-600">School</span></h1>
-                            </div>
+                        <div className="ml-2.5 flex-1 min-w-0">
+                            <h1
+                                className="font-black text-gray-900 tracking-tight leading-tight truncate"
+                                style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(11px, 2.8vw, 14px)' }}
+                                title="AlphaSchool"
+                            >
+                                Alpha<span className="text-blue-600">School</span>
+                            </h1>
+                            <p className="text-[9px] text-gray-400 font-medium tracking-wide uppercase truncate">Management System</p>
                         </div>
                     )}
-                    {sidebarCollapsed && <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm" style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}><FiHome size={16} /></div>}
 
-                    <button
-                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        className="hidden lg:flex items-center justify-center w-6 h-6 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors ml-auto text-gray-400 hover:text-gray-600"
-                    >
-                        {sidebarCollapsed ? <FiChevronRight size={12} /> : <FiChevronLeft size={12} />}
-                    </button>
+                    {/* Round pill chevron — like reference image */}
+                    {!sidebarCollapsed && (
+                        <button
+                            onClick={() => setSidebarCollapsed(true)}
+                            title="Collapse sidebar"
+                            className="hidden lg:flex flex-shrink-0 ml-1 items-center justify-center w-6 h-6 rounded-full bg-gray-100 hover:bg-blue-100 border border-gray-200 hover:border-blue-300 transition-all text-gray-400 hover:text-blue-600 shadow-sm"
+                        >
+                            <FiChevronLeft size={13} />
+                        </button>
+                    )}
+                    {sidebarCollapsed && (
+                        <button
+                            onClick={() => setSidebarCollapsed(false)}
+                            title="Expand sidebar"
+                            className="hidden lg:flex absolute -right-3.5 top-1/2 -translate-y-1/2 items-center justify-center w-7 h-7 rounded-full bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 shadow-md transition-all text-gray-400 hover:text-blue-600 z-10"
+                        >
+                            <FiChevronRight size={14} />
+                        </button>
+                    )}
 
+                    {/* Premier layout toggle */}
                     {!sidebarCollapsed && (
                         <button
                             onClick={() => { localStorage.setItem('apsims_theme', 'premier'); setDashTheme('premier'); }}
                             title="Switch to Premier Layout"
-                            className="hidden lg:flex items-center justify-center w-6 h-6 rounded-md border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors text-blue-500 hover:text-blue-700 ml-1"
+                            className="hidden lg:flex flex-shrink-0 ml-1 items-center justify-center w-6 h-6 rounded-full border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-all text-blue-500 hover:text-blue-700"
                         >
-                            <FiGrid size={12} />
+                            <FiGrid size={11} />
                         </button>
                     )}
 
