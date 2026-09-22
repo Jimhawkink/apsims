@@ -3,8 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiLink, FiUsers, FiInfo, FiMessageCircle, FiEye, FiEyeOff, FiCopy, FiCheckCircle, FiRefreshCw, FiZap, FiSend } from 'react-icons/fi';
-import { counties, getSubCounties, nationalities } from '@/lib/kenyan-data';
+import {
+  FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiUsers, FiInfo,
+  FiMessageCircle, FiEye, FiEyeOff, FiCopy, FiRefreshCw, FiSend,
+  FiShield, FiSettings, FiBook, FiLayers, FiLink, FiCalendar,
+  FiCheckCircle, FiAlertCircle, FiChevronRight, FiZap,
+} from 'react-icons/fi';
+import { counties, getSubCounties } from '@/lib/kenyan-data';
 import RubricLevelBadge from '@/components/cbc/RubricLevelBadge';
 import PathwayBadge from '@/components/cbc/PathwayBadge';
 import { countElectivesForPathway } from '@/lib/cbc-utils';
@@ -12,1659 +17,1215 @@ import ReceiptSettingsWidget from '@/components/settings/ReceiptSettingsWidget';
 
 type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'cbc-pathways' | 'cbc-grading' | 'sms' | 'mpesa' | 'whatsapp' | 'terms' | 'receipt-settings';
 
-export default function SettingsPage() {
-    const [tab, setTab] = useState<Tab>('school-details');
-    const [userRole, setUserRole] = useState<string>('');
+/* ─── tiny helpers ─── */
+const TH = ({ children }: { children: React.ReactNode }) => (
+  <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap bg-gray-50">{children}</th>
+);
+const TD = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <td className={`px-4 py-3 text-sm ${className}`}>{children}</td>
+);
+const Badge = ({ children, color }: { children: React.ReactNode; color: string }) => {
+  const map: Record<string, string> = {
+    indigo: 'bg-indigo-100 text-indigo-700',
+    green: 'bg-emerald-100 text-emerald-700',
+    amber: 'bg-amber-100 text-amber-700',
+    blue: 'bg-blue-100 text-blue-700',
+    purple: 'bg-purple-100 text-purple-700',
+    red: 'bg-red-100 text-red-700',
+    gray: 'bg-gray-100 text-gray-600',
+    orange: 'bg-orange-100 text-orange-700',
+  };
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black ${map[color] || map.gray}`}>{children}</span>;
+};
+const Lbl = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">
+    {children}{required && <span className="text-red-500 ml-0.5">*</span>}
+  </label>
+);
+const Inp = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+  <input {...props} className={`w-full px-3.5 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-medium text-gray-800 bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 outline-none transition-all placeholder:text-gray-300 ${props.className || ''}`} />
+);
+const Sel = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
+  <select {...props} className={`w-full px-3.5 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-medium text-gray-800 bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 outline-none transition-all cursor-pointer appearance-none ${props.className || ''}`} />
+);
+const SectionCard = ({ icon, title, color, children }: { icon: string; title: string; color: string; children: React.ReactNode }) => {
+  const borders: Record<string, string> = { indigo: 'border-l-indigo-500', green: 'border-l-emerald-500', amber: 'border-l-amber-500', blue: 'border-l-blue-500', purple: 'border-l-purple-500', red: 'border-l-red-500' };
+  const bgs: Record<string, string> = { indigo: 'bg-indigo-100 text-indigo-600', green: 'bg-emerald-100 text-emerald-600', amber: 'bg-amber-100 text-amber-600', blue: 'bg-blue-100 text-blue-600', purple: 'bg-purple-100 text-purple-600', red: 'bg-red-100 text-red-600' };
+  return (
+    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm border-l-4 ${borders[color] || borders.indigo} overflow-hidden`}>
+      <div className="px-5 py-3.5 bg-gray-50 border-b border-gray-100 flex items-center gap-3">
+        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${bgs[color] || bgs.indigo}`}>{icon}</div>
+        <h4 className="text-xs font-black text-gray-700 uppercase tracking-wide">{title}</h4>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+};
+const EmptyState = ({ icon, title, sub }: { icon: string; title: string; sub: string }) => (
+  <div className="flex flex-col items-center justify-center py-16 gap-3">
+    <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-3xl">{icon}</div>
+    <p className="font-black text-gray-600">{title}</p>
+    <p className="text-xs text-gray-400">{sub}</p>
+  </div>
+);
+const ActionBtn = ({ onClick, variant = 'edit' }: { onClick: () => void; variant?: 'edit' | 'delete' }) =>
+  variant === 'edit'
+    ? <button onClick={onClick} className="p-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:shadow-sm transition-all"><FiEdit2 size={13} /></button>
+    : <button onClick={onClick} className="p-2 rounded-xl border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:shadow-sm transition-all"><FiTrash2 size={13} /></button>;
 
-    // Read role from localStorage (set by layout on login)
-    useEffect(() => {
-        try {
-            const stored = localStorage.getItem('school_user');
-            if (stored) {
-                const u = JSON.parse(stored);
-                setUserRole((u.role || '').toLowerCase());
-            }
-        } catch {}
-    }, []);
-
-    const isSuperAdmin = userRole === 'super-admin' || userRole === 'superadmin' || userRole === 'super_admin';
-    const [forms, setForms] = useState<any[]>([]);
-    const [streams, setStreams] = useState<any[]>([]);
-    const [subjects, setSubjects] = useState<any[]>([]);
-    const [teachers, setTeachers] = useState<any[]>([]);
-    const [classes, setClasses] = useState<any[]>([]); // form-stream combos
-    const [subjectTeachers, setSubjectTeachers] = useState<any[]>([]); // subject-teacher links
-    const [schoolDetails, setSchoolDetails] = useState<any>({});
-    // CBC state
-    const [cbcPathways, setCbcPathways] = useState<any[]>([]);
-    const [cbcPathwaySubjects, setCbcPathwaySubjects] = useState<any[]>([]);
-    const [cbcRubricConfig, setCbcRubricConfig] = useState<any[]>([]);
-    const [selectedPathwayForEdit, setSelectedPathwayForEdit] = useState<number | null>(null);
-    const [pathwaySubjectDraft, setPathwaySubjectDraft] = useState<number[]>([]); // subject IDs checked as electives for selected pathway
-    const [savingPathway, setSavingPathway] = useState(false);
-    const [savingRubric, setSavingRubric] = useState(false);
-    const [rubricDraft, setRubricDraft] = useState<any[]>([]); // editable copy of rubric config
-    // Terms & Academic Year state
-    const [terms, setTerms] = useState<any[]>([]);
-    const [termForm, setTermForm] = useState<any>({ term_name: '', term_number: '', start_date: '', end_date: '', academic_year: new Date().getFullYear(), is_current: false });
-    const [editTermId, setEditTermId] = useState<number | null>(null);
-    const [showTermModal, setShowTermModal] = useState(false);
-    const [settingCurrent, setSettingCurrent] = useState<number | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [savingInfo, setSavingInfo] = useState(false);
-    const [savingSMS, setSavingSMS] = useState(false);
-    const [showApiKey, setShowApiKey] = useState(false);
-    const [testPhone, setTestPhone] = useState('');
-    const [testMessage, setTestMessage] = useState('');
-    const [sendingTest, setSendingTest] = useState(false);
-    const [testResult, setTestResult] = useState<any>(null);
-    const [showModal, setShowModal] = useState(false);
-    const [editId, setEditId] = useState<number | null>(null);
-    const [formData, setFormData] = useState<any>({});
-
-    const fetchAll = useCallback(async () => {
-        setLoading(true);
-        const [f, st, su, t, sp] = await Promise.all([
-            supabase.from('school_forms').select('*').order('form_level'),
-            supabase.from('school_streams').select('*').order('stream_name'),
-            supabase.from('school_subjects').select('*').order('subject_name'),
-            supabase.from('school_teachers').select('id, first_name, last_name, tsc_number').order('first_name'),
-            supabase.from('school_support_teachers').select('id, first_name, last_name, staff_no').order('first_name'),
-        ]);
-        setForms(f.data || []);
-        setStreams(st.data || []);
-        setSubjects(su.data || []);
-        // Merge TSC teachers + support teachers into one list for all dropdowns
-        const allTeachers = [
-            ...(t.data || []).map((x: any) => ({ ...x, _source: 'tsc' })),
-            ...(sp.data || []).map((x: any) => ({ ...x, tsc_number: x.staff_no || 'Support', _source: 'support' })),
-        ];
-        setTeachers(allTeachers);
-
-        // Fetch classes (form-stream linking)
-        try {
-            const { data } = await supabase.from('school_classes').select('*');
-            setClasses(data || []);
-        } catch { setClasses([]); }
-
-        // Fetch subject-teacher links
-        try {
-            const { data } = await supabase.from('school_subject_teachers').select('*');
-            setSubjectTeachers(data || []);
-        } catch { setSubjectTeachers([]); }
-
-        // Fetch school details
-        try {
-            const { data } = await supabase.from('school_details').select('*').limit(1).single();
-            if (data) setSchoolDetails(data);
-        } catch { }
-
-        // Fetch CBC pathways
-        try {
-            const { data } = await supabase.from('cbc_pathways').select('*').order('id');
-            setCbcPathways(data || []);
-        } catch { setCbcPathways([]); }
-
-        // Fetch CBC pathway subjects (with subject join)
-        try {
-            const { data } = await supabase
-                .from('cbc_pathway_subjects')
-                .select('*, school_subjects(id, subject_name, subject_code)');
-            setCbcPathwaySubjects(data || []);
-        } catch { setCbcPathwaySubjects([]); }
-
-        // Fetch CBC rubric config
-        try {
-            const { data } = await supabase.from('cbc_rubric_config').select('*').order('sort_order');
-            if (data && data.length > 0) {
-                setCbcRubricConfig(data);
-                setRubricDraft(data.map(r => ({ ...r })));
-            }
-        } catch { setCbcRubricConfig([]); }
-
-        // Fetch Terms & Academic Year
-        try {
-            const { data } = await supabase.from('school_terms').select('*').order('academic_year', { ascending: false });
-            setTerms(data || []);
-        } catch { setTerms([]); }
-
-        setLoading(false);
-    }, []);
-
-    useEffect(() => { fetchAll(); }, [fetchAll]);
-
-    // ====================== FORMS CRUD ======================
-    const openAddForm = () => { setEditId(null); setFormData({ form_name: '', form_level: '', description: '' }); setShowModal(true); };
-    const openEditForm = (item: any) => { setEditId(item.id); setFormData({ form_name: item.form_name, form_level: item.form_level, description: item.description || '' }); setShowModal(true); };
-    const saveForm = async () => {
-        if (!formData.form_name || !formData.form_level) { toast.error('Fill all required fields'); return; }
-        const payload = { form_name: formData.form_name.trim(), form_level: Number(formData.form_level), description: formData.description || null };
-        const { error } = editId ? await supabase.from('school_forms').update(payload).eq('id', editId) : await supabase.from('school_forms').insert([payload]);
-        if (error) { toast.error(error.message); return; }
-        toast.success(editId ? 'Form updated ✅' : 'Form added ✅'); setShowModal(false); fetchAll();
-    };
-    const deleteForm = async (id: number) => { if (!confirm('Delete this form?')) return; const { error } = await supabase.from('school_forms').delete().eq('id', id); if (error) { toast.error('Cannot delete — may be in use'); return; } toast.success('Deleted'); fetchAll(); };
-
-    // ====================== STREAMS CRUD ======================
-    const openAddStream = () => { setEditId(null); setFormData({ stream_name: '', description: '' }); setShowModal(true); };
-    const openEditStream = (item: any) => { setEditId(item.id); setFormData({ stream_name: item.stream_name, description: item.description || '' }); setShowModal(true); };
-    const saveStream = async () => {
-        if (!formData.stream_name) { toast.error('Stream name required'); return; }
-        const payload = { stream_name: formData.stream_name.trim(), description: formData.description || null };
-        const { error } = editId ? await supabase.from('school_streams').update(payload).eq('id', editId) : await supabase.from('school_streams').insert([payload]);
-        if (error) { toast.error(error.message); return; }
-        toast.success(editId ? 'Stream updated ✅' : 'Stream added ✅'); setShowModal(false); fetchAll();
-    };
-    const deleteStream = async (id: number) => { if (!confirm('Delete this stream?')) return; const { error } = await supabase.from('school_streams').delete().eq('id', id); if (error) { toast.error('Cannot delete — may be in use'); return; } toast.success('Deleted'); fetchAll(); };
-
-    // ====================== SUBJECTS CRUD ======================
-    const openAddSubject = () => { setEditId(null); setFormData({ subject_name: '', subject_code: '', category: 'Core' }); setShowModal(true); };
-    const openEditSubject = (item: any) => { setEditId(item.id); setFormData({ subject_name: item.subject_name, subject_code: item.subject_code || '', category: item.category || 'Core' }); setShowModal(true); };
-    const saveSubject = async () => {
-        if (!formData.subject_name) { toast.error('Subject name required'); return; }
-        const payload = { subject_name: formData.subject_name.trim(), subject_code: formData.subject_code || null, category: formData.category };
-        const { error } = editId ? await supabase.from('school_subjects').update(payload).eq('id', editId) : await supabase.from('school_subjects').insert([payload]);
-        if (error) { toast.error(error.message); return; }
-        toast.success(editId ? 'Subject updated ✅' : 'Subject added ✅'); setShowModal(false); fetchAll();
-    };
-    const deleteSubject = async (id: number) => { if (!confirm('Delete this subject?')) return; const { error } = await supabase.from('school_subjects').delete().eq('id', id); if (error) { toast.error('Cannot delete — may be in use'); return; } toast.success('Deleted'); fetchAll(); };
-
-    // ====================== CLASSES (Form-Stream + Class Teacher) ======================
-    const openAddClass = () => { setEditId(null); setFormData({ form_id: '', stream_id: '', teacher_id: '', year: new Date().getFullYear() }); setShowModal(true); };
-    const openEditClass = (item: any) => { setEditId(item.id); setFormData({ form_id: item.form_id, stream_id: item.stream_id, teacher_id: item.teacher_id || '', year: item.year || new Date().getFullYear() }); setShowModal(true); };
-    const saveClass = async () => {
-        if (!formData.form_id || !formData.stream_id) { toast.error('Select both form and stream'); return; }
-        const payload = { form_id: Number(formData.form_id), stream_id: Number(formData.stream_id), teacher_id: formData.teacher_id ? Number(formData.teacher_id) : null, year: Number(formData.year) };
-        const { error } = editId ? await supabase.from('school_classes').update(payload).eq('id', editId) : await supabase.from('school_classes').insert([payload]);
-        if (error) { toast.error(error.message || 'Failed — class may already exist'); return; }
-        toast.success(editId ? 'Class updated ✅' : 'Class created ✅'); setShowModal(false); fetchAll();
-    };
-    const deleteClass = async (id: number) => { if (!confirm('Remove this class?')) return; const { error } = await supabase.from('school_classes').delete().eq('id', id); if (error) { toast.error('Cannot delete'); return; } toast.success('Removed'); fetchAll(); };
-
-    // ====================== SUBJECT-TEACHER LINKING ======================
-    const openAddSubjectTeacher = () => { setEditId(null); setFormData({ subject_id: '', teacher_id: '', form_id: '', stream_id: '' }); setShowModal(true); };
-    const openEditSubjectTeacher = (item: any) => { setEditId(item.id); setFormData({ subject_id: item.subject_id, teacher_id: item.teacher_id, form_id: item.form_id || '', stream_id: item.stream_id || '' }); setShowModal(true); };
-    const saveSubjectTeacher = async () => {
-        if (!formData.subject_id || !formData.teacher_id) { toast.error('Select both subject and teacher'); return; }
-        const payload = {
-            subject_id: Number(formData.subject_id),
-            teacher_id: Number(formData.teacher_id),
-            form_id: formData.form_id ? Number(formData.form_id) : null,
-            stream_id: formData.stream_id ? Number(formData.stream_id) : null,
-        };
-        const { error } = editId ? await supabase.from('school_subject_teachers').update(payload).eq('id', editId) : await supabase.from('school_subject_teachers').insert([payload]);
-        if (error) { toast.error(error.message || 'Failed — link may already exist'); return; }
-        toast.success(editId ? 'Link updated ✅' : 'Subject linked to teacher ✅'); setShowModal(false); fetchAll();
-    };
-    const deleteSubjectTeacher = async (id: number) => { if (!confirm('Remove this link?')) return; const { error } = await supabase.from('school_subject_teachers').delete().eq('id', id); if (error) { toast.error('Cannot delete'); return; } toast.success('Removed'); fetchAll(); };
-
-    // Helpers
-    const getFormName = (id: number) => forms.find(f => f.id === id)?.form_name || '-';
-    const getStreamName = (id: number) => streams.find(s => s.id === id)?.stream_name || '-';
-    const getSubjectName = (id: number) => subjects.find(s => s.id === id)?.subject_name || '-';
-    const getTeacherName = (id: number) => { const t = teachers.find(t => t.id === id); return t ? `${t.first_name} ${t.last_name}` : '-'; };
-
-    // ====================== CBC PATHWAYS ======================
-    const handleSelectPathwayForEdit = (pathwayId: number) => {
-        setSelectedPathwayForEdit(pathwayId);
-        // Pre-populate draft with current elective subject IDs for this pathway
-        const currentElectives = cbcPathwaySubjects
-            .filter(ps => ps.pathway_id === pathwayId && !ps.is_compulsory)
-            .map(ps => ps.subject_id);
-        setPathwaySubjectDraft(currentElectives);
-    };
-
-    const toggleElectiveSubject = (subjectId: number) => {
-        setPathwaySubjectDraft(prev =>
-            prev.includes(subjectId) ? prev.filter(id => id !== subjectId) : [...prev, subjectId]
-        );
-    };
-
-    const savePathwaySubjects = async () => {
-        if (!selectedPathwayForEdit) return;
-
-        // Validation: prevent assigning a non-compulsory subject to more than one pathway
-        for (const subjectId of pathwaySubjectDraft) {
-            const existingInOtherPathway = cbcPathwaySubjects.find(
-                ps => ps.subject_id === subjectId && ps.pathway_id !== selectedPathwayForEdit && !ps.is_compulsory
-            );
-            if (existingInOtherPathway) {
-                const subjectName = subjects.find(s => s.id === subjectId)?.subject_name || `Subject #${subjectId}`;
-                const otherPathway = cbcPathways.find(p => p.id === existingInOtherPathway.pathway_id)?.pathway_name || 'another pathway';
-                toast.error(`"${subjectName}" is already assigned as an elective in ${otherPathway}. A non-compulsory subject can only belong to one pathway.`);
-                return;
-            }
-        }
-
-        setSavingPathway(true);
-        try {
-            // Get current elective rows for this pathway
-            const currentElectiveRows = cbcPathwaySubjects.filter(
-                ps => ps.pathway_id === selectedPathwayForEdit && !ps.is_compulsory
-            );
-            const currentIds = currentElectiveRows.map(ps => ps.subject_id);
-
-            // Determine rows to delete (unchecked) and rows to insert (newly checked)
-            const toDelete = currentIds.filter(id => !pathwaySubjectDraft.includes(id));
-            const toInsert = pathwaySubjectDraft.filter(id => !currentIds.includes(id));
-
-            // Delete removed electives
-            if (toDelete.length > 0) {
-                const { error } = await supabase
-                    .from('cbc_pathway_subjects')
-                    .delete()
-                    .eq('pathway_id', selectedPathwayForEdit)
-                    .in('subject_id', toDelete)
-                    .eq('is_compulsory', false);
-                if (error) throw error;
-            }
-
-            // Insert new electives
-            if (toInsert.length > 0) {
-                const rows = toInsert.map(subject_id => ({
-                    pathway_id: selectedPathwayForEdit,
-                    subject_id,
-                    is_compulsory: false,
-                }));
-                const { error } = await supabase.from('cbc_pathway_subjects').insert(rows);
-                if (error) throw error;
-            }
-
-            toast.success('Pathway subjects saved ✅');
-            await fetchAll();
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to save pathway subjects');
-        } finally {
-            setSavingPathway(false);
-        }
-    };
-
-    // ====================== CBC GRADING ======================
-    const updateRubricDraft = (levelCode: string, field: string, value: string) => {
-        setRubricDraft(prev => prev.map(r => r.level_code === levelCode ? { ...r, [field]: value } : r));
-    };
-
-    const saveRubricConfig = async () => {
-        setSavingRubric(true);
-        try {
-            for (const row of rubricDraft) {
-                const { error } = await supabase
-                    .from('cbc_rubric_config')
-                    .update({
-                        level_label: row.level_label,
-                        color_hex: row.color_hex,
-                        bg_hex: row.bg_hex,
-                    })
-                    .eq('level_code', row.level_code);
-                if (error) throw error;
-            }
-            toast.success('Rubric config saved ✅');
-            await fetchAll();
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to save rubric config');
-        } finally {
-            setSavingRubric(false);
-        }
-    };
-
-    // ====================== SCHOOL DETAILS ======================
-    const saveSchoolDetails = async () => {
-        if (!schoolDetails.school_name?.trim()) {
-            toast.error('School name is required');
-            return;
-        }
-        setSavingInfo(true);
-        // Clean payload: remove id/timestamps, convert empty strings to null
-        const payload: any = {};
-        const skipKeys = ['id', 'created_at', 'updated_at'];
-        Object.keys(schoolDetails).forEach(key => {
-            if (skipKeys.includes(key)) return;
-            const val = schoolDetails[key];
-            payload[key] = (typeof val === 'string' && val.trim() === '') ? null : val;
-        });
-        payload.updated_at = new Date().toISOString();
-
-        let error;
-        if (schoolDetails.id) {
-            ({ error } = await supabase.from('school_details').update(payload).eq('id', schoolDetails.id));
-        } else {
-            ({ error } = await supabase.from('school_details').insert([payload]));
-        }
-        setSavingInfo(false);
-        if (error) { toast.error(error.message || 'Failed to save'); return; }
-        toast.success('School details saved ✅'); fetchAll();
-    };
-
-    const tabs: { key: Tab; label: string; icon: string; count: number }[] = [
-        { key: 'school-details', label: 'School Info', icon: '🏫', count: 0 },
-        { key: 'terms', label: 'Terms & Year', icon: '📅', count: terms.length },
-        { key: 'forms', label: 'Forms', icon: '📋', count: forms.length },
-        { key: 'streams', label: 'Streams', icon: '🏷️', count: streams.length },
-        { key: 'subjects', label: 'Subjects', icon: '📚', count: subjects.length },
-        { key: 'classes', label: 'Classes', icon: '🏫', count: classes.length },
-        { key: 'subject-teachers', label: 'Subject-Teacher', icon: '🔗', count: subjectTeachers.length },
-        { key: 'cbc-pathways', label: 'CBC Pathways', icon: '🛤️', count: cbcPathways.length },
-        { key: 'cbc-grading', label: 'CBC Grading', icon: '📊', count: cbcRubricConfig.length },
-        { key: 'sms', label: 'SMS Config', icon: '💬', count: 0 },
-        { key: 'mpesa', label: 'M-Pesa STK', icon: '📲', count: 0 },
-        { key: 'whatsapp', label: 'WhatsApp', icon: '💚', count: 0 },
-        // Super-admin only — always listed but guarded in the panel
-        { key: 'receipt-settings', label: '🔐 Receipt Numbering', icon: '🧾', count: 0 },
-    ];
-
-    const openAdd = () => { if (tab === 'school-details') return; if (tab === 'forms') openAddForm(); else if (tab === 'streams') openAddStream(); else if (tab === 'subjects') openAddSubject(); else if (tab === 'classes') openAddClass(); else openAddSubjectTeacher(); };
-    const handleSave = () => { if (tab === 'forms') saveForm(); else if (tab === 'streams') saveStream(); else if (tab === 'subjects') saveSubject(); else if (tab === 'classes') saveClass(); else saveSubjectTeacher(); };
-
-    const addLabel = tab === 'forms' ? 'Form' : tab === 'streams' ? 'Stream' : tab === 'subjects' ? 'Subject' : tab === 'classes' ? 'Class' : 'Link';
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-            {/* ══ PREMIUM HERO HEADER ══ */}
-            <div style={{ background: 'linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#6d28d9 100%)', borderRadius: 22, padding: '26px 30px', position: 'relative', overflow: 'hidden', boxShadow: '0 12px 40px rgba(99,102,241,0.3)' }}>
-                <div style={{ position: 'absolute', top: -45, right: -35, width: 170, height: 170, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-                <div style={{ position: 'absolute', bottom: -28, left: 60, width: 110, height: 110, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 18 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <div style={{ width: 54, height: 54, background: 'rgba(255,255,255,0.15)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0, boxShadow: '0 4px 14px rgba(0,0,0,0.15)' }}>⚙️</div>
-                        <div>
-                            <h1 style={{ fontSize: 23, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.3px' }}>School Settings</h1>
-                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0', fontWeight: 500 }}>System control centre — forms, subjects, CBC, SMS, M-Pesa, WhatsApp</p>
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        {[
-                            { label: 'Forms', val: forms.length },
-                            { label: 'Subjects', val: subjects.length },
-                            { label: 'Teachers', val: teachers.length },
-                            { label: 'Classes', val: classes.length },
-                        ].map(function(s) { return (
-                            <div key={s.label} style={{ textAlign: 'center', minWidth: 58, padding: '8px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.13)', border: '1px solid rgba(255,255,255,0.18)' }}>
-                                <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{s.val}</div>
-                                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginTop: 3 }}>{s.label}</div>
-                            </div>
-                        ); })}
-                        {tab !== 'school-details' && (
-                            <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 13, border: '1.5px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.18)', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' as const }}>
-                                <FiPlus size={15} /> Add {addLabel}
-                            </button>
-                        )}
-                    </div>
-                </div>
+/* ─── Modal shell ─── */
+function Modal({ open, onClose, title, subtitle, icon, accentColor = '#6366f1', children }: {
+  open: boolean; onClose: () => void; title: string; subtitle?: string; icon: string;
+  accentColor?: string; children: React.ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4" onClick={onClose}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        {/* Modal header */}
+        <div className="h-1 w-full" style={{ background: `linear-gradient(90deg,${accentColor},${accentColor}99)` }} />
+        <div className="px-6 py-5 flex items-center justify-between" style={{ background: `${accentColor}10` }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: `${accentColor}20` }}>{icon}</div>
+            <div>
+              <h3 className="text-sm font-black text-gray-900">{title}</h3>
+              {subtitle && <p className="text-[10px] text-gray-500 mt-0.5">{subtitle}</p>}
             </div>
-
-            {/* ══ PREMIUM TAB BAR ══ */}
-            <div style={{ background: '#fff', borderRadius: 18, padding: '6px 8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', display: 'flex', gap: 4, overflowX: 'auto', scrollbarWidth: 'none' as const }}>
-                {tabs.map(function(t) { return (
-                    <button key={t.key} onClick={() => setTab(t.key)}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '9px 14px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                            whiteSpace: 'nowrap' as const, fontSize: 12, fontWeight: 700,
-                            transition: 'all 0.18s ease',
-                            background: tab === t.key ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'transparent',
-                            color: tab === t.key ? '#fff' : '#64748b',
-                            boxShadow: tab === t.key ? '0 4px 14px rgba(99,102,241,0.35)' : 'none',
-                        }}>
-                        <span style={{ fontSize: 14 }}>{t.icon}</span>
-                        {t.label}
-                        <span style={{ padding: '1px 6px', borderRadius: 8, fontSize: 10, fontWeight: 800, background: tab === t.key ? 'rgba(255,255,255,0.25)' : '#f1f5f9', color: tab === t.key ? '#fff' : '#94a3b8', minWidth: 18, textAlign: 'center' as const }}>{t.count}</span>
-                    </button>
-                ); })}
-            </div>
-
-
-            {loading ? (
-                <div className="flex justify-center py-20"><div className="spinner" style={{ borderTopColor: '#6366f1', borderColor: '#e2e8f0', width: 32, height: 32, borderWidth: 3 }} /></div>
-            ) : (
-                <div style={{ background: '#fff', borderRadius: 20, border: '1px solid #e8edf5', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-                    {/* ========== SCHOOL DETAILS ========== */}
-                    {tab === 'school-details' && (
-                        <div className="p-6 space-y-8">
-                            <div className="p-5 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200" style={{ borderRadius: 8 }}>
-                                <h3 className="font-bold text-indigo-800 flex items-center gap-2 mb-1 text-base"><FiInfo size={18} /> School Information</h3>
-                                <p className="text-sm text-indigo-600">Configure your school&apos;s details, contact information, and bank accounts</p>
-                            </div>
-
-                            {/* Basic Info Section */}
-                            <div className="border border-gray-200 overflow-hidden" style={{ borderRadius: 8, borderLeft: '4px solid #6366f1' }}>
-                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                                    <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">🏫 Basic Information</h4>
-                                </div>
-                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">School Name <span className="text-red-500">*</span></label>
-                                        <input type="text" value={schoolDetails.school_name || ''} onChange={e => setSchoolDetails({ ...schoolDetails, school_name: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="Enter school name" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Motto</label>
-                                        <input type="text" value={schoolDetails.motto || ''} onChange={e => setSchoolDetails({ ...schoolDetails, motto: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="School motto" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Registration No.</label>
-                                        <input type="text" value={schoolDetails.registration_number || ''} onChange={e => setSchoolDetails({ ...schoolDetails, registration_number: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="e.g. SCH/2025/001" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">TSC Code</label>
-                                        <input type="text" value={schoolDetails.tsc_code || ''} onChange={e => setSchoolDetails({ ...schoolDetails, tsc_code: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="TSC code" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">KNEC Code</label>
-                                        <input type="text" value={schoolDetails.knec_code || ''} onChange={e => setSchoolDetails({ ...schoolDetails, knec_code: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="KNEC code" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Sub-County Code</label>
-                                        <input type="text" value={schoolDetails.sub_county_code || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sub_county_code: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="Sub-county code" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Location Section */}
-                            <div className="border border-gray-200 overflow-hidden" style={{ borderRadius: 8, borderLeft: '4px solid #22c55e' }}>
-                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                                    <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">📍 Location &amp; Address</h4>
-                                </div>
-                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Postal Address</label>
-                                        <input type="text" value={schoolDetails.postal_address || ''} onChange={e => setSchoolDetails({ ...schoolDetails, postal_address: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="P.O. Box 123" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Physical Address</label>
-                                        <input type="text" value={schoolDetails.physical_address || ''} onChange={e => setSchoolDetails({ ...schoolDetails, physical_address: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="e.g. Nairobi" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">County</label>
-                                        <select value={schoolDetails.county || ''} onChange={e => setSchoolDetails({ ...schoolDetails, county: e.target.value, sub_county: '' })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition-all appearance-none cursor-pointer"
-                                            style={{ borderRadius: 6, backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%236b7280\' d=\'M3 5l3 3 3-3\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
-                                            <option value="">— Select County —</option>
-                                            {counties.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Sub-County</label>
-                                        <select value={schoolDetails.sub_county || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sub_county: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition-all appearance-none cursor-pointer"
-                                            style={{ borderRadius: 6, backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%236b7280\' d=\'M3 5l3 3 3-3\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
-                                            <option value="">— Select Sub-County —</option>
-                                            {schoolDetails.county && getSubCounties(schoolDetails.county).map(sc => <option key={sc} value={sc}>{sc}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Contact Section */}
-                            <div className="border border-gray-200 overflow-hidden" style={{ borderRadius: 8, borderLeft: '4px solid #f59e0b' }}>
-                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                                    <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">📞 Contact Details</h4>
-                                </div>
-                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Phone 1</label>
-                                        <input type="tel" value={schoolDetails.phone1 || ''} onChange={e => setSchoolDetails({ ...schoolDetails, phone1: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="0712 345 678" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Phone 2</label>
-                                        <input type="tel" value={schoolDetails.phone2 || ''} onChange={e => setSchoolDetails({ ...schoolDetails, phone2: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Email</label>
-                                        <input type="email" value={schoolDetails.email || ''} onChange={e => setSchoolDetails({ ...schoolDetails, email: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="school@example.com" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Website</label>
-                                        <input type="url" value={schoolDetails.website || ''} onChange={e => setSchoolDetails({ ...schoolDetails, website: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="https://" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Principal Name</label>
-                                        <input type="text" value={schoolDetails.principal_name || ''} onChange={e => setSchoolDetails({ ...schoolDetails, principal_name: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Principal Phone</label>
-                                        <input type="tel" value={schoolDetails.principal_phone || ''} onChange={e => setSchoolDetails({ ...schoolDetails, principal_phone: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Bank Section */}
-                            <div className="border border-gray-200 overflow-hidden" style={{ borderRadius: 8, borderLeft: '4px solid #3b82f6' }}>
-                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                                    <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">🏦 Bank &amp; Payment Details</h4>
-                                </div>
-                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Bank Name</label>
-                                        <input type="text" value={schoolDetails.bank_name || ''} onChange={e => setSchoolDetails({ ...schoolDetails, bank_name: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} placeholder="e.g. KCB, Equity" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Account Name</label>
-                                        <input type="text" value={schoolDetails.bank_account_name || ''} onChange={e => setSchoolDetails({ ...schoolDetails, bank_account_name: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Account Number</label>
-                                        <input type="text" value={schoolDetails.bank_account_number || ''} onChange={e => setSchoolDetails({ ...schoolDetails, bank_account_number: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Bank Branch</label>
-                                        <input type="text" value={schoolDetails.bank_branch || ''} onChange={e => setSchoolDetails({ ...schoolDetails, bank_branch: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">M-Pesa Paybill</label>
-                                        <input type="text" value={schoolDetails.mpesa_paybill || ''} onChange={e => setSchoolDetails({ ...schoolDetails, mpesa_paybill: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">M-Pesa Account Name</label>
-                                        <input type="text" value={schoolDetails.mpesa_account_name || ''} onChange={e => setSchoolDetails({ ...schoolDetails, mpesa_account_name: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder:text-gray-400"
-                                            style={{ borderRadius: 6 }} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Save Button */}
-                            <div className="pt-2 flex justify-end">
-                                <button onClick={saveSchoolDetails} disabled={savingInfo}
-                                    className="flex items-center gap-2 px-8 py-3 text-white font-bold text-sm transition-all shadow-lg hover:shadow-xl disabled:opacity-60"
-                                    style={{ borderRadius: 6, background: savingInfo ? '#94a3b8' : 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-                                    {savingInfo ? (
-                                        <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
-                                    ) : (
-                                        <><FiSave size={16} /> Save School Details</>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-
-                    {/* ========== FORMS TABLE ========== */}
-                    {tab === 'forms' && (forms.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '60px 24px', color: '#94a3b8' }}>
-                            <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-                            <p style={{ fontWeight: 700, margin: '0 0 4px', color: '#64748b' }}>No forms configured yet</p>
-                            <p style={{ fontSize: 13, margin: 0 }}>Click Add Form above to get started</p>
-                        </div>
-                    ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                <thead>
-                                    <tr style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em', width: 40 }}>#</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Form Name</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Level</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Description</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Status</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'right', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {forms.map((item, i) => (
-                                        <tr key={item.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbff', borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}>
-                                            <td style={{ padding: '12px 16px', color: '#cbd5e1', fontWeight: 600, fontSize: 12 }}>{i + 1}</td>
-                                            <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1e293b' }}>{item.form_name}</td>
-                                            <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 10px', borderRadius: 8, background: '#eef2ff', color: '#4338ca', fontWeight: 800, fontSize: 12 }}>Level {item.form_level}</span></td>
-                                            <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{item.description || '—'}</td>
-                                            <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 10px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', fontWeight: 700, fontSize: 11 }}>Active</span></td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                                                    <button onClick={() => openEditForm(item)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #dbeafe', background: '#eff6ff', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiEdit2 size={13} /></button>
-                                                    <button onClick={() => deleteForm(item.id)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiTrash2 size={13} /></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    ))}
-
-                    {/* ========== STREAMS TABLE ========== */}
-                    {tab === 'streams' && (streams.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '60px 24px', color: '#94a3b8' }}>
-                            <div style={{ fontSize: 40, marginBottom: 12 }}>🏷️</div>
-                            <p style={{ fontWeight: 700, margin: '0 0 4px', color: '#64748b' }}>No streams yet</p>
-                            <p style={{ fontSize: 13, margin: 0 }}>Click Add Stream to create your first stream</p>
-                        </div>
-                    ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                <thead>
-                                    <tr style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em', width: 40 }}>#</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Stream Name</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Description</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Status</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'right', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {streams.map((item, i) => (
-                                        <tr key={item.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbff', borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={{ padding: '12px 16px', color: '#cbd5e1', fontWeight: 600, fontSize: 12 }}>{i + 1}</td>
-                                            <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1e293b' }}>{item.stream_name}</td>
-                                            <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{item.description || '—'}</td>
-                                            <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 10px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', fontWeight: 700, fontSize: 11 }}>Active</span></td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                                                    <button onClick={() => openEditStream(item)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #dbeafe', background: '#eff6ff', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiEdit2 size={13} /></button>
-                                                    <button onClick={() => deleteStream(item.id)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiTrash2 size={13} /></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    ))}
-
-                    {/* ========== SUBJECTS TABLE ========== */}
-                    {tab === 'subjects' && (subjects.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '60px 24px', color: '#94a3b8' }}>
-                            <div style={{ fontSize: 40, marginBottom: 12 }}>📚</div>
-                            <p style={{ fontWeight: 700, margin: '0 0 4px', color: '#64748b' }}>No subjects yet</p>
-                            <p style={{ fontSize: 13, margin: 0 }}>Click Add Subject to configure your curriculum</p>
-                        </div>
-                    ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                <thead>
-                                    <tr style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em', width: 40 }}>#</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Subject</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Code</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Category</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Status</th>
-                                        <th style={{ padding: '13px 16px', textAlign: 'right', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {subjects.map((item, i) => {
-                                        const catStyle = item.category === 'Core'
-                                            ? { background: '#eef2ff', color: '#4338ca' }
-                                            : item.category === 'Elective'
-                                            ? { background: '#eff6ff', color: '#1d4ed8' }
-                                            : { background: '#fff7ed', color: '#c2410c' };
-                                        return (
-                                            <tr key={item.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbff', borderBottom: '1px solid #f1f5f9' }}>
-                                                <td style={{ padding: '12px 16px', color: '#cbd5e1', fontWeight: 600, fontSize: 12 }}>{i + 1}</td>
-                                                <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1e293b' }}>{item.subject_name}</td>
-                                                <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 8px', borderRadius: 6, background: '#f1f5f9', color: '#475569', fontWeight: 700, fontSize: 11, fontFamily: 'monospace' }}>{item.subject_code || '—'}</span></td>
-                                                <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 10px', borderRadius: 8, fontWeight: 700, fontSize: 11, ...catStyle }}>{item.category}</span></td>
-                                                <td style={{ padding: '12px 16px' }}><span style={{ padding: '3px 10px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', fontWeight: 700, fontSize: 11 }}>Active</span></td>
-                                                <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                                                        <button onClick={() => openEditSubject(item)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #dbeafe', background: '#eff6ff', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiEdit2 size={13} /></button>
-                                                        <button onClick={() => deleteSubject(item.id)} style={{ padding: '7px 10px', borderRadius: 9, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FiTrash2 size={13} /></button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    ))}
-
-                    {/* ========== CLASSES (Form + Stream + Class Teacher) ========== */}
-                    {tab === 'classes' && (
-                        <>
-                            <div className="p-4 bg-blue-50 border-b border-blue-200">
-                                <p className="text-sm text-blue-700 font-semibold flex items-center gap-2">🏫 Classes = Form + Stream + Class Teacher</p>
-                                <p className="text-xs text-blue-500 mt-0.5">Link forms with streams and assign a class teacher to each class</p>
-                            </div>
-                            {classes.length === 0 ? (
-                                <div className="text-center py-16 text-gray-400"><span className="text-4xl mb-3 block">🏫</span><p className="font-medium">No classes created yet</p><p className="text-sm mt-1">Link forms with streams and assign class teachers</p></div>
-                            ) : (
-                                <div className="overflow-x-auto"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}><thead><tr style={{ background: 'linear-gradient(135deg, #f0f4ff, #e8eeff)' }}><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#4338ca', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e0e7ff' }}>#</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#4338ca', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e0e7ff' }}>Form</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#4338ca', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e0e7ff' }}>Stream</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#4338ca', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e0e7ff' }}>Class Name</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#4338ca', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e0e7ff' }}>Class Teacher</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#4338ca', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e0e7ff' }}>Year</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#4338ca', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e0e7ff' }}>Actions</th></tr></thead><tbody>
-                                    {classes.map((item, i) => (
-                                        <tr key={item.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8f9ff', borderBottom: '1px solid #e8eeff', transition: 'background 0.15s' }}><td style={{ padding: '10px 14px', color: '#9ca3af', fontSize: 11 }}>{i + 1}</td><td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>{getFormName(item.form_id)}</td><td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>{getStreamName(item.stream_id)}</td>
-                                            <td style={{ padding: '10px 14px' }}><span style={{ padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'linear-gradient(135deg, #dbeafe, #e0e7ff)', color: '#4338ca' }}>{getFormName(item.form_id)} {getStreamName(item.stream_id)}</span></td>
-                                            <td style={{ padding: '10px 14px' }}>{item.teacher_id ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#15803d', fontWeight: 600 }}><FiUsers size={13} />{getTeacherName(item.teacher_id)}</span> : <span style={{ color: '#9ca3af', fontSize: 12, fontStyle: 'italic' }}>Not assigned</span>}</td>
-                                            <td style={{ padding: '10px 14px', fontWeight: 700, color: '#1e293b' }}>{item.year}</td>
-                                            <td style={{ padding: '10px 14px' }}><div style={{ display: 'flex', gap: 4 }}><button onClick={() => openEditClass(item)} style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eff6ff', color: '#2563eb' }}><FiEdit2 size={13} /></button><button onClick={() => deleteClass(item.id)} style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fff1f2', color: '#e11d48' }}><FiTrash2 size={13} /></button></div></td></tr>
-                                    ))}
-                                </tbody></table></div>
-                            )}
-                        </>
-                    )}
-
-                    {/* ========== SUBJECT-TEACHER LINKING ========== */}
-                    {tab === 'subject-teachers' && (
-                        <>
-                            <div className="p-4 bg-purple-50 border-b border-purple-200">
-                                <p className="text-sm text-purple-700 font-semibold flex items-center gap-2">🔗 Subject-Teacher Assignments</p>
-                                <p className="text-xs text-purple-500 mt-0.5">Link subjects to teachers — optionally specify which form the teacher handles</p>
-                            </div>
-                            {subjectTeachers.length === 0 ? (
-                                <div className="text-center py-16 text-gray-400"><span className="text-4xl mb-3 block">🔗</span><p className="font-medium">No subject-teacher links yet</p><p className="text-sm mt-1">Assign teachers to their subjects</p></div>
-                            ) : (
-                                <div className="overflow-x-auto"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}><thead><tr style={{ background: 'linear-gradient(135deg, #faf5ff, #ede9fe)' }}><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#7c3aed', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e9d5ff' }}>#</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#7c3aed', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e9d5ff' }}>Subject</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#7c3aed', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e9d5ff' }}>Teacher</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#7c3aed', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e9d5ff' }}>TSC No</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#7c3aed', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e9d5ff' }}>Form</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#7c3aed', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e9d5ff' }}>Stream</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#7c3aed', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e9d5ff' }}>Scope</th><th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#7c3aed', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e9d5ff' }}>Actions</th></tr></thead><tbody>
-                                    {subjectTeachers.map((item, i) => {
-                                        const teacher = teachers.find(t => t.id === item.teacher_id);
-                                        const scopeLabel = !item.form_id ? 'All Forms' : !item.stream_id ? `${getFormName(item.form_id)} — All Streams` : `${getFormName(item.form_id)} ${getStreamName(item.stream_id)}`;
-                                        return (
-                                            <tr key={item.id} style={{ background: i % 2 === 0 ? '#fff' : '#fdf8ff', borderBottom: '1px solid #f0e6ff', transition: 'background 0.15s' }}><td style={{ padding: '10px 14px', color: '#9ca3af', fontSize: 11 }}>{i + 1}</td>
-                                                <td style={{ padding: '10px 14px' }}><span style={{ padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: '#ede9fe', color: '#7c3aed' }}>{getSubjectName(item.subject_id)}</span></td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>{getTeacherName(item.teacher_id)}</td>
-                                                <td style={{ padding: '10px 14px', fontSize: 12, color: '#6b7280' }}>{teacher?.tsc_number || '-'}</td>
-                                                <td style={{ padding: '10px 14px' }}>{item.form_id ? <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8' }}>{getFormName(item.form_id)}</span> : <span style={{ color: '#9ca3af', fontSize: 11 }}>All</span>}</td>
-                                                <td style={{ padding: '10px 14px' }}>{item.stream_id ? <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: '#ffedd5', color: '#c2410c' }}>{getStreamName(item.stream_id)}</span> : <span style={{ color: '#9ca3af', fontSize: 11 }}>All</span>}</td>
-                                                <td style={{ padding: '10px 14px' }}><span style={{ padding: '3px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: '#e0e7ff', color: '#4338ca' }}>{scopeLabel}</span></td>
-                                                <td style={{ padding: '10px 14px' }}><div style={{ display: 'flex', gap: 4 }}><button onClick={() => openEditSubjectTeacher(item)} style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eff6ff', color: '#2563eb' }}><FiEdit2 size={13} /></button><button onClick={() => deleteSubjectTeacher(item.id)} style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fff1f2', color: '#e11d48' }}><FiTrash2 size={13} /></button></div></td></tr>
-                                        );
-                                    })}
-                                </tbody></table></div>
-                            )}
-                        </>
-                    )}
-                    {/* ========== CBC PATHWAYS ========== */}
-                    {tab === 'cbc-pathways' && (
-                        <div className="p-6 space-y-6">
-                            <div className="p-5 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200" style={{ borderRadius: 8 }}>
-                                <h3 className="font-bold text-indigo-800 flex items-center gap-2 mb-1 text-base">🛤️ CBC Pathways</h3>
-                                <p className="text-sm text-indigo-600">Assign elective subjects to each CBC Senior School pathway. Each non-compulsory subject may belong to only one pathway.</p>
-                            </div>
-
-                            {cbcPathways.length === 0 ? (
-                                <div className="text-center py-16 text-gray-400">
-                                    <span className="text-4xl mb-3 block">🛤️</span>
-                                    <p className="font-medium">No pathways found</p>
-                                    <p className="text-sm mt-1">Run the CBC migration SQL to seed the three pathways.</p>
-                                </div>
-                            ) : (
-                                <>
-                                    {/* Pathway Cards */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        {cbcPathways.map(pathway => {
-                                            const electiveCount = countElectivesForPathway(pathway.id, cbcPathwaySubjects);
-                                            const isSelected = selectedPathwayForEdit === pathway.id;
-                                            return (
-                                                <button
-                                                    key={pathway.id}
-                                                    onClick={() => handleSelectPathwayForEdit(pathway.id)}
-                                                    className={`text-left p-4 rounded-xl border-2 transition-all ${isSelected ? 'border-indigo-400 bg-indigo-50 shadow-md' : 'border-gray-200 bg-white hover:border-indigo-200 hover:bg-gray-50'}`}
-                                                >
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <PathwayBadge pathwayName={pathway.pathway_name} colorHex={pathway.color_hex} />
-                                                        {electiveCount < 3 && (
-                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-300">
-                                                                ⚠️ {electiveCount} elective{electiveCount !== 1 ? 's' : ''}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <p className="font-bold text-gray-800 text-sm mt-1">{pathway.pathway_name}</p>
-                                                    {pathway.description && <p className="text-xs text-gray-500 mt-0.5">{pathway.description}</p>}
-                                                    <p className="text-xs text-gray-500 mt-2">
-                                                        <span className={`font-semibold ${electiveCount >= 3 ? 'text-green-600' : 'text-amber-600'}`}>{electiveCount}</span> elective subject{electiveCount !== 1 ? 's' : ''} assigned
-                                                    </p>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Subject Assignment Panel */}
-                                    {selectedPathwayForEdit !== null && (() => {
-                                        const pathway = cbcPathways.find(p => p.id === selectedPathwayForEdit);
-                                        const compulsorySubjectIds = cbcPathwaySubjects
-                                            .filter(ps => ps.is_compulsory)
-                                            .map(ps => ps.subject_id);
-                                        const compulsorySubjects = subjects.filter(s => compulsorySubjectIds.includes(s.id));
-                                        const nonCompulsorySubjects = subjects.filter(s => !compulsorySubjectIds.includes(s.id));
-
-                                        return (
-                                            <div className="border border-indigo-200 rounded-xl overflow-hidden">
-                                                <div className="bg-indigo-50 px-5 py-3 border-b border-indigo-200 flex items-center justify-between">
-                                                    <div>
-                                                        <h4 className="font-bold text-indigo-800 text-sm flex items-center gap-2">
-                                                            ✏️ Editing: {pathway?.pathway_name}
-                                                        </h4>
-                                                        <p className="text-xs text-indigo-600 mt-0.5">Check subjects to assign as electives for this pathway</p>
-                                                    </div>
-                                                    <button
-                                                        onClick={savePathwaySubjects}
-                                                        disabled={savingPathway}
-                                                        className="flex items-center gap-2 px-5 py-2 text-white font-bold text-sm rounded-lg transition-all shadow disabled:opacity-60"
-                                                        style={{ background: savingPathway ? '#94a3b8' : 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
-                                                    >
-                                                        {savingPathway ? (
-                                                            <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
-                                                        ) : (
-                                                            <><FiSave size={14} /> Save Pathway</>
-                                                        )}
-                                                    </button>
-                                                </div>
-                                                <div className="p-5 space-y-5">
-                                                    {/* Compulsory subjects — read-only */}
-                                                    <div>
-                                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Compulsory Subjects (all pathways)</p>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {compulsorySubjects.length === 0 ? (
-                                                                <span className="text-xs text-gray-400 italic">No compulsory subjects configured</span>
-                                                            ) : compulsorySubjects.map(s => (
-                                                                <span key={s.id} className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-300">
-                                                                    🔒 {s.subject_name}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Elective subjects — checkboxes */}
-                                                    <div>
-                                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Elective Subjects</p>
-                                                        {nonCompulsorySubjects.length === 0 ? (
-                                                            <p className="text-sm text-gray-400 italic">No elective subjects available. Add subjects in the Subjects tab first.</p>
-                                                        ) : (
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                                                {nonCompulsorySubjects.map(s => {
-                                                                    const isChecked = pathwaySubjectDraft.includes(s.id);
-                                                                    // Check if assigned to a different pathway
-                                                                    const assignedElsewhere = cbcPathwaySubjects.find(
-                                                                        ps => ps.subject_id === s.id && ps.pathway_id !== selectedPathwayForEdit && !ps.is_compulsory
-                                                                    );
-                                                                    const otherPathwayName = assignedElsewhere
-                                                                        ? cbcPathways.find(p => p.id === assignedElsewhere.pathway_id)?.pathway_name
-                                                                        : null;
-                                                                    return (
-                                                                        <label
-                                                                            key={s.id}
-                                                                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${isChecked ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200 bg-white hover:bg-gray-50'} ${assignedElsewhere && !isChecked ? 'opacity-50' : ''}`}
-                                                                        >
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={isChecked}
-                                                                                onChange={() => toggleElectiveSubject(s.id)}
-                                                                                className="w-4 h-4 accent-indigo-600"
-                                                                            />
-                                                                            <div className="flex-1 min-w-0">
-                                                                                <p className="text-sm font-semibold text-gray-800 truncate">{s.subject_name}</p>
-                                                                                {s.subject_code && <p className="text-[10px] text-gray-400">{s.subject_code}</p>}
-                                                                                {otherPathwayName && !isChecked && (
-                                                                                    <p className="text-[10px] text-amber-600 font-medium">In: {otherPathwayName}</p>
-                                                                                )}
-                                                                            </div>
-                                                                        </label>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-                                </>
-                            )}
-                        </div>
-                    )}
-
-                    {/* ========== CBC GRADING ========== */}
-                    {tab === 'cbc-grading' && (
-                        <div className="p-6 space-y-6">
-                            <div className="p-5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200" style={{ borderRadius: 8 }}>
-                                <h3 className="font-bold text-emerald-800 flex items-center gap-2 mb-1 text-base">📊 CBC Grading Configuration</h3>
-                                <p className="text-sm text-emerald-600">Customize the labels and colors for each CBC rubric level. These settings affect all report cards and marks displays.</p>
-                            </div>
-
-                            {/* Info note — no delete */}
-                            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                                <FiInfo size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                                <p className="text-sm text-blue-700">The four rubric levels (EE, ME, AE, BE) are fixed and cannot be deleted. You can only update their labels and colors.</p>
-                            </div>
-
-                            {rubricDraft.length === 0 ? (
-                                <div className="text-center py-16 text-gray-400">
-                                    <span className="text-4xl mb-3 block">📊</span>
-                                    <p className="font-medium">No rubric config found</p>
-                                    <p className="text-sm mt-1">Run the CBC migration SQL to seed the rubric levels.</p>
-                                </div>
-                            ) : (
-                                <>
-                                    {/* Rubric level rows */}
-                                    <div className="border border-gray-200 rounded-xl overflow-hidden">
-                                        <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                                            <h4 className="font-bold text-gray-800 text-sm">Rubric Level Settings</h4>
-                                        </div>
-                                        <div className="divide-y divide-gray-100">
-                                            {rubricDraft.map(row => (
-                                                <div key={row.level_code} className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                                                    {/* Level code badge */}
-                                                    <div className="flex-shrink-0 w-16">
-                                                        <RubricLevelBadge level={row.level_code} rubricConfig={rubricDraft} size="md" />
-                                                    </div>
-
-                                                    {/* Label input */}
-                                                    <div className="flex-1">
-                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Label</label>
-                                                        <input
-                                                            type="text"
-                                                            value={row.level_label || ''}
-                                                            onChange={e => updateRubricDraft(row.level_code, 'level_label', e.target.value)}
-                                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-800 bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                                                            placeholder="e.g. Exceeds Expectation"
-                                                        />
-                                                    </div>
-
-                                                    {/* Color hex input + swatch */}
-                                                    <div className="w-40">
-                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Text Color</label>
-                                                        <div className="flex items-center gap-2">
-                                                            <input
-                                                                type="text"
-                                                                value={row.color_hex || ''}
-                                                                onChange={e => updateRubricDraft(row.level_code, 'color_hex', e.target.value)}
-                                                                className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-xs font-mono text-gray-800 bg-white focus:border-indigo-400 outline-none transition-all"
-                                                                placeholder="#15803d"
-                                                                maxLength={7}
-                                                            />
-                                                            <div
-                                                                className="w-8 h-8 rounded-lg border-2 border-gray-200 flex-shrink-0 cursor-pointer"
-                                                                style={{ backgroundColor: row.color_hex || '#6b7280' }}
-                                                                title={row.color_hex}
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    {/* BG hex input + swatch */}
-                                                    <div className="w-40">
-                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Background</label>
-                                                        <div className="flex items-center gap-2">
-                                                            <input
-                                                                type="text"
-                                                                value={row.bg_hex || ''}
-                                                                onChange={e => updateRubricDraft(row.level_code, 'bg_hex', e.target.value)}
-                                                                className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-xs font-mono text-gray-800 bg-white focus:border-indigo-400 outline-none transition-all"
-                                                                placeholder="#f0fdf4"
-                                                                maxLength={7}
-                                                            />
-                                                            <div
-                                                                className="w-8 h-8 rounded-lg border-2 border-gray-200 flex-shrink-0 cursor-pointer"
-                                                                style={{ backgroundColor: row.bg_hex || '#f3f4f6' }}
-                                                                title={row.bg_hex}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Preview section */}
-                                    <div className="border border-gray-200 rounded-xl overflow-hidden">
-                                        <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                                            <h4 className="font-bold text-gray-800 text-sm">Preview</h4>
-                                        </div>
-                                        <div className="p-5 flex flex-wrap gap-3 items-center">
-                                            {rubricDraft.map(row => (
-                                                <div key={row.level_code} className="flex flex-col items-center gap-1.5">
-                                                    <RubricLevelBadge level={row.level_code} rubricConfig={rubricDraft} size="md" />
-                                                    <span className="text-[10px] text-gray-500 text-center max-w-[80px] leading-tight">{row.level_label || row.level_code}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Save button */}
-                                    <div className="flex justify-end">
-                                        <button
-                                            onClick={saveRubricConfig}
-                                            disabled={savingRubric}
-                                            className="flex items-center gap-2 px-8 py-3 text-white font-bold text-sm transition-all shadow-lg hover:shadow-xl disabled:opacity-60"
-                                            style={{ borderRadius: 6, background: savingRubric ? '#94a3b8' : 'linear-gradient(135deg, #10b981, #059669)' }}
-                                        >
-                                            {savingRubric ? (
-                                                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
-                                            ) : (
-                                                <><FiSave size={16} /> Save Grading Config</>
-                                            )}
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    )}
-
-                    {/* ========== SMS & NOTIFICATIONS (copied from ARMS pattern) ========== */}
-                    {tab === 'sms' && (
-                        <div className="p-6 space-y-8">
-                            <div className="p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200" style={{ borderRadius: 8 }}>
-                                <h3 className="font-bold text-amber-800 flex items-center gap-2 mb-1 text-base"><FiMessageCircle size={18} /> SMS & Notifications</h3>
-                                <p className="text-sm text-amber-600">Configure Africa&apos;s Talking SMS gateway for sending leave-out notifications, fee reminders, and bulk communication to parents</p>
-                            </div>
-
-                            {/* SMS Provider Config */}
-                            <div className="border border-gray-200 overflow-hidden" style={{ borderRadius: 8, borderLeft: '4px solid #f59e0b' }}>
-                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                                    <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">💬 Africa&apos;s Talking Configuration</h4>
-                                </div>
-                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">SMS Enabled</label>
-                                        <select value={schoolDetails.sms_enabled ? 'true' : 'false'} onChange={e => setSchoolDetails({ ...schoolDetails, sms_enabled: e.target.value === 'true' })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }}>
-                                            <option value="false">Disabled</option>
-                                            <option value="true">Enabled</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Provider</label>
-                                        <input type="text" value={schoolDetails.sms_provider || 'AfricasTalking'} onChange={e => setSchoolDetails({ ...schoolDetails, sms_provider: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }} placeholder="AfricasTalking" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">SMS Username</label>
-                                        <input type="text" value={schoolDetails.sms_username || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sms_username: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }} placeholder="sandbox or your AT username" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">🔑 SMS API Key</label>
-                                        <div className="relative">
-                                            <input type={showApiKey ? 'text' : 'password'} value={schoolDetails.sms_api_key || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sms_api_key: e.target.value })}
-                                                className="w-full px-4 py-3 pr-20 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }} placeholder="Your API Key" />
-                                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                                {schoolDetails.sms_api_key && (
-                                                    <button onClick={() => { navigator.clipboard.writeText(schoolDetails.sms_api_key); toast.success('Copied!'); }}
-                                                        className="p-1.5 rounded-lg text-gray-300 hover:text-amber-500 hover:bg-amber-50 transition"><FiCopy size={13} /></button>
-                                                )}
-                                                <button onClick={() => setShowApiKey(!showApiKey)} className="p-1.5 rounded-lg text-gray-300 hover:text-amber-500 hover:bg-amber-50 transition">
-                                                    {showApiKey ? <FiEyeOff size={13} /> : <FiEye size={13} />}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Sender ID</label>
-                                        <input type="text" value={schoolDetails.sms_sender_id || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sms_sender_id: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }} placeholder="APSIMS" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Environment</label>
-                                        <select value={schoolDetails.sms_is_sandbox ? 'true' : 'false'} onChange={e => setSchoolDetails({ ...schoolDetails, sms_is_sandbox: e.target.value === 'true' })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-medium text-gray-800 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all" style={{ borderRadius: 6 }}>
-                                            <option value="true">🧪 Sandbox (Testing)</option>
-                                            <option value="false">🚀 Production (Live)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Test SMS Panel */}
-                            <div className="border border-gray-200 overflow-hidden" style={{ borderRadius: 8, borderLeft: '4px solid #22c55e' }}>
-                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                                    <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">🧪 Test SMS</h4>
-                                    <p className="text-xs text-gray-500 mt-0.5">Send a test message to verify your configuration</p>
-                                </div>
-                                <div className="p-5 space-y-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Phone Number</label>
-                                            <input type="text" value={testPhone} onChange={e => setTestPhone(e.target.value)} placeholder="0712345678"
-                                                className="w-full px-4 py-2.5 border-2 border-gray-200 text-sm bg-white focus:border-green-400 outline-none transition-all" style={{ borderRadius: 6 }} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Message</label>
-                                            <input type="text" value={testMessage} onChange={e => setTestMessage(e.target.value)} placeholder="Test SMS from APSIMS"
-                                                className="w-full px-4 py-2.5 border-2 border-gray-200 text-sm bg-white focus:border-green-400 outline-none transition-all" style={{ borderRadius: 6 }} />
-                                        </div>
-                                    </div>
-                                    <button onClick={async () => {
-                                        if (!testPhone || !testMessage) { toast.error('Enter phone and message'); return; }
-                                        setSendingTest(true); setTestResult(null);
-                                        try {
-                                            const res = await fetch('/api/send-sms', {
-                                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ phone: testPhone, message: testMessage })
-                                            });
-                                            const data = await res.json();
-                                            setTestResult(data);
-                                            if (data.success) toast.success('✅ Test SMS sent!'); else toast.error(data.error || 'Failed');
-                                        } catch (e: any) { toast.error(e.message); setTestResult({ error: e.message }); }
-                                        setSendingTest(false);
-                                    }} disabled={sendingTest}
-                                        className="flex items-center gap-2 px-5 py-2.5 font-bold text-sm text-white transition-all shadow hover:shadow-lg disabled:opacity-60"
-                                        style={{ borderRadius: 6, background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
-                                        {sendingTest ? <FiRefreshCw size={14} className="animate-spin" /> : <FiSend size={14} />}
-                                        {sendingTest ? 'Sending...' : 'Send Test SMS'}
-                                    </button>
-                                    {testResult && (
-                                        <div className={`px-4 py-3 rounded-xl text-xs font-mono ${testResult.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
-                                            {JSON.stringify(testResult, null, 2)}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* SMS Info */}
-                            <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                                <FiInfo size={16} className="text-amber-500 mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <p className="text-sm font-bold text-amber-800">How SMS works in APSIMS</p>
-                                    <ul className="text-xs text-amber-700 mt-1 space-y-1 list-disc list-inside">
-                                        <li>Leave-out notifications auto-send to parents when a student is issued a leave pass</li>
-                                        <li>Fee reminders and demand letters can be sent via the Communication page</li>
-                                        <li>All sent messages are logged in the SMS Logs table</li>
-                                        <li>Use &apos;sandbox&apos; mode for testing — no real SMS is sent</li>
-                                    </ul>
-                                </div>
-                            </div>
-
-                            {/* Save SMS Settings Button */}
-                            <div className="pt-2 flex justify-end">
-                                <button onClick={saveSchoolDetails} disabled={savingInfo}
-                                    className="flex items-center gap-2 px-8 py-3 text-white font-bold text-sm transition-all shadow-lg hover:shadow-xl disabled:opacity-60"
-                                    style={{ borderRadius: 6, background: savingInfo ? '#94a3b8' : 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-                                    {savingInfo ? (
-                                        <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
-                                    ) : (
-                                        <><FiSave size={16} /> Save SMS Settings</>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ========== M-PESA STK CONFIG ========== */}
-                    {tab === 'mpesa' && (
-                        <div className="p-6 space-y-6">
-                            <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
-                                <h3 className="font-bold text-green-800 flex items-center gap-2 mb-1 text-base">📲 M-Pesa STK Push Configuration</h3>
-                                <p className="text-sm text-green-600">Configure Safaricom Daraja API for STK Push payments. Parents can pay directly from their phones.</p>
-                            </div>
-                            <div className="border border-gray-200 overflow-hidden rounded-xl" style={{ borderLeft: '4px solid #16a34a' }}>
-                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                                    <h4 className="font-bold text-gray-800 text-sm">🔑 Daraja API Credentials</h4>
-                                    <p className="text-xs text-gray-500 mt-0.5">Get these from <a href="https://developer.safaricom.co.ke" target="_blank" rel="noreferrer" className="text-green-600 underline">developer.safaricom.co.ke</a></p>
-                                </div>
-                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                    {[
-                                        { key: 'mpesa_consumer_key', label: 'Consumer Key', placeholder: 'Daraja Consumer Key', secret: false },
-                                        { key: 'mpesa_consumer_secret', label: 'Consumer Secret', placeholder: 'Daraja Consumer Secret', secret: true },
-                                        { key: 'mpesa_shortcode', label: 'Business Shortcode', placeholder: '174379' },
-                                        { key: 'mpesa_passkey', label: 'Lipa Na M-Pesa Passkey', placeholder: 'Online passkey', secret: true },
-                                        { key: 'mpesa_callback_url', label: 'Callback URL', placeholder: 'https://yourschool.com/api/mpesa/callback' },
-                                        { key: 'mpesa_environment', label: 'Environment', placeholder: 'sandbox or production' },
-                                    ].map(f => (
-                                        <div key={f.key}>
-                                            <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">{f.label}</label>
-                                            <input type={(f as any).secret ? 'password' : 'text'}
-                                                value={(schoolDetails as any)[f.key] || ''}
-                                                onChange={e => setSchoolDetails({ ...schoolDetails, [f.key]: e.target.value })}
-                                                className="w-full px-4 py-3 border-2 border-gray-200 text-sm bg-white focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition-all rounded-lg"
-                                                placeholder={f.placeholder} />
-                                        </div>
-                                    ))}
-                                    <div className="sm:col-span-2">
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Account Reference Prefix</label>
-                                        <input type="text" value={schoolDetails.mpesa_account_prefix || 'FEE'}
-                                            onChange={e => setSchoolDetails({ ...schoolDetails, mpesa_account_prefix: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm bg-white focus:border-green-400 outline-none transition-all rounded-lg"
-                                            placeholder="e.g. FEE or ADM" />
-                                        <p className="text-xs text-gray-400 mt-1">This prefix + student admission no becomes the M-Pesa account reference (e.g. FEE-2024001)</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-xs text-green-700">
-                                <p className="font-bold mb-1">✅ How M-Pesa STK Push works in APSIMS:</p>
-                                <ol className="list-decimal list-inside space-y-1">
-                                    <li>Admin clicks &quot;Collect Fee via M-Pesa&quot; from the student fee page</li>
-                                    <li>APSIMS sends an STK Push prompt to the parent&apos;s phone</li>
-                                    <li>Parent enters M-Pesa PIN to confirm payment</li>
-                                    <li>Safaricom callback fires to your server and fee is automatically recorded</li>
-                                    <li>Parent receives SMS receipt automatically</li>
-                                </ol>
-                            </div>
-                            <div className="pt-2 flex justify-end">
-                                <button onClick={saveSchoolDetails} disabled={savingInfo}
-                                    className="flex items-center gap-2 px-8 py-3 text-white font-bold text-sm rounded-xl shadow-lg disabled:opacity-60"
-                                    style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}>
-                                    {savingInfo ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <><FiSave size={16} /> Save M-Pesa Config</>}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ========== WHATSAPP CONFIG ========== */}
-                    {tab === 'whatsapp' && (
-                        <div className="p-6 space-y-6">
-                            <div className="p-5 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl">
-                                <h3 className="font-bold text-emerald-800 flex items-center gap-2 mb-1 text-base">💚 WhatsApp Integration</h3>
-                                <p className="text-sm text-emerald-600">Configure WhatsApp API to send report cards, fee reminders and attendance alerts to parents</p>
-                            </div>
-                            <div className="border border-gray-200 overflow-hidden rounded-xl" style={{ borderLeft: '4px solid #25d366' }}>
-                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                                    <h4 className="font-bold text-gray-800 text-sm">⚙️ WhatsApp API Settings</h4>
-                                    <p className="text-xs text-gray-500 mt-0.5">Supports UltraMsg, WhatsMate, Twilio, and official WhatsApp Business API</p>
-                                </div>
-                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Provider</label>
-                                        <select value={schoolDetails.whatsapp_provider || 'ultramsg'}
-                                            onChange={e => setSchoolDetails({ ...schoolDetails, whatsapp_provider: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 text-sm bg-white focus:border-emerald-400 outline-none rounded-lg">
-                                            <option value="ultramsg">UltraMsg (Recommended)</option>
-                                            <option value="whatsapp-business">Official WhatsApp Business API</option>
-                                            <option value="twilio">Twilio WhatsApp</option>
-                                            <option value="whatsmate">WhatsMate</option>
-                                            <option value="africas-talking">Africa&apos;s Talking</option>
-                                        </select>
-                                    </div>
-                                    {[
-                                        { key: 'whatsapp_api_url', label: 'API Base URL', placeholder: 'https://api.ultramsg.com/instanceXXX' },
-                                        { key: 'whatsapp_api_key', label: 'API Key / Token', placeholder: 'Your auth token', secret: true },
-                                        { key: 'whatsapp_instance_id', label: 'Instance ID', placeholder: 'Instance identifier' },
-                                        { key: 'whatsapp_from_name', label: 'Sender Name', placeholder: 'Your School Name' },
-                                    ].map(f => (
-                                        <div key={f.key}>
-                                            <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">{f.label}</label>
-                                            <input type={(f as any).secret ? 'password' : 'text'}
-                                                value={(schoolDetails as any)[f.key] || ''}
-                                                onChange={e => setSchoolDetails({ ...schoolDetails, [f.key]: e.target.value })}
-                                                className="w-full px-4 py-3 border-2 border-gray-200 text-sm bg-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition-all rounded-lg"
-                                                placeholder={f.placeholder} />
-                                        </div>
-                                    ))}
-                                    <div className="sm:col-span-2 flex items-center gap-3">
-                                        <input type="checkbox" id="wa_enabled"
-                                            checked={!!schoolDetails.whatsapp_enabled}
-                                            onChange={e => setSchoolDetails({ ...schoolDetails, whatsapp_enabled: e.target.checked })}
-                                            className="w-4 h-4 accent-emerald-600" />
-                                        <label htmlFor="wa_enabled" className="text-sm font-semibold text-gray-700 cursor-pointer">Enable WhatsApp notifications globally</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
-                                <p className="font-bold mb-1">💡 What WhatsApp is used for in APSIMS:</p>
-                                <ul className="list-disc list-inside space-y-1">
-                                    <li>Bulk fee reminder campaigns (Communication → WhatsApp Reports)</li>
-                                    <li>Digital report card delivery with QR verification</li>
-                                    <li>Attendance alerts when a student is absent</li>
-                                    <li>Payment receipts after M-Pesa STK push confirmation</li>
-                                </ul>
-                            </div>
-                            <div className="pt-2 flex justify-end">
-                                <button onClick={saveSchoolDetails} disabled={savingInfo}
-                                    className="flex items-center gap-2 px-8 py-3 text-white font-bold text-sm rounded-xl shadow-lg disabled:opacity-60"
-                                    style={{ background: 'linear-gradient(135deg, #25d366, #128c7e)' }}>
-                                    {savingInfo ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <><FiSave size={16} /> Save WhatsApp Config</>}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* ═════ PREMIUM MODAL ═════ */}
-            {showModal && (
-                <div onClick={() => setShowModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
-                    <div onClick={function(e){ e.stopPropagation(); }} style={{ background: '#fff', borderRadius: 24, width: '100%', maxWidth: 500, boxShadow: '0 32px 80px rgba(0,0,0,0.22)', overflow: 'hidden' }}>
-                        {/* Gradient Header */}
-                        <div style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', padding: '20px 26px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div>
-                                <h3 style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: 0 }}>
-                                    {editId ? 'Edit' : 'Add New'} {addLabel}
-                                </h3>
-                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '3px 0 0' }}>Fill in the details below and save</p>
-                            </div>
-                            <button onClick={() => setShowModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 10, width: 34, height: 34, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><FiX size={18} /></button>
-                        </div>
-
-                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            {/* FORM fields */}
-                            {tab === 'forms' && <>
-                                <div><label className="lbl">Form Name *</label><input type="text" value={formData.form_name} onChange={e => setFormData({ ...formData, form_name: e.target.value })} className="input-modern pl-4 py-2.5 text-sm" placeholder="e.g. Form 1" /></div>
-                                <div><label className="lbl">Form Level *</label><input type="number" value={formData.form_level} onChange={e => setFormData({ ...formData, form_level: e.target.value })} className="input-modern pl-4 py-2.5 text-sm" placeholder="1" min="1" max="6" /></div>
-                                <div><label className="lbl">Description</label><input type="text" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="input-modern pl-4 py-2.5 text-sm" /></div>
-                            </>}
-
-                            {/* STREAM fields */}
-                            {tab === 'streams' && <>
-                                <div><label className="lbl">Stream Name *</label><input type="text" value={formData.stream_name} onChange={e => setFormData({ ...formData, stream_name: e.target.value })} className="input-modern pl-4 py-2.5 text-sm" placeholder="e.g. East" /></div>
-                                <div><label className="lbl">Description</label><input type="text" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="input-modern pl-4 py-2.5 text-sm" /></div>
-                            </>}
-
-                            {/* SUBJECT fields */}
-                            {tab === 'subjects' && <>
-                                <div><label className="lbl">Subject Name *</label><input type="text" value={formData.subject_name} onChange={e => setFormData({ ...formData, subject_name: e.target.value })} className="input-modern pl-4 py-2.5 text-sm" placeholder="e.g. Mathematics" /></div>
-                                <div><label className="lbl">Subject Code</label><input type="text" value={formData.subject_code} onChange={e => setFormData({ ...formData, subject_code: e.target.value })} className="input-modern pl-4 py-2.5 text-sm" placeholder="e.g. MATH" /></div>
-                                <div><label className="lbl">Category</label><select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="select-modern w-full"><option value="Core">Core</option><option value="Elective">Elective</option><option value="Technical">Technical</option></select></div>
-                            </>}
-
-                            {/* CLASS fields (Form-Stream + Class Teacher) */}
-                            {tab === 'classes' && <>
-                                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-600 font-medium">🏫 A class is a combination of a Form + Stream + Class Teacher</div>
-                                <div><label className="lbl">Form *</label><select value={formData.form_id} onChange={e => setFormData({ ...formData, form_id: e.target.value })} className="select-modern w-full"><option value="">Select Form</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}</select></div>
-                                <div><label className="lbl">Stream *</label><select value={formData.stream_id} onChange={e => setFormData({ ...formData, stream_id: e.target.value })} className="select-modern w-full"><option value="">Select Stream</option>{streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}</select></div>
-                                <div><label className="lbl">Class Teacher (optional)</label><select value={formData.teacher_id} onChange={e => setFormData({ ...formData, teacher_id: e.target.value })} className="select-modern w-full"><option value="">No Teacher Assigned</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name} {t.tsc_number ? `(${t.tsc_number})` : ''}</option>)}</select></div>
-                                <div><label className="lbl">Academic Year</label><input type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} className="input-modern pl-4 py-2.5 text-sm" placeholder="2026" /></div>
-                            </>}
-
-                            {/* SUBJECT-TEACHER fields */}
-                            {tab === 'subject-teachers' && <>
-                                <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 text-xs text-purple-600 font-medium">🔗 Link a subject to a teacher. Optionally scope to a specific form and/or stream.</div>
-                                <div><label className="lbl">Subject *</label><select value={formData.subject_id} onChange={e => setFormData({ ...formData, subject_id: e.target.value })} className="select-modern w-full"><option value="">Select Subject</option>{subjects.map(s => <option key={s.id} value={s.id}>{s.subject_name} {s.subject_code ? `(${s.subject_code})` : ''}</option>)}</select></div>
-                                <div><label className="lbl">Teacher *</label><select value={formData.teacher_id} onChange={e => setFormData({ ...formData, teacher_id: e.target.value })} className="select-modern w-full"><option value="">Select Teacher</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name} {t.tsc_number ? `(${t.tsc_number})` : ''}</option>)}</select></div>
-                                <div>
-                                    <label className="lbl">Form <span className="text-gray-400 font-normal">(optional — leave empty for all forms)</span></label>
-                                    <select value={formData.form_id} onChange={e => setFormData({ ...formData, form_id: e.target.value, stream_id: '' })} className="select-modern w-full">
-                                        <option value="">All Forms</option>
-                                        {forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="lbl">Stream <span className="text-gray-400 font-normal">(optional — leave empty for all streams in selected form)</span></label>
-                                    <select value={formData.stream_id} onChange={e => setFormData({ ...formData, stream_id: e.target.value })} className="select-modern w-full" disabled={!formData.form_id}>
-                                        <option value="">{formData.form_id ? 'All Streams' : 'Select a form first'}</option>
-                                        {streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs text-gray-600">
-                                    <strong>Scope preview:</strong>{' '}
-                                    {!formData.form_id ? '📚 All Forms — All Streams' :
-                                     !formData.stream_id ? `📋 ${getFormName(Number(formData.form_id))} — All Streams` :
-                                     `🏷️ ${getFormName(Number(formData.form_id))} ${getStreamName(Number(formData.stream_id))}`}
-                                </div>
-                            </>}
-
-                            <div style={{ display: 'flex', gap: 12, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
-                                <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-                                <button onClick={handleSave} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}><FiSave size={14} /> Save</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ========== TERMS & ACADEMIC YEAR ========== */}
-            {tab === 'terms' && (
-                <div className="space-y-6">
-                    {/* Header */}
-                    <div style={{
-                        background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', borderRadius: 20,
-                        padding: '24px 28px', color: '#fff', position: 'relative', overflow: 'hidden',
-                    }}>
-                        <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                            <div>
-                                <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>📅 Terms &amp; Academic Year</h2>
-                                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: '4px 0 0' }}>
-                                    Set the active term · Edit dates · Manage academic year — all changes apply system-wide instantly
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => { setEditTermId(null); setTermForm({ term_name: '', term_number: '', start_date: '', end_date: '', academic_year: new Date().getFullYear(), is_current: false }); setShowTermModal(true); }}
-                                style={{ padding: '10px 18px', borderRadius: 12, border: '1.5px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-                            >
-                                + Add Term
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Info box */}
-                    <div style={{ padding: '14px 18px', borderRadius: 14, background: '#fefce8', border: '1.5px solid #fde68a', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                        <span style={{ fontSize: 18, flexShrink: 0 }}>💡</span>
-                        <div>
-                            <p style={{ fontSize: 12, fontWeight: 700, color: '#92400e', margin: 0 }}>How terms work in APSIMS</p>
-                            <p style={{ fontSize: 11, color: '#78350f', margin: '3px 0 0', lineHeight: 1.6 }}>
-                                Only <strong>ONE term</strong> can be active at a time. All fees, exam marks, SMS reminders and reports use the active term automatically.
-                                Click <strong>&quot;Set as Current&quot;</strong> when a new term begins. This is saved in the database — <strong>NOT hardcoded</strong> anywhere.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Terms list */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {terms.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '48px 24px', color: '#94a3b8', background: '#f8fafc', borderRadius: 16, border: '2px dashed #e2e8f0' }}>
-                                <div style={{ fontSize: 36, marginBottom: 12 }}>📅</div>
-                                <p style={{ fontWeight: 700, margin: '0 0 4px' }}>No terms configured yet</p>
-                                <p style={{ fontSize: 12, margin: 0 }}>Click &quot;+ Add Term&quot; above to create your first term</p>
-                            </div>
-                        ) : (
-                            terms.map((term: any) => {
-                                const isCurrent = !!term.is_current;
-                                const today = new Date();
-                                const start = term.start_date ? new Date(term.start_date) : null;
-                                const end = term.end_date ? new Date(term.end_date) : null;
-                                const isRunning = !!(start && end && today >= start && today <= end);
-                                const isPast = !!(end && today > end);
-                                return (
-                                    <div key={term.id} style={{
-                                        background: isCurrent ? 'linear-gradient(135deg,#eef2ff,#f5f3ff)' : '#fff',
-                                        border: isCurrent ? '2.5px solid #6366f1' : '1.5px solid #e2e8f0',
-                                        borderRadius: 18, padding: '20px 24px',
-                                        boxShadow: isCurrent ? '0 6px 24px rgba(99,102,241,0.15)' : '0 2px 8px rgba(0,0,0,0.04)',
-                                        display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
-                                        position: 'relative', overflow: 'hidden',
-                                    }}>
-                                        {isCurrent && <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(99,102,241,0.06)' }} />}
-
-                                        {/* Colour dot */}
-                                        <div style={{ width: 16, height: 16, borderRadius: '50%', flexShrink: 0, border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.15)', background: isCurrent ? '#6366f1' : isPast ? '#fca5a5' : isRunning ? '#86efac' : '#e2e8f0' }} />
-
-                                        {/* Info */}
-                                        <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5, flexWrap: 'wrap' }}>
-                                                <span style={{ fontSize: 17, fontWeight: 900, color: isCurrent ? '#4f46e5' : '#1e293b' }}>{term.term_name}</span>
-                                                <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 8, textTransform: 'uppercase' as const, letterSpacing: '0.06em', background: isCurrent ? '#6366f1' : isPast ? '#fee2e2' : isRunning ? '#dcfce7' : '#f1f5f9', color: isCurrent ? '#fff' : isPast ? '#dc2626' : isRunning ? '#16a34a' : '#64748b' }}>
-                                                    {isCurrent ? '✓ ACTIVE NOW' : isPast ? 'PAST' : isRunning ? 'RUNNING' : 'UPCOMING'}
-                                                </span>
-                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>
-                                                    Academic Year {term.academic_year || '—'}
-                                                </span>
-                                            </div>
-                                            <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
-                                                📆 {term.start_date ? new Date(term.start_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' }) : 'No start date'}
-                                                {' → '}
-                                                {term.end_date ? new Date(term.end_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' }) : 'No end date'}
-                                            </p>
-                                        </div>
-
-                                        {/* Actions */}
-                                        <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
-                                            {!isCurrent && (
-                                                <button
-                                                    disabled={settingCurrent === term.id}
-                                                    onClick={async () => {
-                                                        setSettingCurrent(term.id);
-                                                        await supabase.from('school_terms').update({ is_current: false }).neq('id', 0);
-                                                        const { error } = await supabase.from('school_terms').update({ is_current: true }).eq('id', term.id);
-                                                        if (error) { toast.error('Failed: ' + error.message); }
-                                                        else { toast.success(`✅ ${term.term_name} is now the active term! All pages updated.`); fetchAll(); }
-                                                        setSettingCurrent(null);
-                                                    }}
-                                                    style={{ padding: '9px 16px', borderRadius: 10, border: '1.5px solid #6366f1', background: 'transparent', color: '#6366f1', fontSize: 12, fontWeight: 800, cursor: settingCurrent === term.id ? 'not-allowed' : 'pointer', opacity: settingCurrent === term.id ? 0.6 : 1, whiteSpace: 'nowrap' as const }}
-                                                >
-                                                    {settingCurrent === term.id ? '⏳ Setting...' : '📅 Set as Current'}
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => { setEditTermId(term.id); setTermForm({ term_name: term.term_name || '', term_number: term.term_number || '', start_date: term.start_date || '', end_date: term.end_date || '', academic_year: term.academic_year || new Date().getFullYear(), is_current: term.is_current || false }); setShowTermModal(true); }}
-                                                style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
-                                            >
-                                                ✏️ Edit
-                                            </button>
-                                            {!isCurrent && (
-                                                <button
-                                                    onClick={async () => {
-                                                        if (!confirm(`Delete "${term.term_name}"? This cannot be undone.`)) return;
-                                                        const { error } = await supabase.from('school_terms').delete().eq('id', term.id);
-                                                        if (error) { toast.error('Cannot delete — term may have fees or marks linked to it'); return; }
-                                                        toast.success('Term deleted');
-                                                        fetchAll();
-                                                    }}
-                                                    style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, cursor: 'pointer' }}
-                                                >
-                                                    🗑️
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
-                    </div>
-
-                    {/* Add / Edit Term Modal */}
-                    {showTermModal && (
-                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
-                            <div style={{ background: '#fff', borderRadius: 24, padding: 32, width: '100%', maxWidth: 500, boxShadow: '0 32px 80px rgba(0,0,0,0.25)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                                    <div>
-                                        <h3 style={{ fontSize: 18, fontWeight: 900, color: '#1e293b', margin: 0 }}>{editTermId ? '✏️ Edit Term' : '+ Add New Term'}</h3>
-                                        <p style={{ fontSize: 11, color: '#64748b', margin: '4px 0 0' }}>Changes apply system-wide immediately</p>
-                                    </div>
-                                    <button onClick={() => setShowTermModal(false)} style={{ background: '#f1f5f9', border: 'none', width: 32, height: 32, borderRadius: 10, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>×</button>
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                    {/* Term Name */}
-                                    <div>
-                                        <label className="lbl">Term Name *</label>
-                                        <input value={termForm.term_name} onChange={e => setTermForm({ ...termForm, term_name: e.target.value })} placeholder="e.g. Term 1, Term 2, Term 3" className="input-modern w-full" />
-                                    </div>
-
-                                    {/* Term Number + Academic Year */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                        <div>
-                                            <label className="lbl">Term Number</label>
-                                            <select value={termForm.term_number} onChange={e => setTermForm({ ...termForm, term_number: e.target.value })} className="select-modern w-full">
-                                                <option value="">— Select —</option>
-                                                <option value="1">1 (First Term)</option>
-                                                <option value="2">2 (Second Term)</option>
-                                                <option value="3">3 (Third Term)</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="lbl">Academic Year *</label>
-                                            <input type="number" value={termForm.academic_year} onChange={e => setTermForm({ ...termForm, academic_year: e.target.value })} placeholder="2026" className="input-modern w-full" min={2020} max={2040} />
-                                        </div>
-                                    </div>
-
-                                    {/* Start + End dates */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                        <div>
-                                            <label className="lbl">Start Date *</label>
-                                            <input type="date" value={termForm.start_date} onChange={e => setTermForm({ ...termForm, start_date: e.target.value })} className="input-modern w-full" />
-                                        </div>
-                                        <div>
-                                            <label className="lbl">End Date *</label>
-                                            <input type="date" value={termForm.end_date} onChange={e => setTermForm({ ...termForm, end_date: e.target.value })} className="input-modern w-full" />
-                                        </div>
-                                    </div>
-
-                                    {/* Set as current checkbox */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: termForm.is_current ? '#eef2ff' : '#f8fafc', border: `1.5px solid ${termForm.is_current ? '#c7d2fe' : '#e2e8f0'}`, cursor: 'pointer' }} onClick={() => setTermForm({ ...termForm, is_current: !termForm.is_current })}>
-                                        <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${termForm.is_current ? '#6366f1' : '#cbd5e1'}`, background: termForm.is_current ? '#6366f1' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            {termForm.is_current && <span style={{ color: '#fff', fontSize: 13, fontWeight: 900 }}>✓</span>}
-                                        </div>
-                                        <div>
-                                            <p style={{ fontSize: 13, fontWeight: 700, color: termForm.is_current ? '#4f46e5' : '#475569', margin: 0 }}>Set as Current / Active Term</p>
-                                            <p style={{ fontSize: 11, color: '#64748b', margin: 0 }}>All other terms will be deactivated automatically</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Buttons */}
-                                <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                                    <button onClick={() => setShowTermModal(false)} className="btn-outline" style={{ flex: 1 }}>Cancel</button>
-                                    <button
-                                        className="btn-primary"
-                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                                        onClick={async () => {
-                                            if (!termForm.term_name?.trim() || !termForm.start_date || !termForm.end_date || !termForm.academic_year) {
-                                                toast.error('Please fill Term Name, Start Date, End Date and Academic Year'); return;
-                                            }
-                                            const payload = {
-                                                term_name: termForm.term_name.trim(),
-                                                term_number: termForm.term_number ? Number(termForm.term_number) : null,
-                                                start_date: termForm.start_date,
-                                                end_date: termForm.end_date,
-                                                academic_year: Number(termForm.academic_year),
-                                                is_current: !!termForm.is_current,
-                                            };
-                                            // Unset current on all others if setting this as current
-                                            if (termForm.is_current) {
-                                                await supabase.from('school_terms').update({ is_current: false }).neq('id', editTermId ?? -1);
-                                            }
-                                            const { error } = editTermId
-                                                ? await supabase.from('school_terms').update(payload).eq('id', editTermId)
-                                                : await supabase.from('school_terms').insert([payload]);
-                                            if (error) { toast.error(error.message); return; }
-                                            toast.success(editTermId ? '✅ Term updated!' : '✅ Term added!');
-                                            setShowTermModal(false);
-                                            fetchAll();
-                                        }}
-                                    >
-                                        <FiSave size={14} /> {editTermId ? 'Update Term' : 'Add Term'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* ══ RECEIPT NUMBERING — SUPER ADMIN ONLY ══ */}
-            {tab === 'receipt-settings' && (
-                <div className="space-y-5">
-                    {isSuperAdmin ? (
-                        <ReceiptSettingsWidget />
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-24 gap-4">
-                            <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center">
-                                <span className="text-4xl">🔐</span>
-                            </div>
-                            <h2 className="text-xl font-black text-gray-800">Super Admin Only</h2>
-                            <p className="text-gray-500 text-sm text-center max-w-sm">
-                                Receipt numbering configuration is restricted to <strong>Super Admin</strong> users only.
-                                Contact your system administrator to change the receipt numbering.
-                            </p>
-                            <div className="px-4 py-2 bg-red-50 border border-red-200 rounded-xl">
-                                <p className="text-xs font-bold text-red-600">Your current role: <span className="uppercase">{userRole || 'unknown'}</span></p>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:border-gray-300 transition-all shadow-sm">
+            <FiX size={16} />
+          </button>
         </div>
-    );
+        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">{children}</div>
+      </div>
+    </div>
+  );
+}
+/* ─── SaveBtn ─── */
+function SaveBtn({ onClick, loading, label = 'Save', color = '#6366f1' }: { onClick: () => void; loading: boolean; label?: string; color?: string }) {
+  return (
+    <button onClick={onClick} disabled={loading}
+      className="flex items-center gap-2 px-8 py-3 text-white font-black text-sm rounded-2xl shadow-lg hover:shadow-xl disabled:opacity-60 transition-all"
+      style={{ background: loading ? '#94a3b8' : `linear-gradient(135deg,${color},${color}cc)` }}>
+      {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</> : <><FiSave size={15} />{label}</>}
+    </button>
+  );
+}
+
+export default function SettingsPage() {
+  const [tab, setTab] = useState<Tab>('school-details');
+  const [userRole, setUserRole] = useState('');
+  useEffect(() => {
+    try { const u = JSON.parse(localStorage.getItem('school_user') || '{}'); setUserRole((u.role || '').toLowerCase()); } catch {}
+  }, []);
+  const isSuperAdmin = ['super-admin', 'superadmin', 'super_admin'].includes(userRole);
+
+  /* ─── State ─── */
+  const [forms, setForms] = useState<any[]>([]);
+  const [streams, setStreams] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [subjectTeachers, setSubjectTeachers] = useState<any[]>([]);
+  const [schoolDetails, setSchoolDetails] = useState<any>({});
+  const [cbcPathways, setCbcPathways] = useState<any[]>([]);
+  const [cbcPathwaySubjects, setCbcPathwaySubjects] = useState<any[]>([]);
+  const [cbcRubricConfig, setCbcRubricConfig] = useState<any[]>([]);
+  const [selectedPathwayForEdit, setSelectedPathwayForEdit] = useState<number | null>(null);
+  const [pathwaySubjectDraft, setPathwaySubjectDraft] = useState<number[]>([]);
+  const [savingPathway, setSavingPathway] = useState(false);
+  const [savingRubric, setSavingRubric] = useState(false);
+  const [rubricDraft, setRubricDraft] = useState<any[]>([]);
+  const [terms, setTerms] = useState<any[]>([]);
+  const [termForm, setTermForm] = useState<any>({ term_name: '', term_number: '', start_date: '', end_date: '', academic_year: new Date().getFullYear(), is_current: false });
+  const [editTermId, setEditTermId] = useState<number | null>(null);
+  const [showTermModal, setShowTermModal] = useState(false);
+  const [settingCurrent, setSettingCurrent] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [testMessage, setTestMessage] = useState('');
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [formData, setFormData] = useState<any>({});
+
+  /* ─── Fetch ─── */
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    const [f, st, su, t, sp] = await Promise.all([
+      supabase.from('school_forms').select('*').order('form_level'),
+      supabase.from('school_streams').select('*').order('stream_name'),
+      supabase.from('school_subjects').select('*').order('subject_name'),
+      supabase.from('school_teachers').select('id, first_name, last_name, tsc_number').order('first_name'),
+      supabase.from('school_support_teachers').select('id, first_name, last_name, staff_no').order('first_name'),
+    ]);
+    setForms(f.data || []); setStreams(st.data || []); setSubjects(su.data || []);
+    setTeachers([...(t.data || []).map((x: any) => ({ ...x, _source: 'tsc' })), ...(sp.data || []).map((x: any) => ({ ...x, tsc_number: x.staff_no || 'Support', _source: 'support' }))]);
+    try { const { data } = await supabase.from('school_classes').select('*'); setClasses(data || []); } catch { setClasses([]); }
+    try { const { data } = await supabase.from('school_subject_teachers').select('*'); setSubjectTeachers(data || []); } catch { setSubjectTeachers([]); }
+    try { const { data } = await supabase.from('school_details').select('*').limit(1).single(); if (data) setSchoolDetails(data); } catch {}
+    try { const { data } = await supabase.from('cbc_pathways').select('*').order('id'); setCbcPathways(data || []); } catch { setCbcPathways([]); }
+    try { const { data } = await supabase.from('cbc_pathway_subjects').select('*, school_subjects(id, subject_name, subject_code)'); setCbcPathwaySubjects(data || []); } catch { setCbcPathwaySubjects([]); }
+    try {
+      const { data } = await supabase.from('cbc_rubric_config').select('*').order('sort_order');
+      if (data && data.length > 0) { setCbcRubricConfig(data); setRubricDraft(data.map((r: any) => ({ ...r }))); }
+    } catch { setCbcRubricConfig([]); }
+    try { const { data } = await supabase.from('school_terms').select('*').order('academic_year', { ascending: false }); setTerms(data || []); } catch { setTerms([]); }
+    setLoading(false);
+  }, []);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  /* ─── CRUD helpers ─── */
+  const getFormName = (id: number) => forms.find(f => f.id === id)?.form_name || '—';
+  const getStreamName = (id: number) => streams.find(s => s.id === id)?.stream_name || '—';
+  const getSubjectName = (id: number) => subjects.find(s => s.id === id)?.subject_name || '—';
+  const getTeacherName = (id: number) => { const t = teachers.find(t => t.id === id); return t ? `${t.first_name} ${t.last_name}` : '—'; };
+
+  const openAddForm = () => { setEditId(null); setFormData({ form_name: '', form_level: '', description: '' }); setShowModal(true); };
+  const openEditForm = (item: any) => { setEditId(item.id); setFormData({ form_name: item.form_name, form_level: item.form_level, description: item.description || '' }); setShowModal(true); };
+  const saveForm = async () => {
+    if (!formData.form_name || !formData.form_level) { toast.error('Fill all required fields'); return; }
+    const payload = { form_name: formData.form_name.trim(), form_level: Number(formData.form_level), description: formData.description || null };
+    const { error } = editId ? await supabase.from('school_forms').update(payload).eq('id', editId) : await supabase.from('school_forms').insert([payload]);
+    if (error) { toast.error(error.message); return; }
+    toast.success(editId ? 'Form updated ✅' : 'Form added ✅'); setShowModal(false); fetchAll();
+  };
+  const deleteForm = async (id: number) => { if (!confirm('Delete this form?')) return; const { error } = await supabase.from('school_forms').delete().eq('id', id); if (error) { toast.error('Cannot delete — may be in use'); return; } toast.success('Deleted'); fetchAll(); };
+
+  const openAddStream = () => { setEditId(null); setFormData({ stream_name: '', description: '' }); setShowModal(true); };
+  const openEditStream = (item: any) => { setEditId(item.id); setFormData({ stream_name: item.stream_name, description: item.description || '' }); setShowModal(true); };
+  const saveStream = async () => {
+    if (!formData.stream_name) { toast.error('Stream name required'); return; }
+    const payload = { stream_name: formData.stream_name.trim(), description: formData.description || null };
+    const { error } = editId ? await supabase.from('school_streams').update(payload).eq('id', editId) : await supabase.from('school_streams').insert([payload]);
+    if (error) { toast.error(error.message); return; }
+    toast.success(editId ? 'Stream updated ✅' : 'Stream added ✅'); setShowModal(false); fetchAll();
+  };
+  const deleteStream = async (id: number) => { if (!confirm('Delete this stream?')) return; const { error } = await supabase.from('school_streams').delete().eq('id', id); if (error) { toast.error('Cannot delete — may be in use'); return; } toast.success('Deleted'); fetchAll(); };
+
+  const openAddSubject = () => { setEditId(null); setFormData({ subject_name: '', subject_code: '', category: 'Core' }); setShowModal(true); };
+  const openEditSubject = (item: any) => { setEditId(item.id); setFormData({ subject_name: item.subject_name, subject_code: item.subject_code || '', category: item.category || 'Core' }); setShowModal(true); };
+  const saveSubject = async () => {
+    if (!formData.subject_name) { toast.error('Subject name required'); return; }
+    const payload = { subject_name: formData.subject_name.trim(), subject_code: formData.subject_code || null, category: formData.category };
+    const { error } = editId ? await supabase.from('school_subjects').update(payload).eq('id', editId) : await supabase.from('school_subjects').insert([payload]);
+    if (error) { toast.error(error.message); return; }
+    toast.success(editId ? 'Subject updated ✅' : 'Subject added ✅'); setShowModal(false); fetchAll();
+  };
+  const deleteSubject = async (id: number) => { if (!confirm('Delete this subject?')) return; const { error } = await supabase.from('school_subjects').delete().eq('id', id); if (error) { toast.error('Cannot delete — may be in use'); return; } toast.success('Deleted'); fetchAll(); };
+
+  const openAddClass = () => { setEditId(null); setFormData({ form_id: '', stream_id: '', teacher_id: '', year: new Date().getFullYear() }); setShowModal(true); };
+  const openEditClass = (item: any) => { setEditId(item.id); setFormData({ form_id: item.form_id, stream_id: item.stream_id, teacher_id: item.teacher_id || '', year: item.year || new Date().getFullYear() }); setShowModal(true); };
+  const saveClass = async () => {
+    if (!formData.form_id || !formData.stream_id) { toast.error('Select both form and stream'); return; }
+    const payload = { form_id: Number(formData.form_id), stream_id: Number(formData.stream_id), teacher_id: formData.teacher_id ? Number(formData.teacher_id) : null, year: Number(formData.year) };
+    const { error } = editId ? await supabase.from('school_classes').update(payload).eq('id', editId) : await supabase.from('school_classes').insert([payload]);
+    if (error) { toast.error(error.message || 'Failed — class may already exist'); return; }
+    toast.success(editId ? 'Class updated ✅' : 'Class created ✅'); setShowModal(false); fetchAll();
+  };
+  const deleteClass = async (id: number) => { if (!confirm('Remove this class?')) return; const { error } = await supabase.from('school_classes').delete().eq('id', id); if (error) { toast.error('Cannot delete'); return; } toast.success('Removed'); fetchAll(); };
+
+  const openAddSubjectTeacher = () => { setEditId(null); setFormData({ subject_id: '', teacher_id: '', form_id: '', stream_id: '' }); setShowModal(true); };
+  const openEditSubjectTeacher = (item: any) => { setEditId(item.id); setFormData({ subject_id: item.subject_id, teacher_id: item.teacher_id, form_id: item.form_id || '', stream_id: item.stream_id || '' }); setShowModal(true); };
+  const saveSubjectTeacher = async () => {
+    if (!formData.subject_id || !formData.teacher_id) { toast.error('Select both subject and teacher'); return; }
+    const payload = { subject_id: Number(formData.subject_id), teacher_id: Number(formData.teacher_id), form_id: formData.form_id ? Number(formData.form_id) : null, stream_id: formData.stream_id ? Number(formData.stream_id) : null };
+    const { error } = editId ? await supabase.from('school_subject_teachers').update(payload).eq('id', editId) : await supabase.from('school_subject_teachers').insert([payload]);
+    if (error) { toast.error(error.message || 'Failed — link may already exist'); return; }
+    toast.success(editId ? 'Link updated ✅' : 'Subject linked to teacher ✅'); setShowModal(false); fetchAll();
+  };
+  const deleteSubjectTeacher = async (id: number) => { if (!confirm('Remove this link?')) return; const { error } = await supabase.from('school_subject_teachers').delete().eq('id', id); if (error) { toast.error('Cannot delete'); return; } toast.success('Removed'); fetchAll(); };
+
+  /* ─── CBC ─── */
+  const handleSelectPathwayForEdit = (pathwayId: number) => {
+    setSelectedPathwayForEdit(pathwayId);
+    setPathwaySubjectDraft(cbcPathwaySubjects.filter(ps => ps.pathway_id === pathwayId && !ps.is_compulsory).map(ps => ps.subject_id));
+  };
+  const toggleElectiveSubject = (subjectId: number) => setPathwaySubjectDraft(prev => prev.includes(subjectId) ? prev.filter(id => id !== subjectId) : [...prev, subjectId]);
+  const savePathwaySubjects = async () => {
+    if (!selectedPathwayForEdit) return;
+    for (const subjectId of pathwaySubjectDraft) {
+      const existingInOtherPathway = cbcPathwaySubjects.find(ps => ps.subject_id === subjectId && ps.pathway_id !== selectedPathwayForEdit && !ps.is_compulsory);
+      if (existingInOtherPathway) {
+        const subjectName = subjects.find(s => s.id === subjectId)?.subject_name || `Subject #${subjectId}`;
+        const otherPathway = cbcPathways.find(p => p.id === existingInOtherPathway.pathway_id)?.pathway_name || 'another pathway';
+        toast.error(`"${subjectName}" is already assigned as an elective in ${otherPathway}.`); return;
+      }
+    }
+    setSavingPathway(true);
+    try {
+      const currentElectiveRows = cbcPathwaySubjects.filter(ps => ps.pathway_id === selectedPathwayForEdit && !ps.is_compulsory);
+      const currentIds = currentElectiveRows.map(ps => ps.subject_id);
+      const toDelete = currentIds.filter(id => !pathwaySubjectDraft.includes(id));
+      const toInsert = pathwaySubjectDraft.filter(id => !currentIds.includes(id));
+      if (toDelete.length > 0) { const { error } = await supabase.from('cbc_pathway_subjects').delete().eq('pathway_id', selectedPathwayForEdit).in('subject_id', toDelete).eq('is_compulsory', false); if (error) throw error; }
+      if (toInsert.length > 0) { const { error } = await supabase.from('cbc_pathway_subjects').insert(toInsert.map(subject_id => ({ pathway_id: selectedPathwayForEdit, subject_id, is_compulsory: false }))); if (error) throw error; }
+      toast.success('Pathway subjects saved ✅'); await fetchAll();
+    } catch (err: any) { toast.error(err.message || 'Failed to save pathway subjects'); }
+    finally { setSavingPathway(false); }
+  };
+  const updateRubricDraft = (levelCode: string, field: string, value: string) => setRubricDraft(prev => prev.map(r => r.level_code === levelCode ? { ...r, [field]: value } : r));
+  const saveRubricConfig = async () => {
+    setSavingRubric(true);
+    try {
+      for (const row of rubricDraft) { const { error } = await supabase.from('cbc_rubric_config').update({ level_label: row.level_label, color_hex: row.color_hex, bg_hex: row.bg_hex }).eq('level_code', row.level_code); if (error) throw error; }
+      toast.success('Rubric config saved ✅'); await fetchAll();
+    } catch (err: any) { toast.error(err.message || 'Failed to save rubric config'); }
+    finally { setSavingRubric(false); }
+  };
+
+  /* ─── School details ─── */
+  const saveSchoolDetails = async () => {
+    if (!schoolDetails.school_name?.trim()) { toast.error('School name is required'); return; }
+    setSavingInfo(true);
+    const payload: any = {};
+    Object.keys(schoolDetails).forEach(key => {
+      if (['id', 'created_at', 'updated_at'].includes(key)) return;
+      const val = schoolDetails[key];
+      payload[key] = (typeof val === 'string' && val.trim() === '') ? null : val;
+    });
+    payload.updated_at = new Date().toISOString();
+    let error;
+    if (schoolDetails.id) { ({ error } = await supabase.from('school_details').update(payload).eq('id', schoolDetails.id)); }
+    else { ({ error } = await supabase.from('school_details').insert([payload])); }
+    setSavingInfo(false);
+    if (error) { toast.error(error.message || 'Failed to save'); return; }
+    toast.success('School details saved ✅'); fetchAll();
+  };
+
+  /* ─── Tabs config ─── */
+  const TABS: { key: Tab; label: string; icon: string; count: number; group: string }[] = [
+    { key: 'school-details', label: 'School Info', icon: '🏫', count: 0, group: 'General' },
+    { key: 'terms', label: 'Terms & Year', icon: '📅', count: terms.length, group: 'General' },
+    { key: 'forms', label: 'Forms', icon: '📋', count: forms.length, group: 'Academic' },
+    { key: 'streams', label: 'Streams', icon: '🏷️', count: streams.length, group: 'Academic' },
+    { key: 'subjects', label: 'Subjects', icon: '📚', count: subjects.length, group: 'Academic' },
+    { key: 'classes', label: 'Classes', icon: '🏫', count: classes.length, group: 'Academic' },
+    { key: 'subject-teachers', label: 'Subject–Teacher', icon: '🔗', count: subjectTeachers.length, group: 'Academic' },
+    { key: 'cbc-pathways', label: 'CBC Pathways', icon: '🛤️', count: cbcPathways.length, group: 'CBC' },
+    { key: 'cbc-grading', label: 'CBC Grading', icon: '📊', count: cbcRubricConfig.length, group: 'CBC' },
+    { key: 'sms', label: 'SMS', icon: '💬', count: 0, group: 'Integrations' },
+    { key: 'mpesa', label: 'M-Pesa', icon: '📲', count: 0, group: 'Integrations' },
+    { key: 'whatsapp', label: 'WhatsApp', icon: '💚', count: 0, group: 'Integrations' },
+    { key: 'receipt-settings', label: 'Receipt No.', icon: '🧾', count: 0, group: 'Integrations' },
+  ];
+
+  const openAdd = () => {
+    if (tab === 'school-details') return;
+    if (tab === 'forms') openAddForm();
+    else if (tab === 'streams') openAddStream();
+    else if (tab === 'subjects') openAddSubject();
+    else if (tab === 'classes') openAddClass();
+    else if (tab === 'subject-teachers') openAddSubjectTeacher();
+  };
+  const handleSave = () => {
+    if (tab === 'forms') saveForm();
+    else if (tab === 'streams') saveStream();
+    else if (tab === 'subjects') saveSubject();
+    else if (tab === 'classes') saveClass();
+    else saveSubjectTeacher();
+  };
+  const addLabel: Record<string, string> = { forms: 'Form', streams: 'Stream', subjects: 'Subject', classes: 'Class', 'subject-teachers': 'Link' };
+  const modalMeta: Record<string, { icon: string; accent: string; subtitle: string }> = {
+    forms: { icon: '📋', accent: '#6366f1', subtitle: 'Create or edit a school form / grade level' },
+    streams: { icon: '🏷️', accent: '#0891b2', subtitle: 'Create or edit a stream within a form' },
+    subjects: { icon: '📚', accent: '#059669', subtitle: 'Add or edit a subject in the curriculum' },
+    classes: { icon: '🏫', accent: '#d97706', subtitle: 'Link a form, stream and class teacher' },
+    'subject-teachers': { icon: '🔗', accent: '#7c3aed', subtitle: 'Assign a teacher to a subject' },
+  };
+  const mm = modalMeta[tab] || { icon: '⚙️', accent: '#6366f1', subtitle: '' };
+
+  /* ─── Stats ─── */
+  const statsBar = [
+    { label: 'Forms', val: forms.length, color: '#6366f1', bg: '#eef2ff' },
+    { label: 'Subjects', val: subjects.length, color: '#059669', bg: '#ecfdf5' },
+    { label: 'Teachers', val: teachers.length, color: '#0891b2', bg: '#e0f2fe' },
+    { label: 'Classes', val: classes.length, color: '#d97706', bg: '#fef3c7' },
+    { label: 'Terms', val: terms.length, color: '#7c3aed', bg: '#f5f3ff' },
+  ];
+
+  const showCrudAdd = ['forms', 'streams', 'subjects', 'classes', 'subject-teachers'].includes(tab);
+
+  return (
+    <div className="space-y-4">
+
+      {/* ══ ULTRA PREMIUM BANNER ══ */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1" style={{ background: 'linear-gradient(90deg,#6366f1,#8b5cf6,#ec4899,#f59e0b,#10b981,#0891b2)' }} />
+        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-2xl shadow-sm">⚙️</div>
+            <div>
+              <h1 className="text-lg font-black text-gray-900 tracking-tight">System Settings</h1>
+              <p className="text-[10px] text-gray-400 font-semibold mt-0.5">Control Centre — School · Forms · CBC · SMS · M-Pesa · WhatsApp</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {statsBar.map((s, i) => (
+              <div key={i} className="text-center px-3 py-2 rounded-xl border border-gray-100 shadow-sm" style={{ background: s.bg }}>
+                <p className="text-lg font-black leading-none" style={{ color: s.color }}>{s.val}</p>
+                <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider mt-0.5">{s.label}</p>
+              </div>
+            ))}
+            {showCrudAdd && (
+              <button onClick={openAdd}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-black shadow-sm hover:shadow-md transition-all"
+                style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+                <FiPlus size={14} /> Add {addLabel[tab] || 'Item'}
+              </button>
+            )}
+            {tab === 'terms' && (
+              <button onClick={() => { setEditTermId(null); setTermForm({ term_name: '', term_number: '', start_date: '', end_date: '', academic_year: new Date().getFullYear(), is_current: false }); setShowTermModal(true); }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-black shadow-sm hover:shadow-md transition-all"
+                style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+                <FiPlus size={14} /> Add Term
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ══ ULTRA PREMIUM TAB BAR ══ */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-2">
+        <div className="flex gap-1.5 flex-wrap">
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black whitespace-nowrap transition-all ${
+                tab === t.key
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+              }`}>
+              <span className="text-sm">{t.icon}</span>
+              {t.label}
+              {t.count > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black min-w-[18px] text-center ${tab === t.key ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ══ LOADING ══ */}
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-20 gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center"><FiSettings size={22} className="text-indigo-600 animate-spin" /></div>
+          <p className="text-xs text-gray-400 font-bold">Loading settings…</p>
+          <div className="flex gap-1.5">{[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+
+          {/* ══════════ SCHOOL DETAILS ══════════ */}
+          {tab === 'school-details' && (
+            <div className="p-6 space-y-5">
+              {/* Header card */}
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-indigo-50 border border-indigo-100">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center"><FiInfo size={18} className="text-indigo-600" /></div>
+                <div>
+                  <p className="text-sm font-black text-indigo-900">School Information</p>
+                  <p className="text-[10px] text-indigo-500 mt-0.5">Configure your school's identity, contact details and bank accounts</p>
+                </div>
+              </div>
+
+              {/* Basic Info */}
+              <SectionCard icon="🏫" title="Basic Information" color="indigo">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { label: 'School Name', key: 'school_name', required: true, placeholder: 'Enter school name' },
+                    { label: 'Motto', key: 'motto', placeholder: 'School motto' },
+                    { label: 'Registration No.', key: 'registration_number', placeholder: 'SCH/2025/001' },
+                    { label: 'TSC Code', key: 'tsc_code', placeholder: 'TSC code' },
+                    { label: 'KNEC Code', key: 'knec_code', placeholder: 'KNEC code' },
+                    { label: 'Sub-County Code', key: 'sub_county_code', placeholder: 'Sub-county code' },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <Lbl required={f.required}>{f.label}</Lbl>
+                      <Inp value={schoolDetails[f.key] || ''} onChange={e => setSchoolDetails({ ...schoolDetails, [f.key]: e.target.value })} placeholder={f.placeholder} />
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+
+              {/* School Type + Level */}
+              <SectionCard icon="🏷️" title="Classification" color="purple">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div><Lbl>School Type</Lbl>
+                    <Sel value={schoolDetails.school_type || ''} onChange={e => setSchoolDetails({ ...schoolDetails, school_type: e.target.value })}>
+                      <option value="">— Select Type —</option>
+                      {['Public', 'Private', 'National', 'County', 'Sub-County', 'Extra-County'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </Sel>
+                  </div>
+                  <div><Lbl>School Category</Lbl>
+                    <Sel value={schoolDetails.school_category || ''} onChange={e => setSchoolDetails({ ...schoolDetails, school_category: e.target.value })}>
+                      <option value="">— Select Category —</option>
+                      {['Mixed Day', 'Boys Boarding', 'Girls Boarding', 'Boys Day', 'Girls Day', 'Mixed Boarding', 'Mixed Day/Boarding'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </Sel>
+                  </div>
+                  <div><Lbl>Education Level</Lbl>
+                    <Sel value={schoolDetails.education_level || ''} onChange={e => setSchoolDetails({ ...schoolDetails, education_level: e.target.value })}>
+                      <option value="">— Select Level —</option>
+                      {['Primary', 'Secondary', 'Combined (Primary & Secondary)'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </Sel>
+                  </div>
+                  <div><Lbl>Curriculum</Lbl>
+                    <Sel value={schoolDetails.curriculum || ''} onChange={e => setSchoolDetails({ ...schoolDetails, curriculum: e.target.value })}>
+                      <option value="">— Select Curriculum —</option>
+                      {['8-4-4', 'CBC', 'Both 8-4-4 and CBC', 'IGCSE', 'IB'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </Sel>
+                  </div>
+                  <div><Lbl>Established Year</Lbl>
+                    <Inp type="number" value={schoolDetails.established_year || ''} onChange={e => setSchoolDetails({ ...schoolDetails, established_year: e.target.value })} placeholder="e.g. 1985" min={1900} max={2030} />
+                  </div>
+                  <div><Lbl>Total Capacity</Lbl>
+                    <Inp type="number" value={schoolDetails.total_capacity || ''} onChange={e => setSchoolDetails({ ...schoolDetails, total_capacity: e.target.value })} placeholder="Max student capacity" />
+                  </div>
+                </div>
+              </SectionCard>
+
+              {/* Location */}
+              <SectionCard icon="📍" title="Location & Address" color="green">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><Lbl>Postal Address</Lbl><Inp value={schoolDetails.postal_address || ''} onChange={e => setSchoolDetails({ ...schoolDetails, postal_address: e.target.value })} placeholder="P.O. Box 123" /></div>
+                  <div><Lbl>Physical Address</Lbl><Inp value={schoolDetails.physical_address || ''} onChange={e => setSchoolDetails({ ...schoolDetails, physical_address: e.target.value })} placeholder="e.g. Nairobi" /></div>
+                  <div><Lbl>County</Lbl>
+                    <Sel value={schoolDetails.county || ''} onChange={e => setSchoolDetails({ ...schoolDetails, county: e.target.value, sub_county: '' })}>
+                      <option value="">— Select County —</option>
+                      {counties.map(c => <option key={c} value={c}>{c}</option>)}
+                    </Sel>
+                  </div>
+                  <div><Lbl>Sub-County</Lbl>
+                    <Sel value={schoolDetails.sub_county || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sub_county: e.target.value })}>
+                      <option value="">— Select Sub-County —</option>
+                      {schoolDetails.county && getSubCounties(schoolDetails.county).map(sc => <option key={sc} value={sc}>{sc}</option>)}
+                    </Sel>
+                  </div>
+                </div>
+              </SectionCard>
+
+              {/* Contact */}
+              <SectionCard icon="📞" title="Contact Details" color="amber">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { label: 'Phone 1', key: 'phone1', type: 'tel', placeholder: '0712 345 678' },
+                    { label: 'Phone 2', key: 'phone2', type: 'tel', placeholder: '0700 000 000' },
+                    { label: 'Email', key: 'email', type: 'email', placeholder: 'school@example.com' },
+                    { label: 'Website', key: 'website', type: 'url', placeholder: 'https://' },
+                    { label: 'Principal Name', key: 'principal_name', type: 'text', placeholder: 'Mr./Ms. Full Name' },
+                    { label: 'Principal Phone', key: 'principal_phone', type: 'tel', placeholder: '0712 000 000' },
+                  ].map(f => (
+                    <div key={f.key}><Lbl>{f.label}</Lbl><Inp type={f.type} value={schoolDetails[f.key] || ''} onChange={e => setSchoolDetails({ ...schoolDetails, [f.key]: e.target.value })} placeholder={f.placeholder} /></div>
+                  ))}
+                </div>
+              </SectionCard>
+
+              {/* Bank */}
+              <SectionCard icon="🏦" title="Bank & Payment Details" color="blue">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { label: 'Bank Name', key: 'bank_name', placeholder: 'e.g. KCB, Equity' },
+                    { label: 'Account Name', key: 'bank_account_name', placeholder: 'Official account name' },
+                    { label: 'Account Number', key: 'bank_account_number', placeholder: 'Account number' },
+                    { label: 'Bank Branch', key: 'bank_branch', placeholder: 'Branch name' },
+                    { label: 'M-Pesa Paybill', key: 'mpesa_paybill', placeholder: 'Paybill number' },
+                    { label: 'M-Pesa Account Name', key: 'mpesa_account_name', placeholder: 'Account name for Mpesa' },
+                  ].map(f => (
+                    <div key={f.key}><Lbl>{f.label}</Lbl><Inp value={schoolDetails[f.key] || ''} onChange={e => setSchoolDetails({ ...schoolDetails, [f.key]: e.target.value })} placeholder={f.placeholder} /></div>
+                  ))}
+                </div>
+              </SectionCard>
+
+              <div className="flex justify-end pt-2"><SaveBtn onClick={saveSchoolDetails} loading={savingInfo} label="Save School Details" /></div>
+            </div>
+          )}
+
+          {/* ══════════ FORMS TABLE ══════════ */}
+          {tab === 'forms' && (
+            <div>
+              <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center text-base">📋</div>
+                <div><p className="text-xs font-black text-gray-800">Form Levels / Grades</p><p className="text-[10px] text-gray-400">{forms.length} forms configured</p></div>
+              </div>
+              {forms.length === 0 ? <EmptyState icon="📋" title="No forms configured yet" sub="Click Add Form above to get started" /> : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead><tr>{['#', 'Form Name', 'Level', 'Description', 'Students', 'Status', 'Actions'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {forms.map((item, i) => (
+                        <tr key={item.id} className="hover:bg-indigo-50/30 transition-colors group">
+                          <TD className="text-gray-300 font-mono">{i + 1}</TD>
+                          <TD className="font-black text-gray-900">{item.form_name}</TD>
+                          <TD><Badge color="indigo">Level {item.form_level}</Badge></TD>
+                          <TD className="text-gray-500 text-xs">{item.description || <span className="text-gray-300 italic">No description</span>}</TD>
+                          <TD><span className="text-xs font-bold text-gray-600">—</span></TD>
+                          <TD><Badge color="green">✅ Active</Badge></TD>
+                          <TD>
+                            <div className="flex gap-2">
+                              <ActionBtn onClick={() => openEditForm(item)} variant="edit" />
+                              <ActionBtn onClick={() => deleteForm(item.id)} variant="delete" />
+                            </div>
+                          </TD>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══════════ STREAMS TABLE ══════════ */}
+          {tab === 'streams' && (
+            <div>
+              <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-cyan-100 flex items-center justify-center text-base">🏷️</div>
+                <div><p className="text-xs font-black text-gray-800">Streams / Sections</p><p className="text-[10px] text-gray-400">{streams.length} streams configured</p></div>
+              </div>
+              {streams.length === 0 ? <EmptyState icon="🏷️" title="No streams yet" sub="Click Add Stream to create your first stream" /> : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead><tr>{['#', 'Stream Name', 'Description', 'Classes Linked', 'Status', 'Actions'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {streams.map((item, i) => (
+                        <tr key={item.id} className="hover:bg-cyan-50/30 transition-colors">
+                          <TD className="text-gray-300 font-mono">{i + 1}</TD>
+                          <TD><span className="font-black text-gray-900">{item.stream_name}</span></TD>
+                          <TD className="text-gray-500 text-xs">{item.description || <span className="text-gray-300 italic">No description</span>}</TD>
+                          <TD><Badge color="blue">{classes.filter(c => c.stream_id === item.id).length} classes</Badge></TD>
+                          <TD><Badge color="green">✅ Active</Badge></TD>
+                          <TD><div className="flex gap-2"><ActionBtn onClick={() => openEditStream(item)} variant="edit" /><ActionBtn onClick={() => deleteStream(item.id)} variant="delete" /></div></TD>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══════════ SUBJECTS TABLE ══════════ */}
+          {tab === 'subjects' && (
+            <div>
+              <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-base">📚</div>
+                <div><p className="text-xs font-black text-gray-800">Curriculum Subjects</p><p className="text-[10px] text-gray-400">{subjects.length} subjects · {subjects.filter(s => s.category === 'Core').length} Core · {subjects.filter(s => s.category === 'Elective').length} Elective</p></div>
+              </div>
+              {subjects.length === 0 ? <EmptyState icon="📚" title="No subjects yet" sub="Click Add Subject to configure your curriculum" /> : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead><tr>{['#', 'Subject Name', 'Code', 'Category', 'Teachers Linked', 'Status', 'Actions'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {subjects.map((item, i) => {
+                        const catColor = item.category === 'Core' ? 'indigo' : item.category === 'Elective' ? 'blue' : 'orange';
+                        return (
+                          <tr key={item.id} className="hover:bg-emerald-50/30 transition-colors">
+                            <TD className="text-gray-300 font-mono">{i + 1}</TD>
+                            <TD className="font-black text-gray-900">{item.subject_name}</TD>
+                            <TD><span className="font-mono text-[10px] px-2 py-1 rounded-lg bg-gray-100 text-gray-600 font-bold">{item.subject_code || '—'}</span></TD>
+                            <TD><Badge color={catColor}>{item.category}</Badge></TD>
+                            <TD><Badge color="purple">{subjectTeachers.filter(st => st.subject_id === item.id).length} teachers</Badge></TD>
+                            <TD><Badge color="green">✅ Active</Badge></TD>
+                            <TD><div className="flex gap-2"><ActionBtn onClick={() => openEditSubject(item)} variant="edit" /><ActionBtn onClick={() => deleteSubject(item.id)} variant="delete" /></div></TD>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══════════ CLASSES TABLE ══════════ */}
+          {tab === 'classes' && (
+            <div>
+              <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-3 justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-base">🏫</div>
+                  <div><p className="text-xs font-black text-gray-800">Form–Stream Classes</p><p className="text-[10px] text-gray-400">{classes.length} classes linked</p></div>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-xl">
+                  <FiInfo size={13} className="text-blue-500 flex-shrink-0" />
+                  <p className="text-[10px] font-bold text-blue-700">Class = Form + Stream + Class Teacher</p>
+                </div>
+              </div>
+              {classes.length === 0 ? <EmptyState icon="🏫" title="No classes created yet" sub="Link forms with streams and assign class teachers" /> : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead><tr>{['#', 'Form', 'Stream', 'Class Name', 'Class Teacher', 'Year', 'Actions'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {classes.map((item, i) => (
+                        <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
+                          <TD className="text-gray-300 font-mono">{i + 1}</TD>
+                          <TD><Badge color="indigo">{getFormName(item.form_id)}</Badge></TD>
+                          <TD><Badge color="blue">{getStreamName(item.stream_id)}</Badge></TD>
+                          <TD><span className="font-black text-gray-900 text-sm">{getFormName(item.form_id)} {getStreamName(item.stream_id)}</span></TD>
+                          <TD>
+                            {item.teacher_id
+                              ? <span className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs"><FiUsers size={12} />{getTeacherName(item.teacher_id)}</span>
+                              : <span className="text-gray-300 italic text-xs">Not assigned</span>}
+                          </TD>
+                          <TD><Badge color="amber">{item.year}</Badge></TD>
+                          <TD><div className="flex gap-2"><ActionBtn onClick={() => openEditClass(item)} variant="edit" /><ActionBtn onClick={() => deleteClass(item.id)} variant="delete" /></div></TD>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══════════ SUBJECT-TEACHERS TABLE ══════════ */}
+          {tab === 'subject-teachers' && (
+            <div>
+              <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-3 justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center text-base">🔗</div>
+                  <div><p className="text-xs font-black text-gray-800">Subject–Teacher Assignments</p><p className="text-[10px] text-gray-400">{subjectTeachers.length} links · Assign teachers to their subjects</p></div>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 border border-purple-100 rounded-xl">
+                  <FiInfo size={13} className="text-purple-500 flex-shrink-0" />
+                  <p className="text-[10px] font-bold text-purple-700">Scope to a specific form or stream</p>
+                </div>
+              </div>
+              {subjectTeachers.length === 0 ? <EmptyState icon="🔗" title="No subject-teacher links yet" sub="Assign teachers to their subjects" /> : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead><tr>{['#', 'Subject', 'Teacher', 'TSC No.', 'Form', 'Stream', 'Scope', 'Actions'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {subjectTeachers.map((item, i) => {
+                        const teacher = teachers.find(t => t.id === item.teacher_id);
+                        const scopeLabel = !item.form_id ? 'All Forms' : !item.stream_id ? `${getFormName(item.form_id)} — All Streams` : `${getFormName(item.form_id)} ${getStreamName(item.stream_id)}`;
+                        return (
+                          <tr key={item.id} className="hover:bg-purple-50/30 transition-colors">
+                            <TD className="text-gray-300 font-mono">{i + 1}</TD>
+                            <TD><Badge color="purple">{getSubjectName(item.subject_id)}</Badge></TD>
+                            <TD className="font-bold text-gray-800 text-xs">{getTeacherName(item.teacher_id)}</TD>
+                            <TD><span className="font-mono text-[10px] text-gray-500">{teacher?.tsc_number || '—'}</span></TD>
+                            <TD>{item.form_id ? <Badge color="indigo">{getFormName(item.form_id)}</Badge> : <span className="text-gray-300 text-xs italic">All</span>}</TD>
+                            <TD>{item.stream_id ? <Badge color="orange">{getStreamName(item.stream_id)}</Badge> : <span className="text-gray-300 text-xs italic">All</span>}</TD>
+                            <TD><Badge color="blue">{scopeLabel}</Badge></TD>
+                            <TD><div className="flex gap-2"><ActionBtn onClick={() => openEditSubjectTeacher(item)} variant="edit" /><ActionBtn onClick={() => deleteSubjectTeacher(item.id)} variant="delete" /></div></TD>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══════════ CBC PATHWAYS ══════════ */}
+          {tab === 'cbc-pathways' && (
+            <div className="p-6 space-y-5">
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-indigo-50 border border-indigo-100">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-lg">🛤️</div>
+                <div><p className="text-sm font-black text-indigo-900">CBC Senior School Pathways</p><p className="text-[10px] text-indigo-500">Assign elective subjects to each pathway. Each non-compulsory subject may belong to only one pathway.</p></div>
+              </div>
+              {cbcPathways.length === 0 ? (
+                <EmptyState icon="🛤️" title="No pathways found" sub="Run the CBC migration SQL to seed the three pathways." />
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {cbcPathways.map(pathway => {
+                      const electiveCount = countElectivesForPathway(pathway.id, cbcPathwaySubjects);
+                      const isSelected = selectedPathwayForEdit === pathway.id;
+                      return (
+                        <button key={pathway.id} onClick={() => handleSelectPathwayForEdit(pathway.id)}
+                          className={`text-left p-5 rounded-2xl border-2 transition-all hover:shadow-md ${isSelected ? 'border-indigo-400 bg-indigo-50 shadow-lg shadow-indigo-100' : 'border-gray-200 bg-white hover:border-indigo-200'}`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <PathwayBadge pathwayName={pathway.pathway_name} colorHex={pathway.color_hex} />
+                            {electiveCount < 3 && <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-700 border border-amber-200">⚠️ {electiveCount} electives</span>}
+                          </div>
+                          <p className="font-black text-gray-800 text-sm">{pathway.pathway_name}</p>
+                          {pathway.description && <p className="text-xs text-gray-400 mt-1">{pathway.description}</p>}
+                          <div className="mt-3 flex items-center gap-1.5">
+                            <div className="h-1.5 flex-1 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-1.5 bg-indigo-400 rounded-full" style={{ width: `${Math.min((electiveCount / 5) * 100, 100)}%` }} />
+                            </div>
+                            <span className={`text-[9px] font-black ${electiveCount >= 3 ? 'text-emerald-600' : 'text-amber-600'}`}>{electiveCount} subjects</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedPathwayForEdit !== null && (() => {
+                    const pathway = cbcPathways.find(p => p.id === selectedPathwayForEdit);
+                    const compulsorySubjectIds = cbcPathwaySubjects.filter(ps => ps.is_compulsory).map(ps => ps.subject_id);
+                    const compulsorySubjects = subjects.filter(s => compulsorySubjectIds.includes(s.id));
+                    const nonCompulsorySubjects = subjects.filter(s => !compulsorySubjectIds.includes(s.id));
+                    return (
+                      <div className="border-2 border-indigo-200 rounded-2xl overflow-hidden">
+                        <div className="bg-indigo-50 px-5 py-4 border-b border-indigo-200 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-black text-indigo-800">✏️ Editing: {pathway?.pathway_name}</p>
+                            <p className="text-[10px] text-indigo-500 mt-0.5">Check subjects to assign as electives for this pathway</p>
+                          </div>
+                          <SaveBtn onClick={savePathwaySubjects} loading={savingPathway} label="Save Pathway" color="#6366f1" />
+                        </div>
+                        <div className="p-5 space-y-5">
+                          <div>
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">🔒 Compulsory Subjects (all pathways)</p>
+                            <div className="flex flex-wrap gap-2">
+                              {compulsorySubjects.length === 0
+                                ? <span className="text-xs text-gray-300 italic">No compulsory subjects configured</span>
+                                : compulsorySubjects.map(s => <span key={s.id} className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">🔒 {s.subject_name}</span>)}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">📚 Elective Subjects</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {nonCompulsorySubjects.map(s => {
+                                const isChecked = pathwaySubjectDraft.includes(s.id);
+                                const assignedElsewhere = cbcPathwaySubjects.find(ps => ps.subject_id === s.id && ps.pathway_id !== selectedPathwayForEdit && !ps.is_compulsory);
+                                const otherPathwayName = assignedElsewhere ? cbcPathways.find(p => p.id === assignedElsewhere.pathway_id)?.pathway_name : null;
+                                return (
+                                  <label key={s.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${isChecked ? 'border-indigo-300 bg-indigo-50' : 'border-gray-100 bg-white hover:border-indigo-200'} ${assignedElsewhere && !isChecked ? 'opacity-50' : ''}`}>
+                                    <input type="checkbox" checked={isChecked} onChange={() => toggleElectiveSubject(s.id)} className="w-4 h-4 accent-indigo-600" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-bold text-gray-800 truncate">{s.subject_name}</p>
+                                      {s.subject_code && <p className="text-[9px] text-gray-400 font-mono">{s.subject_code}</p>}
+                                      {otherPathwayName && !isChecked && <p className="text-[9px] text-amber-600 font-bold">In: {otherPathwayName}</p>}
+                                    </div>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ══════════ CBC GRADING ══════════ */}
+          {tab === 'cbc-grading' && (
+            <div className="p-6 space-y-5">
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-lg">📊</div>
+                <div><p className="text-sm font-black text-emerald-900">CBC Grading / Rubric Configuration</p><p className="text-[10px] text-emerald-500">Customize labels and colors for each CBC rubric level. Affects all report cards.</p></div>
+              </div>
+              <div className="flex items-start gap-3 p-3.5 bg-blue-50 border border-blue-100 rounded-2xl">
+                <FiInfo size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-700">The four rubric levels (EE, ME, AE, BE) are fixed and cannot be deleted. You can only update their labels and colors.</p>
+              </div>
+              {rubricDraft.length === 0 ? <EmptyState icon="📊" title="No rubric config found" sub="Run the CBC migration SQL to seed the rubric levels." /> : (
+                <>
+                  <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-5 py-3 bg-gray-50 border-b border-gray-100">
+                      <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Rubric Level Configuration</p>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {rubricDraft.map(row => (
+                        <div key={row.level_code} className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                          <div className="flex-shrink-0 w-16"><RubricLevelBadge level={row.level_code} rubricConfig={rubricDraft} size="md" /></div>
+                          <div className="flex-1"><Lbl>Label</Lbl><Inp value={row.level_label || ''} onChange={e => updateRubricDraft(row.level_code, 'level_label', e.target.value)} placeholder="e.g. Exceeds Expectation" /></div>
+                          <div className="w-36">
+                            <Lbl>Text Color</Lbl>
+                            <div className="flex items-center gap-2">
+                              <Inp value={row.color_hex || ''} onChange={e => updateRubricDraft(row.level_code, 'color_hex', e.target.value)} placeholder="#15803d" maxLength={7} className="font-mono text-xs" />
+                              <div className="w-9 h-10 rounded-xl border-2 border-gray-200 flex-shrink-0 cursor-pointer shadow-sm" style={{ backgroundColor: row.color_hex || '#6b7280' }} />
+                            </div>
+                          </div>
+                          <div className="w-36">
+                            <Lbl>Background</Lbl>
+                            <div className="flex items-center gap-2">
+                              <Inp value={row.bg_hex || ''} onChange={e => updateRubricDraft(row.level_code, 'bg_hex', e.target.value)} placeholder="#f0fdf4" maxLength={7} className="font-mono text-xs" />
+                              <div className="w-9 h-10 rounded-xl border-2 border-gray-200 flex-shrink-0 cursor-pointer shadow-sm" style={{ backgroundColor: row.bg_hex || '#f3f4f6' }} />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Preview</p>
+                    <div className="flex flex-wrap gap-4">
+                      {rubricDraft.map(row => (
+                        <div key={row.level_code} className="flex flex-col items-center gap-1.5">
+                          <RubricLevelBadge level={row.level_code} rubricConfig={rubricDraft} size="md" />
+                          <span className="text-[9px] text-gray-400 text-center max-w-[80px] leading-tight">{row.level_label || row.level_code}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-end"><SaveBtn onClick={saveRubricConfig} loading={savingRubric} label="Save Grading Config" color="#10b981" /></div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ══════════ SMS CONFIG ══════════ */}
+          {tab === 'sms' && (
+            <div className="p-6 space-y-5">
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center"><FiMessageCircle size={18} className="text-amber-600" /></div>
+                <div><p className="text-sm font-black text-amber-900">SMS & Notifications — Africa's Talking</p><p className="text-[10px] text-amber-500">Configure SMS gateway for leave-out alerts, fee reminders and bulk parent communication</p></div>
+              </div>
+              <SectionCard icon="💬" title="Africa's Talking Configuration" color="amber">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><Lbl>SMS Enabled</Lbl>
+                    <Sel value={schoolDetails.sms_enabled ? 'true' : 'false'} onChange={e => setSchoolDetails({ ...schoolDetails, sms_enabled: e.target.value === 'true' })}>
+                      <option value="false">❌ Disabled</option><option value="true">✅ Enabled</option>
+                    </Sel>
+                  </div>
+                  <div><Lbl>Provider</Lbl><Inp value={schoolDetails.sms_provider || 'AfricasTalking'} onChange={e => setSchoolDetails({ ...schoolDetails, sms_provider: e.target.value })} placeholder="AfricasTalking" /></div>
+                  <div><Lbl>SMS Username</Lbl><Inp value={schoolDetails.sms_username || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sms_username: e.target.value })} placeholder="sandbox or your AT username" /></div>
+                  <div><Lbl>🔑 SMS API Key</Lbl>
+                    <div className="relative">
+                      <Inp type={showApiKey ? 'text' : 'password'} value={schoolDetails.sms_api_key || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sms_api_key: e.target.value })} placeholder="Your API Key" className="pr-20" />
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        {schoolDetails.sms_api_key && <button onClick={() => { navigator.clipboard.writeText(schoolDetails.sms_api_key); toast.success('Copied!'); }} className="p-1.5 rounded-lg text-gray-300 hover:text-amber-500 transition"><FiCopy size={13} /></button>}
+                        <button onClick={() => setShowApiKey(!showApiKey)} className="p-1.5 rounded-lg text-gray-300 hover:text-amber-500 transition">{showApiKey ? <FiEyeOff size={13} /> : <FiEye size={13} />}</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div><Lbl>Sender ID</Lbl><Inp value={schoolDetails.sms_sender_id || ''} onChange={e => setSchoolDetails({ ...schoolDetails, sms_sender_id: e.target.value })} placeholder="APSIMS" /></div>
+                  <div><Lbl>Environment</Lbl>
+                    <Sel value={schoolDetails.sms_is_sandbox ? 'true' : 'false'} onChange={e => setSchoolDetails({ ...schoolDetails, sms_is_sandbox: e.target.value === 'true' })}>
+                      <option value="true">🧪 Sandbox (Testing)</option><option value="false">🚀 Production (Live)</option>
+                    </Sel>
+                  </div>
+                </div>
+              </SectionCard>
+              <SectionCard icon="🧪" title="Test SMS" color="green">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div><Lbl>Phone Number</Lbl><Inp value={testPhone} onChange={e => setTestPhone(e.target.value)} placeholder="0712345678" /></div>
+                  <div><Lbl>Message</Lbl><Inp value={testMessage} onChange={e => setTestMessage(e.target.value)} placeholder="Test SMS from APSIMS" /></div>
+                </div>
+                <button onClick={async () => {
+                  if (!testPhone || !testMessage) { toast.error('Enter phone and message'); return; }
+                  setSendingTest(true); setTestResult(null);
+                  try {
+                    const res = await fetch('/api/send-sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: testPhone, message: testMessage }) });
+                    const data = await res.json(); setTestResult(data);
+                    if (data.success) toast.success('✅ Test SMS sent!'); else toast.error(data.error || 'Failed');
+                  } catch (e: any) { toast.error(e.message); setTestResult({ error: e.message }); }
+                  setSendingTest(false);
+                }} disabled={sendingTest} className="flex items-center gap-2 px-5 py-2.5 font-black text-sm text-white rounded-2xl shadow hover:shadow-md disabled:opacity-60 transition-all" style={{ background: 'linear-gradient(135deg,#22c55e,#16a34a)' }}>
+                  {sendingTest ? <><FiRefreshCw size={14} className="animate-spin" />Sending…</> : <><FiSend size={14} />Send Test SMS</>}
+                </button>
+                {testResult && <div className={`mt-3 px-4 py-3 rounded-2xl text-xs font-mono ${testResult.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>{JSON.stringify(testResult, null, 2)}</div>}
+              </SectionCard>
+              <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                <FiInfo size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-black text-amber-800 mb-1">How SMS works in APSIMS</p>
+                  <ul className="text-[10px] text-amber-700 space-y-1 list-disc list-inside">
+                    <li>Leave-out notifications auto-send when a student is issued a leave pass</li>
+                    <li>Fee reminders and demand letters via the Communication page</li>
+                    <li>All sent messages are logged in the SMS Logs table</li>
+                    <li>Use 'sandbox' mode for testing — no real SMS is sent</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="flex justify-end"><SaveBtn onClick={saveSchoolDetails} loading={savingInfo} label="Save SMS Settings" color="#f59e0b" /></div>
+            </div>
+          )}
+
+          {/* ══════════ M-PESA CONFIG ══════════ */}
+          {tab === 'mpesa' && (
+            <div className="p-6 space-y-5">
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-lg">📲</div>
+                <div><p className="text-sm font-black text-emerald-900">M-Pesa STK Push Configuration</p><p className="text-[10px] text-emerald-500">Configure Safaricom Daraja API for STK Push payments. Parents pay directly from their phones.</p></div>
+              </div>
+              <SectionCard icon="🔑" title="Daraja API Credentials" color="green">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { key: 'mpesa_consumer_key', label: 'Consumer Key', placeholder: 'Daraja Consumer Key', secret: false },
+                    { key: 'mpesa_consumer_secret', label: 'Consumer Secret', placeholder: 'Daraja Consumer Secret', secret: true },
+                    { key: 'mpesa_shortcode', label: 'Business Shortcode', placeholder: '174379' },
+                    { key: 'mpesa_passkey', label: 'Lipa Na M-Pesa Passkey', placeholder: 'Online passkey', secret: true },
+                    { key: 'mpesa_callback_url', label: 'Callback URL', placeholder: 'https://yourschool.com/api/mpesa/callback' },
+                    { key: 'mpesa_environment', label: 'Environment', placeholder: 'sandbox or production' },
+                  ].map(f => (
+                    <div key={f.key}><Lbl>{f.label}</Lbl><Inp type={(f as any).secret ? 'password' : 'text'} value={(schoolDetails as any)[f.key] || ''} onChange={e => setSchoolDetails({ ...schoolDetails, [f.key]: e.target.value })} placeholder={f.placeholder} /></div>
+                  ))}
+                  <div className="sm:col-span-2">
+                    <Lbl>Account Reference Prefix</Lbl>
+                    <Inp value={schoolDetails.mpesa_account_prefix || 'FEE'} onChange={e => setSchoolDetails({ ...schoolDetails, mpesa_account_prefix: e.target.value })} placeholder="e.g. FEE or ADM" />
+                    <p className="text-[10px] text-gray-400 mt-1">Prefix + student admission no = M-Pesa account reference (e.g. FEE-2024001)</p>
+                  </div>
+                </div>
+              </SectionCard>
+              <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                <p className="text-xs font-black text-emerald-800 mb-2">✅ How M-Pesa STK Push works in APSIMS:</p>
+                <ol className="text-[10px] text-emerald-700 space-y-1 list-decimal list-inside">
+                  <li>Admin clicks "Collect Fee via M-Pesa" from the student fee page</li>
+                  <li>APSIMS sends an STK Push prompt to the parent's phone</li>
+                  <li>Parent enters M-Pesa PIN to confirm payment</li>
+                  <li>Safaricom callback fires and fee is automatically recorded</li>
+                  <li>Parent receives SMS receipt automatically</li>
+                </ol>
+              </div>
+              <div className="flex justify-end"><SaveBtn onClick={saveSchoolDetails} loading={savingInfo} label="Save M-Pesa Config" color="#16a34a" /></div>
+            </div>
+          )}
+
+          {/* ══════════ WHATSAPP CONFIG ══════════ */}
+          {tab === 'whatsapp' && (
+            <div className="p-6 space-y-5">
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-lg">💚</div>
+                <div><p className="text-sm font-black text-emerald-900">WhatsApp Integration</p><p className="text-[10px] text-emerald-500">Send report cards, fee reminders and attendance alerts to parents via WhatsApp</p></div>
+              </div>
+              <SectionCard icon="⚙️" title="WhatsApp API Settings" color="green">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><Lbl>Provider</Lbl>
+                    <Sel value={schoolDetails.whatsapp_provider || 'ultramsg'} onChange={e => setSchoolDetails({ ...schoolDetails, whatsapp_provider: e.target.value })}>
+                      <option value="ultramsg">UltraMsg (Recommended)</option>
+                      <option value="whatsapp-business">Official WhatsApp Business API</option>
+                      <option value="twilio">Twilio WhatsApp</option>
+                      <option value="whatsmate">WhatsMate</option>
+                      <option value="africas-talking">Africa's Talking</option>
+                    </Sel>
+                  </div>
+                  {[
+                    { key: 'whatsapp_api_url', label: 'API Base URL', placeholder: 'https://api.ultramsg.com/instance...' },
+                    { key: 'whatsapp_token', label: 'API Token / Secret', placeholder: 'Your API token', secret: true },
+                    { key: 'whatsapp_instance_id', label: 'Instance ID', placeholder: 'instance12345' },
+                    { key: 'whatsapp_phone_number', label: 'Business Phone Number', placeholder: '+254700000000' },
+                  ].map(f => (
+                    <div key={f.key}><Lbl>{f.label}</Lbl><Inp type={(f as any).secret ? 'password' : 'text'} value={(schoolDetails as any)[f.key] || ''} onChange={e => setSchoolDetails({ ...schoolDetails, [f.key]: e.target.value })} placeholder={f.placeholder} /></div>
+                  ))}
+                  <div><Lbl>WhatsApp Enabled</Lbl>
+                    <Sel value={schoolDetails.whatsapp_enabled ? 'true' : 'false'} onChange={e => setSchoolDetails({ ...schoolDetails, whatsapp_enabled: e.target.value === 'true' })}>
+                      <option value="false">❌ Disabled</option><option value="true">✅ Enabled</option>
+                    </Sel>
+                  </div>
+                </div>
+              </SectionCard>
+              <div className="flex justify-end"><SaveBtn onClick={saveSchoolDetails} loading={savingInfo} label="Save WhatsApp Config" color="#25d366" /></div>
+            </div>
+          )}
+
+          {/* ══════════ RECEIPT SETTINGS ══════════ */}
+          {tab === 'receipt-settings' && (
+            <div className="p-6 space-y-5">
+              {isSuperAdmin ? <ReceiptSettingsWidget /> : (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center"><span className="text-4xl">🔐</span></div>
+                  <h2 className="text-xl font-black text-gray-800">Super Admin Only</h2>
+                  <p className="text-gray-400 text-sm text-center max-w-sm">Receipt numbering configuration is restricted to <strong>Super Admin</strong> users only.</p>
+                  <div className="px-4 py-2 bg-red-50 border border-red-200 rounded-xl"><p className="text-xs font-black text-red-600">Your current role: <span className="uppercase">{userRole || 'unknown'}</span></p></div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════ TERMS TAB ══════════ */}
+      {!loading && tab === 'terms' && (
+        <div className="space-y-4">
+          {/* Info */}
+          <div className="flex items-start gap-3 px-5 py-4 bg-amber-50 border border-amber-100 rounded-2xl shadow-sm">
+            <span className="text-xl flex-shrink-0">💡</span>
+            <div>
+              <p className="text-xs font-black text-amber-800">How Terms Work in APSIMS</p>
+              <p className="text-[10px] text-amber-700 mt-0.5 leading-relaxed">Only <strong>ONE term</strong> can be active at a time. All fees, exam marks, SMS reminders and reports use the active term automatically. Click <strong>"Set as Current"</strong> when a new term begins.</p>
+            </div>
+          </div>
+
+          {/* Terms list */}
+          {terms.length === 0 ? (
+            <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center py-16 gap-3">
+              <div className="text-4xl">📅</div>
+              <p className="font-black text-gray-600">No terms configured yet</p>
+              <p className="text-xs text-gray-400">Click "+ Add Term" above to create your first term</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {terms.map((term: any) => {
+                const isCurrent = !!term.is_current;
+                const today = new Date();
+                const start = term.start_date ? new Date(term.start_date) : null;
+                const end = term.end_date ? new Date(term.end_date) : null;
+                const isRunning = !!(start && end && today >= start && today <= end);
+                const isPast = !!(end && today > end);
+                return (
+                  <div key={term.id} className={`bg-white rounded-2xl border-2 p-5 flex items-center gap-5 flex-wrap transition-all relative overflow-hidden ${isCurrent ? 'border-indigo-300 shadow-lg shadow-indigo-100' : 'border-gray-100 shadow-sm hover:shadow-md'}`}>
+                    {isCurrent && <div className="absolute inset-x-0 top-0 h-1" style={{ background: 'linear-gradient(90deg,#6366f1,#8b5cf6,#ec4899)' }} />}
+                    <div className={`w-4 h-4 rounded-full flex-shrink-0 border-2 border-white shadow-sm ${isCurrent ? 'bg-indigo-500' : isPast ? 'bg-red-300' : isRunning ? 'bg-emerald-400' : 'bg-gray-300'}`} />
+                    <div className="flex-1 min-w-48">
+                      <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+                        <span className={`text-base font-black ${isCurrent ? 'text-indigo-700' : 'text-gray-900'}`}>{term.term_name}</span>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide ${isCurrent ? 'bg-indigo-600 text-white' : isPast ? 'bg-red-100 text-red-600' : isRunning ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {isCurrent ? '✓ ACTIVE NOW' : isPast ? 'PAST' : isRunning ? 'RUNNING' : 'UPCOMING'}
+                        </span>
+                        <Badge color="gray">Academic Year {term.academic_year || '—'}</Badge>
+                      </div>
+                      <p className="text-[11px] text-gray-400">
+                        📆 {term.start_date ? new Date(term.start_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' }) : 'No start date'}
+                        {' → '}
+                        {term.end_date ? new Date(term.end_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' }) : 'No end date'}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      {!isCurrent && (
+                        <button disabled={settingCurrent === term.id}
+                          onClick={async () => {
+                            setSettingCurrent(term.id);
+                            await supabase.from('school_terms').update({ is_current: false }).neq('id', 0);
+                            const { error } = await supabase.from('school_terms').update({ is_current: true }).eq('id', term.id);
+                            if (error) { toast.error('Failed: ' + error.message); } else { toast.success(`✅ ${term.term_name} is now the active term!`); fetchAll(); }
+                            setSettingCurrent(null);
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 border-indigo-300 text-indigo-600 text-xs font-black hover:bg-indigo-50 transition disabled:opacity-50 whitespace-nowrap">
+                          <FiCheckCircle size={13} />{settingCurrent === term.id ? 'Setting…' : 'Set as Current'}
+                        </button>
+                      )}
+                      <button onClick={() => { setEditTermId(term.id); setTermForm({ term_name: term.term_name || '', term_number: term.term_number || '', start_date: term.start_date || '', end_date: term.end_date || '', academic_year: term.academic_year || new Date().getFullYear(), is_current: term.is_current || false }); setShowTermModal(true); }}
+                        className="p-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition"><FiEdit2 size={14} /></button>
+                      {!isCurrent && (
+                        <button onClick={async () => {
+                          if (!confirm(`Delete "${term.term_name}"? This cannot be undone.`)) return;
+                          const { error } = await supabase.from('school_terms').delete().eq('id', term.id);
+                          if (error) { toast.error('Cannot delete — term may have fees or marks linked to it'); return; }
+                          toast.success('Term deleted'); fetchAll();
+                        }} className="p-2.5 rounded-xl border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 transition"><FiTrash2 size={14} /></button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════ CRUD MODAL (Forms / Streams / Subjects / Classes / Subject-Teachers) ══════════ */}
+      <Modal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={`${editId ? 'Edit' : 'Add New'} ${addLabel[tab] || 'Item'}`}
+        subtitle={mm.subtitle}
+        icon={mm.icon}
+        accentColor={mm.accent}>
+
+        {/* FORM fields */}
+        {tab === 'forms' && <>
+          <div><Lbl required>Form Name</Lbl><Inp value={formData.form_name || ''} onChange={e => setFormData({ ...formData, form_name: e.target.value })} placeholder="e.g. Form 1" /></div>
+          <div><Lbl required>Form Level</Lbl><Inp type="number" value={formData.form_level || ''} onChange={e => setFormData({ ...formData, form_level: e.target.value })} placeholder="1" min={1} max={6} /></div>
+          <div><Lbl>Description</Lbl><Inp value={formData.description || ''} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Optional description" /></div>
+        </>}
+
+        {/* STREAM fields */}
+        {tab === 'streams' && <>
+          <div><Lbl required>Stream Name</Lbl><Inp value={formData.stream_name || ''} onChange={e => setFormData({ ...formData, stream_name: e.target.value })} placeholder="e.g. East, West, North" /></div>
+          <div><Lbl>Description</Lbl><Inp value={formData.description || ''} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Optional description" /></div>
+        </>}
+
+        {/* SUBJECT fields */}
+        {tab === 'subjects' && <>
+          <div><Lbl required>Subject Name</Lbl><Inp value={formData.subject_name || ''} onChange={e => setFormData({ ...formData, subject_name: e.target.value })} placeholder="e.g. Mathematics" /></div>
+          <div><Lbl>Subject Code</Lbl><Inp value={formData.subject_code || ''} onChange={e => setFormData({ ...formData, subject_code: e.target.value })} placeholder="e.g. MATH" /></div>
+          <div><Lbl>Category</Lbl>
+            <Sel value={formData.category || 'Core'} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+              <option value="Core">Core</option><option value="Elective">Elective</option><option value="Technical">Technical</option><option value="Optional">Optional</option>
+            </Sel>
+          </div>
+        </>}
+
+        {/* CLASS fields */}
+        {tab === 'classes' && <>
+          <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl"><FiInfo size={14} className="text-blue-500 flex-shrink-0 mt-0.5" /><p className="text-xs text-blue-700 font-bold">A class is a combination of Form + Stream + Class Teacher</p></div>
+          <div><Lbl required>Form</Lbl><Sel value={formData.form_id || ''} onChange={e => setFormData({ ...formData, form_id: e.target.value })}><option value="">Select Form</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}</Sel></div>
+          <div><Lbl required>Stream</Lbl><Sel value={formData.stream_id || ''} onChange={e => setFormData({ ...formData, stream_id: e.target.value })}><option value="">Select Stream</option>{streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}</Sel></div>
+          <div><Lbl>Class Teacher (optional)</Lbl><Sel value={formData.teacher_id || ''} onChange={e => setFormData({ ...formData, teacher_id: e.target.value })}><option value="">No Teacher Assigned</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name} {t.tsc_number ? `(${t.tsc_number})` : ''}</option>)}</Sel></div>
+          <div><Lbl>Academic Year</Lbl><Inp type="number" value={formData.year || new Date().getFullYear()} onChange={e => setFormData({ ...formData, year: e.target.value })} placeholder="2026" /></div>
+          {formData.form_id && formData.stream_id && (
+            <div className="px-3 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+              <p className="text-xs font-black text-indigo-700">Preview: <span className="font-black">{getFormName(Number(formData.form_id))} {getStreamName(Number(formData.stream_id))}</span></p>
+            </div>
+          )}
+        </>}
+
+        {/* SUBJECT-TEACHER fields */}
+        {tab === 'subject-teachers' && <>
+          <div className="flex items-start gap-3 p-3 bg-purple-50 border border-purple-100 rounded-xl"><FiLink size={14} className="text-purple-500 flex-shrink-0 mt-0.5" /><p className="text-xs text-purple-700 font-bold">Link a subject to a teacher — optionally scope to a specific form and/or stream</p></div>
+          <div><Lbl required>Subject</Lbl><Sel value={formData.subject_id || ''} onChange={e => setFormData({ ...formData, subject_id: e.target.value })}><option value="">Select Subject</option>{subjects.map(s => <option key={s.id} value={s.id}>{s.subject_name} {s.subject_code ? `(${s.subject_code})` : ''}</option>)}</Sel></div>
+          <div><Lbl required>Teacher</Lbl><Sel value={formData.teacher_id || ''} onChange={e => setFormData({ ...formData, teacher_id: e.target.value })}><option value="">Select Teacher</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name} {t.tsc_number ? `(${t.tsc_number})` : ''}</option>)}</Sel></div>
+          <div><Lbl>Form <span className="text-gray-300 font-normal lowercase">(leave empty for all forms)</span></Lbl><Sel value={formData.form_id || ''} onChange={e => setFormData({ ...formData, form_id: e.target.value, stream_id: '' })}><option value="">All Forms</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}</Sel></div>
+          <div><Lbl>Stream <span className="text-gray-300 font-normal lowercase">(leave empty for all streams)</span></Lbl>
+            <Sel value={formData.stream_id || ''} onChange={e => setFormData({ ...formData, stream_id: e.target.value })} disabled={!formData.form_id}>
+              <option value="">{formData.form_id ? 'All Streams' : 'Select a form first'}</option>
+              {streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}
+            </Sel>
+          </div>
+          <div className="px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-xl">
+            <p className="text-[10px] font-black text-gray-500">Scope preview: <span className="text-gray-700">{!formData.form_id ? '📚 All Forms — All Streams' : !formData.stream_id ? `📋 ${getFormName(Number(formData.form_id))} — All Streams` : `🏷️ ${getFormName(Number(formData.form_id))} ${getStreamName(Number(formData.stream_id))}`}</span></p>
+          </div>
+        </>}
+
+        {/* Modal actions */}
+        <div className="flex gap-3 pt-2 border-t border-gray-100">
+          <button onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-2xl border-2 border-gray-200 text-gray-500 font-black text-sm hover:border-gray-300 hover:bg-gray-50 transition-all">Cancel</button>
+          <button onClick={handleSave} className="flex-1 py-3 rounded-2xl text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all" style={{ background: `linear-gradient(135deg,${mm.accent},${mm.accent}cc)` }}>
+            <FiSave size={14} />Save
+          </button>
+        </div>
+      </Modal>
+
+      {/* ══════════ TERM MODAL ══════════ */}
+      <Modal open={showTermModal} onClose={() => setShowTermModal(false)} title={editTermId ? '✏️ Edit Term' : '+ Add New Term'} subtitle="Changes apply system-wide immediately" icon="📅" accentColor="#6366f1">
+        <div><Lbl required>Term Name</Lbl><Inp value={termForm.term_name || ''} onChange={e => setTermForm({ ...termForm, term_name: e.target.value })} placeholder="e.g. Term 1, Term 2, Term 3" /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><Lbl>Term Number</Lbl>
+            <Sel value={termForm.term_number || ''} onChange={e => setTermForm({ ...termForm, term_number: e.target.value })}>
+              <option value="">— Select —</option><option value="1">1 (First Term)</option><option value="2">2 (Second Term)</option><option value="3">3 (Third Term)</option>
+            </Sel>
+          </div>
+          <div><Lbl required>Academic Year</Lbl><Inp type="number" value={termForm.academic_year || new Date().getFullYear()} onChange={e => setTermForm({ ...termForm, academic_year: e.target.value })} placeholder="2026" min={2020} max={2040} /></div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><Lbl required>Start Date</Lbl><Inp type="date" value={termForm.start_date || ''} onChange={e => setTermForm({ ...termForm, start_date: e.target.value })} /></div>
+          <div><Lbl required>End Date</Lbl><Inp type="date" value={termForm.end_date || ''} onChange={e => setTermForm({ ...termForm, end_date: e.target.value })} /></div>
+        </div>
+        {/* Duration preview */}
+        {termForm.start_date && termForm.end_date && (
+          <div className="px-3 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+            <p className="text-[10px] font-black text-indigo-600">
+              ⏱ Duration: {Math.ceil((new Date(termForm.end_date).getTime() - new Date(termForm.start_date).getTime()) / (1000 * 60 * 60 * 24))} days
+            </p>
+          </div>
+        )}
+        <div className={`flex items-center gap-3 p-4 rounded-2xl border-2 cursor-pointer transition-all ${termForm.is_current ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200 bg-gray-50'}`}
+          onClick={() => setTermForm({ ...termForm, is_current: !termForm.is_current })}>
+          <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${termForm.is_current ? 'border-indigo-500 bg-indigo-500' : 'border-gray-300 bg-white'}`}>
+            {termForm.is_current && <span className="text-white text-xs font-black">✓</span>}
+          </div>
+          <div>
+            <p className={`text-sm font-black ${termForm.is_current ? 'text-indigo-700' : 'text-gray-600'}`}>Set as Current / Active Term</p>
+            <p className="text-[10px] text-gray-400">All other terms will be deactivated automatically</p>
+          </div>
+        </div>
+        <div className="flex gap-3 pt-2 border-t border-gray-100">
+          <button onClick={() => setShowTermModal(false)} className="flex-1 py-3 rounded-2xl border-2 border-gray-200 text-gray-500 font-black text-sm hover:bg-gray-50 transition-all">Cancel</button>
+          <button className="flex-1 py-3 rounded-2xl text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg"
+            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
+            onClick={async () => {
+              if (!termForm.term_name?.trim() || !termForm.start_date || !termForm.end_date || !termForm.academic_year) { toast.error('Please fill Term Name, Start Date, End Date and Academic Year'); return; }
+              const payload = { term_name: termForm.term_name.trim(), term_number: termForm.term_number ? Number(termForm.term_number) : null, start_date: termForm.start_date, end_date: termForm.end_date, academic_year: Number(termForm.academic_year), is_current: !!termForm.is_current };
+              if (termForm.is_current) { await supabase.from('school_terms').update({ is_current: false }).neq('id', editTermId ?? -1); }
+              const { error } = editTermId ? await supabase.from('school_terms').update(payload).eq('id', editTermId) : await supabase.from('school_terms').insert([payload]);
+              if (error) { toast.error(error.message); return; }
+              toast.success(editTermId ? '✅ Term updated!' : '✅ Term added!'); setShowTermModal(false); fetchAll();
+            }}>
+            <FiSave size={14} />{editTermId ? 'Update Term' : 'Add Term'}
+          </button>
+        </div>
+      </Modal>
+    </div>
+  );
 }
