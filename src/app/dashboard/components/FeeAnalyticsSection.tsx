@@ -241,82 +241,83 @@ export default function FeeAnalyticsSection() {
 
     return (
         <div className="space-y-4">
-            {/* ── Header ── */}
-            <div className="relative overflow-hidden rounded-2xl p-5" style={{ background: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#4338ca 100%)' }}>
-                <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px,#fff 1px,transparent 0)', backgroundSize: '20px 20px' }} />
-                <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xl">📊</span>
-                            <h2 className="text-base font-extrabold text-white">Fee Analytics & Class Intelligence</h2>
-                            <span className="px-2 py-0.5 text-[9px] font-black bg-amber-400 text-amber-900 rounded-full uppercase">Live {currentYear}</span>
+            {/* ── Header — BRIGHT PREMIUM LIGHT ── */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Rainbow accent top */}
+                <div className="h-1" style={{ background: 'linear-gradient(90deg,#6366f1,#3b82f6,#06b6d4,#10b981,#f59e0b)' }} />
+                <div className="p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-2.5 mb-1">
+                                <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center text-lg">📊</div>
+                                <div>
+                                    <h2 className="text-sm font-black text-gray-900">Fee Analytics & Class Intelligence</h2>
+                                    <p className="text-[10px] text-gray-400">Paid · Outstanding · Term & Annual · All Forms & Grades</p>
+                                </div>
+                                <span className="px-2 py-0.5 text-[9px] font-black bg-amber-100 text-amber-700 border border-amber-200 rounded-full uppercase">Live {currentYear}</span>
+                            </div>
                         </div>
-                        <p className="text-white/50 text-xs">Paid · Outstanding · Term & Annual · All Forms & Grades</p>
+
+                        {/* Controls */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* View toggle */}
+                            <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                                {([['grid', '📋 DataGrid'], ['chart', '📈 Charts']] as const).map(([k, l]) => (
+                                    <button key={k} onClick={() => setViewMode(k)}
+                                        className={`px-3 py-1.5 text-[11px] font-bold transition-all ${viewMode === k ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
+                                        {l}
+                                    </button>
+                                ))}
+                            </div>
+                            {/* Fee view */}
+                            <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                                {([['term', 'Per Term'], ['annual', 'Annual']] as const).map(([k, l]) => (
+                                    <button key={k} onClick={() => setFeeView(k)}
+                                        className={`px-3 py-1.5 text-[11px] font-bold transition-all ${feeView === k ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
+                                        {l}
+                                    </button>
+                                ))}
+                            </div>
+                            {/* Term filter */}
+                            <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                                {([['all', 'All Terms'], ['1', 'T1'], ['2', 'T2'], ['3', 'T3']] as const).map(([k, l]) => (
+                                    <button key={k} onClick={() => setTermFilter(k)}
+                                        className={`px-3 py-1.5 text-[11px] font-bold transition-all ${termFilter === k ? 'bg-cyan-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
+                                        {l}
+                                    </button>
+                                ))}
+                            </div>
+                            {/* Form filter */}
+                            <select value={formFilter} onChange={e => setFormFilter(e.target.value)}
+                                className="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-gray-50 text-gray-700 border border-gray-200 focus:outline-none focus:border-indigo-400">
+                                <option value="all">All Classes</option>
+                                <option value="Form">8-4-4 Forms</option>
+                                <option value="Grade">CBC Grades</option>
+                                {rows.map(r => <option key={r.formId} value={r.formName}>{r.formName}</option>)}
+                            </select>
+                            <button onClick={() => setRefreshKey(k => k + 1)} className="p-2 rounded-xl bg-gray-100 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200 transition" title="Refresh"><FiRefreshCw size={14} /></button>
+                            <button onClick={exportToExcel} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition shadow-sm">
+                                <FiDownload size={13} /> Export Excel
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Controls */}
-                    <div className="flex flex-wrap items-center gap-2">
-                        {/* View toggle */}
-                        <div className="flex rounded-lg overflow-hidden border border-white/20">
-                            {([['grid', '📋 DataGrid'], ['chart', '📈 Charts']] as const).map(([k, l]) => (
-                                <button key={k} onClick={() => setViewMode(k)}
-                                    className={`px-3 py-1.5 text-[11px] font-bold transition-all ${viewMode === k ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}>
-                                    {l}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Fee view */}
-                        <div className="flex rounded-lg overflow-hidden border border-white/20">
-                            {([['term', 'Per Term'], ['annual', 'Annual']] as const).map(([k, l]) => (
-                                <button key={k} onClick={() => setFeeView(k)}
-                                    className={`px-3 py-1.5 text-[11px] font-bold transition-all ${feeView === k ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}>
-                                    {l}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Term filter */}
-                        <div className="flex rounded-lg overflow-hidden border border-white/20">
-                            {([['all', 'All Terms'], ['1', 'T1'], ['2', 'T2'], ['3', 'T3']] as const).map(([k, l]) => (
-                                <button key={k} onClick={() => setTermFilter(k)}
-                                    className={`px-3 py-1.5 text-[11px] font-bold transition-all ${termFilter === k ? 'bg-cyan-500 text-white' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}>
-                                    {l}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Form filter */}
-                        <select value={formFilter} onChange={e => setFormFilter(e.target.value)}
-                            className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-white/10 text-white border border-white/20 focus:outline-none">
-                            <option value="all">All Classes</option>
-                            <option value="Form">8-4-4 Forms</option>
-                            <option value="Grade">CBC Grades</option>
-                            {rows.map(r => <option key={r.formId} value={r.formName}>{r.formName}</option>)}
-                        </select>
-
-                        <button onClick={() => setRefreshKey(k => k + 1)} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition" title="Refresh"><FiRefreshCw size={14} /></button>
-                        <button onClick={exportToExcel} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-[11px] font-bold transition shadow-md">
-                            <FiDownload size={13} /> Export Excel
-                        </button>
+                    {/* Summary KPIs — bright colored tiles */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 pt-4 border-t border-gray-100">
+                        {[
+                            { label: 'Total Classes', value: filteredRows.length, icon: '🏫', color: '#3b82f6', bg: '#dbeafe' },
+                            { label: 'Total Students', value: totalStudents.toLocaleString(), icon: '🎓', color: '#7c3aed', bg: '#ede9fe' },
+                            { label: 'Expected', value: fmt(totalExpected), icon: '🎯', color: '#d97706', bg: '#fef3c7' },
+                            { label: 'Collected', value: fmt(totalPaid), icon: '✅', color: '#059669', bg: '#d1fae5' },
+                            { label: 'Outstanding', value: fmt(totalOutstanding), icon: '⚠️', color: '#dc2626', bg: '#fee2e2' },
+                        ].map((k, i) => (
+                            <div key={i} className="rounded-xl p-3 text-center" style={{ background: k.bg }}>
+                                <span className="text-xl">{k.icon}</span>
+                                <p className="text-sm font-black mt-1" style={{ color: k.color }}>{k.value}</p>
+                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wide mt-0.5">{k.label}</p>
+                            </div>
+                        ))}
                     </div>
-                </div>
-
-                {/* Summary KPIs in header */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-5 pt-4 border-t border-white/10">
-                    {[
-                        { label: 'Total Classes', value: filteredRows.length, icon: '🏫', color: 'text-blue-300' },
-                        { label: 'Total Students', value: totalStudents.toLocaleString(), icon: '🎓', color: 'text-purple-300' },
-                        { label: 'Expected', value: fmt(totalExpected), icon: '🎯', color: 'text-yellow-300' },
-                        { label: 'Collected', value: fmt(totalPaid), icon: '✅', color: 'text-emerald-300' },
-                        { label: 'Outstanding', value: fmt(totalOutstanding), icon: '⚠️', color: 'text-red-300' },
-                    ].map((k, i) => (
-                        <div key={i} className="text-center">
-                            <span className="text-lg">{k.icon}</span>
-                            <p className={`text-sm font-black mt-0.5 ${k.color}`}>{k.value}</p>
-                            <p className="text-[9px] font-semibold text-white/40 uppercase tracking-wider">{k.label}</p>
-                        </div>
-                    ))}
                 </div>
             </div>
 
