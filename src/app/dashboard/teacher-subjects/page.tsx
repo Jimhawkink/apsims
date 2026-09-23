@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -9,7 +9,7 @@ import {
   FiAward, FiUser, FiCheckCircle,
 } from 'react-icons/fi';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface Teacher {
   id: number;
   first_name: string;
@@ -24,7 +24,7 @@ interface Form { id: number; form_name: string; form_level: number; }
 interface Stream { id: number; stream_name: string; }
 interface Term { id: number; term_name: string; year: number; is_current?: boolean; }
 
-// ── This is the canonical table used by mobile, marks, reports, timetable ────
+// â”€â”€ This is the canonical table used by mobile, marks, reports, timetable â”€â”€â”€â”€
 interface SubjectTeacher {
   id?: number;
   teacher_id: number;
@@ -47,24 +47,24 @@ interface SubjectTeacherRow extends SubjectTeacher {
   stream?: Stream;
 }
 
-// ─── KICD JSS Learning Areas (CBC Grade 7-9) ─────────────────────────────────
+// â”€â”€â”€ KICD JSS Learning Areas (CBC Grade 7-9) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const KICD_LEARNING_AREAS: LearningArea[] = [
-  { id: 1,  code: 'ENG', name: 'English',                icon: '📖', color: '#2563EB' },
-  { id: 2,  code: 'KSW', name: 'Kiswahili',              icon: '🗣️', color: '#059669' },
-  { id: 3,  code: 'MAT', name: 'Mathematics',            icon: '🔢', color: '#DC2626' },
-  { id: 4,  code: 'ISC', name: 'Integrated Science',     icon: '⚗️', color: '#7C3AED' },
-  { id: 5,  code: 'SST', name: 'Social Studies',         icon: '🌍', color: '#D97706' },
-  { id: 6,  code: 'AGR', name: 'Agriculture',            icon: '🌱', color: '#16A34A' },
-  { id: 7,  code: 'PTS', name: 'Pre-Technical Studies',  icon: '🔧', color: '#0891B2' },
-  { id: 8,  code: 'BUS', name: 'Business Studies',       icon: '💼', color: '#9333EA' },
-  { id: 9,  code: 'CAS', name: 'Creative Arts & Sports', icon: '🎨', color: '#EC4899' },
-  { id: 10, code: 'LSE', name: 'Life Skills Education',  icon: '💡', color: '#06B6D4' },
-  { id: 11, code: 'CRE', name: 'Religious Education',    icon: '✝️', color: '#6366F1' },
+  { id: 1,  code: 'ENG', name: 'English',                icon: 'ðŸ“–', color: '#2563EB' },
+  { id: 2,  code: 'KSW', name: 'Kiswahili',              icon: 'ðŸ—£ï¸', color: '#059669' },
+  { id: 3,  code: 'MAT', name: 'Mathematics',            icon: 'ðŸ”¢', color: '#DC2626' },
+  { id: 4,  code: 'ISC', name: 'Integrated Science',     icon: 'âš—ï¸', color: '#7C3AED' },
+  { id: 5,  code: 'SST', name: 'Social Studies',         icon: 'ðŸŒ', color: '#D97706' },
+  { id: 6,  code: 'AGR', name: 'Agriculture',            icon: 'ðŸŒ±', color: '#16A34A' },
+  { id: 7,  code: 'PTS', name: 'Pre-Technical Studies',  icon: 'ðŸ”§', color: '#0891B2' },
+  { id: 8,  code: 'BUS', name: 'Business Studies',       icon: 'ðŸ’¼', color: '#9333EA' },
+  { id: 9,  code: 'CAS', name: 'Creative Arts & Sports', icon: 'ðŸŽ¨', color: '#EC4899' },
+  { id: 10, code: 'LSE', name: 'Life Skills Education',  icon: 'ðŸ’¡', color: '#06B6D4' },
+  { id: 11, code: 'CRE', name: 'Religious Education',    icon: 'âœï¸', color: '#6366F1' },
 ];
 
 type Tab = 'grid' | 'list' | 'teacher-view';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function teacherInitials(t: Teacher): string {
   return [t.first_name, t.middle_name, t.last_name]
     .filter(Boolean)
@@ -80,7 +80,7 @@ function isJSSForm(f?: Form): boolean {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function TeacherSubjectsPage() {
   const [teachers, setTeachers]         = useState<Teacher[]>([]);
   const [subjects, setSubjects]         = useState<Subject[]>([]);
@@ -104,13 +104,17 @@ export default function TeacherSubjectsPage() {
   const [editAssign, setEditAssign]   = useState<Partial<SubjectTeacher>>({});
   const [jssMode, setJssMode]         = useState(false);   // auto-detected from selected form
 
-  // ── Load reference data ────────────────────────────────────────────────────
+  // â”€â”€ Load reference data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const [tR, sR, laR, fR, stR, trR] = await Promise.all([
+      const [tR, suppR, sR, laR, fR, stR, trR] = await Promise.all([
         supabase.from('school_teachers')
           .select('id,first_name,last_name,middle_name,staff_no,tsc_number')
+          .eq('status', 'Active')
+          .order('last_name'),
+        supabase.from('school_support_teachers')
+          .select('id,first_name,last_name,staff_no')
           .eq('status', 'Active')
           .order('last_name'),
         supabase.from('school_subjects')
@@ -132,7 +136,10 @@ export default function TeacherSubjectsPage() {
           .order('year', { ascending: false }),
       ]);
 
-      setTeachers(tR.data || []);
+      // Merge TSC + Support teachers into one list
+      const tscList = (tR.data || []).map((t: any) => ({ ...t, _type: 'TSC' }));
+      const suppList = (suppR.data || []).map((t: any) => ({ ...t, tsc_number: t.staff_no || 'Support', _type: 'Support' }));
+      setTeachers([...tscList, ...suppList]);
       setSubjects(sR.data || []);
       // Prefer DB learning areas; fall back to hardcoded KICD list
       setLearningAreas(
@@ -142,23 +149,24 @@ export default function TeacherSubjectsPage() {
       setStreams(stR.data || []);
       setTerms(trR.data || []);
 
+      // Do NOT auto-select term - Settings records have term_id=NULL and would be hidden
       const cur = (trR.data || []).find((t: Term) => t.is_current);
-      if (cur) { setSelTerm(String(cur.id)); setSelYear(cur.year); }
+      if (cur) setSelYear(cur.year);
 
       setLoading(false);
     };
     load();
   }, []);
 
-  // ── Auto-detect JSS mode when form changes ─────────────────────────────────
+  // â”€â”€ Auto-detect JSS mode when form changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     const f = forms.find(f => String(f.id) === selForm);
     setJssMode(isJSSForm(f));
   }, [selForm, forms]);
 
-  // ── Fetch assignments from canonical table ─────────────────────────────────
+  // â”€â”€ Fetch assignments from canonical table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const fetchAssignments = useCallback(async () => {
-    // Reads from school_subject_teachers — the canonical table used by
+    // Reads from school_subject_teachers â€” the canonical table used by
     // Settings page, mobile app, marks entry, reports, timetable etc.
     // NO year filter by default: Settings-created records have year=NULL
     // and must still be visible here.
@@ -169,7 +177,10 @@ export default function TeacherSubjectsPage() {
 
     if (selForm)    q = q.eq('form_id', selForm);
     if (selStream)  q = q.eq('stream_id', selStream);
-    if (selTerm)    q = q.eq('term_id', selTerm);
+    // Term filter: include null-term records (saved via Settings) always
+    if (selTerm) {
+      q = q.or(	erm_id.eq. + selTerm + ,term_id.is.null);
+    }
     if (selTeacher) q = q.eq('teacher_id', selTeacher);
     // Only filter by year when a specific year is chosen AND
     // we also include NULL-year records (added via Settings page)
@@ -199,7 +210,7 @@ export default function TeacherSubjectsPage() {
     if (teachers.length > 0) fetchAssignments();
   }, [fetchAssignments, teachers.length]);
 
-  // ── Save assignment → school_subject_teachers ─────────────────────────────
+  // â”€â”€ Save assignment â†’ school_subject_teachers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const saveAssignment = async () => {
     if (!editAssign.teacher_id) {
       toast.error('Please select a teacher'); return;
@@ -229,15 +240,15 @@ export default function TeacherSubjectsPage() {
       };
 
       if (editAssign.id) {
-        // ── Update existing ────────────────────────────────────────────────
+        // â”€â”€ Update existing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const { error } = await supabase
           .from('school_subject_teachers')
           .update(payload)
           .eq('id', editAssign.id);
         if (error) throw error;
-        toast.success('✅ Assignment updated');
+        toast.success('âœ… Assignment updated');
       } else {
-        // ── Check for duplicate before insert ──────────────────────────────
+        // â”€â”€ Check for duplicate before insert â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let dupQ = supabase
           .from('school_subject_teachers')
           .select('id')
@@ -247,7 +258,7 @@ export default function TeacherSubjectsPage() {
         if (payload.subject_id) dupQ = dupQ.eq('subject_id', payload.subject_id);
         if (payload.learning_area_id) dupQ = dupQ.eq('learning_area_id', payload.learning_area_id);
         if (payload.stream_id) dupQ = dupQ.eq('stream_id', payload.stream_id);
-        // No duplicate check on term_id — a teacher can teach same subject across terms
+        // No duplicate check on term_id â€” a teacher can teach same subject across terms
 
         const { data: dup } = await dupQ.limit(1);
         if (dup && dup.length > 0) {
@@ -260,7 +271,7 @@ export default function TeacherSubjectsPage() {
           .from('school_subject_teachers')
           .insert([payload]);
         if (error) throw error;
-        toast.success('✅ Assignment saved to database');
+        toast.success('âœ… Assignment saved to database');
       }
 
       setShowModal(false);
@@ -273,7 +284,7 @@ export default function TeacherSubjectsPage() {
     }
   };
 
-  // ── Delete ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const deleteAssignment = async (id: number) => {
     if (!confirm('Remove this teacher-subject assignment?')) return;
     const { error } = await supabase
@@ -285,7 +296,7 @@ export default function TeacherSubjectsPage() {
     fetchAssignments();
   };
 
-  // ── Open modal helpers ─────────────────────────────────────────────────────
+  // â”€â”€ Open modal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const openNew = (prefill?: Partial<SubjectTeacher>) => {
     setEditAssign({
       form_id:         Number(selForm) || undefined,
@@ -298,11 +309,11 @@ export default function TeacherSubjectsPage() {
     setShowModal(true);
   };
 
-  // ── Modal JSS auto-detect ─────────────────────────────────────────────────
+  // â”€â”€ Modal JSS auto-detect â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const modalForm = forms.find(f => String(f.id) === String(editAssign.form_id));
   const modalIsJSS = isJSSForm(modalForm);
 
-  // ── Export CSV ─────────────────────────────────────────────────────────────
+  // â”€â”€ Export CSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const exportCSV = () => {
     const headers = ['Teacher','Staff No','Type','Subject / Learning Area','Class','Stream','Term','Year','Class Teacher'];
     const rows = assignments.map(a => [
@@ -326,7 +337,7 @@ export default function TeacherSubjectsPage() {
     toast.success('Exported!');
   };
 
-  // ── Filtered list ──────────────────────────────────────────────────────────
+  // â”€â”€ Filtered list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const filtered = useMemo(() => {
     if (!search.trim()) return assignments;
     const s = search.toLowerCase();
@@ -337,7 +348,7 @@ export default function TeacherSubjectsPage() {
     );
   }, [assignments, search]);
 
-  // ── Grid helpers ───────────────────────────────────────────────────────────
+  // â”€â”€ Grid helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const gridForms   = useMemo(() => selForm ? forms.filter(f => String(f.id) === selForm) : forms, [forms, selForm]);
   const gridItems   = jssMode ? learningAreas : subjects;
 
@@ -349,7 +360,7 @@ export default function TeacherSubjectsPage() {
     return a?.teacher;
   };
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const stats = useMemo(() => ({
     total:         assignments.length,
     teachers:      new Set(assignments.map(a => a.teacher_id)).size,
@@ -358,14 +369,14 @@ export default function TeacherSubjectsPage() {
     kcseCount:     assignments.filter(a => !!a.subject_id).length,
   }), [assignments]);
 
-  // ══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // RENDER
-  // ══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster position="top-right" />
 
-      {/* ── ASSIGNMENT MODAL ─────────────────────────────────────────────── */}
+      {/* â”€â”€ ASSIGNMENT MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -373,7 +384,7 @@ export default function TeacherSubjectsPage() {
             <div className="flex items-center justify-between p-5 border-b sticky top-0 bg-white z-10">
               <div>
                 <h3 className="font-black text-gray-800 text-lg">
-                  {editAssign.id ? '✏️ Edit Assignment' : '➕ New Assignment'}
+                  {editAssign.id ? 'âœï¸ Edit Assignment' : 'âž• New Assignment'}
                 </h3>
                 <p className="text-xs text-gray-400 mt-0.5">Saves to school_subject_teachers (used by mobile & all pages)</p>
               </div>
@@ -386,7 +397,7 @@ export default function TeacherSubjectsPage() {
             <div className="p-5 space-y-4">
               {/* Teacher */}
               <div>
-                <label className="text-xs font-bold text-gray-600 block mb-1">👤 Teacher *</label>
+                <label className="text-xs font-bold text-gray-600 block mb-1">ðŸ‘¤ Teacher *</label>
                 <select
                   value={editAssign.teacher_id || ''}
                   onChange={e => setEditAssign(p => ({ ...p, teacher_id: Number(e.target.value) }))}
@@ -403,7 +414,7 @@ export default function TeacherSubjectsPage() {
               {/* Class + Stream */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-gray-600 block mb-1">🏫 Class / Form *</label>
+                  <label className="text-xs font-bold text-gray-600 block mb-1">ðŸ« Class / Form *</label>
                   <select
                     value={editAssign.form_id || ''}
                     onChange={e => setEditAssign(p => ({ ...p, form_id: Number(e.target.value), subject_id: undefined, learning_area_id: undefined }))}
@@ -411,13 +422,13 @@ export default function TeacherSubjectsPage() {
                     <option value="">Select</option>
                     {forms.map(f => (
                       <option key={f.id} value={f.id}>
-                        {f.form_name} {isJSSForm(f) ? '📗 JSS' : '📘 KCSE'}
+                        {f.form_name} {isJSSForm(f) ? 'ðŸ“— JSS' : 'ðŸ“˜ KCSE'}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-600 block mb-1">🔀 Stream</label>
+                  <label className="text-xs font-bold text-gray-600 block mb-1">ðŸ”€ Stream</label>
                   <select
                     value={editAssign.stream_id || ''}
                     onChange={e => setEditAssign(p => ({ ...p, stream_id: Number(e.target.value) || undefined }))}
@@ -438,15 +449,15 @@ export default function TeacherSubjectsPage() {
                     : 'bg-blue-50 border-blue-200 text-blue-700'
                 }`}>
                   {modalIsJSS
-                    ? '📗 JSS / CBC Mode — select a Learning Area below'
-                    : '📘 8-4-4 / KCSE Mode — select a Subject below'}
+                    ? 'ðŸ“— JSS / CBC Mode â€” select a Learning Area below'
+                    : 'ðŸ“˜ 8-4-4 / KCSE Mode â€” select a Subject below'}
                 </div>
               )}
 
               {/* Subject (8-4-4) */}
               {(!modalIsJSS) && (
                 <div>
-                  <label className="text-xs font-bold text-gray-600 block mb-1">📚 Subject (8-4-4 / Senior)</label>
+                  <label className="text-xs font-bold text-gray-600 block mb-1">ðŸ“š Subject (8-4-4 / Senior)</label>
                   <select
                     value={editAssign.subject_id || ''}
                     onChange={e => setEditAssign(p => ({ ...p, subject_id: Number(e.target.value) || undefined, learning_area_id: undefined }))}
@@ -464,7 +475,7 @@ export default function TeacherSubjectsPage() {
               {/* Learning Area (JSS/CBC) */}
               {(modalIsJSS) && (
                 <div>
-                  <label className="text-xs font-bold text-gray-600 block mb-1">🌿 JSS Learning Area (CBC)</label>
+                  <label className="text-xs font-bold text-gray-600 block mb-1">ðŸŒ¿ JSS Learning Area (CBC)</label>
                   <select
                     value={editAssign.learning_area_id || ''}
                     onChange={e => setEditAssign(p => ({ ...p, learning_area_id: Number(e.target.value) || undefined, subject_id: undefined }))}
@@ -477,11 +488,11 @@ export default function TeacherSubjectsPage() {
                 </div>
               )}
 
-              {/* If form not yet selected — show both */}
+              {/* If form not yet selected â€” show both */}
               {!modalForm && (
                 <>
                   <div>
-                    <label className="text-xs font-bold text-gray-600 block mb-1">📚 Subject (8-4-4 / KCSE)</label>
+                    <label className="text-xs font-bold text-gray-600 block mb-1">ðŸ“š Subject (8-4-4 / KCSE)</label>
                     <select
                       value={editAssign.subject_id || ''}
                       onChange={e => setEditAssign(p => ({ ...p, subject_id: Number(e.target.value) || undefined, learning_area_id: undefined }))}
@@ -492,9 +503,9 @@ export default function TeacherSubjectsPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="text-center text-xs text-gray-400 font-medium">— OR —</div>
+                  <div className="text-center text-xs text-gray-400 font-medium">â€” OR â€”</div>
                   <div>
-                    <label className="text-xs font-bold text-gray-600 block mb-1">🌿 JSS Learning Area (CBC)</label>
+                    <label className="text-xs font-bold text-gray-600 block mb-1">ðŸŒ¿ JSS Learning Area (CBC)</label>
                     <select
                       value={editAssign.learning_area_id || ''}
                       onChange={e => setEditAssign(p => ({ ...p, learning_area_id: Number(e.target.value) || undefined, subject_id: undefined }))}
@@ -511,14 +522,14 @@ export default function TeacherSubjectsPage() {
               {/* Term + Year */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-gray-600 block mb-1">📅 Term</label>
+                  <label className="text-xs font-bold text-gray-600 block mb-1">ðŸ“… Term</label>
                   <select
                     value={editAssign.term_id || ''}
                     onChange={e => setEditAssign(p => ({ ...p, term_id: Number(e.target.value) || undefined }))}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-300 outline-none bg-white">
                     <option value="">All Terms</option>
                     {terms.map(t => (
-                      <option key={t.id} value={t.id}>{t.term_name} {t.year}{t.is_current ? ' ✓' : ''}</option>
+                      <option key={t.id} value={t.id}>{t.term_name} {t.year}{t.is_current ? ' âœ“' : ''}</option>
                     ))}
                   </select>
                 </div>
@@ -555,7 +566,7 @@ export default function TeacherSubjectsPage() {
         </div>
       )}
 
-      {/* ── HEADER ───────────────────────────────────────────────────────────── */}
+      {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
@@ -567,7 +578,7 @@ export default function TeacherSubjectsPage() {
               <div>
                 <h1 className="text-lg font-bold text-gray-800">Teacher Subject Assignment</h1>
                 <p className="text-xs text-gray-400">
-                  Supports 8-4-4 (Subjects) & CBC/JSS (Learning Areas) · Saves to database ✓
+                  Supports 8-4-4 (Subjects) & CBC/JSS (Learning Areas) Â· Saves to database âœ“
                 </p>
               </div>
             </div>
@@ -600,7 +611,7 @@ export default function TeacherSubjectsPage() {
               <option value="">All Classes</option>
               {forms.map(f => (
                 <option key={f.id} value={f.id}>
-                  {f.form_name} {isJSSForm(f) ? '📗' : '📘'}
+                  {f.form_name} {isJSSForm(f) ? 'ðŸ“—' : 'ðŸ“˜'}
                 </option>
               ))}
             </select>
@@ -622,7 +633,7 @@ export default function TeacherSubjectsPage() {
               <option value="">All Terms</option>
               {terms.map(t => (
                 <option key={t.id} value={t.id}>
-                  {t.term_name} {t.year}{t.is_current ? ' ✓' : ''}
+                  {t.term_name} {t.year}{t.is_current ? ' âœ“' : ''}
                 </option>
               ))}
             </select>
@@ -650,9 +661,9 @@ export default function TeacherSubjectsPage() {
         {/* Tabs */}
         <div className="px-6 flex gap-1 border-t border-gray-100">
           {([
-            ['grid', '🗓️ Assignment Grid'],
-            ['list', '📋 Full List'],
-            ['teacher-view', '👩‍🏫 By Teacher'],
+            ['grid', 'ðŸ—“ï¸ Assignment Grid'],
+            ['list', 'ðŸ“‹ Full List'],
+            ['teacher-view', 'ðŸ‘©â€ðŸ« By Teacher'],
           ] as [Tab, string][]).map(([t, l]) => (
             <button
               key={t}
@@ -668,7 +679,7 @@ export default function TeacherSubjectsPage() {
         </div>
       </div>
 
-      {/* ── CONTENT ──────────────────────────────────────────────────────────── */}
+      {/* â”€â”€ CONTENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="p-6 space-y-5">
         {loading ? (
           <div className="flex items-center justify-center h-48 text-gray-400">
@@ -698,12 +709,12 @@ export default function TeacherSubjectsPage() {
               ))}
             </div>
 
-            {/* ── GRID TAB ─────────────────────────────────────────────────── */}
+            {/* â”€â”€ GRID TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {tab === 'grid' && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
                   <h3 className="font-bold text-gray-800 text-sm">
-                    Assignment Matrix — {jssMode ? '📗 JSS Learning Areas (CBC)' : '📘 Subjects (8-4-4)'}
+                    Assignment Matrix â€” {jssMode ? 'ðŸ“— JSS Learning Areas (CBC)' : 'ðŸ“˜ Subjects (8-4-4)'}
                   </h3>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                     jssMode ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
@@ -771,7 +782,7 @@ export default function TeacherSubjectsPage() {
                                     <FiPlus size={12} />
                                   </button>
                                 ) : (
-                                  <span className="text-gray-200 text-[9px]">—</span>
+                                  <span className="text-gray-200 text-[9px]">â€”</span>
                                 )}
                               </td>
                             );
@@ -784,7 +795,7 @@ export default function TeacherSubjectsPage() {
               </div>
             )}
 
-            {/* ── LIST TAB ─────────────────────────────────────────────────── */}
+            {/* â”€â”€ LIST TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {tab === 'list' && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
@@ -816,7 +827,7 @@ export default function TeacherSubjectsPage() {
                               </span>
                             </div>
                           </td>
-                          <td className="px-4 py-2.5 text-xs text-gray-500">{a.teacher?.staff_no || a.teacher?.tsc_number || '—'}</td>
+                          <td className="px-4 py-2.5 text-xs text-gray-500">{a.teacher?.staff_no || a.teacher?.tsc_number || 'â€”'}</td>
                           <td className="px-4 py-2.5">
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                               a.learning_area
@@ -842,8 +853,8 @@ export default function TeacherSubjectsPage() {
                           </td>
                           <td className="px-4 py-2.5 text-center">
                             {a.is_class_teacher
-                              ? <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-lg font-bold">✓ Yes</span>
-                              : <span className="text-gray-300 text-xs">—</span>
+                              ? <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-lg font-bold">âœ“ Yes</span>
+                              : <span className="text-gray-300 text-xs">â€”</span>
                             }
                           </td>
                           <td className="px-4 py-2.5">
@@ -870,7 +881,7 @@ export default function TeacherSubjectsPage() {
               </div>
             )}
 
-            {/* ── TEACHER VIEW TAB ─────────────────────────────────────────── */}
+            {/* â”€â”€ TEACHER VIEW TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {tab === 'teacher-view' && (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {teachers
