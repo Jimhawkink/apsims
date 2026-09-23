@@ -125,7 +125,6 @@ export default function TeacherSubjectsPage() {
 
   const fetchAssignments = useCallback(async () => {
     let q = sb.from('school_subject_teachers').select('*');
-    // Use OR-null so records saved by Settings page (year=NULL, term_id=NULL) are always included
     if (selYear) q = (q as any).or(`year.eq.${selYear},year.is.null`);
     if (selForm) q = q.eq('form_id', selForm);
     if (selStream) q = q.eq('stream_id', selStream);
@@ -134,8 +133,11 @@ export default function TeacherSubjectsPage() {
     const { data } = await q.order('form_id');
     const enriched = (data || []).map((a: Assignment) => ({
       ...a,
-      // Match by _realId (the original DB id) since support teachers have offset ids in local state
-      teacher: teachers.find(t => (t as any)._realId === a.teacher_id),
+      // NEGATIVE teacher_id = support teacher (stored as -realId to avoid collision)
+      // POSITIVE teacher_id = regular TSC teacher
+      teacher: a.teacher_id < 0
+        ? teachers.find(t => (t as any)._isSupport && (t as any)._realId === Math.abs(a.teacher_id))
+        : teachers.find(t => !(t as any)._isSupport && (t as any)._realId === a.teacher_id),
       subject: subjects.find(s => s.id === a.subject_id),
       learning_area: learningAreas.find(la => la.id === a.learning_area_id),
       form: forms.find(f => f.id === a.form_id),
@@ -157,15 +159,15 @@ export default function TeacherSubjectsPage() {
     if (!editAssign.subject_id && !editAssign.learning_area_id) { toast.error('Select subject or learning area'); return; }
     setSaving(true);
     try {
-      // Strip the 1,000,000 offset from support teacher IDs before saving to DB
       const SUPP_OFFSET = 1_000_000;
-      const realTeacherId = editAssign.teacher_id >= SUPP_OFFSET
-        ? editAssign.teacher_id - SUPP_OFFSET
-        : editAssign.teacher_id;
+      const isSupport = editAssign.teacher_id >= SUPP_OFFSET;
+      const realId = isSupport ? editAssign.teacher_id - SUPP_OFFSET : editAssign.teacher_id;
+      // Save support teachers as NEGATIVE id (-realId) so they never collide with regular teacher ids
+      const dbTeacherId = isSupport ? -realId : realId;
 
       const payload = {
         ...editAssign,
-        teacher_id: realTeacherId,    // always save the real DB id
+        teacher_id: dbTeacherId,
         year: selYear,
         term_id: selTerm ? Number(selTerm) : null,
         is_active: true,
@@ -186,6 +188,7 @@ export default function TeacherSubjectsPage() {
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
   };
+
 
 
   const deleteAssignment = async (id: number) => {
