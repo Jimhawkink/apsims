@@ -160,27 +160,35 @@ export default function TeacherSubjectsPage() {
     setSaving(true);
     try {
       const SUPP_OFFSET = 1_000_000;
-      const isSupport = editAssign.teacher_id >= SUPP_OFFSET;
-      const realId = isSupport ? editAssign.teacher_id - SUPP_OFFSET : editAssign.teacher_id;
-      // Save support teachers as NEGATIVE id (-realId) so they never collide with regular teacher ids
+      const isSupport = (editAssign.teacher_id || 0) >= SUPP_OFFSET;
+      const realId = isSupport ? (editAssign.teacher_id || 0) - SUPP_OFFSET : (editAssign.teacher_id || 0);
+      // Support teachers saved as -realId to distinguish from regular teachers (positive ids)
       const dbTeacherId = isSupport ? -realId : realId;
 
-      const payload = {
-        ...editAssign,
-        teacher_id: dbTeacherId,
-        year: selYear,
-        term_id: selTerm ? Number(selTerm) : null,
-        is_active: true,
-        assigned_by: 'admin',
+      // IMPORTANT: explicitly pick only the actual DB columns.
+      // editAssign may contain enriched join objects (teacher, subject, form, stream, learning_area)
+      // that Supabase rejects as unknown columns — strip them all here.
+      const payload: Record<string, any> = {
+        teacher_id:       dbTeacherId,
+        form_id:          editAssign.form_id,
+        stream_id:        editAssign.stream_id || null,
+        subject_id:       editAssign.subject_id || null,
+        learning_area_id: editAssign.learning_area_id || null,
+        term_id:          selTerm ? Number(selTerm) : (editAssign.term_id || null),
+        year:             selYear || editAssign.year,
+        is_class_teacher: editAssign.is_class_teacher || false,
+        is_active:        true,
+        assigned_by:      'admin',
       };
+
       if (editAssign.id) {
         const { error } = await sb.from('school_subject_teachers').update(payload).eq('id', editAssign.id);
         if (error) throw error;
-        toast.success('Assignment updated');
+        toast.success('✅ Assignment updated successfully!');
       } else {
         const { error } = await sb.from('school_subject_teachers').insert(payload);
         if (error) throw error;
-        toast.success('Assignment saved');
+        toast.success('✅ Assignment saved successfully!');
       }
       setShowModal(false);
       setEditAssign({});
@@ -188,6 +196,7 @@ export default function TeacherSubjectsPage() {
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
   };
+
 
 
 
@@ -332,9 +341,9 @@ export default function TeacherSubjectsPage() {
             <div className="flex gap-3 p-5 pt-0 justify-end">
               <button onClick={() => { setShowModal(false); setEditAssign({}); }} className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200">Cancel</button>
               <button onClick={saveAssignment} disabled={saving}
-                className="px-5 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-70">
+                className={`px-5 py-2 text-sm font-bold text-white rounded-xl flex items-center gap-2 disabled:opacity-70 ${editAssign.id ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
                 {saving ? <FiRefreshCw size={14} className="animate-spin" /> : <FiSave size={14} />}
-                {saving ? 'Saving...' : 'Save Assignment'}
+                {saving ? (editAssign.id ? 'Updating...' : 'Saving...') : (editAssign.id ? 'Update Assignment' : 'Save Assignment')}
               </button>
             </div>
           </div>
