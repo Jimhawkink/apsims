@@ -1,7 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 
 // ============================================================
-// ULTRA APSIMS MOBILE APP — SUPABASE CONFIGURATION
+// ULTRA APSIMS MOBILE APP â€” SUPABASE CONFIGURATION
 // Same Supabase instance as the AlphaSchool web app
 // ============================================================
 
@@ -9,7 +9,7 @@ const SUPABASE_URL = 'https://zkamuhvrmazozhudbtuw.supabase.co';
 const SUPABASE_ANON_KEY =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprYW11aHZybWF6b3podWRidHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNDE3OTYsImV4cCI6MjA5OTgxNzc5Nn0.Y6gkKQDWuLxcmhlYTZvKase7MzDO_Ehymitef6OE5JU';
 
-// AlphaSchool Web API — for KCB STK Push
+// AlphaSchool Web API â€” for KCB STK Push
 const SCHOOL_API_BASE = 'https://apsims.vercel.app';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -115,7 +115,7 @@ export interface HomeworkItem {
 }
 
 // ============================================================
-// AUTH — Username + Password Login
+// AUTH â€” Username + Password Login
 // ============================================================
 
 export async function loginUser(username: string, password: string): Promise<UserSession | null> {
@@ -218,18 +218,23 @@ export async function loginUser(username: string, password: string): Promise<Use
 }
 
 // ============================================================
-// TEACHER — Subject Cards (marks status)
+// TEACHER â€” Subject Cards (marks status)
 // ============================================================
 
 export async function getTeacherSubjectCards(teacherId: number): Promise<SubjectCard[]> {
     try {
-        // Flat select — no joins (school_subject_teachers has no FK to school_forms)
-        const { data: assignments, error: assignErr } = await supabase
+        // ── Reads from canonical school_subject_teachers (used by web + mobile) ──
+        // Now includes learning_area_id for CBC/JSS assignments (added by migration)
+        const { data: allAssignments, error: assignErr } = await supabase
             .from('school_subject_teachers')
-            .select('id, subject_id, teacher_id, form_id, stream_id')
+            .select('id, subject_id, learning_area_id, teacher_id, form_id, stream_id, is_active')
             .eq('teacher_id', teacherId);
 
-        if (assignErr || !assignments || assignments.length === 0) return [];
+        if (assignErr || !allAssignments || allAssignments.length === 0) return [];
+
+        // Split into 8-4-4 (subject_id set) and CBC (learning_area_id set)
+        const subjectAssignments = allAssignments.filter((a: any) => a.subject_id && !a.learning_area_id);
+        const cbcAssignments     = allAssignments.filter((a: any) => a.learning_area_id);
 
         // Fetch lookup tables in parallel
         const [subjectsRes, formsRes] = await Promise.all([
@@ -245,20 +250,17 @@ export async function getTeacherSubjectCards(teacherId: number): Promise<Subject
 
         const cards: SubjectCard[] = [];
 
-        for (const a of assignments) {
+        // ── 8-4-4 subject assignments ─────────────────────────────────────────
+        for (const a of subjectAssignments) {
             const subj = allSubjects.find((s: any) => s.id === a.subject_id);
             if (!subj) continue;
 
             const assignmentStreamId: number | null = (a as any).stream_id || null;
 
-            // Determine which forms to cover
             const formIds: number[] = a.form_id ? [a.form_id] : [];
             if (formIds.length === 0) {
-                // All forms — get distinct form IDs that have active students
                 const { data: formStudents } = await supabase
-                    .from('school_students')
-                    .select('form_id')
-                    .eq('status', 'Active');
+                    .from('school_students').select('form_id').eq('status', 'Active');
                 const uniqueFormIds = [...new Set((formStudents || []).map((s: any) => s.form_id).filter(Boolean))];
                 formIds.push(...uniqueFormIds);
             }
@@ -273,79 +275,101 @@ export async function getTeacherSubjectCards(teacherId: number): Promise<Subject
                 }
 
                 if (assignmentStreamId) {
-                    // ── Specific stream assigned ──────────────────────────────
                     const { data: students } = await supabase
-                        .from('school_students')
-                        .select('id')
-                        .eq('form_id', fid)
-                        .eq('stream_id', assignmentStreamId)
-                        .eq('status', 'Active');
-
+                        .from('school_students').select('id')
+                        .eq('form_id', fid).eq('stream_id', assignmentStreamId).eq('status', 'Active');
                     const studentIds = (students || []).map((s: any) => s.id);
                     const total = studentIds.length;
-
-                    // Count distinct students with marks for current term
                     let entered = 0;
                     if (studentIds.length > 0 && termId > 0) {
                         const { data: marksData } = await supabase
-                            .from('school_exam_marks')
-                            .select('student_id')
-                            .eq('subject_id', a.subject_id)
-                            .eq('term_id', termId)
-                            .in('student_id', studentIds);
+                            .from('school_exam_marks').select('student_id')
+                            .eq('subject_id', a.subject_id).eq('term_id', termId).in('student_id', studentIds);
                         entered = new Set((marksData || []).map((m: any) => m.student_id)).size;
                     }
-
-                    // Get stream name
                     const { data: streamData } = await supabase
                         .from('school_streams').select('stream_name').eq('id', assignmentStreamId).single();
-                    const streamName = streamData?.stream_name || 'Unknown';
-
                     cards.push({
-                        subject_id: a.subject_id,
-                        subject_name: subj.subject_name,
-                        form_id: fid,
-                        form_name: formName,
-                        stream_id: assignmentStreamId,
-                        stream_name: streamName,
-                        total_students: total,
-                        marks_entered: entered,
+                        subject_id: a.subject_id, subject_name: subj.subject_name,
+                        form_id: fid, form_name: formName,
+                        stream_id: assignmentStreamId, stream_name: streamData?.stream_name || 'Unknown',
+                        total_students: total, marks_entered: entered,
                         percentage: total > 0 ? Math.round((entered / total) * 100) : 0,
                     });
                 } else {
-                    // ── All streams — ONE card for the whole form ─────────────
                     const { data: students } = await supabase
-                        .from('school_students')
-                        .select('id')
-                        .eq('form_id', fid)
-                        .eq('status', 'Active');
-
+                        .from('school_students').select('id').eq('form_id', fid).eq('status', 'Active');
                     const studentIds = (students || []).map((s: any) => s.id);
                     const total = studentIds.length;
-
                     let entered = 0;
                     if (studentIds.length > 0 && termId > 0) {
                         const { data: marksData } = await supabase
-                            .from('school_exam_marks')
-                            .select('student_id')
-                            .eq('subject_id', a.subject_id)
-                            .eq('term_id', termId)
-                            .in('student_id', studentIds);
+                            .from('school_exam_marks').select('student_id')
+                            .eq('subject_id', a.subject_id).eq('term_id', termId).in('student_id', studentIds);
                         entered = new Set((marksData || []).map((m: any) => m.student_id)).size;
                     }
-
                     cards.push({
-                        subject_id: a.subject_id,
-                        subject_name: subj.subject_name,
-                        form_id: fid,
-                        form_name: formName,
-                        stream_id: 0, // 0 = all streams
-                        stream_name: 'All Streams',
-                        total_students: total,
-                        marks_entered: entered,
+                        subject_id: a.subject_id, subject_name: subj.subject_name,
+                        form_id: fid, form_name: formName,
+                        stream_id: 0, stream_name: 'All Streams',
+                        total_students: total, marks_entered: entered,
                         percentage: total > 0 ? Math.round((entered / total) * 100) : 0,
                     });
                 }
+            }
+        }
+
+        // ── CBC / JSS learning area assignments ───────────────────────────────
+        const LA_NAMES: Record<number, string> = {
+            1: 'English', 2: 'Kiswahili', 3: 'Mathematics',
+            4: 'Integrated Science', 5: 'Social Studies', 6: 'Agriculture',
+            7: 'Pre-Technical Studies', 8: 'Business Studies',
+            9: 'Creative Arts & Sports', 10: 'Life Skills Education',
+            11: 'Religious Education',
+        };
+
+        for (const a of cbcAssignments) {
+            const laName = LA_NAMES[a.learning_area_id] || `Learning Area ${a.learning_area_id}`;
+            const assignmentStreamId: number | null = (a as any).stream_id || null;
+            const formIds: number[] = a.form_id ? [a.form_id] : [];
+
+            for (const fid of formIds) {
+                const foundForm = allForms.find((f: any) => f.id === fid);
+                const formName = foundForm?.form_name || 'Unknown';
+
+                let studQ = supabase.from('school_students').select('id')
+                    .eq('form_id', fid).eq('status', 'Active');
+                if (assignmentStreamId) studQ = studQ.eq('stream_id', assignmentStreamId);
+                const { data: students } = await studQ;
+                const studentIds = (students || []).map((s: any) => s.id);
+                const total = studentIds.length;
+
+                let entered = 0;
+                if (studentIds.length > 0 && termId > 0) {
+                    try {
+                        const { data: cbcMarks } = await supabase
+                            .from('school_cbc_marks').select('student_id')
+                            .eq('learning_area_id', a.learning_area_id)
+                            .eq('term_id', termId).in('student_id', studentIds);
+                        entered = new Set((cbcMarks || []).map((m: any) => m.student_id)).size;
+                    } catch { /* table may not exist yet */ }
+                }
+
+                let streamName = 'All Streams';
+                if (assignmentStreamId) {
+                    const { data: sd } = await supabase
+                        .from('school_streams').select('stream_name').eq('id', assignmentStreamId).single();
+                    streamName = sd?.stream_name || 'Unknown';
+                }
+
+                cards.push({
+                    subject_id: a.learning_area_id,
+                    subject_name: `\uD83D\uDCD7 ${laName}`,
+                    form_id: fid, form_name: formName,
+                    stream_id: assignmentStreamId || 0, stream_name: streamName,
+                    total_students: total, marks_entered: entered,
+                    percentage: total > 0 ? Math.round((entered / total) * 100) : 0,
+                });
             }
         }
 
@@ -357,12 +381,12 @@ export async function getTeacherSubjectCards(teacherId: number): Promise<Subject
 }
 
 // ============================================================
-// TEACHER — Timetable
+// TEACHER â€” Timetable
 // ============================================================
 
 export async function getTeacherTimetable(teacherId: number): Promise<TimetableEntry[]> {
     try {
-        // Step 1: Flat select — no joins (avoids FK dependency issues)
+        // Step 1: Flat select â€” no joins (avoids FK dependency issues)
         const { data: entries, error } = await supabase
             .from('school_timetable_entries')
             .select('*')
@@ -415,14 +439,14 @@ export async function getTeacherTimetable(teacherId: number): Promise<TimetableE
 }
 
 // ============================================================
-// TEACHER — Marks Entry (get students + marks for a subject)
+// TEACHER â€” Marks Entry (get students + marks for a subject)
 // ============================================================
 
 export async function getStudentsForMarksEntry(
     subjectId: number, formId: number, streamId: number
 ): Promise<ExamMark[]> {
     try {
-        // Build query — if streamId is 0 or falsy, load ALL streams for this form
+        // Build query â€” if streamId is 0 or falsy, load ALL streams for this form
         let query = supabase
             .from('school_students')
             .select('id, first_name, last_name, admission_number, stream_id')
@@ -437,7 +461,7 @@ export async function getStudentsForMarksEntry(
         const { data: students } = await query;
         if (!students || students.length === 0) return [];
 
-        // Get existing marks for these students + subject (all exam types — we'll filter by exam type in the screen)
+        // Get existing marks for these students + subject (all exam types â€” we'll filter by exam type in the screen)
         const studentIds = students.map(s => s.id);
         const { data: marks } = await supabase
             .from('school_exam_marks')
@@ -484,7 +508,7 @@ export async function saveMarks(marks: {
 }[]): Promise<{ success: boolean; error?: string }> {
     try {
         for (const mark of marks) {
-            // Use maybeSingle() — returns null (not an error) when no row exists
+            // Use maybeSingle() â€” returns null (not an error) when no row exists
             const { data: existing, error: fetchErr } = await supabase
                 .from('school_exam_marks')
                 .select('id')
@@ -533,7 +557,7 @@ export async function saveMarks(marks: {
 }
 
 // ============================================================
-// PARENT — Fees
+// PARENT â€” Fees
 // ============================================================
 
 export async function getStudentFeePayments(studentId: number): Promise<FeePayment[]> {
@@ -582,7 +606,7 @@ export async function getStudentFeeStructures(formId: number): Promise<any[]> {
 }
 
 // ============================================================
-// PARENT — Discipline
+// PARENT â€” Discipline
 // ============================================================
 
 export async function getStudentDiscipline(studentId: number): Promise<DisciplineRecord[]> {
@@ -602,7 +626,7 @@ export async function getStudentDiscipline(studentId: number): Promise<Disciplin
 }
 
 // ============================================================
-// PARENT — Academics (exam results)
+// PARENT â€” Academics (exam results)
 // ============================================================
 
 export async function getStudentResults(studentId: number): Promise<any[]> {
@@ -623,7 +647,7 @@ export async function getStudentResults(studentId: number): Promise<any[]> {
 }
 
 // ============================================================
-// STUDENT — Assignments/Homework
+// STUDENT â€” Assignments/Homework
 // ============================================================
 
 export async function getStudentHomework(formId: number): Promise<HomeworkItem[]> {
@@ -660,7 +684,7 @@ export async function getStudentHomework(formId: number): Promise<HomeworkItem[]
 }
 
 // ============================================================
-// STUDENT — Past Papers
+// STUDENT â€” Past Papers
 // ============================================================
 
 export async function getPastPapers(): Promise<any[]> {
@@ -682,8 +706,8 @@ export async function getPastPapers(): Promise<any[]> {
 
 // ============================================================
 // ============================================================
-// PARENT — KCB Buni STK Push Payment
-// Mobile → apsims.vercel.app/api/payments/kcb-stk → KCB Buni
+// PARENT â€” KCB Buni STK Push Payment
+// Mobile â†’ apsims.vercel.app/api/payments/kcb-stk â†’ KCB Buni
 // ============================================================
 
 export async function initiateKCBSTKPush(params: {
@@ -694,7 +718,7 @@ export async function initiateKCBSTKPush(params: {
     description: string;
 }): Promise<{ checkoutRequestId: string | null; error: string | null }> {
     try {
-        // Normalize phone: 0712345678 → 254712345678
+        // Normalize phone: 0712345678 â†’ 254712345678
         const normalized = params.phone.startsWith('0')
             ? '254' + params.phone.slice(1)
             : params.phone.startsWith('+')
@@ -705,7 +729,7 @@ export async function initiateKCBSTKPush(params: {
             return { checkoutRequestId: null, error: 'Invalid phone number. Use format: 0712345678' };
         }
 
-        // Call web app API — web app holds KCB credentials securely
+        // Call web app API â€” web app holds KCB credentials securely
         const response = await fetch(`${SCHOOL_API_BASE}/api/payments/kcb-stk`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -728,7 +752,7 @@ export async function initiateKCBSTKPush(params: {
             error: null,
         };
     } catch (err: any) {
-        return { checkoutRequestId: null, error: 'Network error — check your internet connection' };
+        return { checkoutRequestId: null, error: 'Network error â€” check your internet connection' };
     }
 }
 
@@ -834,7 +858,7 @@ export function getGrade(score: number): string {
 }
 
 // ============================================================
-// PHASE 1 ULTRA — NEW TYPES
+// PHASE 1 ULTRA â€” NEW TYPES
 // ============================================================
 
 // Attendance
@@ -1086,7 +1110,7 @@ export interface ExamType {
 }
 
 // ============================================================
-// PHASE 1 ULTRA — ATTENDANCE FUNCTIONS
+// PHASE 1 ULTRA â€” ATTENDANCE FUNCTIONS
 // ============================================================
 
 export async function getStudentAttendance(
@@ -1194,7 +1218,7 @@ export async function getClassAttendance(
 }
 
 // ============================================================
-// PHASE 1 ULTRA — CBC FUNCTIONS
+// PHASE 1 ULTRA â€” CBC FUNCTIONS
 // ============================================================
 
 export async function getCBCAssessments(
@@ -1406,7 +1430,7 @@ export async function getCBCStudentsForSubject(
 }
 
 // ============================================================
-// PHASE 1 ULTRA — HEALTH & LEAVE-OUT FUNCTIONS
+// PHASE 1 ULTRA â€” HEALTH & LEAVE-OUT FUNCTIONS
 // ============================================================
 
 export async function getStudentHealthRecord(
@@ -1427,7 +1451,7 @@ export async function getStudentHealthRecord(
                 .limit(50),
         ]);
 
-        // school_health_allergies may not exist — skip silently
+        // school_health_allergies may not exist â€” skip silently
         let allergies: HealthAllergy[] = [];
         try {
             const allergiesRes = await supabase
@@ -1487,7 +1511,7 @@ export async function getStudentLeaveOuts(
 }
 
 // ============================================================
-// PHASE 1 ULTRA — NOTIFICATION FUNCTIONS
+// PHASE 1 ULTRA â€” NOTIFICATION FUNCTIONS
 // ============================================================
 
 export async function getPortalNotifications(
@@ -1555,7 +1579,7 @@ export async function markAllNotificationsRead(
 }
 
 // ============================================================
-// PHASE 1 ULTRA — HOMEWORK FUNCTIONS
+// PHASE 1 ULTRA â€” HOMEWORK FUNCTIONS
 // ============================================================
 
 export async function getHomeworkWithSubmissions(
@@ -1673,7 +1697,7 @@ export async function getTeacherHomework(
 }
 
 // ============================================================
-// PHASE 1 ULTRA — TIMETABLE, REPORT CARD, ANNOUNCEMENTS, EXPORTS, M-PESA
+// PHASE 1 ULTRA â€” TIMETABLE, REPORT CARD, ANNOUNCEMENTS, EXPORTS, M-PESA
 // ============================================================
 
 export async function getStudentTimetable(
@@ -1681,7 +1705,7 @@ export async function getStudentTimetable(
     streamId: number
 ): Promise<TimetableEntry[]> {
     try {
-        // Build query — fetch entries for this form+stream, OR entries with no stream (shared)
+        // Build query â€” fetch entries for this form+stream, OR entries with no stream (shared)
         let query = supabase
             .from('school_timetable_entries')
             .select(`
@@ -1765,7 +1789,7 @@ export async function markReportCardViewed(
     }
 }
 
-// ── Release Gate ─────────────────────────────────────────────
+// â”€â”€ Release Gate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Checks school_report_releases to see if HOD/Principal released results
 // for a given term, exam type, and optionally a specific form
 export async function isResultsReleased(
@@ -1862,7 +1886,7 @@ export async function publishAnnouncement(
             .select('id')
             .eq('is_active', true);
 
-        // Filter by audience — 'all' means parents + students + teachers
+        // Filter by audience â€” 'all' means parents + students + teachers
         if (data.audience === 'parents') {
             query = query.eq('user_type', 'parent');
         } else if (data.audience === 'students') {
@@ -1870,7 +1894,7 @@ export async function publishAnnouncement(
         } else if (data.audience === 'teachers') {
             query = query.eq('user_type', 'teacher');
         }
-        // 'all' = no user_type filter → sends to everyone
+        // 'all' = no user_type filter â†’ sends to everyone
 
         const { data: users, error: usersError } = await query;
         if (usersError) return { success: false, count: 0, error: usersError.message };
@@ -2002,7 +2026,7 @@ export async function initiateSTKPush(
             error: null,
         };
     } catch (err: any) {
-        return { checkoutRequestId: null, error: 'Network error — please try again' };
+        return { checkoutRequestId: null, error: 'Network error â€” please try again' };
     }
 }
 
@@ -2010,7 +2034,7 @@ export async function pollSTKStatus(
     checkoutRequestId: string
 ): Promise<{ status: string; receipt?: string }> {
     try {
-        // Use server API — avoids RLS which blocks anon reads on school_mpesa_transactions
+        // Use server API â€” avoids RLS which blocks anon reads on school_mpesa_transactions
         const res = await fetch(
             `${SCHOOL_API_BASE}/api/mpesa/stk-status?checkoutId=${encodeURIComponent(checkoutRequestId)}`
         );
@@ -2084,7 +2108,7 @@ export async function getClassPerformance(
 }
 
 // ============================================================
-// PRINCIPAL DASHBOARD — DATA FUNCTIONS
+// PRINCIPAL DASHBOARD â€” DATA FUNCTIONS
 // Ultra-robust reports for fees, academic, stores, library
 // ============================================================
 
@@ -2157,7 +2181,7 @@ export async function getPrincipalDashboardKPIs(): Promise<PrincipalKPIs> {
     }
 }
 
-// ── Finance Reports ──
+// â”€â”€ Finance Reports â”€â”€
 
 export interface FeeCollectionByForm {
     formId: number;
@@ -2246,7 +2270,7 @@ export async function getPaymentMethodBreakdown(): Promise<{ method: string; tot
     } catch { return []; }
 }
 
-// ── Academic Reports ──
+// â”€â”€ Academic Reports â”€â”€
 
 export interface SubjectMeanScore {
     subjectId: number;
@@ -2360,7 +2384,7 @@ export async function getMarksEntryProgress(): Promise<{ teacherName: string; su
     } catch { return []; }
 }
 
-// ── Stores Reports ──
+// â”€â”€ Stores Reports â”€â”€
 
 export async function getStoresOverview(): Promise<{ totalItems: number; totalValue: number; lowStockCount: number; categories: { name: string; count: number; value: number }[] }> {
     try {
@@ -2394,7 +2418,7 @@ export async function getRecentStoreMovements(limit = 30): Promise<any[]> {
     } catch { return []; }
 }
 
-// ── Library Reports ──
+// â”€â”€ Library Reports â”€â”€
 
 export async function getLibraryOverview(): Promise<{ totalBooks: number; checkedOut: number; available: number; overdueCount: number; categories: { name: string; count: number }[] }> {
     try {
@@ -2426,7 +2450,7 @@ export async function getRecentLibraryTransactions(limit = 30): Promise<any[]> {
 }
 
 // ============================================================
-// PRINCIPAL — INCOME, EXPENSES, EVENTS & TEACHER PERFORMANCE
+// PRINCIPAL â€” INCOME, EXPENSES, EVENTS & TEACHER PERFORMANCE
 // ============================================================
 
 export async function getSchoolExpenses(limit = 50): Promise<any[]> {
@@ -2502,7 +2526,7 @@ export async function getIncomeVsExpenses(): Promise<{ totalIncome: number; tota
     } catch { return { totalIncome: 0, totalExpenses: 0, netProfit: 0 }; }
 }
 
-// ── Upcoming Events ──
+// â”€â”€ Upcoming Events â”€â”€
 
 export async function getUpcomingEvents(limit = 10): Promise<any[]> {
     try {
@@ -2517,7 +2541,7 @@ export async function getUpcomingEvents(limit = 10): Promise<any[]> {
     } catch { return []; }
 }
 
-// ── Teacher Performance ──
+// â”€â”€ Teacher Performance â”€â”€
 
 export interface TeacherPerformance {
     teacherId: number;
