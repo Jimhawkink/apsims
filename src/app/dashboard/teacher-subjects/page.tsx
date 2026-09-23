@@ -96,10 +96,20 @@ export default function TeacherSubjectsPage() {
         sb.from('school_streams').select('*').order('stream_name'),
         sb.from('school_terms').select('*').order('year', { ascending: false }),
       ]);
-      // Merge regular + support teachers; prefix support teachers to distinguish them
-      const regularTeachers = (tR.data || []);
-      const supportTeachers = (suppR.data || []).map((t: any) => ({ ...t, staff_no: t.staff_no || 'SUPPORT' }));
+      // IMPORTANT: school_support_teachers has its own ID sequence starting at 1,
+      // which COLLIDES with school_teachers IDs in the select dropdown.
+      // Fix: offset support teacher IDs by 1,000,000 in local state so values are always unique.
+      const SUPP_OFFSET = 1_000_000;
+      const regularTeachers = (tR.data || []).map((t: any) => ({ ...t, _isSupport: false, _realId: t.id }));
+      const supportTeachers = (suppR.data || []).map((t: any) => ({
+        ...t,
+        id: t.id + SUPP_OFFSET,
+        staff_no: t.staff_no ? `${t.staff_no} (Support)` : 'Support Teacher',
+        _isSupport: true,
+        _realId: t.id,
+      }));
       setTeachers([...regularTeachers, ...supportTeachers]);
+
       setSubjects(sR.data || []);
       // Use DB data if available, otherwise fall back to hardcoded KICD list
       setLearningAreas((laR.data && laR.data.length > 0) ? laR.data : KICD_LAS_FALLBACK);
@@ -124,7 +134,8 @@ export default function TeacherSubjectsPage() {
     const { data } = await q.order('form_id');
     const enriched = (data || []).map((a: Assignment) => ({
       ...a,
-      teacher: teachers.find(t => t.id === a.teacher_id),
+      // Match by _realId (the original DB id) since support teachers have offset ids in local state
+      teacher: teachers.find(t => (t as any)._realId === a.teacher_id),
       subject: subjects.find(s => s.id === a.subject_id),
       learning_area: learningAreas.find(la => la.id === a.learning_area_id),
       form: forms.find(f => f.id === a.form_id),
@@ -146,8 +157,15 @@ export default function TeacherSubjectsPage() {
     if (!editAssign.subject_id && !editAssign.learning_area_id) { toast.error('Select subject or learning area'); return; }
     setSaving(true);
     try {
+      // Strip the 1,000,000 offset from support teacher IDs before saving to DB
+      const SUPP_OFFSET = 1_000_000;
+      const realTeacherId = editAssign.teacher_id >= SUPP_OFFSET
+        ? editAssign.teacher_id - SUPP_OFFSET
+        : editAssign.teacher_id;
+
       const payload = {
         ...editAssign,
+        teacher_id: realTeacherId,    // always save the real DB id
         year: selYear,
         term_id: selTerm ? Number(selTerm) : null,
         is_active: true,
@@ -168,6 +186,7 @@ export default function TeacherSubjectsPage() {
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
   };
+
 
   const deleteAssignment = async (id: number) => {
     if (!confirm('Delete this assignment?')) return;
@@ -241,9 +260,19 @@ export default function TeacherSubjectsPage() {
                 <select value={editAssign.teacher_id || ''} onChange={e => setEditAssign(p => ({ ...p, teacher_id: Number(e.target.value) }))}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
                   <option value="">Select Teacher</option>
-                  {teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name} {t.staff_no ? `(${t.staff_no})` : ''}</option>)}
+                  <optgroup label="── TSC Teachers ──">
+                    {teachers.filter((t: any) => !t._isSupport).map(t => (
+                      <option key={`r_${t.id}`} value={t.id}>{t.first_name} {t.last_name}{t.staff_no ? ` (${t.staff_no})` : ''}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="── Support Teachers ──">
+                    {teachers.filter((t: any) => t._isSupport).map(t => (
+                      <option key={`s_${t.id}`} value={t.id}>{t.first_name} {t.last_name}{t.staff_no ? ` (${t.staff_no})` : ''}</option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-gray-600 block mb-1">Class / Form *</label>
