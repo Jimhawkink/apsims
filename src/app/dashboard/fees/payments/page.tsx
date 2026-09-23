@@ -114,7 +114,7 @@ function AnalyticsView({ payments, students, terms, getFormName }: any) {
   const byTerm = useMemo(() => {
     const map: Record<string, { count: number; total: number }> = {};
     payments.forEach((p: any) => {
-      const t = terms.find((tm: any) => tm.id === p.term_id);
+      const t = terms.find((tm: any) => Number(tm.id) === Number(p.term_id));
       const tn = t?.term_name || 'No Term';
       if (!map[tn]) map[tn] = { count: 0, total: 0 };
       map[tn].count++;
@@ -921,7 +921,7 @@ export default function PaymentHistoryPage() {
                     )}
                     {paginated.map((p, i) => {
                       const s = students.find(st => st.id === p.student_id);
-                      const t = terms.find((tm: any) => tm.id === p.term_id);
+                      const t = terms.find((tm: any) => Number(tm.id) === Number(p.term_id));
                       const meta = getMeta(p.payment_method);
                       const isSel = selected.has(p.id);
                       return (
