@@ -381,7 +381,7 @@ export default function TeacherSubjectsPage() {
             <select value={selTerm} onChange={e => { setSelTerm(e.target.value); const t = terms.find(t => String(t.id) === e.target.value); if (t) setSelYear(t.year); }}
               className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white min-w-[150px] focus:ring-2 focus:ring-indigo-300 outline-none">
               <option value="">All Terms</option>
-              {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year}{t.is_current ? ' Γ£ô' : ''}</option>)}
+              {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year}{t.is_current ? ' ✓' : ''}</option>)}
             </select>
             <select value={selTeacher} onChange={e => setSelTeacher(e.target.value)}
               className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white min-w-[180px] focus:ring-2 focus:ring-indigo-300 outline-none">
@@ -424,12 +424,12 @@ export default function TeacherSubjectsPage() {
           ))}
         </div>
 
-        {/* GRID TAB ΓÇö matrix view */}
+        {/* GRID TAB — matrix view */}
         {tab === 'grid' && (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
               <h3 className="font-bold text-gray-800 text-sm">
-                Assignment Matrix ΓÇö {isJSS ? 'JSS Learning Areas' : 'Subjects'}
+                Assignment Matrix — {isJSS ? 'JSS Learning Areas' : 'Subjects'}
               </h3>
               <span className="text-xs text-gray-400">
                 {isJSS ? 'JSS mode (Grade 7-9)' : 'Standard mode (Form 1-4)'}
@@ -461,21 +461,38 @@ export default function TeacherSubjectsPage() {
                       </td>
                       {gridForms.map(f => {
                         const teacher = getAssigned(f.id, item.id);
+                        // Find the full assignment row to get its id for editing
+                        const existingAssign = assignments.find(a =>
+                          a.form_id === f.id &&
+                          (isJSS ? a.learning_area_id === item.id : a.subject_id === item.id)
+                        );
+                        const openModal = () => {
+                          if (existingAssign) {
+                            // Editing existing — restore UI teacher_id with offset for support teachers
+                            const SUPP_OFFSET = 1_000_000;
+                            const uiTeacherId = existingAssign.teacher_id < 0
+                              ? Math.abs(existingAssign.teacher_id) + SUPP_OFFSET
+                              : existingAssign.teacher_id;
+                            setEditAssign({ ...existingAssign, teacher_id: uiTeacherId });
+                          } else {
+                            setEditAssign({ form_id: f.id, [isJSS ? 'learning_area_id' : 'subject_id']: item.id, term_id: Number(selTerm) || undefined, year: selYear, is_class_teacher: false, is_active: true });
+                          }
+                          setShowModal(true);
+                        };
                         return (
                           <td key={f.id} className="text-center px-2 py-2">
                             {teacher ? (
-                              <div className="flex flex-col items-center gap-1">
-                                <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
+                              <button onClick={openModal} className="flex flex-col items-center gap-1 mx-auto group relative" title={`${teacher.first_name} ${teacher.last_name} — click to reassign`}>
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[9px] font-bold ring-0 group-hover:ring-2 ring-indigo-400 transition"
                                   style={{ background: `hsl(${(teacher.id * 47) % 360},60%,50%)` }}>
                                   {teacher.first_name[0]}{teacher.last_name[0]}
                                 </div>
                                 <span className="text-[9px] text-gray-600 leading-tight">{teacher.first_name}<br/>{teacher.last_name}</span>
-                              </div>
+                                <span className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition bg-indigo-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center"><FiEdit2 size={7}/></span>
+                              </button>
                             ) : (
-                              <button onClick={() => {
-                                setEditAssign({ form_id: f.id, [isJSS ? 'learning_area_id' : 'subject_id']: item.id, term_id: Number(selTerm) || undefined, year: selYear, is_class_teacher: false, is_active: true });
-                                setShowModal(true);
-                              }} className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-indigo-400 hover:bg-indigo-50 transition mx-auto text-gray-300 hover:text-indigo-500">
+                              <button onClick={openModal}
+                                className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-indigo-400 hover:bg-indigo-50 transition mx-auto text-gray-300 hover:text-indigo-500">
                                 <FiPlus size={12} />
                               </button>
                             )}
