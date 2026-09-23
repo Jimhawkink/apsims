@@ -388,7 +388,7 @@ export default function StudentPracticeTab({ d }: any) {
     const msg = score === 100 ? '🏆 PERFECT! Outstanding performance!' : score >= 80 ? '🎉 Excellent! Keep it up!' : score >= 60 ? '👍 Good work! Practice more.' : score >= 40 ? '📚 Fair. Review the wrong answers.' : '⚠️ Needs improvement. Study this topic more.';
 
     return (
-      <div style={{ space: 16 }}>
+      <div style={{ gap: 16 }}>
         {/* Score card */}
         <div style={{ background: score >= 70 ? 'linear-gradient(135deg,#059669,#10b981)' : score >= 50 ? 'linear-gradient(135deg,#d97706,#f59e0b)' : 'linear-gradient(135deg,#dc2626,#ef4444)', borderRadius: 16, padding: 24, color: '#fff', textAlign: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 52, fontWeight: 900 }}>{score}%</div>

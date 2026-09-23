@@ -25,8 +25,8 @@ type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 interface SBATask {
     id: string; title: string; description?: string;
-    form_id: number; form_name?: string; subject_id?: number; subject_name?: string;
-    term_id?: number; term_name?: string; year: number;
+    form_id: number; form_name?: string; subject_id?: number | null; subject_name?: string;
+    term_id?: number | null; term_name?: string; year: number;
     learning_area: string; strand?: string; sub_strand?: string;
     task_type: string; max_score: number; due_date?: string;
     status: TaskStatus; hod_approval: ApprovalStatus;
@@ -228,7 +228,7 @@ export default function SBAManagerPage() {
                 const fm = forms.find(f=>f.id===Number(taskForm.form_id));
                 const sub = subjects.find(s=>s.id===Number(taskForm.subject_id));
                 const trm = terms.find(t=>t.id===Number(taskForm.term_id));
-                const newTask: SBATask = { id:`demo-${Date.now()}`, ...payload, form_id:Number(taskForm.form_id), form_name:fm?.name||'—', subject_name:sub?.subject_name||'', term_name:trm?.term_name||'', hod_approval:'pending', created_at:new Date().toISOString() };
+                const newTask = { id:`demo-${Date.now()}`, ...payload, form_id:Number(taskForm.form_id), form_name:fm?.name||'—', subject_name:sub?.subject_name||'', term_name:trm?.term_name||'', hod_approval:'pending', created_at:new Date().toISOString() } as SBATask;
                 setTasks(p=>[newTask,...p]); toast.success('✅ Task created (demo mode)!'); setShowCreate(false); setTaskForm(emptyTask);
             }
         } catch(e:any) { toast.error(e.message||'Failed'); }

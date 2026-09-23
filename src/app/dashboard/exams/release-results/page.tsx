@@ -53,17 +53,19 @@ export default function ReleaseResultsPage() {
 
     useEffect(() => {
         if (!selTerm) return;
-        supabase.from('school_exam_marks')
-            .select('student_id, school_students!inner(form_id)')
-            .eq('term_id', Number(selTerm)).eq('exam_type', selExam)
-            .then(({ data }) => {
+        (async () => {
+            try {
+                const { data } = await supabase.from('school_exam_marks')
+                    .select('student_id, school_students!inner(form_id)')
+                    .eq('term_id', Number(selTerm)).eq('exam_type', selExam);
                 const counts: Record<string,number> = {};
                 (data || []).forEach((r:any) => {
                     const k = String((r.school_students as any)?.form_id);
                     counts[k] = (counts[k] || 0) + 1;
                 });
                 setMarkCounts(counts);
-            }).catch(() => {});
+            } catch { /* ignore */ }
+        })();
     }, [selTerm, selExam]);
 
     const getUser = () => { try { return JSON.parse(localStorage.getItem('school_user') || '{}'); } catch { return {}; } };

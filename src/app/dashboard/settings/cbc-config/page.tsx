@@ -15,9 +15,9 @@ const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-interface LearningArea { id: string; name: string; code: string; grade_levels: string[]; active: boolean; color: string; strand_count?: number; }
-interface Strand { id: string; learning_area_id: string; name: string; code: string; order_no: number; active: boolean; sub_strand_count?: number; }
-interface SubStrand { id: string; strand_id: string; name: string; code: string; order_no: number; active: boolean; descriptor_ee?: string; descriptor_me?: string; descriptor_ae?: string; descriptor_be?: string; }
+interface LearningArea { id: string; name: string; code: string | null; grade_levels: string[]; active: boolean; color: string; strand_count?: number; }
+interface Strand { id: string; learning_area_id: string; name: string; code: string | null; order_no: number; active: boolean; sub_strand_count?: number; }
+interface SubStrand { id: string; strand_id: string; name: string; code: string | null; order_no: number; active: boolean; descriptor_ee?: string | null; descriptor_me?: string | null; descriptor_ae?: string | null; descriptor_be?: string | null; }
 
 const AREA_COLORS = ['#2563EB','#059669','#D97706','#7C3AED','#DC2626','#0891B2','#9333EA','#65A30D','#EA580C','#DB2777'];
 const GRADE_LEVELS = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10','Grade 11','Grade 12'];
@@ -123,7 +123,7 @@ export default function CBCConfigPage() {
         setLoading(false);
     }
 
-    const filteredAreas   = useMemo(() => areas.filter(a => !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.code.toLowerCase().includes(search.toLowerCase())), [areas, search]);
+    const filteredAreas   = useMemo(() => areas.filter(a => !search || a.name.toLowerCase().includes(search.toLowerCase()) || (a.code ?? '').toLowerCase().includes(search.toLowerCase())), [areas, search]);
     const areaStrands     = useMemo(() => strands.filter(s => s.learning_area_id === selArea?.id), [strands, selArea]);
     const strandSubStrands= useMemo(() => subStrands.filter(ss => ss.strand_id === selStrand?.id), [subStrands, selStrand]);
     const filteredStrands = useMemo(() => strands.filter(s => (!selArea || s.learning_area_id === selArea.id) && (!search || s.name.toLowerCase().includes(search.toLowerCase()))), [strands, selArea, search]);

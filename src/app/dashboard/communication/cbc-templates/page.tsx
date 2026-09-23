@@ -20,7 +20,7 @@ type Category = 'CBC Results' | 'Attendance' | 'SBA' | 'Report Card' | 'Motivati
 
 interface Template {
     id: string; name: string; category: Category; channel: Channel;
-    body_en: string; body_sw: string; variables: string[];
+    body_en: string; body_sw: string | null; variables: string[];
     is_active: boolean; send_count?: number; created_at: string;
 }
 
@@ -162,7 +162,7 @@ export default function CBCTemplatesPage() {
         if (!selectedTpl || !composeRecipients) { toast.error('Select a template and recipients'); return; }
         setSending(true);
         try {
-            const log = { template_id: selectedTpl.id, template_name: selectedTpl.name, recipient_type: composeRecipients, recipient_count: 1, channel: composeChannel, sent_by: 'Admin', status: 'sent' as const, message_preview: (previewLang === 'en' ? selectedTpl.body_en : selectedTpl.body_sw).slice(0, 100) };
+            const log = { template_id: selectedTpl.id, template_name: selectedTpl.name, recipient_type: composeRecipients, recipient_count: 1, channel: composeChannel, sent_by: 'Admin', status: 'sent' as const, message_preview: (previewLang === 'en' ? selectedTpl.body_en : (selectedTpl.body_sw ?? '')).slice(0, 100) };
             if (dbReady) {
                 await sb.from('school_cbc_sms_templates').update({ send_count: (selectedTpl.send_count||0) + 1 }).eq('id', selectedTpl.id);
                 const { data } = await sb.from('school_cbc_send_logs').insert(log).select().single();

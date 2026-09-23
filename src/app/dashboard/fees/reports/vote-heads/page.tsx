@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import type ExcelJS from 'exceljs';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import {

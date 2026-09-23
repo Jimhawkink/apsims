@@ -179,7 +179,7 @@ export default function TeacherSubjectsPage() {
     if (selStream)  q = q.eq('stream_id', selStream);
     // Term filter: include null-term records (saved via Settings) always
     if (selTerm) {
-      q = q.or(	erm_id.eq. + selTerm + ,term_id.is.null);
+      q = q.or(`term_id.eq.${selTerm},term_id.is.null`);
     }
     if (selTeacher) q = q.eq('teacher_id', selTeacher);
     // Only filter by year when a specific year is chosen AND

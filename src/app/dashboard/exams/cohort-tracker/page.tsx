@@ -223,7 +223,7 @@ export default function CohortTrackerPage() {
     /* ─── PER-STUDENT LIFETIME TRAJECTORY ─── */
     const studentTrajectory = cohortStudents.map(s => {
         const stages = (mode === '844' ? stages844 : stagesCBC).map(st => {
-            const avg844 = st.studentAvgs?.find((sv: any) => sv.student.id === s.id)?.avg || 0;
+            const avg844 = (st as any).studentAvgs?.find((sv: any) => sv.student.id === s.id)?.avg || 0;
             return { stage: st, avg: avg844 };
         });
         const avgScores = stages.map(st => st.avg).filter(a => a > 0);

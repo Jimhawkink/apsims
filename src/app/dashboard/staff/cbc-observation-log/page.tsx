@@ -23,7 +23,7 @@ interface Observation {
     domain_planning: Rating; domain_delivery: Rating; domain_assessment: Rating;
     domain_classroom: Rating; domain_professional: Rating;
     overall_rating?: number; strengths?: string; areas_for_growth?: string;
-    action_plan?: string; teacher_comments?: string; status: 'draft'|'submitted'|'acknowledged';
+    action_plan?: string; teacher_comments?: string; status: 'draft'|'submitted'|'acknowledged'|string;
     created_at: string;
 }
 
@@ -85,7 +85,7 @@ export default function TeacherObservationLogPage() {
     const [fType, setFType]     = useState('');
     const [tab, setTab]         = useState<'log'|'analytics'>('log');
 
-    const empty = {teacher_name:'',subject:'',form_name:'',observer_name:'',observer_role:'',observation_date:new Date().toISOString().slice(0,10),term:'Term 2',year:2025,observation_type:'Formal Observation',domain_planning:3 as Rating,domain_delivery:3 as Rating,domain_assessment:3 as Rating,domain_classroom:3 as Rating,domain_professional:3 as Rating,strengths:'',areas_for_growth:'',action_plan:'',teacher_comments:'',status:'draft' as const};
+    const empty = {teacher_name:'',subject:'',form_name:'',observer_name:'',observer_role:'',observation_date:new Date().toISOString().slice(0,10),term:'Term 2',year:2025,observation_type:'Formal Observation',domain_planning:3 as Rating,domain_delivery:3 as Rating,domain_assessment:3 as Rating,domain_classroom:3 as Rating,domain_professional:3 as Rating,strengths:'',areas_for_growth:'',action_plan:'',teacher_comments:'',status:'draft' as 'draft'|'submitted'|'acknowledged'};
     const [form,setForm]=useState(empty);
 
     useEffect(()=>{load();},[]);
@@ -278,7 +278,7 @@ export default function TeacherObservationLogPage() {
                             <tbody>
                                 {filtered.length===0?<tr><td colSpan={13} className="text-center py-16 text-gray-400"><FiEye size={40} className="mx-auto mb-3 opacity-30"/><p className="font-semibold">No observations recorded yet</p><button onClick={()=>setShowModal(true)} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white" style={{background:'linear-gradient(135deg,#0891B2,#06B6D4)'}}><FiPlus size={14}/>Record First Observation</button></td></tr>
                                 :filtered.map((o,i)=>{
-                                    const st=STATUS_CFG[o.status];
+                                    const st=STATUS_CFG[o.status as keyof typeof STATUS_CFG] || STATUS_CFG['draft'];
                                     const rating=o.overall_rating||0;
                                     const rColor=rating>=4?'#059669':rating>=3?'#2563EB':rating>=2?'#D97706':'#DC2626';
                                     return <tr key={o.id} className={`border-b border-gray-100 hover:bg-cyan-50/30 ${i%2===0?'bg-white':'bg-slate-50/50'}`}>
@@ -294,7 +294,7 @@ export default function TeacherObservationLogPage() {
                                         <td className="px-3 py-3 text-center"><span className="text-sm font-black" style={{color:rColor}}>{rating.toFixed(1)}</span></td>
                                         <td className="px-3 py-3"><span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{background:st.bg,color:st.fg}}>{st.l}</span></td>
                                         <td className="px-3 py-3"><div className="flex gap-1">
-                                            <button onClick={()=>{setEditOb(o);setForm({teacher_name:o.teacher_name,subject:o.subject||'',form_name:o.form_name||'',observer_name:o.observer_name,observer_role:o.observer_role||'',observation_date:o.observation_date,term:o.term,year:o.year,observation_type:o.observation_type,domain_planning:o.domain_planning,domain_delivery:o.domain_delivery,domain_assessment:o.domain_assessment,domain_classroom:o.domain_classroom,domain_professional:o.domain_professional,strengths:o.strengths||'',areas_for_growth:o.areas_for_growth||'',action_plan:o.action_plan||'',teacher_comments:o.teacher_comments||'',status:o.status});setShowModal(true);}} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg"><FiEdit2 size={12}/></button>
+                                            <button onClick={()=>{setEditOb(o);setForm({teacher_name:o.teacher_name,subject:o.subject||'',form_name:o.form_name||'',observer_name:o.observer_name,observer_role:o.observer_role||'',observation_date:o.observation_date,term:o.term,year:o.year,observation_type:o.observation_type,domain_planning:o.domain_planning,domain_delivery:o.domain_delivery,domain_assessment:o.domain_assessment,domain_classroom:o.domain_classroom,domain_professional:o.domain_professional,strengths:o.strengths||'',areas_for_growth:o.areas_for_growth||'',action_plan:o.action_plan||'',teacher_comments:o.teacher_comments||'',status:o.status as 'draft'|'submitted'|'acknowledged'});setShowModal(true);}} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg"><FiEdit2 size={12}/></button>
                                             <button onClick={()=>del(o.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><FiTrash2 size={12}/></button>
                                         </div></td>
                                     </tr>;

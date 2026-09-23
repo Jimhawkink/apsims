@@ -13,7 +13,7 @@ export function VerifyTab() {
   const { runVerification, forms } = ctx;
   const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
   const [verifying, setVerifying] = useState(false);
-  const [settings] = useState<GenSettings>({ maxConsecutiveSameSubject: 2, spreadEvenly: true, avoidLastPeriod: [], maxTeacherLessonsPerDay: 7 });
+  const [settings] = useState<GenSettings>({ maxConsecutiveSameSubject: 2, spreadEvenly: true, avoidLastPeriod: [], maxTeacherLessonsPerDay: 7, maxWeeklyTeacherLessons: 27, enableRoomTypeMatching: false, minimizeTeacherGaps: false, lockLunchPeriods: false, cbcPathwayMode: false, enableSplitClass: false });
 
   const doVerify = () => {
     setVerifying(true);

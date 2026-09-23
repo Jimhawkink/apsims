@@ -392,7 +392,7 @@ export default function PaymentVouchersPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {STATUS_TABS.map(s => (
                         <button key={s} onClick={() => setActiveTab(s)}
-                            style={{ padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                            style={{ padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
                                 background: activeTab === s ? 'linear-gradient(135deg,#3b82f6,#2563eb)' : '#fff',
                                 color: activeTab === s ? '#fff' : '#6b7280',
                                 boxShadow: activeTab === s ? '0 4px 14px rgba(59,130,246,0.3)' : 'none',

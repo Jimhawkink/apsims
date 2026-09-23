@@ -1,7 +1,23 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useCompletion } from '@ai-sdk/react';
+// @ai-sdk/react is not installed — stub useCompletion to keep build working
+function useCompletion({ api, onFinish }: { api: string; onFinish?: (p: string, t: string) => void }) {
+    const [completion, setCompletion] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const complete = async (prompt: string) => {
+        setIsLoading(true); setError(null);
+        try {
+            const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
+            if (!res.ok) throw new Error(await res.text());
+            const text = await res.text();
+            setCompletion(text);
+            onFinish?.(prompt, text);
+        } catch (e: any) { setError(e); } finally { setIsLoading(false); }
+    };
+    return { complete, completion, isLoading, error };
+}
 
 interface AICommentGeneratorProps {
     studentName: string;
@@ -36,9 +52,7 @@ export default function AICommentGenerator({
     const handleGenerate = async () => {
         setEnglish('');
         setSwahili('');
-        await complete('generate', {
-            body: { studentName, subject, marks, outOf, grade, term, className },
-        });
+        await complete(JSON.stringify({ studentName, subject, marks, outOf, grade, term, className }));
     };
 
     const handleCopy = (text: string, type: 'en' | 'sw') => {

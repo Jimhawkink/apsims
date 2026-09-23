@@ -16,7 +16,10 @@ export default function GenerateTab() {
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState<GenSettings>({
     maxConsecutiveSameSubject: 2, spreadEvenly: true,
-    avoidLastPeriod: [], maxTeacherLessonsPerDay: 7
+    avoidLastPeriod: [], maxTeacherLessonsPerDay: 7,
+    maxWeeklyTeacherLessons: 27, enableRoomTypeMatching: false,
+    minimizeTeacherGaps: false, lockLunchPeriods: false,
+    cbcPathwayMode: false, enableSplitClass: false,
   });
 
   const totalLessons = termReqs.reduce((s, r) => s + r.lessons_per_week, 0);

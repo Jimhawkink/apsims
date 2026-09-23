@@ -1176,7 +1176,7 @@ ${grn.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                                 ['Issued At', showViewModal.issued_at ? fmtDateTime(showViewModal.issued_at) : '—'],
                             ].map(([k, v]) => (
                                 <div key={String(k)} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                                    <span style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', fontSize: 10 }}>{k}</span>
+                                    <span style={{ fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', fontSize: 10 }}>{k}</span>
                                     <span style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{k === 'Status' ? statusBadge(showViewModal.status) : v}</span>
                                 </div>
                             ))}

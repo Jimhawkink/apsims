@@ -132,8 +132,8 @@ export default function CBCTimetableTab() {
         const hrs = matchSubs.reduce((sum, s) => sum + (bySubject[s.id] || 0), 0);
         return { ...la, totalHours: hrs, ok: hrs >= la.minHrsPerWeek };
       });
-      const compliant = compliance.filter(c => c.ok && c.subjects?.length > 0).length;
-      const total = compliance.filter(c => c.subjects?.length > 0).length;
+      const compliant = compliance.filter(c => c.ok && (c as any).subjects?.length > 0).length;
+      const total = compliance.filter(c => (c as any).subjects?.length > 0).length;
       return { form, stream, entries: entries.length, compliance, compliant, total, pct: total ? Math.round((compliant / total) * 100) : 0 };
     })).filter(Boolean);
   }, [forms, streams, termEntries, enrichedSubjects]);

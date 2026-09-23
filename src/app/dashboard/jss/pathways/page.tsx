@@ -37,9 +37,9 @@ interface PathwayDef {
 interface Student {
     id: number; first_name: string; last_name: string; admission_no?: string;
     form_id?: number; form_name?: string; gender?: string;
-    pathway_preference?: PathwayId; pathway_selected_at?: string;
-    pathway_counselor_notes?: string; pathway_status?: SelectionStatus;
-    parent_consent?: boolean; parent_consent_date?: string;
+    pathway_preference?: PathwayId; pathway_selected_at?: string | null;
+    pathway_counselor_notes?: string; pathway_status?: string;
+    parent_consent?: boolean; parent_consent_date?: string | null;
     cbc_avg_level?: CompLevel; nemis_no?: string;
     guardian_name?: string; guardian_phone?: string; guardian_email?: string;
 }
@@ -346,7 +346,7 @@ export default function PathwaySelectionPage() {
                 if (error) throw error;
             }
             const stu = students.find(s => s.id === Number(transForm.student_id));
-            setTransitions(p => [{ id:`t-${Date.now()}`, ...payload, pathway: payload.pathway as PathwayId, student_name: stu ? `${stu.first_name} ${stu.last_name}` : '—', form_name: stu?.form_name||'—' }, ...p]);
+            setTransitions(p => [{ id:`t-${Date.now()}`, ...payload, pathway: payload.pathway as PathwayId, student_name: stu ? `${stu.first_name} ${stu.last_name}` : '—', form_name: stu?.form_name||'—' } as TransitionRecord, ...p]);
             toast.success('✅ Transition record saved!'); setShowTrans(false); setTransForm(emptyTrans);
         } catch(e:any) { toast.error(e.message||'Failed'); }
         setSaving(false);
@@ -996,7 +996,7 @@ export default function PathwaySelectionPage() {
                             </div>
                             {/* Info grid */}
                             <div className="grid grid-cols-2 gap-3">
-                                {[{l:'Gender',v:viewStudent.gender||'—'},{l:'NEMIS No',v:viewStudent.nemis_no||'—'},{l:'Guardian',v:viewStudent.guardian_name||'—'},{l:'Guardian Phone',v:viewStudent.guardian_phone||'—'},{l:'Pathway Selected',v:viewStudent.pathway_selected_at?fmtDate(viewStudent.pathway_selected_at):'—'},{l:'Parent Consent',v:viewStudent.parent_consent?`✓ Yes (${fmtDate(viewStudent.parent_consent_date)})`:'Pending'}].map((d,i)=>(
+                                {[{l:'Gender',v:viewStudent.gender||'—'},{l:'NEMIS No',v:viewStudent.nemis_no||'—'},{l:'Guardian',v:viewStudent.guardian_name||'—'},{l:'Guardian Phone',v:viewStudent.guardian_phone||'—'},{l:'Pathway Selected',v:viewStudent.pathway_selected_at?fmtDate(viewStudent.pathway_selected_at):'—'},{l:'Parent Consent',v:viewStudent.parent_consent?`✓ Yes (${fmtDate(viewStudent.parent_consent_date ?? '')})`:'Pending'}].map((d,i)=>(
                                     <div key={i} className="bg-gray-50 rounded-xl p-3"><p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">{d.l}</p><p className="text-sm font-semibold text-gray-800">{d.v}</p></div>
                                 ))}
                             </div>

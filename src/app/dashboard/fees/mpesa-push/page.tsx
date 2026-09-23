@@ -326,7 +326,7 @@ export default function KCBBuniPushPage() {
 
             {/* Send button */}
             {(pushStatus === 'idle' || pushStatus === 'failed') && (
-              <button onClick={handlePush} disabled={!selected || pushStatus === 'sending'} style={{ background: selected ? 'linear-gradient(135deg,#0c4a6e,#0891b2)' : '#e2e8f0', color: selected ? '#fff' : '#94a3b8', border: 'none', borderRadius: 12, padding: '14px 20px', fontWeight: 900, fontSize: 15, cursor: selected ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', fontFamily: 'inherit' }}>
+              <button onClick={handlePush} disabled={!selected || (pushStatus as string) === 'sending'} style={{ background: selected ? 'linear-gradient(135deg,#0c4a6e,#0891b2)' : '#e2e8f0', color: selected ? '#fff' : '#94a3b8', border: 'none', borderRadius: 12, padding: '14px 20px', fontWeight: 900, fontSize: 15, cursor: selected ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', fontFamily: 'inherit' }}>
                 <span>🏦</span> {`Send KCB Buni Push${amount ? ` — ${KES(Number(amount))}` : ''}`}
               </button>
             )}

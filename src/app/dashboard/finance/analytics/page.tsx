@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -213,7 +213,7 @@ export default function FinanceAnalyticsPage() {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
             <h3 className="text-sm font-bold text-gray-800 mb-4">By Payment Method</h3>
             <div className="space-y-2">
-              {Object.entries(payments.reduce((acc, p) => { const m = p.payment_method || 'Unknown'; acc[m] = (acc[m]||0) + (p.amount||0); return acc; }, {} as Record<string,number>)).sort((a,b)=>b[1]-a[1]).map(([method, total], i) => (
+              {Object.entries(payments.reduce((acc, p) => { const m = p.payment_method || 'Unknown'; acc[m] = (acc[m]||0) + (p.amount||0); return acc; }, {} as Record<string,number>)).sort((a,b)=>(b[1] as number)-(a[1] as number)).map(([method, total], i) => (
                 <ProgressBar key={method} label={method} value={total as number} max={totalCollected} color={COLORS[i%COLORS.length]} />
               ))}
               {payments.length === 0 && <p className="text-gray-400 text-sm text-center py-4">No payment data yet</p>}
