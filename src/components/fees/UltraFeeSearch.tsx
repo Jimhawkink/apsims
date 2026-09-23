@@ -232,14 +232,14 @@ export default function UltraFeeSearch({
         </div>
       )}
 
-      {/* ── FILTER CHIPS ── */}
-      {(isFocused || showDropdown || !selectedStudent) && (
+      {/* ── FILTER CHIPS — always visible ── */}
+      {!selectedStudent && (
         <div style={{ marginBottom: 10 }}>
           {/* Form chips */}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', alignSelf: 'center', marginRight: 2 }}>Form:</span>
             {[{ id: 0, form_name: 'All' }, ...forms].map(f => (
-              <button key={f.id} onClick={() => setFilterForm(f.id)}
+              <button key={f.id} onClick={() => { setFilterForm(f.id); setShowDropdown(true); inputRef.current?.focus(); }}
                 style={{
                   padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                   border: '1.5px solid',
@@ -253,7 +253,7 @@ export default function UltraFeeSearch({
               <>
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', alignSelf: 'center', marginLeft: 8, marginRight: 2 }}>Stream:</span>
                 {[{ id: 0, stream_name: 'All' }, ...streams].map(s => (
-                  <button key={s.id} onClick={() => setFilterStream(s.id)}
+                  <button key={s.id} onClick={() => { setFilterStream(s.id); setShowDropdown(true); inputRef.current?.focus(); }}
                     style={{
                       padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                       border: '1.5px solid',
@@ -270,7 +270,7 @@ export default function UltraFeeSearch({
           <div style={{ display: 'flex', gap: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', alignSelf: 'center', marginRight: 2 }}>Status:</span>
             {STATUS_FILTERS.map(sf => (
-              <button key={sf.key} onClick={() => setFilterStatus(sf.key)}
+              <button key={sf.key} onClick={() => { setFilterStatus(sf.key); setShowDropdown(true); inputRef.current?.focus(); }}
                 style={{
                   padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                   border: '1.5px solid',
@@ -280,9 +280,16 @@ export default function UltraFeeSearch({
                   transition: 'all 0.15s',
                 }}>{sf.label}</button>
             ))}
+            {/* Count badge */}
+            {(filterForm > 0 || filterStream > 0 || filterStatus !== 'all') && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', alignSelf: 'center', marginLeft: 4 }}>
+                → {chipFiltered.length} students
+              </span>
+            )}
           </div>
         </div>
       )}
+
 
       {/* ── SEARCH INPUT ── */}
       <div style={{ position: 'relative' }}>
