@@ -365,7 +365,7 @@ export default function TeacherSubjectsPage() {
         </div>
         {/* Tabs */}
         <div className="px-6 flex gap-1 border-t border-gray-100">
-          {([['grid','≡ƒùô∩╕Å Assignment Grid'],['list','≡ƒôï Full List'],['teacher-view','≡ƒæ⌐ΓÇì≡ƒÅ½ By Teacher']] as [Tab, string][]).map(([t, l]) => (
+        {([['grid','Assignment Grid'],['list','Full List'],['teacher-view','By Teacher']] as [Tab, string][]).map(([t, l]) => (
             <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${tab===t?'border-indigo-500 text-indigo-600':'border-transparent text-gray-500 hover:text-gray-700'}`}>{l}</button>
           ))}
         </div>

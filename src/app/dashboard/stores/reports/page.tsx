@@ -14,6 +14,7 @@ const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-KE', { day
 const fmtDateTime = (d: string) => d ? new Date(d).toLocaleString('en-KE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
 const REPORTS = [
+    { id: 'stock-movement',      icon: '📊', label: 'Stock Movement',          color: '#0f766e' },
     { id: 'stock-valuation',     icon: '📦', label: 'Stock Valuation',        color: '#b45309' },
     { id: 'issuances-dept',      icon: '📤', label: 'Issuances by Department', color: '#1e40af' },
     { id: 'issuances-person',    icon: '👤', label: 'Issuances by Person',     color: '#7c3aed' },
@@ -98,7 +99,68 @@ export default function StoresReportsPage() {
         const from = dateFrom || '2020-01-01';
         const to = dateTo || '2099-12-31';
 
-        if (activeReport === 'stock-valuation') {
+        if (activeReport === 'stock-movement') {
+            const [itemsRes, grnsRes, issRes] = await Promise.all([
+                supabase.from('school_store_items').select('*').eq('is_active', true).order('item_name'),
+                supabase.from('school_store_purchases').select('*').gte('created_at', from).lte('created_at', to + 'T23:59:59').order('created_at'),
+                supabase.from('school_store_issuances').select('*').gte('created_at', from).lte('created_at', to + 'T23:59:59').order('created_at'),
+            ]);
+            const allItems: any[] = itemsRes.data || [];
+            const grns: any[] = grnsRes.data || [];
+            const iss: any[] = issRes.data || [];
+            // Build per-item movement ledger
+            const ledgerMap: Record<string, any[]> = {};
+            allItems.forEach((item: any) => { ledgerMap[String(item.id)] = []; });
+            grns.forEach((g: any) => {
+                const key = String(g.item_id);
+                if (!ledgerMap[key]) ledgerMap[key] = [];
+                ledgerMap[key].push({
+                    date: g.created_at, type: 'PURCHASE',
+                    ref: g.grn_number || g.purchase_order_no || '—',
+                    description: `Purchase from ${g.supplier || 'Supplier'}`,
+                    received_by: g.received_by || '—',
+                    qty_in: Number(g.quantity || 0), qty_out: 0,
+                    unit_cost: Number(g.unit_price || 0),
+                    value: Number(g.total_cost || 0),
+                    remarks: g.remarks || '',
+                });
+            });
+            iss.forEach((i: any) => {
+                const key = String(i.item_id);
+                if (!ledgerMap[key]) ledgerMap[key] = [];
+                ledgerMap[key].push({
+                    date: i.created_at, type: 'ISSUED',
+                    ref: i.issue_number || i.requisition_no || '—',
+                    description: `Issued to ${i.issued_to || '—'} (${i.department || ''})`,
+                    received_by: i.approved_by || '—',
+                    qty_in: 0, qty_out: Number(i.quantity || 0),
+                    unit_cost: Number(i.unit_price || 0),
+                    value: Number(i.quantity || 0) * Number(i.unit_price || 0),
+                    remarks: i.purpose || i.remarks || '',
+                });
+            });
+            // Compute running balances
+            const result: any[] = allItems.map((item: any) => {
+                const movements = (ledgerMap[String(item.id)] || []).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                const netIn = movements.reduce((s: number, m: any) => s + m.qty_in, 0);
+                const netOut = movements.reduce((s: number, m: any) => s + m.qty_out, 0);
+                const closing = Number(item.quantity || 0);
+                const opening = closing - netIn + netOut;
+                let running = opening;
+                const rows = movements.map((m: any) => {
+                    running += m.qty_in - m.qty_out;
+                    return { ...m, balance: running };
+                });
+                return {
+                    item, movements: rows, opening, closing,
+                    totalIn: netIn, totalOut: netOut,
+                    totalInValue: movements.filter((m: any) => m.qty_in > 0).reduce((s: number, m: any) => s + m.value, 0),
+                    totalOutValue: movements.filter((m: any) => m.qty_out > 0).reduce((s: number, m: any) => s + m.value, 0),
+                };
+            });
+            setData({ ledger: result, allItems, schoolName: sn });
+        }
+        else if (activeReport === 'stock-valuation') {
             const { data: items } = await supabase.from('school_store_items').select('*').eq('is_active', true).order('category');
             setData({ items: items || [], schoolName: sn });
         }
@@ -175,6 +237,205 @@ export default function StoresReportsPage() {
                 <p style={{ fontSize: 14, fontWeight: 700, color: '#6b7280' }}>Loading report data…</p>
             </div>
         );
+
+        // ─── STOCK MOVEMENT ───
+        if (activeReport === 'stock-movement') {
+            const ledger: any[] = data.ledger || [];
+            const allItems: any[] = data.allItems || [];
+            const [selItem, setSelItemLocal] = (window as any).__smState || [null, null];
+            const grandTotalIn = ledger.reduce((s: number, r: any) => s + r.totalInValue, 0);
+            const grandTotalOut = ledger.reduce((s: number, r: any) => s + r.totalOutValue, 0);
+            const activeItems = ledger.filter((r: any) => r.movements.length > 0);
+            const [expandedItems, setExpandedItems] = (window as any).__smExpanded || [{}, () => {}];
+
+            return (
+                <div>
+                    {/* KPI Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginBottom: 20 }}>
+                        {[
+                            { l: 'Total Items', v: allItems.length, c: '#1e3a5f', icon: '📦' },
+                            { l: 'Items with Movement', v: activeItems.length, c: '#0f766e', icon: '🔄' },
+                            { l: 'Total Received (KES)', v: fmt(grandTotalIn), c: '#059669', icon: '📥' },
+                            { l: 'Total Issued (KES)', v: fmt(grandTotalOut), c: '#dc2626', icon: '📤' },
+                            { l: 'Net Balance (KES)', v: fmt(grandTotalIn - grandTotalOut), c: '#7c3aed', icon: '⚖️' },
+                        ].map((k: any, i) => (
+                            <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', border: `2px solid ${k.c}20`, borderLeft: `4px solid ${k.c}`, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                                <div style={{ fontSize: 18, marginBottom: 4 }}>{k.icon}</div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: k.c, textTransform: 'uppercase', letterSpacing: 0.5 }}>{k.l}</div>
+                                <div style={{ fontSize: 18, fontWeight: 900, color: '#1f2937', marginTop: 2 }}>{k.v}</div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                        <button onClick={() => {
+                            const headers = ['Item Code', 'Item Name', 'Category', 'Unit', 'Date', 'Type', 'Ref No', 'Description', 'Qty In', 'Qty Out', 'Unit Cost (KES)', 'Value (KES)', 'Running Balance', 'Done By', 'Remarks'];
+                            const rows: any[] = [];
+                            ledger.forEach((r: any) => {
+                                rows.push([r.item.item_code || '', r.item.item_name, r.item.category, r.item.unit, '', 'OPENING BALANCE', '', '', '', '', '', '', r.opening, '', '']);
+                                r.movements.forEach((m: any) => {
+                                    rows.push([r.item.item_code || '', r.item.item_name, r.item.category, r.item.unit, fmtDate(m.date), m.type, m.ref, m.description, m.qty_in || '', m.qty_out || '', fmtN(m.unit_cost), fmtN(m.value), m.balance, m.received_by, m.remarks]);
+                                });
+                                rows.push([r.item.item_code || '', r.item.item_name, r.item.category, r.item.unit, '', 'CLOSING BALANCE', '', '', r.totalIn, r.totalOut, '', '', r.closing, '', '']);
+                                rows.push([]);
+                            });
+                            exportCSV(headers, rows, 'Stock_Movement_Report');
+                        }} style={{ padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#065f46', background: '#d1fae5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <FiDownload size={12} /> Export Excel
+                        </button>
+                        <button onClick={() => {
+                            const rows = ledger.map((r: any) => {
+                                const movRows = r.movements.map((m: any) =>
+                                    `<tr style="background:${m.type==='PURCHASE'?'#f0fdf4':'#fff5f5'}">
+                                        <td>${fmtDate(m.date)}</td>
+                                        <td><span class="badge" style="background:${m.type==='PURCHASE'?'#d1fae5':'#fee2e2'};color:${m.type==='PURCHASE'?'#065f46':'#dc2626'}">${m.type}</span></td>
+                                        <td style="font-family:monospace">${m.ref}</td>
+                                        <td>${m.description}</td>
+                                        <td style="text-align:center;font-weight:700;color:#059669">${m.qty_in || '—'}</td>
+                                        <td style="text-align:center;font-weight:700;color:#dc2626">${m.qty_out || '—'}</td>
+                                        <td style="text-align:right">${fmtN(m.unit_cost)}</td>
+                                        <td style="text-align:right;font-weight:700">${fmtN(m.value)}</td>
+                                        <td style="text-align:center;font-weight:900;color:#1e3a5f">${m.balance}</td>
+                                        <td>${m.received_by}</td>
+                                        <td>${m.remarks}</td>
+                                    </tr>`).join('');
+                                return `<div class="section-title">${r.item.item_name} &nbsp;<small style="font-weight:400;color:#9ca3af">${r.item.item_code||''} | ${r.item.unit} | ${r.item.category}</small></div>
+                                <table>
+                                <thead><tr>
+                                    <th>Date</th><th>Type</th><th>Ref No</th><th>Description</th><th>Qty In</th><th>Qty Out</th><th>Unit Cost (KES)</th><th>Value (KES)</th><th>Balance</th><th>Done By</th><th>Remarks</th>
+                                </tr></thead><tbody>
+                                <tr style="background:#e0f2fe"><td colspan="4" style="font-weight:800">Opening Balance</td><td></td><td></td><td></td><td></td><td style="text-align:center;font-weight:900">${r.opening}</td><td></td><td></td></tr>
+                                ${movRows}
+                                <tr class="total-row"><td colspan="4" style="text-align:right">CLOSING BALANCE / TOTALS</td>
+                                    <td style="text-align:center">${r.totalIn}</td><td style="text-align:center">${r.totalOut}</td>
+                                    <td style="text-align:right">${fmtN(r.totalInValue)}</td><td style="text-align:right">${fmtN(r.totalOutValue)}</td>
+                                    <td style="text-align:center">${r.closing}</td><td></td><td></td></tr>
+                                </tbody></table>`;
+                            }).join('<br/>');
+                            const kpis = `<div class="kpi-row"><div class="kpi"><div class="kpi-label">Total Items</div><div class="kpi-val">${allItems.length}</div></div><div class="kpi"><div class="kpi-label">Total Received</div><div class="kpi-val">KES ${fmtN(grandTotalIn)}</div></div><div class="kpi"><div class="kpi-label">Total Issued</div><div class="kpi-val">KES ${fmtN(grandTotalOut)}</div></div><div class="kpi"><div class="kpi-label">Net Balance</div><div class="kpi-val">KES ${fmtN(grandTotalIn-grandTotalOut)}</div></div></div>`;
+                            printReport('Stock Movement Report', sn, `Period: ${dateFrom||'All'} to ${dateTo||'All'}`, kpis + rows);
+                        }} style={{ padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#92400e', background: '#fef3c7', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <FiPrinter size={12} /> Print PDF
+                        </button>
+                    </div>
+
+                    {/* Per-Item Ledger Accordion */}
+                    {ledger.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af', background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb' }}>
+                            <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+                            <p style={{ fontWeight: 700 }}>No stock movement data found.</p>
+                            <p style={{ fontSize: 12, marginTop: 4 }}>Click Load Report or adjust the date range.</p>
+                        </div>
+                    ) : ledger.map((r: any, ri: number) => {
+                        const hasMovements = r.movements.length > 0;
+                        const isExpanded = (data.expanded || {})[ri];
+                        return (
+                            <div key={ri} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', marginBottom: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                                {/* Item Header — always visible */}
+                                <div onClick={() => setData((prev: any) => ({ ...prev, expanded: { ...(prev.expanded || {}), [ri]: !isExpanded } }))}
+                                    style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', background: isExpanded ? '#f0fdf4' : '#fff', borderBottom: isExpanded ? '1px solid #e5e7eb' : 'none' }}>
+                                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg,#0f766e,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16, flexShrink: 0 }}>📦</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 800, fontSize: 14, color: '#1f2937' }}>{r.item.item_name}</div>
+                                        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                                            {r.item.item_code || 'N/A'} &bull; {r.item.unit} &bull; {r.item.category}
+                                        </div>
+                                    </div>
+                                    {/* Summary chips */}
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#e0f2fe', color: '#0369a1' }}>
+                                            Opening: <strong>{r.opening}</strong>
+                                        </span>
+                                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#d1fae5', color: '#065f46' }}>
+                                            In: <strong>+{r.totalIn}</strong>
+                                        </span>
+                                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#fee2e2', color: '#dc2626' }}>
+                                            Out: <strong>-{r.totalOut}</strong>
+                                        </span>
+                                        <span style={{ fontSize: 11, fontWeight: 900, padding: '3px 10px', borderRadius: 20, background: '#1e3a5f', color: '#fff' }}>
+                                            Balance: {r.closing}
+                                        </span>
+                                        {!hasMovements && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: '#f3f4f6', color: '#9ca3af' }}>No movement</span>}
+                                    </div>
+                                    <div style={{ fontSize: 18, color: '#9ca3af', marginLeft: 8 }}>{isExpanded ? '▲' : '▼'}</div>
+                                </div>
+
+                                {/* Expanded ledger table */}
+                                {isExpanded && (
+                                    <div style={{ overflowX: 'auto' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                            <thead>
+                                                <tr style={{ background: '#1e3a5f' }}>
+                                                    {['Date', 'Type', 'Ref No', 'Description', 'Qty In', 'Qty Out', 'Unit Cost', 'Value (KES)', 'Balance', 'Done By', 'Remarks'].map(h => (
+                                                        <th key={h} style={{ padding: '9px 12px', color: '#fff', textAlign: 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {/* Opening Balance Row */}
+                                                <tr style={{ background: '#dbeafe', borderBottom: '1px solid #bfdbfe' }}>
+                                                    <td colSpan={4} style={{ padding: '8px 12px', fontWeight: 800, color: '#1e3a5f', fontSize: 12 }}>📋 OPENING BALANCE</td>
+                                                    <td style={{ padding: '8px 12px' }}></td>
+                                                    <td style={{ padding: '8px 12px' }}></td>
+                                                    <td style={{ padding: '8px 12px' }}></td>
+                                                    <td style={{ padding: '8px 12px' }}></td>
+                                                    <td style={{ padding: '8px 12px', fontWeight: 900, fontSize: 14, color: '#1e3a5f', textAlign: 'center' }}>{r.opening}</td>
+                                                    <td style={{ padding: '8px 12px' }}></td>
+                                                    <td style={{ padding: '8px 12px' }}></td>
+                                                </tr>
+                                                {/* Movement Rows */}
+                                                {r.movements.length === 0 ? (
+                                                    <tr><td colSpan={11} style={{ textAlign: 'center', padding: 24, color: '#9ca3af', fontStyle: 'italic' }}>No movements in this period</td></tr>
+                                                ) : r.movements.map((m: any, mi: number) => (
+                                                    <tr key={mi} style={{ background: m.type === 'PURCHASE' ? '#f0fdf4' : '#fff5f5', borderBottom: '1px solid #f3f4f6' }}>
+                                                        <td style={{ padding: '8px 12px', color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDate(m.date)}</td>
+                                                        <td style={{ padding: '8px 12px' }}>
+                                                            <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 20, background: m.type === 'PURCHASE' ? '#d1fae5' : '#fee2e2', color: m.type === 'PURCHASE' ? '#065f46' : '#dc2626' }}>
+                                                                {m.type === 'PURCHASE' ? '📥 GRN' : '📤 ISSUE'}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, color: '#b45309', fontWeight: 700 }}>{m.ref}</td>
+                                                        <td style={{ padding: '8px 12px', color: '#374151', maxWidth: 200 }}>{m.description}</td>
+                                                        <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 900, color: '#059669', fontSize: 14 }}>
+                                                            {m.qty_in > 0 ? `+${m.qty_in}` : <span style={{ color: '#d1d5db' }}>—</span>}
+                                                        </td>
+                                                        <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 900, color: '#dc2626', fontSize: 14 }}>
+                                                            {m.qty_out > 0 ? `-${m.qty_out}` : <span style={{ color: '#d1d5db' }}>—</span>}
+                                                        </td>
+                                                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#6b7280' }}>{fmt(m.unit_cost)}</td>
+                                                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#1f2937' }}>{fmt(m.value)}</td>
+                                                        <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 900, fontSize: 15, color: m.balance <= (r.item.reorder_level || 5) ? '#dc2626' : '#1e3a5f' }}>
+                                                            {m.balance}
+                                                            {m.balance <= (r.item.reorder_level || 5) && <span style={{ fontSize: 9, display: 'block', color: '#dc2626' }}>⚠️ LOW</span>}
+                                                        </td>
+                                                        <td style={{ padding: '8px 12px', color: '#6b7280', fontSize: 11 }}>{m.received_by}</td>
+                                                        <td style={{ padding: '8px 12px', color: '#9ca3af', fontSize: 11, fontStyle: 'italic' }}>{m.remarks || '—'}</td>
+                                                    </tr>
+                                                ))}
+                                                {/* Closing Balance Row */}
+                                                <tr style={{ background: '#1e3a5f', borderTop: '2px solid #1e3a5f' }}>
+                                                    <td colSpan={4} style={{ padding: '10px 12px', fontWeight: 900, color: '#fff', fontSize: 12 }}>CLOSING BALANCE / TOTALS</td>
+                                                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, color: '#6ee7b7', fontSize: 14 }}>+{r.totalIn}</td>
+                                                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, color: '#fca5a5', fontSize: 14 }}>-{r.totalOut}</td>
+                                                    <td style={{ padding: '10px 12px' }}></td>
+                                                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 900, color: '#fff' }}>
+                                                        <div style={{ fontSize: 10, color: '#6ee7b7' }}>In: {fmt(r.totalInValue)}</div>
+                                                        <div style={{ fontSize: 10, color: '#fca5a5' }}>Out: {fmt(r.totalOutValue)}</div>
+                                                    </td>
+                                                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 900, fontSize: 18, color: '#fff' }}>{r.closing}</td>
+                                                    <td colSpan={2} style={{ padding: '10px 12px' }}></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
 
         // ─── STOCK VALUATION ───
         if (activeReport === 'stock-valuation') {
