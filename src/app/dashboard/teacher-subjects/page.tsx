@@ -270,7 +270,7 @@ export default function TeacherSubjectsPage() {
                   {subjects.map(s => <option key={s.id} value={s.id}>{s.subject_name}</option>)}
                 </select>
               </div>
-              <div className="text-center text-xs text-gray-400 font-medium">ΓÇö OR JSS Learning Area ΓÇö</div>
+              <div className="text-center text-xs text-gray-400 font-medium">— OR JSS Learning Area —</div>
               <div>
                 <label className="text-xs font-bold text-gray-600 block mb-1">JSS Learning Area</label>
                 <select value={editAssign.learning_area_id || ''} onChange={e => setEditAssign(p => ({ ...p, learning_area_id: Number(e.target.value) || undefined, subject_id: undefined }))}
