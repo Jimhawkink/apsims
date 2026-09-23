@@ -158,7 +158,10 @@ export default function TeacherSubjectsPage() {
 
   // ── Fetch assignments from canonical table ─────────────────────────────────
   const fetchAssignments = useCallback(async () => {
-    // *** KEY CHANGE: reads from school_subject_teachers (the canonical table) ***
+    // Reads from school_subject_teachers — the canonical table used by
+    // Settings page, mobile app, marks entry, reports, timetable etc.
+    // NO year filter by default: Settings-created records have year=NULL
+    // and must still be visible here.
     let q = supabase
       .from('school_subject_teachers')
       .select('*')
@@ -168,8 +171,12 @@ export default function TeacherSubjectsPage() {
     if (selStream)  q = q.eq('stream_id', selStream);
     if (selTerm)    q = q.eq('term_id', selTerm);
     if (selTeacher) q = q.eq('teacher_id', selTeacher);
-    // year filter only when term also selected, to avoid hiding old records
-    if (selYear && !selTerm) q = q.eq('year', selYear);
+    // Only filter by year when a specific year is chosen AND
+    // we also include NULL-year records (added via Settings page)
+    // by using .or() so legacy records are never hidden.
+    if (selYear && !selTerm) {
+      q = q.or(`year.eq.${selYear},year.is.null`);
+    }
 
     const { data, error } = await q;
     if (error) {
