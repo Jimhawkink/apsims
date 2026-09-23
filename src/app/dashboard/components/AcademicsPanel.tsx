@@ -96,7 +96,7 @@ export default function AcademicsPanel() {
         supabase.from('school_forms').select('*').order('form_level'),
         supabase.from('school_students').select('id,form_id,gender,status,first_name,last_name').eq('status', 'Active'),
         supabase.from('school_teachers').select('id,full_name,staff_type,status').eq('status', 'Active'),
-        supabase.from('school_teacher_subjects').select('teacher_id,subject_id').limit(200),
+        supabase.from('school_subject_teachers').select('teacher_id,subject_id,learning_area_id').limit(200),
         supabase.from('school_sba_marks').select('student_id,subject_id,score,strand,term').limit(500),
         supabase.from('school_daily_attendance').select('status,student_id').eq('attendance_date', new Date().toISOString().split('T')[0]),
       ]);
