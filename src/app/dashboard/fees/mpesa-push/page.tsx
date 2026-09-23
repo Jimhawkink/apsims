@@ -44,61 +44,52 @@ export default function KCBBuniPushPage() {
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
-    const [txRes, feeRes, stuRes] = await Promise.all([
-      supabase.from('school_mpesa_transactions')
-        .select('checkout_request_id,student_id,amount,phone_number,status,mpesa_receipt,payment_method,created_at,updated_at')
-        .order('created_at', { ascending: false }).limit(50),
+
+    // school_mpesa_transactions does NOT exist in schema — use school_fee_payments
+    // KCB payments are stored there with payment_method='KCB Buni'/'KCB'
+    // KCB receipt codes start with 'UI' (e.g. UILFN7AOBP as seen in collect page)
+    const [kcbRes, uiRes, stuRes] = await Promise.all([
       supabase.from('school_fee_payments')
-        .select('id,student_id,amount,payment_date,payment_method,receipt_number,mpesa_code,created_at')
+        .select('id,student_id,amount,payment_date,payment_method,receipt_number,mpesa_code,mpesa_receipt,reference_number,received_by,created_at,notes')
         .ilike('payment_method', '%KCB%')
-        .order('created_at', { ascending: false }).limit(50),
+        .order('created_at', { ascending: false })
+        .limit(100),
+      supabase.from('school_fee_payments')
+        .select('id,student_id,amount,payment_date,payment_method,receipt_number,mpesa_code,mpesa_receipt,reference_number,received_by,created_at,notes')
+        .ilike('mpesa_receipt', 'UI%')
+        .order('created_at', { ascending: false })
+        .limit(100),
       supabase.from('school_students')
-        .select('id,first_name,last_name,guardian_phone'),
+        .select('id,first_name,last_name,guardian_phone,admission_no,admission_number'),
     ]);
 
     const stuMap: Record<string, any> = {};
     (stuRes.data || []).forEach((s: any) => { stuMap[String(s.id)] = s; });
 
-    const getName = (sid: any) => {
-      const s = stuMap[String(sid)];
-      return s ? `${s.first_name} ${s.last_name}` : '';
-    };
-    const getPhone = (sid: any, fallback?: string) => {
-      if (fallback && fallback.length > 5) return fallback;
-      return stuMap[String(sid)]?.guardian_phone || '';
-    };
+    const getName  = (sid: any) => { const s = stuMap[String(sid)]; return s ? `${s.first_name} ${s.last_name}` : '—'; };
+    const getPhone = (sid: any) => stuMap[String(sid)]?.guardian_phone || '—';
 
-    const txRows = (txRes.data || []).map((r: any) => ({
-      key: r.mpesa_receipt || r.checkout_request_id,
-      student_name: getName(r.student_id),
-      phone_number: getPhone(r.student_id, r.phone_number),
-      transaction_code: r.mpesa_receipt || '',
-      amount: r.amount,
-      status: r.status || 'Pending',
-      created_at: r.updated_at || r.created_at,
-    }));
-
-    const feeRows = (feeRes.data || []).map((r: any) => ({
-      key: r.mpesa_code || r.receipt_number || String(r.id),
+    const toRow = (r: any) => ({
+      key: r.mpesa_receipt || r.mpesa_code || r.receipt_number || String(r.id),
       student_name: getName(r.student_id),
       phone_number: getPhone(r.student_id),
-      transaction_code: r.mpesa_code || r.receipt_number || '',
+      transaction_code: r.mpesa_receipt || r.mpesa_code || r.reference_number || r.receipt_number || '',
       amount: r.amount,
       status: 'Completed',
+      payment_method: r.payment_method || 'KCB',
+      receipt_number: r.receipt_number || '',
       created_at: r.created_at || r.payment_date,
-    }));
+    });
 
     const seen = new Set<string>();
-    const merged = [...txRows, ...feeRows].filter(r => {
-      const k = r.key || String(r.amount);
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-    merged.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    const merged = [...(kcbRes.data || []).map(toRow), ...(uiRes.data || []).map(toRow)]
+      .filter(r => { if (seen.has(r.key)) return false; seen.add(r.key); return true; })
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
     setHistory(merged);
     setLoadingHistory(false);
   }, []);
+
 
   useEffect(() => { loadBase(); loadHistory(); }, [loadBase, loadHistory]);
 
