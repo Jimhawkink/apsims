@@ -192,24 +192,11 @@ export default function PayFeesScreen() {
                     setBalance((prev: number) => Math.max(0, prev - confirmedAmt));
                     setStep('success');
                     playSuccess();
-                    // ✅ Record to school_fee_payments via server (validates receipt)
-                    if (code && code.length > 4) {
-                        fetch(`${SCHOOL_API_BASE}/api/payments/record-fee-payment`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                studentId,
-                                receiptCode: code,
-                                amount: confirmedAmt,
-                                checkoutRequestId: reqId,
-                            }),
-                        })
-                        .then(r => r.json())
-                        .then(d => { console.log('[PayFees] recorded:', d); loadFeeData(); })
-                        .catch(e => console.warn('[PayFees] record error:', e));
-                    } else {
-                        loadFeeData();
-                    }
+                    
+                    // ⚠️ DO NOT call record-fee-payment here!
+                    // The KCB webhook (kcb-callback) ALREADY records the payment into school_fee_payments.
+                    // Calling it again from the mobile app causes duplicate receipts.
+                    loadFeeData();
 
                 } else if (s === 'failed' || s === 'cancelled') {
                     clearInterval(pollRef.current!);
