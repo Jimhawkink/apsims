@@ -176,7 +176,6 @@ export async function POST(req: NextRequest) {
             amount:              Number(amount),
             phone_number:        normalizedPhone,
             status:              'Pending',
-            payment_method:      'KCB',
             created_at:          new Date().toISOString(),
         }]).then(({ error: e }) => { if (e) console.error('[KCB] DB log:', e.message); });
 
