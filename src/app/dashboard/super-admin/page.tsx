@@ -55,7 +55,10 @@ const PAGE_PERMISSIONS = [
         { key:'budget',                 label:'Budget',                      desc:'Budget management' },
         { key:'capitation',             label:'Capitation',                  desc:'Govt capitation funds' },
         { key:'procurement',            label:'Procurement',                 desc:'Purchase orders, GRN' },
-        { key:'stores',                 label:'Stores / Inventory',          desc:'Stock management' },
+        { key:'stores',                 label:'Stores / Inventory',          desc:'Stock management (Base)' },
+        { key:'stores_add_item',        label:'Stores — Add Item',           desc:'Can add new items' },
+        { key:'stores_receive_stock',   label:'Stores — Receive Stock',      desc:'Can receive GRN/Stock' },
+        { key:'stores_audit',           label:'Stores — Audit Trail',        desc:'Can view audit logs' },
         { key:'finance_analytics',      label:'Finance Analytics',           desc:'Finance dashboards' },
     ]},
     { group:'👩‍🏫 Staff & HR', items:[
@@ -111,7 +114,7 @@ const ROLE_PRESETS: Record<string, string[]> = {
     deputy:       ['dashboard','students','exams_marks','exams_cbc_marks','exams_manage','exams_report_cards','exams_cbc_report_cards','exams_analysis','exams_principal_report','exams_marks_completion','exams_student_passport','exams_class_teacher','exams_cohort_tracker','exams_broadsheet','exams_merit_list','exams_sba','attendance','attendance_biometric','discipline','guidance','communication','curriculum','timetable','academic_calendar','staff','teachers','teachers_appraisal','teachers_cpd','teachers_leave','hr_payroll','reports','analytics'],
     hod:          ['dashboard','exams_marks','exams_cbc_marks','exams_manage','exams_report_cards','exams_cbc_report_cards','exams_analysis','exams_marks_completion','exams_student_passport','exams_class_teacher','exams_cohort_tracker','exams_broadsheet','exams_merit_list','exams_sba','exams_question_bank','exams_release_results','exams_subject_grading','exams_ai_insights','attendance','students','discipline','curriculum','timetable','reports'],
     teacher:      ['dashboard','exams_marks','exams_cbc_marks','exams_report_cards','exams_cbc_report_cards','attendance'],
-    bursar:       ['dashboard','fees','fees_collect','fees_structure','fees_reports','fees_mpesa','expenses','income','payroll','budget','capitation','procurement','stores','finance_analytics','reports'],
+    bursar:       ['dashboard','fees','fees_collect','fees_structure','fees_reports','fees_mpesa','expenses','income','payroll','budget','capitation','procurement','stores','stores_add_item','stores_receive_stock','stores_audit','finance_analytics','reports'],
     accountant:   ['dashboard','fees','fees_reports','expenses','income','finance_analytics','reports'],
     storekeeper:  ['dashboard','stores'],
     librarian:    ['dashboard','library'],
@@ -340,8 +343,8 @@ export default function SuperAdminPage() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
-                    {ROLES_META.slice(0,5).map(r => {
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mt-5">
+                    {ROLES_META.map(r => {
                         const count = users.filter(u => u.role === r.key).length;
                         return (
                             <div key={r.key} className="bg-white/10 rounded-xl p-3 text-center">

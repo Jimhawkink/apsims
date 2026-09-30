@@ -390,7 +390,6 @@ const filterMenuGroups = (groups: typeof menuGroups, isAdmin: boolean, permissio
         const filteredItems = group.items.filter((item: any) => {
             if (item.superAdminOnly && !isSuperAdmin) return false; // ZKTeco etc — ONLY super admin
             if (isAdmin) return true;  // admin, principal, super-admin see everything
-            if (item.perm === 'dashboard') return true;
             return permissions[item.perm] === true;
         });
         return { ...group, items: filteredItems };

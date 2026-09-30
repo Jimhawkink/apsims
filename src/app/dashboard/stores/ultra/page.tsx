@@ -72,13 +72,23 @@ export default function UltraStoresPage() {
     const [issueStatusFilter, setIssueStatusFilter] = useState('All');
     const [saving, setSaving] = useState(false);
     const [userRole, setUserRole] = useState('admin');
+    const [userPerms, setUserPerms] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         const stored = localStorage.getItem('school_user');
         if (stored) {
-            try { setUserRole(JSON.parse(stored).role?.toLowerCase() || 'admin'); } catch {}
+            try { 
+                const u = JSON.parse(stored);
+                setUserRole(u.role?.toLowerCase() || 'admin'); 
+                setUserPerms(u.permissions || {});
+            } catch {}
         }
     }, []);
+
+    const isSuperAdmin = ['super-admin', 'superadmin', 'super_admin', 'admin', 'principal'].includes(userRole);
+    const canAddItem = isSuperAdmin || userPerms['stores_add_item'];
+    const canReceiveStock = isSuperAdmin || userPerms['stores_receive_stock'];
+    const canViewAudit = isSuperAdmin || userPerms['stores_audit'];
 
     // Modals
     const [showItemModal, setShowItemModal] = useState(false);
@@ -355,6 +365,49 @@ export default function UltraStoresPage() {
         toast.success('Deleted'); fetchAll();
     };
 
+    const printIssuance = (iss: any) => {
+        const item = items.find(i => i.id === iss.item_id);
+        const w = window.open('', '_blank');
+        const dt = new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        w?.document.write(`<!DOCTYPE html><html><head><title>${iss.issuance_number || 'Issuance'}</title>
+<style>body{font-family:'Segoe UI',sans-serif;padding:24px;color:#1e293b;font-size:13px;}
+.h{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:12px;border-bottom:3px solid #3b82f6;}
+.hn{font-size:18px;font-weight:900;color:#3b82f6;}.b{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin:16px 0;}
+table{width:100%;border-collapse:collapse;margin:12px 0;}td,th{padding:10px 12px;border:1px solid #e2e8f0;font-size:12px;}
+th{background:#f8fafc;font-weight:700;text-transform:uppercase;font-size:10px;}
+.total{background:#3b82f6;color:#fff;font-weight:900;}.footer{margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;text-align:center;}
+.sb{border-top:2px solid #334155;padding-top:8px;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;}
+.badge{padding:4px 12px;border-radius:20px;font-size:10px;font-weight:800;display:inline-block;}
+</style></head><body>
+<div class="h"><div><p class="hn">${schoolInfo?.school_name || 'APSIMS School'}</p>
+<p style="font-size:11px;color:#64748b">${schoolInfo?.address || ''} | ${schoolInfo?.phone || ''}</p></div>
+<div style="text-align:right"><p style="font-size:10px;text-transform:uppercase;color:#64748b">Stores Issuance Voucher</p>
+<p style="font-size:20px;font-weight:900;color:#3b82f6">${iss.issuance_number || 'ISS'}</p>
+<p style="font-size:11px">${fmtDate(iss.created_at)}</p>
+<span class="badge" style="background:${iss.status==='Issued'?'#dbeafe':'#fef3c7'};color:${iss.status==='Issued'?'#1e40af':'#92400e'}">${iss.status}</span>
+</div></div>
+<div class="b"><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+<div><p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b">Issued To</p>
+<p style="font-weight:700">${iss.issued_to}</p><p style="font-size:12px">Type: ${iss.issued_to_type || '—'}</p></div>
+<div><p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b">Department / Purpose</p>
+<p style="font-weight:700">${iss.department || '—'}</p>
+<p style="font-size:12px">${iss.purpose || '—'}</p></div></div></div>
+<table><thead><tr><th>Item</th><th>Category</th><th>Qty Issued</th><th>Unit</th><th>Value (KES)</th></tr></thead>
+<tbody><tr><td>${iss.item_name}</td><td>${item?.category || '—'}</td><td style="text-align:center;font-weight:700">${iss.quantity}</td>
+<td>${iss.unit || item?.unit || '—'}</td>
+<td style="text-align:right;font-weight:900">${Number(iss.total_value||0).toLocaleString('en-KE',{minimumFractionDigits:2})}</td></tr>
+<tr class="total"><td colspan="4" style="text-align:right">TOTAL VALUE</td>
+<td style="text-align:right">KES ${Number(iss.total_value||0).toLocaleString('en-KE',{minimumFractionDigits:2})}</td></tr></tbody></table>
+${iss.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:12px"><strong>Notes:</strong> ${iss.notes}</div>` : ''}
+<div class="footer">
+<div class="sb">Requested By<br/>${iss.requested_by || '___________'}</div>
+<div class="sb">Approved By<br/>${iss.approved_by || '___________'}</div>
+<div class="sb">Issued By / Received By<br/>${iss.issued_by || '___________'}</div></div>
+<p style="text-align:center;margin-top:24px;font-size:10px;color:#94a3b8">APSIMS · ${dt}</p>
+<script>window.onload=()=>{window.print();}</script></body></html>`);
+        w?.document.close();
+    };
+
     const printGRN = (grn: any) => {
         const item = items.find(i => i.id === grn.item_id);
         const sup = suppliers.find(s => s.id === grn.supplier_id);
@@ -415,9 +468,9 @@ ${grn.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
         { k: 'kitchen', l: '🍳 Kitchen', count: kitchenItems.length },
         { k: 'issue', l: '📤 Issuances', count: issuances.length },
         { k: 'approvals', l: '🔐 Approvals', count: pendingIssuances.length, alert: pendingIssuances.length > 0 },
-        { k: 'grn', l: '📥 GRN / Receive', count: grns.length, alert: pendingGRNs.length > 0 },
+        ...(canReceiveStock ? [{ k: 'grn', l: '📥 GRN / Receive', count: grns.length, alert: pendingGRNs.length > 0 }] : []),
         { k: 'low', l: '⚠️ Low Stock', count: lowStockItems.length, alert: lowStockItems.length > 0 },
-        { k: 'audit', l: '📋 Audit Trail', count: auditLogs.length },
+        ...(canViewAudit ? [{ k: 'audit', l: '📋 Audit Trail', count: auditLogs.length }] : [])
     ];
 
     if (loading) return (
@@ -449,14 +502,18 @@ ${grn.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            <button onClick={() => { setItemForm({ ...emptyItem, item_code: genItemCode('Kitchen Provisions', items) }); setEditing(null); setShowItemModal(true); }}
-                                style={{ padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#fff', background: '#f59e0b', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <FiPlus size={12} /> Add Item
-                            </button>
-                            <button onClick={() => { setGrnForm({ ...emptyGRN, grn_number: `GRN-${new Date().getFullYear()}-${String(grns.length + 1).padStart(5, '0')}` }); setShowGRNModal(true); }}
-                                style={{ padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#22c55e,#16a34a)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <FiTruck size={12} /> Receive Stock (GRN)
-                            </button>
+                            {canAddItem && (
+                                <button onClick={() => { setItemForm({ ...emptyItem, item_code: genItemCode('Kitchen Provisions', items) }); setEditing(null); setShowItemModal(true); }}
+                                    style={{ padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#fff', background: '#f59e0b', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <FiPlus size={12} /> Add Item
+                                </button>
+                            )}
+                            {canReceiveStock && (
+                                <button onClick={() => { setGrnForm({ ...emptyGRN, grn_number: `GRN-${new Date().getFullYear()}-${String(grns.length + 1).padStart(5, '0')}` }); setShowGRNModal(true); }}
+                                    style={{ padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#22c55e,#16a34a)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <FiTruck size={12} /> Receive Stock (GRN)
+                                </button>
+                            )}
                             <button onClick={() => { setIssueForm(emptyIssue); setShowIssueModal(true); }}
                                 style={{ padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#fff', background: '#3b82f6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <FiMinus size={12} /> Request Issue
@@ -623,6 +680,7 @@ ${grn.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                                                         📤 Issue
                                                     </button>
                                                 )}
+                                                <button onClick={() => printIssuance(is)} style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#e0e7ff', color: '#3730a3' }} title="Print Issuance"><FiPrinter size={11} /></button>
                                                 <button onClick={() => setShowViewModal(is)} style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#f3f4f6', color: '#6b7280' }}><FiEye size={11} /></button>
                                             </div>
                                         </td>
