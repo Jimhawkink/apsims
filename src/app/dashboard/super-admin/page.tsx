@@ -113,6 +113,7 @@ const ROLE_PRESETS: Record<string, string[]> = {
     teacher:      ['dashboard','exams_marks','exams_cbc_marks','exams_report_cards','exams_cbc_report_cards','attendance'],
     bursar:       ['dashboard','fees','fees_collect','fees_structure','fees_reports','fees_mpesa','expenses','income','payroll','budget','capitation','procurement','stores','finance_analytics','reports'],
     accountant:   ['dashboard','fees','fees_reports','expenses','income','finance_analytics','reports'],
+    storekeeper:  ['dashboard','stores'],
     librarian:    ['dashboard','library'],
     nurse:        ['dashboard','students_health'],
     receptionist: ['dashboard','students','admissions','visitors','attendance'],
@@ -120,13 +121,14 @@ const ROLE_PRESETS: Record<string, string[]> = {
 };
 
 const ROLES_META = [
-    { key:'admin',        label:'Super Admin',     icon:'👑', color:'#dc2626' },
+    { key:'admin',        label:'Super Admin',      icon:'👑', color:'#dc2626' },
     { key:'principal',    label:'Principal',        icon:'🏛️', color:'#7c3aed' },
     { key:'deputy',       label:'Deputy Principal', icon:'🎓', color:'#4f46e5' },
     { key:'hod',          label:'Head of Dept',     icon:'📚', color:'#0891b2' },
     { key:'teacher',      label:'Teacher',          icon:'👩‍🏫', color:'#059669' },
     { key:'bursar',       label:'Bursar',           icon:'💰', color:'#d97706' },
     { key:'accountant',   label:'Accountant',       icon:'📊', color:'#f59e0b' },
+    { key:'storekeeper',  label:'Store Keeper',     icon:'📦', color:'#10b981' },
     { key:'librarian',    label:'Librarian',        icon:'📖', color:'#6366f1' },
     { key:'nurse',        label:'Nurse',            icon:'🏥', color:'#ec4899' },
     { key:'receptionist', label:'Receptionist',     icon:'🤝', color:'#0d9488' },

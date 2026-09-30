@@ -40,6 +40,7 @@ const genItemCode = (category: string, existingItems: any[]) => {
 const statusBadge = (status: string) => {
     const map: Record<string, { bg: string; color: string; icon: string }> = {
         'Pending':    { bg: '#fef3c7', color: '#92400e', icon: '⏳' },
+        'Verified':   { bg: '#e0e7ff', color: '#3730a3', icon: '👁️' },
         'Approved':   { bg: '#d1fae5', color: '#065f46', icon: '✅' },
         'Rejected':   { bg: '#fee2e2', color: '#991b1b', icon: '❌' },
         'Issued':     { bg: '#dbeafe', color: '#1e40af', icon: '📤' },
@@ -70,6 +71,14 @@ export default function UltraStoresPage() {
     const [filterCat, setFilterCat] = useState('All');
     const [issueStatusFilter, setIssueStatusFilter] = useState('All');
     const [saving, setSaving] = useState(false);
+    const [userRole, setUserRole] = useState('admin');
+
+    useEffect(() => {
+        const stored = localStorage.getItem('school_user');
+        if (stored) {
+            try { setUserRole(JSON.parse(stored).role?.toLowerCase() || 'admin'); } catch {}
+        }
+    }, []);
 
     // Modals
     const [showItemModal, setShowItemModal] = useState(false);
@@ -135,7 +144,7 @@ export default function UltraStoresPage() {
     const kitchenItems = items.filter(i => i.category === 'Kitchen Provisions' || i.is_kitchen);
     const lowStockItems = items.filter(i => i.quantity <= (i.reorder_level || 5));
     const totalValue = items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0);
-    const pendingIssuances = issuances.filter(i => i.status === 'Pending');
+    const pendingIssuances = issuances.filter(i => i.status === 'Pending' || i.status === 'Verified');
     const pendingGRNs = grns.filter(g => g.status === 'Pending');
     const todayIssues = issuances.filter(i => i.status === 'Issued' && new Date(i.created_at).toDateString() === new Date().toDateString());
 
@@ -191,7 +200,7 @@ export default function UltraStoresPage() {
             issued_to: issueForm.issued_to, issued_to_type: issueForm.issued_to_type,
             department: issueForm.department || null, purpose: issueForm.purpose || null,
             notes: issueForm.notes || null, requested_by: issueForm.requested_by,
-            status: 'Pending', approval_required_from: 'Principal',
+            status: 'Pending', approval_required_from: 'Bursar',
             academic_year: issYear,
         }]);
         if (error) { toast.error(error.message); setSaving(false); return; }
@@ -201,8 +210,24 @@ export default function UltraStoresPage() {
             await supabase.from('school_store_issuance_approvals').insert([{ issuance_id: newIss.id, action: 'Requested', action_by: issueForm.requested_by, action_by_role: 'Store Keeper', notes: `Request for ${issueForm.quantity} ${item.unit} of ${item.item_name}` }]);
         }
         await logAudit('ISSUANCE_REQUESTED', issNum, `Issuance requested: ${issueForm.quantity} ${item.unit} of ${item.item_name} to ${issueForm.issued_to}`, issueForm.requested_by, 'Store Keeper');
-        toast.success(`✅ Issuance request ${issNum} submitted — awaiting Principal approval`);
+        toast.success(`✅ Issuance request ${issNum} submitted — awaiting Bursar verification`);
         setShowIssueModal(false); setIssueForm(emptyIssue); setSaving(false); fetchAll();
+    };
+
+    /* ─── VERIFY ISSUANCE (Bursar action) ─────── */
+    const verifyIssuance = async (iss: any) => {
+        if (!confirm('Verify this issuance? It will be forwarded to the Principal for approval.')) return;
+        const verifiedBy = prompt('Enter your name (Bursar):');
+        if (!verifiedBy) return;
+        setSaving(true);
+        const { error } = await supabase.from('school_store_issuances').update({
+            status: 'Verified', approval_required_from: 'Principal', updated_at: new Date().toISOString(),
+        }).eq('id', iss.id);
+        if (error) { toast.error(error.message); setSaving(false); return; }
+        await supabase.from('school_store_issuance_approvals').insert([{ issuance_id: iss.id, action: 'Verified', action_by: verifiedBy, action_by_role: 'Bursar', notes: 'Verified by Bursar' }]);
+        await logAudit('ISSUANCE_VERIFIED', iss.issuance_number, `Issuance VERIFIED by ${verifiedBy}. Item: ${iss.item_name}`, verifiedBy, 'Bursar');
+        toast.success(`✅ Issuance ${iss.issuance_number} VERIFIED — awaiting Principal approval`);
+        setSaving(false); fetchAll();
     };
 
     /* ─── APPROVE ISSUANCE (Principal action) ─────── */
@@ -593,7 +618,7 @@ ${grn.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                                         <td style={{ padding: '10px 12px', fontSize: 12, color: '#059669' }}>{is.approved_by || '—'}</td>
                                         <td style={{ padding: '10px 12px' }}>
                                             <div style={{ display: 'flex', gap: 4 }}>
-                                                {is.status === 'Approved' && (
+                                                {is.status === 'Approved' && ['storekeeper','admin','super-admin','superadmin','super_admin'].includes(userRole) && (
                                                     <button onClick={() => confirmIssue(is)} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer', background: '#3b82f6', color: '#fff' }}>
                                                         📤 Issue
                                                     </button>
@@ -634,7 +659,7 @@ ${grn.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                                     {issuances.length === 0 ? (
                                         <tr><td colSpan={12} style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}><div style={{ fontSize: 36, marginBottom: 8 }}>✅</div><p style={{ fontSize: 14 }}>No pending approvals</p></td></tr>
                                     ) : issuances.map((is, i) => (
-                                        <tr key={is.id} style={{ borderBottom: '1px solid #f3f4f6', background: is.status === 'Pending' ? '#fffbeb' : i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                                        <tr key={is.id} style={{ borderBottom: '1px solid #f3f4f6', background: (is.status === 'Pending' || is.status === 'Verified') ? '#fffbeb' : i % 2 === 0 ? '#fff' : '#fafafa' }}>
                                             <td style={{ padding: '10px 12px', fontSize: 12, color: '#9ca3af' }}>{i + 1}</td>
                                             <td style={{ padding: '10px 12px', fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: '#6366f1' }}>{is.issuance_number || '—'}</td>
                                             <td style={{ padding: '10px 12px', fontSize: 12, color: '#6b7280' }}>{fmtDateTime(is.created_at)}</td>
@@ -647,7 +672,13 @@ ${grn.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                                             <td style={{ padding: '10px 12px', fontSize: 12, color: '#6b7280', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{is.purpose || '—'}</td>
                                             <td style={{ padding: '10px 12px' }}>{statusBadge(is.status || 'Pending')}</td>
                                             <td style={{ padding: '10px 12px' }}>
-                                                {is.status === 'Pending' ? (
+                                                {is.status === 'Pending' && ['bursar','admin','super-admin','superadmin','super_admin'].includes(userRole) ? (
+                                                    <button onClick={() => verifyIssuance(is)} style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer', background: '#e0e7ff', color: '#3730a3', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                        👁️ Verify
+                                                    </button>
+                                                ) : is.status === 'Pending' ? (
+                                                    <span style={{ fontSize: 11, color: '#92400e', fontWeight: 700 }}>Awaiting Bursar Verification</span>
+                                                ) : is.status === 'Verified' && ['principal','admin','super-admin','superadmin','super_admin'].includes(userRole) ? (
                                                     <div style={{ display: 'flex', gap: 4 }}>
                                                         <button onClick={() => { setShowApproveModal(is); setApprovedBy(''); setApproveNotes(''); }}
                                                             style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer', background: '#d1fae5', color: '#065f46', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -658,6 +689,8 @@ ${grn.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                                                             <FiX size={11} /> Reject
                                                         </button>
                                                     </div>
+                                                ) : is.status === 'Verified' ? (
+                                                    <span style={{ fontSize: 11, color: '#3730a3', fontWeight: 700 }}>Awaiting Principal Approval</span>
                                                 ) : is.status === 'Approved' ? (
                                                     <span style={{ fontSize: 11, color: '#059669', fontWeight: 700 }}>✅ by {is.approved_by}</span>
                                                 ) : is.status === 'Rejected' ? (
