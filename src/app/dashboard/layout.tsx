@@ -10,7 +10,7 @@ import {
     FiChevronLeft, FiChevronRight, FiChevronDown, FiBell, FiSearch, 
     FiSettings, FiKey, FiCalendar, FiExternalLink, FiBookOpen, FiCopy, 
     FiShield, FiGrid, FiBriefcase, FiMessageSquare, FiPieChart, FiClock, FiAlertCircle, FiZap,
-    FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive,
+    FiHeart, FiGlobe, FiSend, FiSmartphone, FiLayers, FiBarChart2, FiHardDrive, FiCheckSquare, FiAlertTriangle,
     FiWifi, FiWifiOff, FiTruck, FiAward, FiFolder, FiCpu, FiTarget, FiActivity, FiBook, FiDownload,
     FiCheckCircle, FiUser, FiMail, FiSliders, FiStar
 } from 'react-icons/fi';
@@ -333,6 +333,13 @@ const menuGroups = [
         name: 'cutting-edge',
         collapsible: true,
         items: [
+            { href: '/dashboard/awards', label: '🏆 Awards & Certificates', icon: FiAward, perm: 'dashboard' },
+            { href: '/dashboard/messaging', label: '💬 Staff Messaging', icon: FiMessageSquare, perm: 'dashboard' },
+            { href: '/dashboard/emergency', label: '🆘 Emergency Alerts', icon: FiAlertTriangle, perm: 'dashboard' },
+            { href: '/dashboard/bog', label: '🏛️ Board of Governors', icon: FiUsers, perm: 'dashboard' },
+            { href: '/dashboard/inspection', label: '🏫 Inspection Readiness', icon: FiCheckSquare, perm: 'dashboard' },
+            { href: '/dashboard/analytics', label: '🧠 Predictive Analytics', icon: FiActivity, perm: 'dashboard' },
+            { href: '/dashboard/nemis', label: '📡 NEMIS Sync', icon: FiGlobe, perm: 'dashboard' },
             { href: '/dashboard/duty-roster', label: 'Duty Roster', icon: FiCalendar, perm: 'dashboard' },
             { href: '/dashboard/clubs', label: 'Clubs & Societies', icon: FiAward, perm: 'dashboard' },
             { href: '/dashboard/students/clinic', label: 'Clinic / Sick Bay', icon: FiHeart, perm: 'students' },
