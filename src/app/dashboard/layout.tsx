@@ -446,10 +446,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 const userData = serverUser || localUser;
                 if (!userData) { router.push('/'); return; }
                 setUser(userData);
-                setUserRole(userData.role || 'admin');
-                setUserPermissions(userData.permissions || {});
+                const role = (userData.role || 'admin').toLowerCase();
+                setUserRole(role);
+                const perms: Record<string, boolean> = userData.permissions || {};
+                setUserPermissions(perms);
                 // Sync localStorage with verified data
                 localStorage.setItem('school_user', JSON.stringify(userData));
+
+                // ── Redirect restricted users away from /dashboard home ──
+                const isAdminRole = ['admin','principal','super-admin','superadmin','super_admin'].includes(role);
+                const hasDashboardPerm = isAdminRole || perms['dashboard'] === true;
+                if (!hasDashboardPerm && window.location.pathname === '/dashboard') {
+                    // Send them to their first allowed page
+                    if (perms['stores'] === true) { router.replace('/dashboard/stores/ultra'); return; }
+                    if (perms['library'] === true) { router.replace('/dashboard/library-inventory/ultra'); return; }
+                    if (perms['fees'] === true) { router.replace('/dashboard/fees'); return; }
+                    if (perms['students'] === true) { router.replace('/dashboard/students'); return; }
+                    if (perms['attendance'] === true) { router.replace('/dashboard/attendance'); return; }
+                    if (perms['hostel'] === true) { router.replace('/dashboard/hostel'); return; }
+                    if (perms['students_health'] === true) { router.replace('/dashboard/students/health'); return; }
+                    // Fallback — no valid page, log out
+                    router.replace('/');
+                }
             } catch {
                 // Network error — fall back to localStorage but flag as unverified
                 const stored = localStorage.getItem('school_user');
@@ -457,8 +475,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 try {
                     const parsed = JSON.parse(stored);
                     setUser(parsed);
-                    setUserRole(parsed.role || 'admin');
-                    setUserPermissions(parsed.permissions || {});
+                    const role = (parsed.role || 'admin').toLowerCase();
+                    setUserRole(role);
+                    const perms: Record<string, boolean> = parsed.permissions || {};
+                    setUserPermissions(perms);
+                    const isAdminRole = ['admin','principal','super-admin','superadmin','super_admin'].includes(role);
+                    const hasDashboardPerm = isAdminRole || perms['dashboard'] === true;
+                    if (!hasDashboardPerm && window.location.pathname === '/dashboard') {
+                        if (perms['stores'] === true) { router.replace('/dashboard/stores/ultra'); return; }
+                        if (perms['library'] === true) { router.replace('/dashboard/library-inventory/ultra'); return; }
+                        if (perms['fees'] === true) { router.replace('/dashboard/fees'); return; }
+                        router.replace('/');
+                    }
                 } catch { router.push('/'); }
             }
         };

@@ -132,7 +132,30 @@ export default function LoginPage() {
             if (typeof window !== 'undefined') localStorage.setItem('school_user', JSON.stringify(data.user));
             const roleLabels: Record<string, string> = { admin: '🔑 Admin', principal: '🎓 Principal', bursar: '💰 Bursar', accountant: '📊 Accountant', receptionist: '📋 Receptionist', teacher: '👨‍🏫 Teacher' };
             toast.success(`Welcome, ${data.user.full_name}! (${roleLabels[data.user.role] || data.user.role})`);
-            router.push('/dashboard');
+
+            // Smart redirect — send user to their first allowed page
+            const perms: Record<string, boolean> = data.user.permissions || {};
+            const role = (data.user.role || '').toLowerCase();
+            const isAdminRole = ['admin','principal','super-admin','superadmin','super_admin'].includes(role);
+            if (isAdminRole || perms['dashboard'] === true) {
+                router.push('/dashboard');
+            } else if (perms['stores'] === true) {
+                router.push('/dashboard/stores/ultra');
+            } else if (perms['library'] === true) {
+                router.push('/dashboard/library-inventory/ultra');
+            } else if (perms['fees'] === true) {
+                router.push('/dashboard/fees');
+            } else if (perms['students'] === true) {
+                router.push('/dashboard/students');
+            } else if (perms['attendance'] === true) {
+                router.push('/dashboard/attendance');
+            } else if (perms['hostel'] === true) {
+                router.push('/dashboard/hostel');
+            } else if (perms['students_health'] === true) {
+                router.push('/dashboard/students/health');
+            } else {
+                router.push('/dashboard');
+            }
         } catch {
             setError('Login failed. Please try again.');
         }
