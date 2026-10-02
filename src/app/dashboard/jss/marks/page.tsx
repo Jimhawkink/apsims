@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo, useCallback } from 'react';
 import { useUltraCBCMarks, JSS_LEARNING_AREAS, scoreToLevel } from '@/hooks/useUltraCBCMarks';
 import toast from 'react-hot-toast';
+import { supabase } from '@/lib/supabase';
 import {
   FiSave, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList,
   FiAlertCircle, FiCheckCircle, FiClock, FiUsers, FiAward,
@@ -189,6 +190,10 @@ export default function JSSMarksPage() {
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-all">
                 {view === 'grid' ? <FiList size={14} /> : <FiGrid size={14} />}
                 {view === 'grid' ? 'Subject View' : 'Overview Grid'}
+              </button>
+              <button onClick={() => setView('kpsea')}
+                className={"flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-all " + (view === 'kpsea' ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50')}>
+                <FiShield size={14} /> KPSEA Marks
               </button>
               <button onClick={() => setShowAtRisk(true)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-all">
@@ -525,6 +530,67 @@ export default function JSSMarksPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* KPSEA MARKS VIEW */}
+            {view === 'kpsea' && (
+              <div className="bg-white rounded-2xl border border-purple-200 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-purple-100 bg-purple-50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FiShield size={18} className="text-purple-600" />
+                    <div>
+                      <p className="font-black text-gray-800">KPSEA Marks Entry — Grade 6</p>
+                      <p className="text-xs text-purple-500">Kenya Primary School Education Assessment · Linked to school_exam_marks (exam_type = KPSEA)</p>
+                    </div>
+                  </div>
+                  <button onClick={async () => {
+                    if (!selJSSGrade || !selTerm) { toast.error('Select grade and term first'); return; }
+                    setKpseaSaving(true);
+                    const rows = students.flatMap((s: any) => Object.entries(kpseaMarks[String(s.id)] || {}).map(([subjectId, marks]) => ({
+                      student_id: s.id, subject_id: Number(subjectId), term_id: Number(selTerm),
+                      exam_type: 'KPSEA', marks_obtained: Number(marks), created_at: new Date().toISOString()
+                    })));
+                    if (rows.length === 0) { toast.error('No marks to save'); setKpseaSaving(false); return; }
+                    const { error } = await supabase.from('school_exam_marks').upsert(rows, { onConflict: 'student_id,subject_id,term_id,exam_type' });
+                    if (error) toast.error(error.message); else toast.success('KPSEA marks saved!');
+                    setKpseaSaving(false);
+                  }} disabled={kpseaSaving} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-60" style={{ background: 'linear-gradient(135deg,#7c3aed,#a855f7)' }}>
+                    {kpseaSaving ? <FiRefreshCw size={14} className="animate-spin" /> : <FiSave size={14} />}
+                    Save KPSEA Marks
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-purple-50 border-b border-purple-100">
+                        <th className="px-4 py-3 text-left text-xs font-black text-gray-500 uppercase">Student</th>
+                        <th className="px-3 py-3 text-left text-xs font-black text-gray-500 uppercase">Adm No</th>
+                        {las.slice(0, 8).map((la: any) => (
+                          <th key={la.code} className="px-3 py-3 text-center text-xs font-black uppercase" style={{ color: la.color || '#374151' }}>{la.code}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {students.length === 0 ? (
+                        <tr><td colSpan={10} className="text-center py-10 text-gray-400">Select a grade and term to load students</td></tr>
+                      ) : students.map((s: any) => (
+                        <tr key={s.id} className="hover:bg-purple-50/30 transition">
+                          <td className="px-4 py-2 font-semibold text-gray-800">{s.first_name} {s.last_name}</td>
+                          <td className="px-3 py-2 text-xs text-gray-400">{s.admission_number}</td>
+                          {las.slice(0, 8).map((la: any) => (
+                            <td key={la.code} className="px-3 py-2">
+                              <input type="number" min={0} max={100}
+                                value={kpseaMarks[String(s.id)]?.[la.code] || ''}
+                                onChange={e => setKpseaMarks(prev => ({ ...prev, [String(s.id)]: { ...(prev[String(s.id)] || {}), [la.code]: e.target.value } }))}
+                                className="w-14 border border-gray-200 rounded-lg px-2 py-1 text-center text-sm focus:border-purple-400 focus:outline-none" />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

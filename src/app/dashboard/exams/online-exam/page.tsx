@@ -32,6 +32,8 @@ export default function OnlineExamPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [timeDrift, setTimeDrift] = useState<number | null>(null);
+  const [syncWarning, setSyncWarning] = useState(false);
   const [cfg, setCfg] = useState<ExamConfig>({
     title: 'KCSE Practice Exam',
     subject_id: '',
@@ -70,8 +72,26 @@ export default function OnlineExamPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  const startExam = useCallback(() => {
+  const startExam = useCallback(async () => {
     if (!cfg.subject_id) return toast.error('Select a subject');
+    // ── Server time sync validation ──
+    try {
+      const localBefore = Date.now();
+      const { data: tsData } = await supabase.rpc('get_server_timestamp').single();
+      const localAfter = Date.now();
+      const roundTrip = localAfter - localBefore;
+      if (tsData) {
+        const serverMs = new Date(tsData as string).getTime();
+        const drift = Math.abs(serverMs - localBefore - roundTrip / 2);
+        setTimeDrift(drift);
+        if (drift > 60000) {
+          setSyncWarning(true);
+          toast.error('Your device clock is out of sync by more than 1 minute. Please sync your system clock before starting.');
+          return;
+        }
+      }
+    } catch { /* ignore if RPC not available, non-blocking */ }
+    setSyncWarning(false);
     let pool = questions.filter(q =>
       String(q.subject_id) === cfg.subject_id &&
       (cfg.difficulty === 'all' || q.difficulty === cfg.difficulty) &&
@@ -149,6 +169,21 @@ export default function OnlineExamPage() {
           <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>🖥️ Online Timed Exam</h1>
           <p style={{ margin: '4px 0 0', opacity: 0.85, fontSize: 13 }}>Proctored · Auto-submit · Instant scoring · KCSE format</p>
         </div>
+
+        {syncWarning && (
+          <div style={{ background: '#fef3c7', border: '2px solid #f59e0b', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <div>
+              <p style={{ fontWeight: 800, color: '#92400e', margin: 0 }}>Clock Sync Warning</p>
+              <p style={{ fontSize: 12, color: '#b45309', margin: '2px 0 0' }}>Your device clock is out of sync with the server by more than 1 minute. Sync your system clock and try again.</p>
+            </div>
+          </div>
+        )}
+        {timeDrift !== null && !syncWarning && (
+          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '8px 14px', marginBottom: 14, fontSize: 12, color: '#166534', fontWeight: 600 }}>
+            ✅ Clock synced · Server drift: {Math.round(timeDrift / 100) / 10}s
+          </div>
+        )}
 
         <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #e2e8f0', padding: 24 }}>
           <div style={{ fontWeight: 800, fontSize: 15, color: '#1e293b', marginBottom: 18 }}>⚙️ Exam Configuration</div>

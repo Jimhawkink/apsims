@@ -135,6 +135,7 @@ export default function AcademicCalendarPage() {
   const [editEvent, setEditEvent] = useState<AcademicEvent | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<AcademicEvent | null>(null);
   const [userRole, setUserRole] = useState('');
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/session').then((r) => r.json()).then((j) => { if (j.user) setUserRole(j.user.role || ''); }).catch(() => {});
@@ -176,6 +177,28 @@ export default function AcademicCalendarPage() {
     } catch (e: any) { toast.error(e.message); }
   };
 
+  // ── Sync Holiday events to timetable ──
+  const syncHolidaysToTimetable = async () => {
+    setSyncing(true);
+    try {
+      const allRes = await fetch('/api/academic-events');
+      const allResult = await allRes.json();
+      const holidays: AcademicEvent[] = (allResult.data || []).filter((e: AcademicEvent) => e.event_type === 'Holiday');
+      if (holidays.length === 0) { toast('No Holiday events found to sync.'); setSyncing(false); return; }
+      const rows = holidays.map(h => ({
+        title: h.title,
+        start_date: h.start_date,
+        end_date: h.end_date,
+        source: 'academic_calendar',
+        academic_event_id: h.id,
+      }));
+      const { error } = await supabase.from('school_timetable_holidays').upsert(rows, { onConflict: 'academic_event_id' });
+      if (error) toast.error('Sync failed: ' + error.message);
+      else toast.success(holidays.length + ' holiday(s) synced to Timetable!');
+    } catch { toast.error('Sync failed'); }
+    setSyncing(false);
+  };
+
   // Build calendar grid
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -200,9 +223,15 @@ export default function AcademicCalendarPage() {
             <div><h1 className="text-xl font-extrabold">Academic Calendar</h1><p className="text-sm text-white/70 mt-0.5">School events and important dates</p></div>
           </div>
           {canWrite && (
-            <button onClick={() => setShowModal(true)} className="px-5 py-2.5 bg-white/20 hover:bg-white/30 text-white text-sm font-bold rounded-xl flex items-center gap-2 transition border border-white/30">
-              <FiPlus size={16} /> New Event
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={syncHolidaysToTimetable} disabled={syncing}
+                className="px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white text-sm font-bold rounded-xl flex items-center gap-2 transition border border-white/20 disabled:opacity-60">
+                {syncing ? '⏳' : '📅'} Sync Holidays to Timetable
+              </button>
+              <button onClick={() => setShowModal(true)} className="px-5 py-2.5 bg-white/20 hover:bg-white/30 text-white text-sm font-bold rounded-xl flex items-center gap-2 transition border border-white/30">
+                <FiPlus size={16} /> New Event
+              </button>
+            </div>
           )}
         </div>
       </div>

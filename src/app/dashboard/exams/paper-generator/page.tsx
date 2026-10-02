@@ -167,6 +167,9 @@ export default function PaperGeneratorPage() {
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold ${q.difficulty==='easy'?'bg-green-50 text-green-700':q.difficulty==='hard'?'bg-red-50 text-red-700':'bg-blue-50 text-blue-700'}`}>{q.difficulty}</span>
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700">{q.question_type.replace('_',' ')}</span>
                       <span className="text-[10px] font-bold text-gray-400">{q.marks} marks</span>
+                      {q.kicd_strand && <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-teal-50 text-teal-700">🌿 {q.kicd_strand}</span>}
+                      {q.cognitive_level && <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700">🧠 {q.cognitive_level}</span>}
+                      {q.learning_outcome && <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-600 max-w-[120px] truncate">📌 {q.learning_outcome}</span>}
                     </div>
                   </div>
                 </div>
@@ -180,6 +183,20 @@ export default function PaperGeneratorPage() {
             <h3 className="font-bold text-indigo-900 text-sm">{genForm.paper_title}</h3>
             <p className="text-xs text-indigo-600 mt-1">{getSub(genForm.subject_id)?.subject_name} · {genForm.duration_minutes} min · {selectedQs.reduce((a,q)=>a+(q.marks||1),0)} total marks</p>
           </div>
+          {/* KICD Competency Summary */}
+          {selectedQs.some(q => q.kicd_strand || q.cognitive_level) && (
+            <div className="p-3 rounded-xl bg-teal-50 border border-teal-200">
+              <p className="text-[10px] font-black text-teal-700 uppercase tracking-wide mb-2">🌿 KICD Competency Coverage</p>
+              <div className="flex flex-wrap gap-1.5">
+                {[...new Set(selectedQs.filter(q=>q.kicd_strand).map(q=>q.kicd_strand))].map((s:any)=>(
+                  <span key={s} className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-teal-100 text-teal-800">{s} ({selectedQs.filter(q=>q.kicd_strand===s).length}q)</span>
+                ))}
+                {[...new Set(selectedQs.filter(q=>q.cognitive_level).map(q=>q.cognitive_level))].map((c:any)=>(
+                  <span key={c} className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800">🧠 {c} ({selectedQs.filter(q=>q.cognitive_level===c).length}q)</span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="max-h-[45vh] overflow-y-auto space-y-2">
             {selectedQs.map((q,i)=>(
               <div key={q.id} className="p-3 rounded-xl border border-gray-100 bg-white flex items-start gap-3">
