@@ -71,6 +71,8 @@ export default function LearnerProfilesPage() {
   const [editProfile, setEditProfile] = useState<Partial<Profile>>({});
   const [showModal, setShowModal] = useState(false);
   const [schoolName, setSchoolName] = useState('APSIMS School');
+  const [portfolioFiles, setPortfolioFiles] = useState<any[]>([]);
+  const [loadingPortfolio, setLoadingPortfolio] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -149,6 +151,12 @@ export default function LearnerProfilesPage() {
     }
     setEditProfile({ ...existing, student_id: student.id, year: selYear, overall_competency: existing.overall_competency || overall });
     setShowModal(true);
+    // Load SBA evidence portfolio files
+    setPortfolioFiles([]);
+    setLoadingPortfolio(true);
+    sb.from('school_cbc_portfolios').select('*').eq('student_id', student.id).order('created_at', { ascending: false }).limit(20)
+      .then(({ data }) => { setPortfolioFiles(data || []); setLoadingPortfolio(false); })
+      .catch(() => setLoadingPortfolio(false));
   };
 
   const saveProfile = async () => {
@@ -372,6 +380,45 @@ export default function LearnerProfilesPage() {
                   <input type="checkbox" checked={!!editProfile.parent_acknowledged} onChange={e => setEditProfile(p => ({ ...p, parent_acknowledged: e.target.checked }))} className="rounded" />
                   <span className="text-xs font-semibold text-gray-700">Parent Acknowledged</span>
                 </label>
+              </div>
+
+              {/* ── SBA Evidence Section ── */}
+              <div className="border border-indigo-200 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 flex items-center gap-2">
+                  <span className="text-lg">📎</span>
+                  <div>
+                    <p className="text-xs font-black text-indigo-700">SBA Evidence Portfolio</p>
+                    <p className="text-[10px] text-indigo-400">Uploaded documents & assessment evidence for this learner</p>
+                  </div>
+                  {loadingPortfolio && <span className="ml-auto text-[10px] text-indigo-400 animate-pulse">Loading...</span>}
+                </div>
+                {!loadingPortfolio && portfolioFiles.length === 0 && (
+                  <div className="px-4 py-4 text-center">
+                    <p className="text-xs text-gray-400">No SBA evidence files uploaded yet for this student.</p>
+                    <p className="text-[10px] text-gray-300 mt-1">Upload files via CBC Portfolio module.</p>
+                  </div>
+                )}
+                {portfolioFiles.length > 0 && (
+                  <div className="divide-y divide-indigo-50 max-h-40 overflow-y-auto">
+                    {portfolioFiles.map((f: any) => (
+                      <div key={f.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50/40">
+                        <span className="text-base flex-shrink-0">
+                          {f.file_url?.match(/\.(jpg|jpeg|png|gif|webp)/i) ? '🖼️' : f.file_url?.match(/\.pdf/i) ? '📄' : f.file_url?.match(/\.(doc|docx)/i) ? '📝' : '📎'}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-700 truncate">{f.title || f.file_name || 'Evidence file'}</p>
+                          <p className="text-[9px] text-gray-400">{f.learning_area || f.subject_name || ''}{f.created_at ? ' · ' + new Date(f.created_at).toLocaleDateString('en-KE') : ''}</p>
+                        </div>
+                        {f.file_url && (
+                          <a href={f.file_url} target="_blank" rel="noopener noreferrer"
+                            className="flex-shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100">
+                            View
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-3 p-5 pt-0 sticky bottom-0 bg-white border-t">

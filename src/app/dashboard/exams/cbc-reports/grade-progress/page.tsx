@@ -1,14 +1,36 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useCBCReportData, getRubricColor, rubricNumeric } from '@/hooks/useCBCReportData';
 import { FiTarget, FiArrowLeft, FiPrinter } from 'react-icons/fi';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 const LEVELS = ['EE', 'ME', 'AE', 'BE'] as const;
 
 export default function GradeProgressPage() {
   const data = useCBCReportData();
+  const [myClassOnly, setMyClassOnly] = useState(false);
+  const [myFormIds, setMyFormIds] = useState<number[]>([]);
+
+  // On toggle, fetch teacher's assigned forms
+  const handleMyClassToggle = async (on: boolean) => {
+    setMyClassOnly(on);
+    if (on && myFormIds.length === 0) {
+      try {
+        const sb = createClientComponentClient();
+        const { data: { user } } = await sb.auth.getUser();
+        if (user) {
+          const { data: teacher } = await sb.from('school_teachers').select('id').eq('user_id', user.id).single();
+          if (teacher) {
+            const { data: subjectTeachers } = await sb.from('school_subject_teachers').select('form_id').eq('teacher_id', teacher.id);
+            const ids = [...new Set((subjectTeachers || []).map((st: any) => st.form_id))];
+            setMyFormIds(ids);
+          }
+        }
+      } catch (_) { /* ignore */ }
+    }
+  };
 
   const formSummaries = useMemo(() => {
     return data.forms.map(form => {
@@ -44,6 +66,10 @@ export default function GradeProgressPage() {
     }).filter(Boolean);
   }, [data.forms, data.students, data.summaries, data.pathways, data.studentSubjects]);
 
+  const filteredSummaries = myClassOnly && myFormIds.length > 0
+    ? formSummaries.filter((s: any) => myFormIds.includes(s?.form?.id))
+    : formSummaries;
+
   if (data.loading) return <div className="flex items-center justify-center h-[60vh]"><div className="w-10 h-10 border-4 border-gray-200 border-t-teal-500 rounded-full animate-spin mx-auto" /></div>;
 
   return (
@@ -63,22 +89,41 @@ export default function GradeProgressPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="grid grid-cols-1 gap-3">
-          <div><label className="block text-[10px] font-semibold text-gray-500 mb-1">Term</label>
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-500 mb-1">Term</label>
             <select value={data.selTerm} onChange={e => data.setSelTerm(e.target.value)} className="select-modern w-full text-sm max-w-xs">
               {data.terms.map(t => <option key={t.id} value={t.id}>{t.term_name}{t.is_current ? ' ●' : ''}</option>)}
             </select>
           </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-500 mb-1">View Mode</label>
+            <div className="flex border border-gray-200 rounded-xl overflow-hidden">
+              <button onClick={() => handleMyClassToggle(false)}
+                className={'px-4 py-2 text-xs font-bold transition ' + (!myClassOnly ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-50')}>
+                All Forms
+              </button>
+              <button onClick={() => handleMyClassToggle(true)}
+                className={'px-4 py-2 text-xs font-bold transition ' + (myClassOnly ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-50')}>
+                👤 My Class
+              </button>
+            </div>
+          </div>
+          {myClassOnly && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-teal-50 border border-teal-200">
+              <span className="text-teal-600 text-xs font-bold">👤 Showing your assigned forms only</span>
+            </div>
+          )}
         </div>
       </div>
 
       {data.loadingData ? (
         <div className="bg-white rounded-xl border text-center py-20"><div className="w-8 h-8 border-4 border-gray-200 border-t-teal-500 rounded-full animate-spin mx-auto" /></div>
-      ) : formSummaries.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 text-center py-20 text-gray-400"><p className="font-semibold">No CBC forms found</p></div>
+      ) : filteredSummaries.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 text-center py-20 text-gray-400"><p className="font-semibold">{myClassOnly ? 'No forms assigned to your account' : 'No CBC forms found'}</p></div>
       ) : (
         <div className="space-y-5">
-          {formSummaries.map((fs: any) => {
+          {filteredSummaries.map((fs: any) => {
             const c = getRubricColor(fs.meanLevel);
             return (
               <div key={fs.form.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">

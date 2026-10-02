@@ -113,6 +113,7 @@ const menuGroups = [
             { href: '/dashboard/jss/sat-manager',        label: '📋 JSS SAT Manager',              icon: FiAward,      perm: 'exams' },
             { href: '/dashboard/jss/transition',         label: '🛤️ JSS Transition (G9→10)',       icon: FiTarget,     perm: 'curriculum' },
             { href: '/dashboard/jss/learner-profiles',   label: '🗂️ Learner Profiles',            icon: FiFolder,     perm: 'curriculum' },
+            { href: '/dashboard/jss/parent-consent',      label: '✅ Parent Consent Portal',         icon: FiUserCheck,  perm: 'curriculum' },
             { href: '/dashboard/jss/pathways',           label: '🛤️ Pathway Selection',           icon: FiLayers,     perm: 'curriculum' },
             { href: '/dashboard/exams/sba-manager',      label: '📋 SBA Manager',                  icon: FiAward,      perm: 'exams' },
             { href: '/dashboard/cbc/portfolio',          label: '🗂️ Student Portfolio',           icon: FiFolder,     perm: 'curriculum' },
