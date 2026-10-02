@@ -85,6 +85,9 @@ export default function DashboardPage() {
     const [userName, setUserName] = useState('Admin');
     const [userRole, setUserRole] = useState('');
     const [liveTime, setLiveTime] = useState('');
+    const [pendingIssues, setPendingIssues] = useState(0);
+    const [todayFeeTotal, setTodayFeeTotal] = useState(0);
+    const [liveActivity, setLiveActivity] = useState<{ text: string; time: string; icon: string }[]>([]);
     const searchParams = useSearchParams();
     const accessDenied = searchParams.get('access_denied') === '1';
     const currentYear = new Date().getFullYear();
@@ -267,7 +270,39 @@ export default function DashboardPage() {
 
     useEffect(() => { fetchAll(); }, [fetchAll, refreshKey]);
 
-    // Derived
+    // ── LIVE KPI: pending store issues + today's fees ──────────────────────
+    const fetchLiveKPIs = useCallback(async () => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const [issRes, feeRes, payRes] = await Promise.all([
+            supabase.from('school_store_issuances').select('id', { count: 'exact', head: true }).in('status', ['Pending', 'Verified']),
+            supabase.from('school_fee_payments').select('amount').eq('payment_date', todayStr),
+            supabase.from('school_fee_payments').select('amount, school_students(first_name,last_name), payment_method').eq('payment_date', todayStr).order('id', { ascending: false }).limit(5),
+        ]);
+        setPendingIssues(issRes.count || 0);
+        setTodayFeeTotal((feeRes.data || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0));
+        setLiveActivity((payRes.data || []).map((p: any) => ({
+            icon: '💳',
+            text: `${p.school_students ? `${p.school_students.first_name} ${p.school_students.last_name}` : 'Student'} paid KES ${Number(p.amount).toLocaleString()} via ${p.payment_method || 'Cash'}`,
+            time: 'today',
+        })));
+    }, []);
+
+    useEffect(() => {
+        fetchLiveKPIs();
+        const interval = setInterval(fetchLiveKPIs, 30000);
+        return () => clearInterval(interval);
+    }, [fetchLiveKPIs]);
+
+    // Supabase Realtime — update live KPIs instantly on new payments / store issues
+    useEffect(() => {
+        const ch = supabase.channel('dashboard-live-kpis')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'school_fee_payments' }, () => fetchLiveKPIs())
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'school_store_issuances' }, () => fetchLiveKPIs())
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'school_store_issuances' }, () => fetchLiveKPIs())
+            .subscribe();
+        return () => { supabase.removeChannel(ch); };
+    }, [fetchLiveKPIs]);
+
     const active = students.filter(s => s.status === 'Active');
     const totalFees = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
     const approvedExp = expenses.filter(e => (e.status || 'approved') === 'approved').reduce((s, e) => s + Number(e.amount || 0), 0);
@@ -423,6 +458,116 @@ export default function DashboardPage() {
                 </div>
             )}
 
+            {/* ══════════════════════════════════════════════════
+                🔴 LIVE KPI COMMAND STRIP — Real-Time Data
+            ══════════════════════════════════════════════════ */}
+            <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                {/* Top gradient bar */}
+                <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#dc2626,#f59e0b,#16a34a,#2563eb,#7c3aed)' }} />
+                <div className="bg-white px-4 py-3">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                        </span>
+                        <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Live Command Centre</span>
+                        <span className="text-[10px] text-gray-300">·</span>
+                        <span className="text-[10px] font-mono text-gray-400">{liveTime}</span>
+                        <span className="ml-auto text-[10px] text-gray-400 hidden sm:block">Auto-refreshes every 30s via Supabase Realtime</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                        {[
+                            { icon: '🎓', label: 'Active Students', value: fmtN(active.length), sub: `${fmtN(stats.newEnrollments)} new this year`, color: '#4f46e5', bg: '#eef2ff', href: '/dashboard/students', pulse: false },
+                            { icon: '💳', label: "Today's Fees", value: fmt(todayFeeTotal), sub: 'collected today live', color: '#059669', bg: '#ecfdf5', href: '/dashboard/fees', pulse: todayFeeTotal > 0 },
+                            { icon: '✅', label: 'Attendance Today', value: `${attRate}%`, sub: `${todayPre} present · ${todayAbs} absent`, color: attRate >= 80 ? '#0891b2' : '#d97706', bg: attRate >= 80 ? '#e0f2fe' : '#fef3c7', href: '/dashboard/attendance', pulse: false },
+                            { icon: '📦', label: 'Pending Store Issues', value: String(pendingIssues), sub: pendingIssues > 0 ? '⚠️ Needs Bursar/Principal' : 'All approved ✅', color: pendingIssues > 0 ? '#dc2626' : '#16a34a', bg: pendingIssues > 0 ? '#fef2f2' : '#f0fdf4', href: '/dashboard/stores/ultra', pulse: pendingIssues > 0 },
+                            { icon: '⚡', label: 'Discipline Cases', value: fmtN(disciplineCount), sub: `${currentYear} total incidents`, color: disciplineCount > 20 ? '#d97706' : '#6366f1', bg: '#fef3c7', href: '/dashboard/discipline', pulse: disciplineCount > 20 },
+                            { icon: '💰', label: 'Net Position', value: fmtShort(Math.abs(netPos)), sub: netPos >= 0 ? '✅ Surplus' : '⚠️ Deficit', color: netPos >= 0 ? '#7c3aed' : '#dc2626', bg: netPos >= 0 ? '#f5f3ff' : '#fef2f2', href: '/dashboard/fees/reports/pl', pulse: netPos < 0 },
+                        ].map((k, i) => (
+                            <Link key={i} href={k.href} className="rounded-xl p-3 border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all group relative overflow-hidden">
+                                <div className="absolute inset-0 opacity-40 group-hover:opacity-70 transition-opacity" style={{ background: k.bg }} />
+                                <div className="relative">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-lg">{k.icon}</span>
+                                        {k.pulse && <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: k.color }} /><span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: k.color }} /></span>}
+                                    </div>
+                                    <p className="text-xl font-black leading-none" style={{ color: k.color }}>{k.value}</p>
+                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-wide mt-1">{k.label}</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{k.sub}</p>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* ══ SCHOOL HEALTH SCORE + TERM INFO ══ */}
+            {(() => {
+                const feeRate = stats.feesCollected > 0 ? Math.min(100, Math.round(stats.feesCollected / (stats.feesCollected + stats.feesDue + 1) * 100)) : 0;
+                const healthScore = Math.round((attRate * 0.35) + (feeRate * 0.40) + (formPerf.length > 0 ? Math.min(100, formPerf.reduce((s, f) => s + f.avg, 0) / formPerf.length) * 0.25 : 0));
+                const healthColor = healthScore >= 75 ? '#16a34a' : healthScore >= 50 ? '#d97706' : '#dc2626';
+                const healthLabel = healthScore >= 75 ? 'Excellent' : healthScore >= 50 ? 'Good' : 'Needs Attention';
+                return (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* School Health Score */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+                            <div className="relative w-16 h-16 flex-shrink-0">
+                                <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
+                                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" strokeWidth="3" />
+                                    <circle cx="18" cy="18" r="15.9" fill="none" stroke={healthColor} strokeWidth="3" strokeDasharray={`${healthScore} 100`} strokeLinecap="round" />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="text-sm font-black" style={{ color: healthColor }}>{healthScore}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs font-black text-gray-800">🏫 School Health Score</p>
+                                <p className="text-lg font-black mt-0.5" style={{ color: healthColor }}>{healthLabel}</p>
+                                <p className="text-[9px] text-gray-400 mt-1">Attendance · Fees · Academics</p>
+                            </div>
+                        </div>
+                        {/* Term info */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">📅 Current Term</p>
+                            <p className="text-base font-black text-gray-900">{currentTerm?.term_name || 'Term 1'} {currentYear}</p>
+                            {currentTerm?.end_date && (
+                                <p className="text-sm text-indigo-600 font-bold mt-1">
+                                    {Math.max(0, Math.ceil((new Date(currentTerm.end_date).getTime() - Date.now()) / 86400000))} days remaining
+                                </p>
+                            )}
+                            <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                {currentTerm?.start_date && currentTerm?.end_date && (() => {
+                                    const start = new Date(currentTerm.start_date).getTime();
+                                    const end = new Date(currentTerm.end_date).getTime();
+                                    const pctDone = Math.min(100, Math.round((Date.now() - start) / (end - start) * 100));
+                                    return <div className="h-1.5 rounded-full bg-indigo-500 transition-all" style={{ width: `${pctDone}%` }} />;
+                                })()}
+                            </div>
+                            <p className="text-[9px] text-gray-400 mt-1">Term progress</p>
+                        </div>
+                        {/* Live Activity Ticker */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                                <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" /></span>
+                                Live Activity Feed
+                            </p>
+                            {liveActivity.length === 0 ? (
+                                <p className="text-xs text-gray-400">No activity yet today</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {liveActivity.slice(0, 3).map((a, i) => (
+                                        <div key={i} className="flex items-start gap-2">
+                                            <span className="text-sm flex-shrink-0">{a.icon}</span>
+                                            <p className="text-[11px] text-gray-600 leading-tight">{a.text}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* ── Tab Nav ── */}
             <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
@@ -432,12 +577,43 @@ export default function DashboardPage() {
             {activeTab === 'overview' && (
                 <div className="space-y-4">
 
-                    {/* ── TOP 4 BRIGHT STAT CARDS ── */}
+                    {/* ── TOP 4 BRIGHT STAT CARDS (ENHANCED) ── */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         <StatCard icon="🎓" label="Active Students" value={fmtN(active.length)} sub={`${maleCount} boys · ${femaleCount} girls`} color="#4f46e5" bg="#eef2ff" trend="up" trendLabel={`+${newThisYear} new`} href="/dashboard/students" />
                         <StatCard icon="💰" label="Fees Collected" value={fmtShort(totalFees)} sub={`${fmt(payThisMonth)} this month`} color="#059669" bg="#ecfdf5" trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees" />
                         <StatCard icon="✅" label="Attendance Rate" value={`${attRate}%`} sub={`${todayPre} present · ${todayAbs} absent`} color={attRate >= 80 ? '#0891b2' : '#d97706'} bg={attRate >= 80 ? '#e0f2fe' : '#fef3c7'} trend={attRate >= 80 ? 'up' : 'down'} trendLabel={`${todayAbs} absent`} href="/dashboard/attendance" />
                         <StatCard icon="📊" label="Net Position" value={fmtShort(Math.abs(netPos))} sub={`Income ${fmtShort(totalIncome)}`} color={netPos >= 0 ? '#7c3aed' : '#dc2626'} bg={netPos >= 0 ? '#f5f3ff' : '#fef2f2'} trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees/reports/pl" />
+                    </div>
+
+                    {/* ── ULTRA QUICK ACTIONS (ENHANCED — 12 buttons with gradient borders) ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">⚡ Quick Actions</p>
+                            <span className="text-[9px] text-gray-400">12 shortcuts</span>
+                        </div>
+                        <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2">
+                            {[
+                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', color: '#22c55e', bg: 'linear-gradient(135deg,#ecfdf5,#d1fae5)' },
+                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '🎓', color: '#6366f1', bg: 'linear-gradient(135deg,#eef2ff,#e0e7ff)' },
+                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', color: '#3b82f6', bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)' },
+                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', color: '#f59e0b', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                                { label: 'Send SMS', href: '/dashboard/fees/bulk-reminders', icon: '📱', color: '#8b5cf6', bg: 'linear-gradient(135deg,#f5f3ff,#ede9fe)' },
+                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', color: '#0891b2', bg: 'linear-gradient(135deg,#ecfeff,#e0f2fe)' },
+                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', color: '#ef4444', bg: 'linear-gradient(135deg,#fff1f2,#fee2e2)' },
+                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👔', color: '#7c3aed', bg: 'linear-gradient(135deg,#faf5ff,#f3e8ff)' },
+                                { label: 'Stores', href: '/dashboard/stores/ultra', icon: '📦', color: '#b45309', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                                { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: '📋', color: '#059669', bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)' },
+                                { label: 'Discipline', href: '/dashboard/discipline', icon: '🛡️', color: '#dc2626', bg: 'linear-gradient(135deg,#fff1f2,#fee2e2)' },
+                                { label: 'Notifications', href: '/dashboard/notifications', icon: '🔔', color: '#d97706', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                            ].map((a, i) => (
+                                <Link key={i} href={a.href}
+                                    className="rounded-xl p-2.5 text-center hover:shadow-md hover:scale-[1.05] transition-all border border-gray-100 group relative overflow-hidden"
+                                    style={{ background: a.bg }}>
+                                    <div className="text-xl mb-1">{a.icon}</div>
+                                    <p className="text-[9px] font-bold leading-tight" style={{ color: a.color }}>{a.label}</p>
+                                </Link>
+                            ))}
+                        </div>
                     </div>
 
                     {/* ── FEE ANALYTICS (existing component) ── */}

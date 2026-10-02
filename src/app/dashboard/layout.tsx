@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { usePageIcon } from '@/lib/usePageIcon';
@@ -39,6 +39,7 @@ const menuGroups = [
         collapsible: false,
         name: 'main',
         items: [
+            { href: '/dashboard/notifications', label: '🔔 Notification Centre', icon: FiBell, perm: 'dashboard' },
             { href: '/dashboard', label: 'Dashboard', icon: FiHome, perm: 'dashboard' },
         ]
     },
@@ -332,6 +333,8 @@ const menuGroups = [
         name: 'cutting-edge',
         collapsible: true,
         items: [
+            { href: '/dashboard/duty-roster', label: 'Duty Roster', icon: FiCalendar, perm: 'dashboard' },
+            { href: '/dashboard/clubs', label: 'Clubs & Societies', icon: FiAward, perm: 'dashboard' },
             { href: '/dashboard/students/clinic', label: 'Clinic / Sick Bay', icon: FiHeart, perm: 'students' },
             { href: '/dashboard/visitors', label: 'Visitor Management', icon: FiUsers, perm: 'students' },
             { href: '/dashboard/students/bus-passes', label: 'Bus Pass Cards', icon: FiSmartphone, perm: 'students' },
@@ -815,6 +818,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           }
                         </div>
                         {/* Notifications - LIVE */}
+                        <a href="/dashboard/notifications" style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:10, background:'linear-gradient(135deg,#fef3c7,#fde68a)', border:'1px solid #fcd34d', textDecoration:'none', fontWeight:800, fontSize:11, color:'#92400e', whiteSpace:'nowrap' }}>
+                            <span style={{ fontSize:14 }}>🔔</span> Notifications
+                        </a>
                         <NotificationsDropdown />
                         {/* Settings */}
                         <Link href="/dashboard/settings" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors" title="Settings">

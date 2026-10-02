@@ -6,12 +6,13 @@ import Link from 'next/link';
 import {
     FiBell, FiDollarSign, FiAlertCircle, FiUsers, FiCalendar,
     FiCheckCircle, FiX, FiRefreshCw, FiArrowRight, FiTrendingDown,
-    FiShield, FiPackage, FiBookOpen, FiAlertTriangle
+    FiShield, FiPackage, FiBookOpen, FiAlertTriangle, FiVolume2
 } from 'react-icons/fi';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
 
 interface Notification {
     id: string;
-    type: 'payment' | 'discipline' | 'attendance' | 'expense' | 'stock' | 'system';
+    type: 'payment' | 'discipline' | 'attendance' | 'expense' | 'stock' | 'system' | 'store_issue' | 'approval';
     title: string;
     message: string;
     time: string;
@@ -20,6 +21,7 @@ interface Notification {
     icon: React.ReactNode;
     color: string;
     bg: string;
+    urgency?: 'urgent' | 'alert' | 'info' | 'success';
 }
 
 function timeAgo(dateStr: string): string {
@@ -43,14 +45,21 @@ export default function NotificationsDropdown() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(false);
     const [readIds, setReadIds] = useState<Set<string>>(new Set());
+    const [soundEnabled, setSoundEnabled] = useState(true);
+    const [lastCount, setLastCount] = useState(0);
     const dropRef = useRef<HTMLDivElement>(null);
+    const bellRef = useRef<HTMLButtonElement>(null);
     const STORAGE_KEY = 'apsims_notif_read';
+    const SOUND_KEY = 'apsims_notif_sound';
+    const { play } = useNotificationSound();
 
-    // Load read IDs from localStorage
+    // Load preferences
     useEffect(() => {
         try {
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) setReadIds(new Set(JSON.parse(stored)));
+            const soundPref = localStorage.getItem(SOUND_KEY);
+            if (soundPref !== null) setSoundEnabled(soundPref === 'true');
         } catch { /* ignore */ }
     }, []);
 
@@ -58,14 +67,125 @@ export default function NotificationsDropdown() {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids])); } catch { /* ignore */ }
     };
 
-    const fetchNotifications = useCallback(async () => {
-        setLoading(true);
+    const toggleSound = () => {
+        const next = !soundEnabled;
+        setSoundEnabled(next);
+        localStorage.setItem(SOUND_KEY, String(next));
+        if (next) play('info'); // play sample when enabling
+    };
+
+    const buildNotifications = useCallback((
+        payments: any[], discipline: any[], expenses: any[],
+        stores: any[], storeIssues: any[], storedRead: Set<string>
+    ): Notification[] => {
+        const notifs: Notification[] = [];
+
+        // 🔴 URGENT — Pending store issuance requests needing Bursar/Principal
+        storeIssues.forEach((s: any) => {
+            notifs.push({
+                id: `issue_${s.id}`,
+                type: 'store_issue',
+                urgency: 'urgent',
+                title: '🏪 Store Issue Request — ACTION NEEDED',
+                message: `${s.item_name} × ${s.quantity} ${s.unit || ''} requested by ${s.requested_by || 'Store Keeper'} — Status: ${s.status}`,
+                time: timeAgo(s.created_at),
+                href: '/dashboard/stores/ultra',
+                read: storedRead.has(`issue_${s.id}`),
+                icon: <FiPackage size={14} />,
+                color: '#7c3aed',
+                bg: '#f5f3ff',
+            });
+        });
+
+        // 💳 Fee payments
+        payments.forEach((p: any) => {
+            const student = p.school_students;
+            const name = student ? `${student.first_name} ${student.last_name}` : 'Unknown Student';
+            notifs.push({
+                id: `pay_${p.id}`,
+                type: 'payment',
+                urgency: 'success',
+                title: '💳 Fee Payment Received',
+                message: `${name} paid ${fmt(Number(p.amount))} via ${p.payment_method || 'Cash'}`,
+                time: timeAgo(p.payment_date),
+                href: '/dashboard/fees/collect',
+                read: storedRead.has(`pay_${p.id}`),
+                icon: <FiDollarSign size={14} />,
+                color: '#16a34a',
+                bg: '#f0fdf4',
+            });
+        });
+
+        // ⚠️ Discipline
+        discipline.forEach((d: any) => {
+            const student = d.school_students;
+            const name = student ? `${student.first_name} ${student.last_name}` : 'Unknown Student';
+            notifs.push({
+                id: `disc_${d.id}`,
+                type: 'discipline',
+                urgency: 'alert',
+                title: '⚠️ Discipline Record',
+                message: `${name} — ${d.offense || 'Offense recorded'}`,
+                time: timeAgo(d.created_at),
+                href: '/dashboard/discipline',
+                read: storedRead.has(`disc_${d.id}`),
+                icon: <FiShield size={14} />,
+                color: '#dc2626',
+                bg: '#fef2f2',
+            });
+        });
+
+        // 📋 Pending expenses
+        expenses.forEach((e: any) => {
+            notifs.push({
+                id: `exp_${e.id}`,
+                type: 'expense',
+                urgency: 'alert',
+                title: '📋 Expense Pending Approval',
+                message: `${e.description || 'Expense'} — ${fmt(Number(e.amount))}`,
+                time: timeAgo(e.expense_date),
+                href: '/dashboard/expenses',
+                read: storedRead.has(`exp_${e.id}`),
+                icon: <FiTrendingDown size={14} />,
+                color: '#d97706',
+                bg: '#fffbeb',
+            });
+        });
+
+        // 📦 Low stock
+        stores.forEach((s: any) => {
+            notifs.push({
+                id: `stock_${s.id}`,
+                type: 'stock',
+                urgency: 'alert',
+                title: '📦 Low Stock Alert',
+                message: `${s.item_name} — only ${s.quantity} units remaining`,
+                time: 'now',
+                href: '/dashboard/stores/ultra',
+                read: storedRead.has(`stock_${s.id}`),
+                icon: <FiPackage size={14} />,
+                color: '#7c3aed',
+                bg: '#f5f3ff',
+            });
+        });
+
+        // Sort: urgent first (unread pending issues at top)
+        return notifs.sort((a, b) => {
+            if (a.urgency === 'urgent' && b.urgency !== 'urgent') return -1;
+            if (b.urgency === 'urgent' && a.urgency !== 'urgent') return 1;
+            if (!a.read && b.read) return -1;
+            if (a.read && !b.read) return 1;
+            return 0;
+        });
+    }, []);
+
+    const fetchNotifications = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
-            const today = new Date().toISOString().split('T')[0];
             const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
             const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-            const [payments, discipline, expenses, stores] = await Promise.all([
+            const [payments, discipline, expenses, stores, storeIssues] = await Promise.all([
                 supabase.from('school_fee_payments')
                     .select('id, amount, payment_date, payment_method, receipt_number, school_students(first_name, last_name)')
                     .gte('payment_date', yesterday)
@@ -87,98 +207,92 @@ export default function NotificationsDropdown() {
                     .lt('quantity', 10)
                     .order('quantity', { ascending: true })
                     .limit(5),
+                // 🆕 STORE ISSUE REQUESTS — pending Bursar/Principal action
+                supabase.from('school_store_issuances')
+                    .select('id, item_name, quantity, unit, requested_by, status, created_at')
+                    .in('status', ['Pending', 'Verified'])
+                    .order('created_at', { ascending: false })
+                    .limit(10),
             ]);
 
-            const notifs: Notification[] = [];
-
-            // Fee payment notifications
-            (payments.data || []).forEach((p: any) => {
-                const student = p.school_students;
-                const name = student ? `${student.first_name} ${student.last_name}` : 'Unknown Student';
-                notifs.push({
-                    id: `pay_${p.id}`,
-                    type: 'payment',
-                    title: '💳 Fee Payment Received',
-                    message: `${name} paid ${fmt(Number(p.amount))} via ${p.payment_method || 'Cash'}`,
-                    time: timeAgo(p.payment_date),
-                    href: '/dashboard/fees/collect',
-                    read: false,
-                    icon: <FiDollarSign size={14} />,
-                    color: '#16a34a',
-                    bg: '#f0fdf4',
-                });
-            });
-
-            // Discipline notifications
-            (discipline.data || []).forEach((d: any) => {
-                const student = d.school_students;
-                const name = student ? `${student.first_name} ${student.last_name}` : 'Unknown Student';
-                notifs.push({
-                    id: `disc_${d.id}`,
-                    type: 'discipline',
-                    title: '⚠️ Discipline Record',
-                    message: `${name} — ${d.offense || 'Offense recorded'}`,
-                    time: timeAgo(d.created_at),
-                    href: '/dashboard/discipline',
-                    read: false,
-                    icon: <FiShield size={14} />,
-                    color: '#dc2626',
-                    bg: '#fef2f2',
-                });
-            });
-
-            // Pending expense approvals
-            (expenses.data || []).forEach((e: any) => {
-                notifs.push({
-                    id: `exp_${e.id}`,
-                    type: 'expense',
-                    title: '📋 Expense Pending Approval',
-                    message: `${e.description || 'Expense'} — ${fmt(Number(e.amount))}`,
-                    time: timeAgo(e.expense_date),
-                    href: '/dashboard/expenses',
-                    read: false,
-                    icon: <FiTrendingDown size={14} />,
-                    color: '#d97706',
-                    bg: '#fffbeb',
-                });
-            });
-
-            // Low stock alerts
-            (stores.data || []).forEach((s: any) => {
-                notifs.push({
-                    id: `stock_${s.id}`,
-                    type: 'stock',
-                    title: '📦 Low Stock Alert',
-                    message: `${s.item_name} — only ${s.quantity} units remaining`,
-                    time: 'now',
-                    href: '/dashboard/stores/ultra',
-                    read: false,
-                    icon: <FiPackage size={14} />,
-                    color: '#7c3aed',
-                    bg: '#f5f3ff',
-                });
-            });
-
-            // Mark read status
             const storedRead = new Set(readIds);
-            const final = notifs
-                .sort((a, b) => (a.type === 'stock' ? 1 : -1))
-                .map(n => ({ ...n, read: storedRead.has(n.id) }));
+            const final = buildNotifications(
+                payments.data || [], discipline.data || [],
+                expenses.data || [], stores.data || [],
+                storeIssues.data || [], storedRead
+            );
 
             setNotifications(final);
+
+            // Sound alert for new unread urgent notifications
+            const newUnreadCount = final.filter(n => !n.read).length;
+            const urgentCount = final.filter(n => !n.read && n.urgency === 'urgent').length;
+
+            if (soundEnabled && newUnreadCount > lastCount) {
+                if (urgentCount > 0) {
+                    play('urgent'); // LOUD 3-beep for store issues
+                } else {
+                    play('alert'); // two-tone chime for other alerts
+                }
+                // Shake the bell icon
+                if (bellRef.current) {
+                    bellRef.current.classList.add('animate-bounce');
+                    setTimeout(() => bellRef.current?.classList.remove('animate-bounce'), 600);
+                }
+            }
+            setLastCount(newUnreadCount);
         } catch (err) {
             console.error('Notifications fetch error:', err);
         } finally {
             setLoading(false);
         }
-    }, [readIds]);
+    }, [readIds, soundEnabled, lastCount, play, buildNotifications]);
 
+    // Initial load
     useEffect(() => {
         fetchNotifications();
-        // Auto-refresh every 90 seconds
-        const interval = setInterval(fetchNotifications, 90000);
-        return () => clearInterval(interval);
     }, []);
+
+    // Auto-refresh every 30 seconds
+    useEffect(() => {
+        const interval = setInterval(() => fetchNotifications(true), 30000);
+        return () => clearInterval(interval);
+    }, [fetchNotifications]);
+
+    // 🔴 SUPABASE REALTIME — instant notifications without polling
+    useEffect(() => {
+        const channel = supabase
+            .channel('store-issuances-realtime')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'school_store_issuances' },
+                (payload) => {
+                    // New store issuance request — play LOUD urgent alert
+                    if (soundEnabled) play('urgent');
+                    // Refetch to show it
+                    fetchNotifications(true);
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'school_fee_payments' },
+                () => {
+                    if (soundEnabled) play('success');
+                    fetchNotifications(true);
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'school_discipline_records' },
+                () => {
+                    if (soundEnabled) play('alert');
+                    fetchNotifications(true);
+                }
+            )
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [soundEnabled, play, fetchNotifications]);
 
     // Close on outside click
     useEffect(() => {
@@ -192,6 +306,7 @@ export default function NotificationsDropdown() {
     }, []);
 
     const unreadCount = notifications.filter(n => !n.read).length;
+    const urgentUnread = notifications.filter(n => !n.read && n.urgency === 'urgent').length;
 
     const markAllRead = () => {
         const allIds = new Set(notifications.map(n => n.id));
@@ -209,25 +324,27 @@ export default function NotificationsDropdown() {
     };
 
     const TYPE_LABELS: Record<string, string> = {
-        payment: 'Finance',
-        discipline: 'Discipline',
-        attendance: 'Attendance',
-        expense: 'Expenses',
-        stock: 'Stores',
-        system: 'System',
+        payment: 'Finance', discipline: 'Discipline', attendance: 'Attendance',
+        expense: 'Expenses', stock: 'Low Stock', system: 'System',
+        store_issue: '🔴 STORE REQUEST', approval: 'Approval',
+    };
+
+    const URGENCY_COLORS: Record<string, string> = {
+        urgent: '#dc2626', alert: '#d97706', success: '#16a34a', info: '#2563eb',
     };
 
     return (
         <div ref={dropRef} className="relative">
-            {/* Bell Button */}
+            {/* Bell Button — pulses red when urgent unread */}
             <button
+                ref={bellRef}
                 onClick={() => { setOpen(!open); if (!open) fetchNotifications(); }}
-                className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-                title="Notifications"
+                className={`relative p-2 rounded-lg transition-colors ${urgentUnread > 0 ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'text-gray-500 hover:bg-gray-100'}`}
+                title={urgentUnread > 0 ? `⚠️ ${urgentUnread} URGENT action(s) needed!` : 'Notifications'}
             >
-                <FiBell size={17} />
+                <FiBell size={17} className={urgentUnread > 0 ? 'animate-pulse' : ''} />
                 {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white px-[2px]">
+                    <span className={`absolute top-1 right-1 min-w-[16px] h-4 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white px-[2px] ${urgentUnread > 0 ? 'bg-red-600 animate-pulse' : 'bg-red-500'}`}>
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
@@ -235,31 +352,41 @@ export default function NotificationsDropdown() {
 
             {/* Dropdown Panel */}
             {open && (
-                <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999] flex flex-col">
+                <div className="absolute right-0 top-full mt-2 w-[400px] max-h-[560px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999] flex flex-col">
                     {/* Header */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-slate-900 to-blue-900">
+                    <div className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 ${urgentUnread > 0 ? 'bg-gradient-to-r from-red-700 to-red-900' : 'bg-gradient-to-r from-slate-900 to-blue-900'}`}>
                         <div className="flex items-center gap-2">
                             <FiBell size={15} className="text-white" />
                             <span className="text-white font-bold text-sm">Notifications</span>
-                            {unreadCount > 0 && (
+                            {urgentUnread > 0 && (
+                                <span className="bg-white text-red-700 text-[9px] font-black rounded-full px-2 py-0.5 animate-pulse">
+                                    ⚠️ {urgentUnread} URGENT
+                                </span>
+                            )}
+                            {unreadCount > 0 && urgentUnread === 0 && (
                                 <span className="bg-red-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5">
                                     {unreadCount} new
                                 </span>
                             )}
                         </div>
                         <div className="flex items-center gap-2">
+                            {/* Sound toggle */}
                             <button
-                                onClick={fetchNotifications}
+                                onClick={toggleSound}
+                                className={`p-1.5 rounded-lg transition-colors ${soundEnabled ? 'text-green-300 hover:text-white' : 'text-white/30 hover:text-white/60'}`}
+                                title={soundEnabled ? 'Sound ON — click to mute' : 'Sound MUTED — click to enable'}
+                            >
+                                <FiVolume2 size={13} />
+                            </button>
+                            <button
+                                onClick={() => fetchNotifications()}
                                 className="p-1 text-white/60 hover:text-white transition-colors"
                                 title="Refresh"
                             >
                                 <FiRefreshCw size={12} className={loading ? 'animate-spin' : ''} />
                             </button>
                             {unreadCount > 0 && (
-                                <button
-                                    onClick={markAllRead}
-                                    className="text-[10px] text-blue-300 hover:text-white font-semibold transition-colors"
-                                >
+                                <button onClick={markAllRead} className="text-[10px] text-blue-300 hover:text-white font-semibold transition-colors">
                                     Mark all read
                                 </button>
                             )}
@@ -268,6 +395,21 @@ export default function NotificationsDropdown() {
                             </button>
                         </div>
                     </div>
+
+                    {/* Urgent banner */}
+                    {urgentUnread > 0 && (
+                        <div className="bg-red-50 border-b-2 border-red-200 px-4 py-2 flex items-center gap-2">
+                            <span className="text-red-600 text-lg animate-pulse">🚨</span>
+                            <div>
+                                <p className="text-red-800 font-black text-xs">{urgentUnread} store issue request{urgentUnread > 1 ? 's' : ''} awaiting Bursar/Principal approval</p>
+                                <p className="text-red-500 text-[10px]">Scroll down to review and approve</p>
+                            </div>
+                            <Link href="/dashboard/stores/ultra" onClick={() => setOpen(false)}
+                                className="ml-auto flex-shrink-0 px-3 py-1 bg-red-600 text-white text-[10px] font-bold rounded-lg hover:bg-red-700 transition">
+                                Open Stores →
+                            </Link>
+                        </div>
+                    )}
 
                     {/* Notification List */}
                     <div className="overflow-y-auto flex-1">
@@ -286,12 +428,16 @@ export default function NotificationsDropdown() {
                             notifications.map(notif => (
                                 <div
                                     key={notif.id}
-                                    className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer group ${!notif.read ? 'bg-blue-50/30' : ''}`}
+                                    className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer group ${
+                                        !notif.read && notif.urgency === 'urgent'
+                                            ? 'bg-red-50/60 border-l-4 border-l-red-500'
+                                            : !notif.read ? 'bg-blue-50/30' : ''
+                                    }`}
                                     onClick={() => markRead(notif.id)}
                                 >
                                     {/* Icon */}
                                     <div
-                                        className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
                                         style={{ backgroundColor: notif.bg, color: notif.color }}
                                     >
                                         {notif.icon}
@@ -313,9 +459,18 @@ export default function NotificationsDropdown() {
                                             >
                                                 {TYPE_LABELS[notif.type]}
                                             </span>
-                                            {!notif.read && (
-                                                <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                                            )}
+                                            <div className="flex items-center gap-1">
+                                                {notif.href && (
+                                                    <Link href={notif.href} onClick={e => { e.stopPropagation(); markRead(notif.id); setOpen(false); }}
+                                                        className="text-[10px] text-blue-500 hover:text-blue-700 font-semibold">
+                                                        View →
+                                                    </Link>
+                                                )}
+                                                {!notif.read && (
+                                                    <div className="w-2 h-2 rounded-full flex-shrink-0 ml-1"
+                                                        style={{ background: URGENCY_COLORS[notif.urgency || 'info'] }} />
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -326,14 +481,14 @@ export default function NotificationsDropdown() {
                     {/* Footer */}
                     <div className="border-t border-gray-100 px-4 py-2.5 bg-gray-50 flex items-center justify-between">
                         <span className="text-[11px] text-gray-400">
-                            {notifications.length} alerts · Auto-refreshes every 90s
+                            {notifications.length} alerts · {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'} · Live via Realtime
                         </span>
                         <Link
-                            href="/dashboard/fees"
+                            href="/dashboard/notifications"
                             onClick={() => setOpen(false)}
                             className="flex items-center gap-1 text-[11px] text-blue-600 font-semibold hover:text-blue-800 transition-colors"
                         >
-                            View Finance <FiArrowRight size={11} />
+                            All Notifications <FiArrowRight size={11} />
                         </Link>
                     </div>
                 </div>
