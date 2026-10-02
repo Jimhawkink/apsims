@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -101,9 +101,9 @@ export default function MpesaReconciliationPage() {
             student_id: studentId,
             amount: tx.amount,
             payment_date: new Date(tx.created_at).toISOString().split('T')[0],
-            payment_method: 'M-Pesa',
+            payment_method: 'KCB Buni',
             receipt_number: tx.transaction_id,
-            notes: `Auto-reconciled from M-Pesa: ${tx.transaction_id} - ${tx.sender_name}`,
+            notes: `Auto-reconciled from KCB Buni: ${tx.transaction_id} - ${tx.sender_name}`,
         }]);
         if (fpError) { toast.error('Payment created but fee record failed'); return; }
 
@@ -150,7 +150,7 @@ export default function MpesaReconciliationPage() {
         const headers = Object.keys(rows[0] || {});
         const csv = [headers.join(','), ...rows.map(r => headers.map(h => `"${(r as any)[h] ?? ''}"`).join(','))].join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `mpesa_reconciliation_${dateTo}.csv`; a.click();
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `kcb_buni_reconciliation_${dateTo}.csv`; a.click();
         toast.success('Exported ✅');
     };
 
@@ -184,7 +184,7 @@ export default function MpesaReconciliationPage() {
                         </div>
                         <div>
                             <h1 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                                💳 M-Pesa Auto-Reconciliation
+                                💳 KCB Buni Auto-Reconciliation
                                 <span className="px-2.5 py-0.5 text-[10px] font-black bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full shadow-sm">LIVE</span>
                             </h1>
                             <p className="text-green-300 text-xs mt-0.5 font-medium">Real-time Payment Matching • C2B Callbacks • Auto Fee Recording</p>
@@ -280,7 +280,7 @@ export default function MpesaReconciliationPage() {
                                     {filteredTx.length === 0 ? (
                                         <tr><td colSpan={9} className="text-center py-16 text-gray-400">
                                             <span className="text-4xl block mb-3">💳</span>
-                                            <p className="text-sm font-medium">No M-Pesa transactions found</p>
+                                            <p className="text-sm font-medium">No KCB Buni transactions found</p>
                                             <p className="text-xs mt-1">Transactions will appear here when parents pay via M-Pesa</p>
                                         </td></tr>
                                     ) : filteredTx.map(tx => {

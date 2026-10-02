@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
@@ -293,7 +293,7 @@ export default function KCBBuniPushPage() {
               <div style={{ background: 'linear-gradient(135deg,#fef9c3,#fef3c7)', border: '1px solid #fde68a', borderRadius: 12, padding: 16, textAlign: 'center' }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>🏦</div>
                 <div style={{ fontWeight: 900, fontSize: 15, color: '#854d0e' }}>KCB STK Push Sent!</div>
-                <div style={{ fontSize: 13, color: '#92400e', marginTop: 4 }}>Enter M-Pesa PIN on your phone when prompted</div>
+                <div style={{ fontSize: 13, color: '#92400e', marginTop: 4 }}>Enter KCB Buni PIN on your phone when prompted</div>
                 <div style={{ marginTop: 12, width: 56, height: 56, borderRadius: '50%', background: 'rgba(133,77,14,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '12px auto 0', fontSize: 22, fontWeight: 900, color: '#854d0e' }}>{countdown}</div>
                 <div style={{ fontSize: 11, color: '#a16207', marginTop: 4 }}>Seconds remaining</div>
               </div>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { usePageIcon } from '@/lib/usePageIcon';
@@ -254,8 +254,8 @@ const menuGroups = [
             { href: '/dashboard/fees/payments', label: '📋 Payment History', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/receipt', label: '🧾 Pro Receipts & PDF', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/receipts', label: '🧾 Receipts Manager', icon: FiFileText, perm: 'fees' },
-            { href: '/dashboard/fees/mpesa-push', label: '📱 M-Pesa STK Push', icon: FiSmartphone, perm: 'fees' },
-            { href: '/dashboard/fees/mpesa-reconciliation', label: '💳 M-Pesa Reconciliation', icon: FiCreditCard, perm: 'fees' },
+            { href: '/dashboard/fees/mpesa-push', label: '🏦 KCB Buni STK Push', icon: FiSmartphone, perm: 'fees' },
+            { href: '/dashboard/fees/mpesa-reconciliation', label: '🏦 KCB Buni Reconciliation', icon: FiCreditCard, perm: 'fees' },
             { href: '/dashboard/payments/integration', label: '🔗 Payment Integration', icon: FiSmartphone, perm: 'fees' },
         ]
     },

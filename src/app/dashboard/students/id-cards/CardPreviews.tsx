@@ -1,205 +1,375 @@
 'use client';
 import { useRef, useEffect } from 'react';
 
+// ─── BARCODE GENERATOR ───────────────────────────────────────────────────────
 function generateBarcodeSvg(code: string): string {
     const bars: string[] = [];
-    let x = 0;
-    for (let i = 0; i < code.length; i++) {
-        const charCode = code.charCodeAt(i);
+    let x = 2;
+    const paddedCode = code.padEnd(20, '0');
+    for (let i = 0; i < paddedCode.length; i++) {
+        const charCode = paddedCode.charCodeAt(i);
         const width = (charCode % 3) + 1;
-        const isBar = i % 2 === 0;
-        if (isBar) {
-            bars.push(`<rect x="${x}" y="0" width="${width}" height="30" fill="#1a1a1a"/>`);
+        const height = i % 4 === 0 ? 28 : i % 3 === 0 ? 24 : 20;
+        const y = 30 - height;
+        if (i % 2 === 0) {
+            bars.push(`<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#111827" rx="0.3"/>`);
         }
-        x += width + 0.5;
+        x += width + 0.8;
     }
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${x} 30" width="${Math.min(x * 1.5, 120)}" height="25">${bars.join('')}</svg>`;
+    // Guard bars
+    const guardBar = `<rect x="0" y="0" width="1.5" height="30" fill="#111827"/>`;
+    const guardBar2 = `<rect x="${x + 1}" y="0" width="1.5" height="30" fill="#111827"/>`;
+    const allSvg = guardBar + bars.join('') + guardBar2;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${x + 4} 30" width="${Math.min((x + 4) * 1.2, 130)}" height="24">${allSvg}</svg>`;
 }
 
+// ─── QR CODE PLACEHOLDER (pixel pattern) ─────────────────────────────────────
+function MiniQR({ value, size = 36, color = '#111827' }: { value: string; size?: number; color?: string }) {
+    const seed = value.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const cells = Array.from({ length: 49 }, (_, i) => {
+        const row = Math.floor(i / 7); const col = i % 7;
+        // finder patterns
+        if ((row < 3 && col < 3) || (row < 3 && col > 3) || (row > 3 && col < 3)) return true;
+        return (seed * (i + 1) * 31) % 17 < 9;
+    });
+    const cellSize = size / 7;
+    return (
+        <svg width={size} height={size} viewBox="0 0 7 7" style={{ flexShrink: 0 }}>
+            <rect width="7" height="7" fill="white" />
+            {cells.map((filled, i) => filled ? (
+                <rect key={i} x={i % 7} y={Math.floor(i / 7)} width="1" height="1" fill={color} />
+            ) : null)}
+        </svg>
+    );
+}
+
+// ─── HOLOGRAPHIC SHIMMER OVERLAY ─────────────────────────────────────────────
+function HoloShimmer({ opacity = 0.06 }: { opacity?: number }) {
+    return (
+        <div style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2,
+            backgroundImage: `repeating-linear-gradient(105deg,
+                transparent 0%, transparent 8%,
+                rgba(255,255,255,${opacity}) 8%, rgba(255,255,255,${opacity}) 9%,
+                transparent 9%, transparent 17%,
+                rgba(255,220,100,${opacity * 0.6}) 17%, rgba(255,220,100,${opacity * 0.6}) 18%
+            )`,
+        }} />
+    );
+}
+
+// ─── STUDENT CARD FRONT ───────────────────────────────────────────────────────
 export function StudentCardFront({ student, school, template, getFormName, getStreamName, qrDataUrl }: any) {
-    const design = template?.front_design || { header_bg: 'linear-gradient(135deg, #1e40af, #3b82f6)', header_text: '#ffffff', body_bg: '#ffffff', accent: '#3b82f6', photo_border: '#3b82f6' };
+    const d = template?.front_design || {
+        header_bg: 'linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 50%,#2563eb 100%)',
+        header_text: '#ffffff',
+        body_bg: '#ffffff',
+        accent: '#1d4ed8',
+        photo_border: '#1d4ed8',
+    };
+    const accent = d.accent || '#1d4ed8';
     const barcodeSvg = student.card_number ? generateBarcodeSvg(student.card_number) : '';
+    const admNo = student.admission_no || student.admission_number || '—';
+    const formName = getFormName(student.form_id) || '—';
+    const streamName = getStreamName(student.stream_id) || '';
+    const initials = `${student.first_name?.charAt(0) || '?'}${student.last_name?.charAt(0) || '?'}`;
+    const year = student.card_expiry_date ? new Date(student.card_expiry_date).getFullYear() : new Date().getFullYear();
 
     return (
-        <div className="relative rounded-xl overflow-hidden shadow-lg border border-gray-200" style={{ width: 340, height: 214, background: design.body_bg || '#fff' }}>
-            {/* Header */}
-            <div className="py-2 px-3 text-center" style={{ background: design.header_bg, color: design.header_text || '#fff' }}>
-                <p className="text-[10px] font-bold uppercase tracking-wider leading-tight">{school?.school_name || 'Alpha School'}</p>
-                {school?.motto && <p className="text-[7px] italic opacity-80">{`"${school.motto}"`}</p>}
-                <p className="text-[6px] mt-0.5 font-bold uppercase tracking-widest bg-white/20 inline-block px-2 py-px rounded-full">Student Identity Card</p>
-            </div>
-            {/* Body */}
-            <div className="px-3 py-2 flex gap-2.5">
-                {/* Photo */}
-                <div className="flex-shrink-0">
-                    <div className="w-16 h-20 rounded-lg border-2 flex items-center justify-center text-white font-bold text-lg overflow-hidden"
-                        style={{ borderColor: design.photo_border || design.accent, background: student.photo_url ? 'transparent' : `linear-gradient(135deg, ${design.accent}, ${design.header_bg?.includes('#') ? design.accent : '#3b82f6'})` }}>
-                        {student.photo_url ? <img src={student.photo_url} alt="" className="w-full h-full object-cover" /> : `${student.first_name?.charAt(0)}${student.last_name?.charAt(0)}`}
+        <div style={{ position: 'relative', width: 340, height: 214, borderRadius: 14, overflow: 'hidden', background: d.body_bg || '#fff', boxShadow: '0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)', fontFamily: "'Segoe UI',system-ui,sans-serif" }}>
+            <HoloShimmer opacity={0.05} />
+
+            {/* ── HEADER ── */}
+            <div style={{ background: d.header_bg, padding: '9px 12px 7px', position: 'relative', overflow: 'hidden' }}>
+                {/* Corner shine */}
+                <div style={{ position: 'absolute', top: -20, right: -20, width: 70, height: 70, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* School emblem placeholder */}
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16 }}>
+                        {school?.logo_url ? <img src={school.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 6 }} /> : '🏫'}
                     </div>
-                </div>
-                {/* Info */}
-                <div className="flex-1 space-y-0.5 text-[9px] leading-tight">
-                    <div><span className="text-gray-400 font-semibold">Name:</span><p className="font-bold text-gray-800 text-[11px]">{student.first_name} {student.middle_name || ''} {student.last_name}</p></div>
-                    <div><span className="text-gray-400 font-semibold">Adm No:</span><span className="font-bold ml-1" style={{ color: design.accent }}>{student.admission_no || student.admission_number}</span></div>
-                    <div className="flex gap-3">
-                        <div><span className="text-gray-400 font-semibold">Form:</span><span className="font-bold text-gray-700 ml-1">{getFormName(student.form_id)}</span></div>
-                        <div><span className="text-gray-400 font-semibold">Stream:</span><span className="font-bold text-gray-700 ml-1">{getStreamName(student.stream_id)}</span></div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 10, fontWeight: 900, color: d.header_text || '#fff', textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1.2 }}>{school?.school_name || 'AlphaSchool'}</p>
+                        {school?.motto && <p style={{ margin: 0, fontSize: 6.5, color: 'rgba(255,255,255,0.75)', fontStyle: 'italic' }}>"{school.motto}"</p>}
                     </div>
-                    <div className="flex gap-3">
-                        <div><span className="text-gray-400 font-semibold">DOB:</span><span className="font-medium text-gray-700 ml-1">{student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString('en-GB') : '-'}</span></div>
-                        <div><span className="text-gray-400 font-semibold">Gender:</span><span className="font-medium text-gray-700 ml-1">{student.gender}</span></div>
+                    <div style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 5, padding: '2px 7px', flexShrink: 0 }}>
+                        <p style={{ margin: 0, fontSize: 6.5, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Student ID</p>
                     </div>
-                    <div><span className="text-gray-400 font-semibold">Blood Group:</span><span className="font-bold text-red-600 ml-1">{student.blood_group || '-'}</span></div>
                 </div>
             </div>
-            {/* Footer with barcode */}
-            <div className="absolute bottom-0 left-0 right-0 px-3 py-1.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between">
-                <div className="text-[7px] text-gray-400 leading-tight">
-                    <p>Guardian: {student.guardian_name || '-'}</p>
-                    <p>Tel: {student.guardian_phone || '-'}</p>
+
+            {/* ── BODY ── */}
+            <div style={{ display: 'flex', gap: 10, padding: '9px 12px 0' }}>
+                {/* Photo box */}
+                <div style={{ flexShrink: 0 }}>
+                    <div style={{
+                        width: 66, height: 82, borderRadius: 10,
+                        border: `2.5px solid ${accent}`,
+                        overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: student.photo_url ? 'transparent' : `linear-gradient(135deg,${accent}22,${accent}44)`,
+                        boxShadow: `0 0 0 3px ${accent}18`,
+                    }}>
+                        {student.photo_url
+                            ? <img src={student.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={{ fontSize: 22, fontWeight: 900, color: accent, letterSpacing: -1 }}>{initials}</span>
+                        }
+                    </div>
+                    {/* Card number under photo */}
+                    <p style={{ margin: '3px 0 0', fontSize: 6, color: '#9ca3af', textAlign: 'center', fontFamily: 'monospace', letterSpacing: '0.05em' }}>{student.card_number || admNo}</p>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    {barcodeSvg && <div dangerouslySetInnerHTML={{ __html: barcodeSvg }} />}
-                    {qrDataUrl && <img src={qrDataUrl} alt="QR" width={22} height={22} className="rounded-sm" />}
+
+                {/* Info grid */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {/* Name */}
+                    <div>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 900, color: '#111827', lineHeight: 1.15 }}>{student.first_name} {student.middle_name ? student.middle_name + ' ' : ''}{student.last_name}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
+                            <span style={{ fontSize: 8, background: accent, color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>{formName}{streamName ? ` · ${streamName}` : ''}</span>
+                            {student.gender && <span style={{ fontSize: 8, color: '#6b7280' }}>{student.gender}</span>}
+                        </div>
+                    </div>
+
+                    {/* Data rows */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginTop: 2 }}>
+                        {[
+                            { l: 'Adm No', v: admNo, bold: true, color: accent },
+                            { l: 'Blood Grp', v: student.blood_group || '—', bold: true, color: '#dc2626' },
+                            { l: 'D.O.B', v: student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString('en-GB') : '—', bold: false, color: '#374151' },
+                            { l: 'Valid Until', v: String(year), bold: true, color: '#059669' },
+                        ].map(f => (
+                            <div key={f.l}>
+                                <p style={{ margin: 0, fontSize: 6.5, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{f.l}</p>
+                                <p style={{ margin: 0, fontSize: f.bold ? 9.5 : 9, fontWeight: f.bold ? 800 : 500, color: f.color }}>{f.v}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Guardian mini */}
+                    <div style={{ borderTop: `1px solid ${accent}22`, paddingTop: 4, marginTop: 1 }}>
+                        <p style={{ margin: 0, fontSize: 7, color: '#6b7280', lineHeight: 1.3 }}>
+                            <span style={{ fontWeight: 700 }}>Guardian: </span>{student.guardian_name || '—'} · <span style={{ fontFamily: 'monospace' }}>{student.guardian_phone || '—'}</span>
+                        </p>
+                    </div>
                 </div>
-                <div className="text-right text-[7px] text-gray-400">
-                    <p className="font-bold">ID: {student.card_number || student.admission_no || '-'}</p>
-                    <p>Valid: {student.card_expiry_date ? new Date(student.card_expiry_date).getFullYear() : new Date().getFullYear()}</p>
+
+                {/* QR / Barcode column */}
+                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, justifyContent: 'center' }}>
+                    {qrDataUrl
+                        ? <img src={qrDataUrl} alt="QR" width={40} height={40} style={{ borderRadius: 4, border: `1px solid ${accent}33` }} />
+                        : <MiniQR value={admNo} size={40} color={accent} />
+                    }
+                    <p style={{ margin: 0, fontSize: 5.5, color: '#9ca3af', textAlign: 'center' }}>SCAN</p>
                 </div>
+            </div>
+
+            {/* ── FOOTER BAR ── */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 28, background: `linear-gradient(90deg,${accent}ee,${accent}bb)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {/* Kenya flag strip */}
+                    {['#000000', '#cc0001', '#006600'].map((c, i) => <div key={i} style={{ width: 14, height: 8, background: c, borderRadius: 1 }} />)}
+                    <p style={{ margin: 0, fontSize: 6.5, color: 'rgba(255,255,255,0.8)', marginLeft: 4 }}>🇰🇪 Kenya</p>
+                </div>
+                {barcodeSvg && <div dangerouslySetInnerHTML={{ __html: barcodeSvg }} style={{ opacity: 0.85 }} />}
+                <p style={{ margin: 0, fontSize: 6.5, color: 'rgba(255,255,255,0.7)' }}>apsims.co.ke</p>
             </div>
         </div>
     );
 }
 
+// ─── STUDENT CARD BACK ────────────────────────────────────────────────────────
 export function StudentCardBack({ student, school, template }: any) {
-    const design = template?.back_design || template?.front_design || { header_bg: 'linear-gradient(135deg, #1e40af, #3b82f6)', accent: '#3b82f6' };
-    const barcodeSvg = student.card_number ? generateBarcodeSvg(student.card_number) : '';
+    const d = template?.back_design || template?.front_design || { header_bg: 'linear-gradient(135deg,#1e3a8a,#1d4ed8)', accent: '#1d4ed8' };
+    const accent = d.accent || '#1d4ed8';
+    const admNo = student.card_number || student.admission_no || student.admission_number || '—';
+    const barcodeSvg = admNo !== '—' ? generateBarcodeSvg(admNo) : '';
+    const year = new Date().getFullYear();
 
     return (
-        <div className="relative rounded-xl overflow-hidden shadow-lg border border-gray-200" style={{ width: 340, height: 214, background: '#ffffff' }}>
-            {/* Top accent bar */}
-            <div className="h-2" style={{ background: design.header_bg || design.accent || '#3b82f6' }} />
-            <div className="px-4 py-3 text-[8px] space-y-2">
-                <div className="text-center">
-                    <p className="font-bold text-gray-800 text-[10px] uppercase tracking-wider">{school?.school_name || 'Alpha School'}</p>
-                    <p className="text-gray-400">STUDENT IDENTITY CARD — BACK</p>
+        <div style={{ position: 'relative', width: 340, height: 214, borderRadius: 14, overflow: 'hidden', background: '#f8fafc', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', fontFamily: "'Segoe UI',system-ui,sans-serif" }}>
+            <HoloShimmer opacity={0.04} />
+            {/* Top band */}
+            <div style={{ height: 8, background: d.header_bg }} />
+
+            {/* Main content */}
+            <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6, height: 'calc(100% - 36px)' }}>
+                {/* School header */}
+                <div style={{ textAlign: 'center', borderBottom: `1px solid ${accent}22`, paddingBottom: 5 }}>
+                    <p style={{ margin: 0, fontSize: 9.5, fontWeight: 900, color: '#111827', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{school?.school_name || 'AlphaSchool'}</p>
+                    <p style={{ margin: 0, fontSize: 7, color: '#6b7280' }}>STUDENT IDENTITY CARD · BACK</p>
                 </div>
-                <div className="border border-gray-200 rounded-lg p-2 space-y-1">
-                    <p className="font-bold text-gray-700 text-[9px]">Emergency Contact</p>
-                    <p className="text-gray-600">Name: {student.emergency_contact_name || student.guardian_name || '-'}</p>
-                    <p className="text-gray-600">Phone: {student.emergency_contact_phone || student.guardian_phone || '-'}</p>
-                </div>
-                <div className="border border-gray-200 rounded-lg p-2 space-y-1">
-                    <p className="font-bold text-gray-700 text-[9px]">Medical Info</p>
-                    <p className="text-gray-600">Blood Group: <span className="font-bold text-red-600">{student.blood_group || '-'}</span></p>
-                    <p className="text-gray-600">Conditions: {student.medical_conditions || student.medical_info || 'None'}</p>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                    <div className="text-[7px] text-gray-400">
-                        <p>{school?.physical_address || ''}</p>
-                        <p>Tel: {school?.phone1 || ''} | Email: {school?.email || ''}</p>
+
+                {/* Two-column info */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    {/* Emergency contact */}
+                    <div style={{ background: '#fff', borderRadius: 8, border: `1.5px solid ${accent}33`, padding: '6px 8px' }}>
+                        <p style={{ margin: '0 0 3px', fontSize: 7.5, fontWeight: 900, color: accent, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🆘 Emergency Contact</p>
+                        <p style={{ margin: 0, fontSize: 8, fontWeight: 700, color: '#111827' }}>{student.emergency_contact_name || student.guardian_name || '—'}</p>
+                        <p style={{ margin: 0, fontSize: 7.5, color: '#374151', fontFamily: 'monospace' }}>{student.emergency_contact_phone || student.guardian_phone || '—'}</p>
+                        {student.guardian_relationship && <p style={{ margin: '2px 0 0', fontSize: 7, color: '#6b7280' }}>({student.guardian_relationship})</p>}
                     </div>
-                    {barcodeSvg && <div dangerouslySetInnerHTML={{ __html: barcodeSvg }} />}
+
+                    {/* Medical info */}
+                    <div style={{ background: '#fff4f4', borderRadius: 8, border: '1.5px solid #fca5a5', padding: '6px 8px' }}>
+                        <p style={{ margin: '0 0 3px', fontSize: 7.5, fontWeight: 900, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🩸 Medical Info</p>
+                        <p style={{ margin: 0, fontSize: 8.5, fontWeight: 900, color: '#dc2626' }}>Blood: {student.blood_group || '—'}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 7, color: '#374151', lineHeight: 1.3 }}>{student.medical_conditions || student.medical_info || 'No known conditions'}</p>
+                    </div>
                 </div>
-                <div className="text-center mt-1">
-                    <p className="text-[6px] text-gray-300">If found, please return to the school office. Card remains property of the school.</p>
-                    <p className="text-[6px] text-gray-300 mt-0.5">Card No: {student.card_number || '-'} | Issued: {student.card_issued_date ? new Date(student.card_issued_date).toLocaleDateString('en-GB') : '-'}</p>
+
+                {/* Terms */}
+                <div style={{ background: '#fff', borderRadius: 6, border: '1px solid #e5e7eb', padding: '5px 8px' }}>
+                    <p style={{ margin: '0 0 2px', fontSize: 7, fontWeight: 800, color: '#374151' }}>TERMS OF USE</p>
+                    <p style={{ margin: 0, fontSize: 6.5, color: '#6b7280', lineHeight: 1.5 }}>
+                        This card is the property of {school?.school_name || 'AlphaSchool'} and must be carried at all times while on school premises. Not transferable. If found, please return to the school office. Misuse of this card will lead to disciplinary action.
+                    </p>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 28, background: `linear-gradient(90deg,${accent}dd,${accent}99)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 10px' }}>
+                <div style={{ fontSize: 6.5, color: 'rgba(255,255,255,0.8)' }}>
+                    <p style={{ margin: 0 }}>{school?.phone1 || '+254-000-000'} · {school?.email || 'info@school.ac.ke'}</p>
+                </div>
+                {barcodeSvg && <div dangerouslySetInnerHTML={{ __html: barcodeSvg }} style={{ opacity: 0.8 }} />}
+                <div style={{ fontSize: 6.5, color: 'rgba(255,255,255,0.7)', textAlign: 'right' }}>
+                    <p style={{ margin: 0 }}>No: {admNo}</p>
+                    <p style={{ margin: 0 }}>Issued: {year}</p>
                 </div>
             </div>
         </div>
     );
 }
 
+// ─── STAFF CARD FRONT ─────────────────────────────────────────────────────────
 export function StaffCardFront({ staff, school, template, qrDataUrl }: any) {
-    const design = template?.front_design || { header_bg: 'linear-gradient(135deg, #991b1b, #ef4444)', header_text: '#ffffff', body_bg: '#ffffff', accent: '#ef4444', photo_border: '#ef4444' };
+    const d = template?.front_design || { header_bg: 'linear-gradient(135deg,#7f1d1d,#991b1b,#dc2626)', header_text: '#ffffff', body_bg: '#ffffff', accent: '#dc2626', photo_border: '#dc2626' };
+    const accent = d.accent || '#dc2626';
     const barcodeSvg = staff.card_number ? generateBarcodeSvg(staff.card_number) : '';
+    const initials = `${staff.first_name?.charAt(0) || '?'}${staff.last_name?.charAt(0) || '?'}`;
+    const year = staff.card_expiry_date ? new Date(staff.card_expiry_date).getFullYear() : new Date().getFullYear();
 
     return (
-        <div className="relative rounded-xl overflow-hidden shadow-lg border border-gray-200" style={{ width: 340, height: 214, background: design.body_bg || '#fff' }}>
-            <div className="py-2 px-3 text-center" style={{ background: design.header_bg, color: design.header_text || '#fff' }}>
-                <p className="text-[10px] font-bold uppercase tracking-wider">{school?.school_name || 'Alpha School'}</p>
-                <p className="text-[6px] mt-0.5 font-bold uppercase tracking-widest bg-white/20 inline-block px-2 py-px rounded-full">Staff Identity Card</p>
-            </div>
-            <div className="px-3 py-2 flex gap-2.5">
-                <div className="flex-shrink-0">
-                    <div className="w-16 h-20 rounded-lg border-2 flex items-center justify-center text-white font-bold text-lg"
-                        style={{ borderColor: design.photo_border || design.accent, background: `linear-gradient(135deg, ${design.accent}, #991b1b)` }}>
-                        {staff.first_name?.charAt(0)}{staff.last_name?.charAt(0)}
+        <div style={{ position: 'relative', width: 340, height: 214, borderRadius: 14, overflow: 'hidden', background: d.body_bg || '#fff', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', fontFamily: "'Segoe UI',system-ui,sans-serif" }}>
+            <HoloShimmer opacity={0.05} />
+
+            {/* HEADER */}
+            <div style={{ background: d.header_bg, padding: '9px 12px 7px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: -15, right: -15, width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16 }}>
+                        {school?.logo_url ? <img src={school.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 6 }} /> : '🏫'}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: 10, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{school?.school_name || 'AlphaSchool'}</p>
+                        {school?.motto && <p style={{ margin: 0, fontSize: 6.5, color: 'rgba(255,255,255,0.75)', fontStyle: 'italic' }}>"{school.motto}"</p>}
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.25)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 5, padding: '2px 7px', flexShrink: 0 }}>
+                        <p style={{ margin: 0, fontSize: 6.5, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Staff ID</p>
                     </div>
                 </div>
-                <div className="flex-1 space-y-0.5 text-[9px] leading-tight">
-                    <div><span className="text-gray-400 font-semibold">Name:</span><p className="font-bold text-gray-800 text-[11px]">{staff.first_name} {staff.middle_name || ''} {staff.last_name}</p></div>
-                    <div><span className="text-gray-400 font-semibold">TSC No:</span><span className="font-bold ml-1" style={{ color: design.accent }}>{staff.tsc_number || staff.staff_no || '-'}</span></div>
-                    <div><span className="text-gray-400 font-semibold">Role:</span><span className="font-bold text-gray-700 ml-1">{staff.designation || staff.qualification || 'Teacher'}</span></div>
-                    <div><span className="text-gray-400 font-semibold">Dept:</span><span className="font-medium text-gray-700 ml-1">{staff.department || '-'}</span></div>
-                    <div><span className="text-gray-400 font-semibold">Phone:</span><span className="font-medium text-gray-700 ml-1">{staff.phone || '-'}</span></div>
+            </div>
+
+            {/* BODY */}
+            <div style={{ display: 'flex', gap: 10, padding: '9px 12px 0' }}>
+                <div style={{ flexShrink: 0 }}>
+                    <div style={{ width: 66, height: 82, borderRadius: 10, border: `2.5px solid ${accent}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: staff.photo_url ? 'transparent' : `linear-gradient(135deg,${accent}22,${accent}44)`, boxShadow: `0 0 0 3px ${accent}18` }}>
+                        {staff.photo_url
+                            ? <img src={staff.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={{ fontSize: 22, fontWeight: 900, color: accent }}>{initials}</span>
+                        }
+                    </div>
+                    <p style={{ margin: '3px 0 0', fontSize: 6, color: '#9ca3af', textAlign: 'center', fontFamily: 'monospace' }}>{staff.card_number || staff.staff_number || ''}</p>
+                </div>
+
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 900, color: '#111827', lineHeight: 1.15 }}>{staff.first_name} {staff.last_name}</p>
+                        <div style={{ display: 'flex', gap: 5, marginTop: 2 }}>
+                            <span style={{ fontSize: 8, background: accent, color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>{staff.role || staff.designation || 'Staff'}</span>
+                            {staff.department && <span style={{ fontSize: 8, color: '#6b7280' }}>{staff.department}</span>}
+                        </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginTop: 2 }}>
+                        {[
+                            { l: 'Staff No', v: staff.staff_number || staff.employee_id || '—', bold: true, color: accent },
+                            { l: 'Valid Until', v: String(year), bold: true, color: '#059669' },
+                            { l: 'TSC No', v: staff.tsc_number || '—', bold: false, color: '#374151' },
+                            { l: 'Gender', v: staff.gender || '—', bold: false, color: '#374151' },
+                        ].map(f => (
+                            <div key={f.l}>
+                                <p style={{ margin: 0, fontSize: 6.5, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{f.l}</p>
+                                <p style={{ margin: 0, fontSize: f.bold ? 9.5 : 9, fontWeight: f.bold ? 800 : 500, color: f.color }}>{f.v}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <div style={{ borderTop: `1px solid ${accent}22`, paddingTop: 4, marginTop: 1 }}>
+                        <p style={{ margin: 0, fontSize: 7, color: '#6b7280' }}>
+                            <span style={{ fontWeight: 700 }}>Contact: </span><span style={{ fontFamily: 'monospace' }}>{staff.phone || staff.phone_number || '—'}</span>
+                        </p>
+                    </div>
+                </div>
+
+                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, justifyContent: 'center' }}>
+                    {qrDataUrl
+                        ? <img src={qrDataUrl} alt="QR" width={40} height={40} style={{ borderRadius: 4, border: `1px solid ${accent}33` }} />
+                        : <MiniQR value={staff.staff_number || staff.id?.toString() || 'STAFF'} size={40} color={accent} />
+                    }
+                    <p style={{ margin: 0, fontSize: 5.5, color: '#9ca3af', textAlign: 'center' }}>SCAN</p>
                 </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 px-3 py-1.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between">
-                <div className="text-[7px] text-gray-400">{staff.email || ''}</div>
-                <div className="flex items-center gap-1.5">
-                    {barcodeSvg && <div dangerouslySetInnerHTML={{ __html: barcodeSvg }} />}
-                    {qrDataUrl && <img src={qrDataUrl} alt="QR" width={22} height={22} className="rounded-sm" />}
+
+            {/* FOOTER */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 28, background: `linear-gradient(90deg,${accent}ee,${accent}bb)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {['#000000', '#cc0001', '#006600'].map((c, i) => <div key={i} style={{ width: 14, height: 8, background: c, borderRadius: 1 }} />)}
+                    <p style={{ margin: 0, fontSize: 6.5, color: 'rgba(255,255,255,0.8)', marginLeft: 4 }}>🇰🇪 Kenya</p>
                 </div>
-                <div className="text-right text-[7px] text-gray-400">
-                    <p className="font-bold">ID: {staff.card_number || staff.tsc_number || '-'}</p>
-                    <p>Valid: {staff.card_expiry_date ? new Date(staff.card_expiry_date).getFullYear() : new Date().getFullYear()}</p>
-                </div>
+                {barcodeSvg && <div dangerouslySetInnerHTML={{ __html: barcodeSvg }} style={{ opacity: 0.85 }} />}
+                <p style={{ margin: 0, fontSize: 6.5, color: 'rgba(255,255,255,0.7)' }}>apsims.co.ke</p>
             </div>
         </div>
     );
 }
 
-export function VisitorCardPreview({ visitor, school }: any) {
-    return (
-        <div className="relative rounded-xl overflow-hidden shadow-lg border-2 border-amber-400" style={{ width: 200, height: 300, background: '#ffffff' }}>
-            <div className="py-3 px-3 text-center" style={{ background: 'linear-gradient(135deg, #92400e, #f59e0b)', color: '#fff' }}>
-                <p className="text-[9px] font-bold uppercase tracking-wider">{school?.school_name || 'Alpha School'}</p>
-                <p className="text-[7px] font-bold uppercase tracking-widest bg-white/20 inline-block px-2 py-0.5 rounded-full mt-1">Visitor Pass</p>
-            </div>
-            <div className="px-3 py-3 text-center space-y-2">
-                <div className="w-14 h-14 rounded-full bg-amber-100 border-2 border-amber-400 flex items-center justify-center text-amber-700 font-bold text-xl mx-auto">
-                    {visitor.visitor_name?.charAt(0) || '?'}
-                </div>
-                <p className="font-bold text-gray-800 text-sm">{visitor.visitor_name || 'Visitor Name'}</p>
-                <div className="text-[8px] text-gray-500 space-y-0.5">
-                    <p>Purpose: {visitor.visitor_purpose || '-'}</p>
-                    <p>Host: {visitor.host_person || '-'}</p>
-                    <p>ID: {visitor.visitor_id_number || '-'}</p>
-                    <p>Phone: {visitor.visitor_phone || '-'}</p>
-                </div>
-                <div className="border-t border-gray-200 pt-2 text-[7px] text-gray-400">
-                    <p>Card: {visitor.card_number || '-'}</p>
-                    <p>Check-in: {visitor.check_in_time ? new Date(visitor.check_in_time).toLocaleString() : 'Now'}</p>
-                </div>
-            </div>
-        </div>
-    );
-}
+// ─── STAFF CARD BACK ──────────────────────────────────────────────────────────
+export function StaffCardBack({ staff, school, template }: any) {
+    const d = template?.back_design || template?.front_design || { header_bg: 'linear-gradient(135deg,#7f1d1d,#dc2626)', accent: '#dc2626' };
+    const accent = d.accent || '#dc2626';
+    const barcodeSvg = (staff.card_number || staff.staff_number) ? generateBarcodeSvg(staff.card_number || staff.staff_number || '') : '';
+    const year = new Date().getFullYear();
 
-export function BusPassCardPreview({ busPass, student, school, getFormName }: any) {
     return (
-        <div className="relative rounded-xl overflow-hidden shadow-lg border-2 border-cyan-400" style={{ width: 200, height: 280, background: '#ffffff' }}>
-            <div className="py-2 px-3 text-center" style={{ background: 'linear-gradient(135deg, #155e75, #06b6d4)', color: '#fff' }}>
-                <p className="text-[9px] font-bold uppercase tracking-wider">{school?.school_name || 'Alpha School'}</p>
-                <p className="text-[7px] font-bold uppercase tracking-widest bg-white/20 inline-block px-2 py-0.5 rounded-full mt-0.5">Bus Pass</p>
+        <div style={{ position: 'relative', width: 340, height: 214, borderRadius: 14, overflow: 'hidden', background: '#f8fafc', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', fontFamily: "'Segoe UI',system-ui,sans-serif" }}>
+            <HoloShimmer opacity={0.04} />
+            <div style={{ height: 8, background: d.header_bg }} />
+            <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6, height: 'calc(100% - 36px)' }}>
+                <div style={{ textAlign: 'center', borderBottom: `1px solid ${accent}22`, paddingBottom: 5 }}>
+                    <p style={{ margin: 0, fontSize: 9.5, fontWeight: 900, color: '#111827', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{school?.school_name || 'AlphaSchool'}</p>
+                    <p style={{ margin: 0, fontSize: 7, color: '#6b7280' }}>STAFF IDENTITY CARD · BACK</p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    <div style={{ background: '#fff', borderRadius: 8, border: `1.5px solid ${accent}33`, padding: '6px 8px' }}>
+                        <p style={{ margin: '0 0 3px', fontSize: 7.5, fontWeight: 900, color: accent, textTransform: 'uppercase' }}>🆘 Emergency Contact</p>
+                        <p style={{ margin: 0, fontSize: 8, fontWeight: 700, color: '#111827' }}>{staff.emergency_contact_name || staff.next_of_kin || '—'}</p>
+                        <p style={{ margin: 0, fontSize: 7.5, color: '#374151', fontFamily: 'monospace' }}>{staff.emergency_contact_phone || '—'}</p>
+                    </div>
+                    <div style={{ background: '#fff4f4', borderRadius: 8, border: '1.5px solid #fca5a5', padding: '6px 8px' }}>
+                        <p style={{ margin: '0 0 3px', fontSize: 7.5, fontWeight: 900, color: '#dc2626', textTransform: 'uppercase' }}>🩸 Medical</p>
+                        <p style={{ margin: 0, fontSize: 8.5, fontWeight: 900, color: '#dc2626' }}>Blood: {staff.blood_group || '—'}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 7, color: '#374151' }}>{staff.medical_conditions || 'None known'}</p>
+                    </div>
+                </div>
+                <div style={{ background: '#fff', borderRadius: 6, border: '1px solid #e5e7eb', padding: '5px 8px' }}>
+                    <p style={{ margin: '0 0 2px', fontSize: 7, fontWeight: 800, color: '#374151' }}>TERMS OF USE</p>
+                    <p style={{ margin: 0, fontSize: 6.5, color: '#6b7280', lineHeight: 1.5 }}>
+                        This card is the property of {school?.school_name || 'AlphaSchool'}. It must be worn visibly at all times on school premises. If found, please return to the school office. Misuse will result in disciplinary action.
+                    </p>
+                </div>
             </div>
-            <div className="px-3 py-2 text-[9px] space-y-1.5">
-                <p className="font-bold text-gray-800 text-sm text-center">{student ? `${student.first_name} ${student.last_name}` : busPass.student_id}</p>
-                <p className="text-center text-gray-500">{student ? getFormName(student.form_id) : '-'}</p>
-                <div className="border border-cyan-200 rounded-lg p-2 space-y-0.5">
-                    <p><span className="text-gray-400">Route:</span> <span className="font-bold text-cyan-700">{busPass.route_name || '-'}</span></p>
-                    <p><span className="text-gray-400">Pickup:</span> {busPass.pickup_point || '-'}</p>
-                    <p><span className="text-gray-400">Drop-off:</span> {busPass.dropoff_point || '-'}</p>
-                </div>
-                <div className="border border-cyan-200 rounded-lg p-2 space-y-0.5">
-                    <p><span className="text-gray-400">Driver:</span> {busPass.driver_name || '-'}</p>
-                    <p><span className="text-gray-400">Phone:</span> {busPass.driver_phone || '-'}</p>
-                </div>
-                <div className="text-center text-[7px] text-gray-400 mt-1">
-                    <p>Card: {busPass.card_number || '-'}</p>
-                    <p>Valid: {busPass.issue_date || '-'} — {busPass.expiry_date || '-'}</p>
-                </div>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 28, background: `linear-gradient(90deg,${accent}dd,${accent}99)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 10px' }}>
+                <p style={{ margin: 0, fontSize: 6.5, color: 'rgba(255,255,255,0.8)' }}>{school?.phone1 || '+254-000-000'}</p>
+                {barcodeSvg && <div dangerouslySetInnerHTML={{ __html: barcodeSvg }} style={{ opacity: 0.8 }} />}
+                <p style={{ margin: 0, fontSize: 6.5, color: 'rgba(255,255,255,0.7)' }}>Issued: {year}</p>
             </div>
         </div>
     );
