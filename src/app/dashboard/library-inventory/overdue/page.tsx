@@ -101,25 +101,51 @@ export default function OverdueBooksPage() {
         const targets = filtered.filter(c => selectedIds.size === 0 || selectedIds.has(c.id));
         if (targets.length === 0) { toast.error('No records to send reminders to'); return; }
         setSendingReminders(true);
-        let sent = 0;
+        let sent = 0; let waOpened = 0;
         for (const c of targets) {
-            if (!c.borrower_phone) continue;
             const days = getDaysOverdue(c.due_date);
             const fine = days * FINE_PER_DAY;
             const title = c.book_title || c.school_library_books?.title || 'a library book';
-            const msg = `Dear ${c.borrower_name}, the library book "${title}" is ${days} days overdue. Accrued fine: KES ${fine}. Please return it immediately. - APSIMS Library`;
-            try {
-                await fetch('/api/send-sms', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: c.borrower_phone, message: msg }),
-                });
-                sent++;
-            } catch { /* continue */ }
-            await new Promise(r => setTimeout(r, 200));
+            const msg = `📚 Library Reminder — AlphaSchool\n\nDear ${c.borrower_name || 'Student'},\n\nThe book "${title}" is ${days} day${days !== 1 ? 's' : ''} OVERDUE.\nAccrued fine: KES ${fine.toLocaleString()}\n\nPlease return it to the library immediately to avoid further penalties.\n\nThank you,\nLibrary Department`;
+            if (c.borrower_phone) {
+                try {
+                    const res = await fetch('/api/send-sms', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: c.borrower_phone, message: msg }),
+                    });
+                    if (res.ok) { sent++; }
+                    else {
+                        // Fallback to WhatsApp
+                        const phone = c.borrower_phone.replace(/\s+/g,'').replace(/^0/,'254').replace(/^\+/,'');
+                        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                        waOpened++;
+                    }
+                } catch {
+                    const phone = c.borrower_phone.replace(/\s+/g,'').replace(/^0/,'254').replace(/^\+/,'');
+                    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                    waOpened++;
+                }
+            }
+            await new Promise(r => setTimeout(r, 300));
         }
-        toast.success(`📱 Sent ${sent} reminder(s)`);
+        const summary = [sent > 0 && `${sent} SMS sent`, waOpened > 0 && `${waOpened} WhatsApp opened`].filter(Boolean).join(' · ');
+        toast.success(`📱 Reminders sent! ${summary || 'No phone numbers on record'}`);
         setSendingReminders(false);
+    };
+
+    const sendWhatsAppBulk = () => {
+        const targets = filtered.filter(c => selectedIds.size === 0 || selectedIds.has(c.id));
+        if (targets.length === 0) { toast.error('No records selected'); return; }
+        const lines = targets.slice(0,10).map(c => {
+            const days = getDaysOverdue(c.due_date);
+            const fine = days * FINE_PER_DAY;
+            const title = c.book_title || c.school_library_books?.title || 'book';
+            return `• ${c.borrower_name}: "${title}" — ${days}d overdue, KES ${fine} fine`;
+        }).join('\n');
+        const msg = `📚 OVERDUE LIBRARY BOOKS — AlphaSchool\n\n${lines}${targets.length > 10 ? `\n...and ${targets.length-10} more` : ''}\n\nDate: ${new Date().toLocaleDateString('en-KE')}\nPlease ensure prompt return of all overdue books.`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+        toast.success('WhatsApp opened with overdue list!');
     };
 
     const exportCSV = () => {
@@ -201,7 +227,11 @@ export default function OverdueBooksPage() {
                         <button onClick={sendBulkReminders} disabled={sendingReminders}
                             className="flex items-center gap-1.5 px-4 py-2.5 bg-white text-red-700 rounded-xl text-xs font-black shadow-lg hover:shadow-xl disabled:opacity-60 transition">
                             {sendingReminders ? <FiRefreshCw size={13} className="animate-spin" /> : <FiMessageSquare size={13} />}
-                            {sendingReminders ? 'Sending...' : 'Send SMS Reminders'}
+                            {sendingReminders ? 'Sending...' : '📱 SMS Reminders'}
+                        </button>
+                        <button onClick={sendWhatsAppBulk}
+                            className="flex items-center gap-1.5 px-4 py-2.5 bg-green-500 text-white rounded-xl text-xs font-black shadow-lg hover:bg-green-400 transition">
+                            💬 WhatsApp List
                         </button>
                     </div>
                 </div>

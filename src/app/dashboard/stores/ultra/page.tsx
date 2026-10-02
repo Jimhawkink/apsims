@@ -153,10 +153,27 @@ export default function UltraStoresPage() {
     /* ─── DERIVED STATS ─────────────────────────────── */
     const kitchenItems = items.filter(i => i.category === 'Kitchen Provisions' || i.is_kitchen);
     const lowStockItems = items.filter(i => i.quantity <= (i.reorder_level || 5));
+    const criticalItems = items.filter(i => i.quantity === 0);
     const totalValue = items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0);
     const pendingIssuances = issuances.filter(i => i.status === 'Pending' || i.status === 'Verified');
     const pendingGRNs = grns.filter(g => g.status === 'Pending');
     const todayIssues = issuances.filter(i => i.status === 'Issued' && new Date(i.created_at).toDateString() === new Date().toDateString());
+
+    /* ─── LOW STOCK WHATSAPP ALERT ───────────────────── */
+    const sendLowStockAlert = async () => {
+        if (lowStockItems.length === 0) { toast('✅ All stock levels are healthy — nothing to alert!'); return; }
+        const lines = lowStockItems.slice(0, 10).map((i: any) =>
+            `• ${i.item_name}: ${i.quantity} ${i.unit || 'units'} (min: ${i.reorder_level || 5})`
+        ).join('\n');
+        const msg = `🚨 LOW STOCK ALERT — AlphaSchool\n\n${lines}${lowStockItems.length > 10 ? `\n...and ${lowStockItems.length - 10} more items` : ''}\n\nPlease arrange urgent restocking.\nGenerated: ${new Date().toLocaleString('en-KE')}`;
+        await supabase.from('school_store_audit_log').insert([{
+            action_type: 'LOW_STOCK_ALERT', record_ref: 'System',
+            description: `Low stock alert sent for ${lowStockItems.length} items`,
+            actor: 'System Auto-Alert', actor_role: 'Store System',
+        }]);
+        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+        toast.success(`📱 WhatsApp alert opened — ${lowStockItems.length} low-stock items listed!`);
+    };
 
     const filteredItems = useMemo(() => items.filter(i => {
         if (tab === 'kitchen' && i.category !== 'Kitchen Provisions' && !i.is_kitchen) return false;
@@ -518,6 +535,13 @@ ${grn.notes ? `<div style="background:#fef9c3;border:1px solid #fde68a;border-ra
                                 style={{ padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#fff', background: '#3b82f6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <FiMinus size={12} /> Request Issue
                             </button>
+                            {lowStockItems.length > 0 && (
+                                <button onClick={sendLowStockAlert}
+                                    style={{ position: 'relative', padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, animation: 'pulse 2s infinite' }}>
+                                    🚨 Low Stock Alert
+                                    <span style={{ position: 'absolute', top: -6, right: -6, background: '#fbbf24', color: '#1f2937', borderRadius: '50%', width: 18, height: 18, fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{lowStockItems.length}</span>
+                                </button>
+                            )}
                             <button onClick={exportCSV} style={{ padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <FiDownload size={12} /> Export
                             </button>

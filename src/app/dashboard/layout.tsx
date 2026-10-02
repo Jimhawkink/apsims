@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { usePageIcon } from '@/lib/usePageIcon';
@@ -239,70 +239,109 @@ const menuGroups = [
         ]
     },
 
+    // ── 💰 FEE COLLECTIONS ──────────────────────────────────────
     {
-        label: "Finance",
-        icon: FiDollarSign,
-        name: 'finance',
+        label: "💰 Fee Collections",
+        icon: FiCreditCard,
+        name: 'fee-collections',
         collapsible: true,
         items: [
             { href: '/dashboard/fees', label: 'Fee Dashboard', icon: FiPieChart, perm: 'fees' },
-            { href: '/dashboard/fees/collect', label: 'Collect Fee', icon: FiCreditCard, perm: 'fees' },
-            { href: '/dashboard/fees/outstanding', label: 'Outstanding Fees', icon: FiUsers, perm: 'fees' },
+            { href: '/dashboard/fees/collect', label: '💳 Collect Fee', icon: FiCreditCard, perm: 'fees' },
+            { href: '/dashboard/fees/outstanding', label: '⚠️ Outstanding Fees', icon: FiUsers, perm: 'fees' },
+            { href: '/dashboard/fees/defaulters', label: '🚨 Fee Defaulters List', icon: FiAlertCircle, perm: 'fees' },
             { href: '/dashboard/fees/arrears', label: '⚠️ Arrears & Opening Balances', icon: FiFileText, perm: 'fees' },
-            { href: '/dashboard/fees/payments', label: 'Payment History', icon: FiFileText, perm: 'fees' },
-            { href: '/dashboard/fees/structure', label: 'Fee Structure', icon: FiGrid, perm: 'fees' },
-            { href: '/dashboard/fees/vote-heads', label: '⚡ Vote Heads', icon: FiLayers, perm: 'fees' },
-
-            { href: '/dashboard/fees/statements', label: 'Fee Statements', icon: FiFileText, perm: 'fees' },
-            { href: '/dashboard/fees/payment-plans', label: '📅 Payment Plans & Pledges', icon: FiCalendar, perm: 'fees' },
-            { href: '/dashboard/fees/demand-letters', label: '📨 Auto Demand Letters', icon: FiSend, perm: 'fees' },
-            { href: '/dashboard/fees/combined-sms', label: 'Fee+Results SMS', icon: FiMessageSquare, perm: 'fees' },
-            { href: '/dashboard/fees/structure-improvements', label: 'Fee Structure & Waivers', icon: FiDollarSign, perm: 'fees' },
-            { href: '/dashboard/fees/invoices-demand', label: 'Invoices & Demand Letters', icon: FiFileText, perm: 'fees' },
-            { href: '/dashboard/budget', label: 'Budget vs Actual', icon: FiBarChart2, perm: 'fees' },
-            { href: '/dashboard/bursary', label: 'HELB & Bursary', icon: FiUsers, perm: 'fees' },
-            { href: '/dashboard/capitation', label: 'Capitation Grants', icon: FiLayers, perm: 'fees' },
-            { href: '/dashboard/etims', label: 'KRA eTIMS', icon: FiShield, perm: 'fees' },
-            { href: '/dashboard/bank-reconciliation', label: 'Bank Reconciliation', icon: FiCreditCard, perm: 'fees' },
-            { href: '/dashboard/expenses', label: '📉 Expenses (Ultra)', icon: FiTrendingDown, perm: 'expenses' },
-            { href: '/dashboard/income', label: '📈 Income (Ultra)', icon: FiTrendingUp, perm: 'income' },
-            { href: '/dashboard/fees/bulk-reminders', label: '📱 Bulk SMS/WA Reminders', icon: FiSend, perm: 'fees' },
-            { href: '/dashboard/fees/reports/pl', label: '📊 P&L Report', icon: FiBarChart2, perm: 'fees' },
-            { href: '/dashboard/fees/reports/vote-heads', label: '⚡ Vote Head Reports', icon: FiLayers, perm: 'fees' },
-            { href: '/dashboard/payments/integration', label: 'Payment Integration', icon: FiSmartphone, perm: 'fees' },
-            { href: '/dashboard/fees/analytics', label: '📊 Financial Analytics', icon: FiBarChart2, perm: 'fees' },
-            { href: '/dashboard/finance/analytics', label: '💹 Finance Deep Analytics', icon: FiPieChart, perm: 'fees' },
-
-            { href: '/dashboard/fees/mpesa-reconciliation', label: '💳 M-Pesa Reconciliation', icon: FiCreditCard, perm: 'fees' },
+            { href: '/dashboard/fees/payments', label: '📋 Payment History', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/receipt', label: '🧾 Pro Receipts & PDF', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/receipts', label: '🧾 Receipts Manager', icon: FiFileText, perm: 'fees' },
+            { href: '/dashboard/fees/mpesa-push', label: '📱 M-Pesa STK Push', icon: FiSmartphone, perm: 'fees' },
+            { href: '/dashboard/fees/mpesa-reconciliation', label: '💳 M-Pesa Reconciliation', icon: FiCreditCard, perm: 'fees' },
+            { href: '/dashboard/payments/integration', label: '🔗 Payment Integration', icon: FiSmartphone, perm: 'fees' },
+        ]
+    },
+    // ── 📐 FEE STRUCTURE & MANAGEMENT ───────────────────────────
+    {
+        label: "📐 Fee Structure & Management",
+        icon: FiGrid,
+        name: 'fee-structure',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/fees/structure', label: '📐 Fee Structure', icon: FiGrid, perm: 'fees' },
+            { href: '/dashboard/fees/structure-improvements', label: '🎓 Fee Structure & Waivers', icon: FiDollarSign, perm: 'fees' },
+            { href: '/dashboard/fees/fee-waiver', label: '🎓 Fee Waiver Management', icon: FiShield, perm: 'fees' },
+            { href: '/dashboard/fees/vote-heads', label: '⚡ Vote Heads', icon: FiLayers, perm: 'fees' },
+            { href: '/dashboard/fees/vote-heads/ledger', label: '📋 Vote Head Ledger', icon: FiLayers, perm: 'fees' },
+            { href: '/dashboard/fees/payment-plans', label: '📅 Payment Plans & Pledges', icon: FiCalendar, perm: 'fees' },
             { href: '/dashboard/fees/plans-scholarships', label: '💰 Plans & Scholarships', icon: FiCalendar, perm: 'fees' },
-            { href: '/dashboard/fees/audit', label: '🔒 Fee Audit Trail', icon: FiShield, perm: 'fees' },
-            { href: '/dashboard/fees/defaulter-automation', label: '🤖 Defaulter Automation', icon: FiAlertCircle, perm: 'fees' },
-            { href: '/dashboard/fees/petty-cash', label: '💵 Petty Cash / Cash Book', icon: FiDollarSign, perm: 'fees' },
-            { href: '/dashboard/fees/grants', label: '🏦 Grant Management', icon: FiTrendingUp, perm: 'fees' },
-            { href: '/dashboard/fees/insurance', label: '🛡️ Insurance Tracker', icon: FiShield, perm: 'fees' },
-            { href: '/dashboard/fees/cheques', label: '📄 Cheque Management', icon: FiFileText, perm: 'fees' },
-            { href: '/dashboard/fees/government-returns', label: '🏛️ Government Returns', icon: FiShield, perm: 'fees' },
+            { href: '/dashboard/fees/statements', label: '📄 Fee Statements', icon: FiFileText, perm: 'fees' },
+            { href: '/dashboard/fees/invoices-demand', label: '📨 Invoices & Demand Letters', icon: FiFileText, perm: 'fees' },
+            { href: '/dashboard/fees/approval-workflow', label: '✅ Finance Approvals', icon: FiLayers, perm: 'fees' },
+        ]
+    },
+    // ── 📊 FINANCIAL REPORTING ───────────────────────────────────
+    {
+        label: "📊 Financial Reporting",
+        icon: FiBarChart2,
+        name: 'finance-reporting',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/fees/analytics', label: '📊 Financial Analytics', icon: FiBarChart2, perm: 'fees' },
+            { href: '/dashboard/finance/analytics', label: '💹 Finance Deep Analytics', icon: FiPieChart, perm: 'fees' },
+            { href: '/dashboard/fees/reports/pl', label: '📊 P&L Report', icon: FiBarChart2, perm: 'fees' },
+            { href: '/dashboard/fees/reports/vote-heads', label: '⚡ Vote Head Reports', icon: FiLayers, perm: 'fees' },
+            { href: '/dashboard/fees/reports/board', label: '👔 Board Financial Report', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/trial-balance', label: '⚖️ Trial Balance', icon: FiBarChart2, perm: 'fees' },
             { href: '/dashboard/fees/balance-sheet', label: '📋 Balance Sheet', icon: FiBarChart2, perm: 'fees' },
             { href: '/dashboard/fees/pl-statement', label: '📈 P&L Statement', icon: FiTrendingUp, perm: 'fees' },
-            { href: '/dashboard/fees/cashbook', label: '📒 Cash Book (Full)', icon: FiBookOpen, perm: 'fees' },
-            { href: '/dashboard/fees/fee-waiver', label: '🎓 Fee Waiver Management', icon: FiShield, perm: 'fees' },
-            { href: '/dashboard/fees/approval-workflow', label: '✅ Finance Approvals', icon: FiLayers, perm: 'fees' },
-            { href: '/dashboard/fees/reminder-scheduler', label: '⏰ Reminder Scheduler', icon: FiClock, perm: 'fees' },
-
-            // ── ULTRA PREMIUM MODULES (NEW) ──────────────────────────
-            { href: '/dashboard/fees/mpesa-push', label: '📱 KCB Buni STK Push', icon: FiSmartphone, perm: 'fees' },
-            { href: '/dashboard/fees/defaulters', label: '🚨 Fee Defaulters List', icon: FiAlertCircle, perm: 'fees' },
-            { href: '/dashboard/fees/budget', label: '📊 Budget Module', icon: FiBarChart2, perm: 'fees' },
             { href: '/dashboard/fees/projections', label: '🔮 Fee Projections', icon: FiTrendingUp, perm: 'fees' },
-            { href: '/dashboard/fees/reports/board', label: '👔 Board Financial Report', icon: FiFileText, perm: 'fees' },
             { href: '/dashboard/fees/exports', label: '📤 Export Centre', icon: FiDownload, perm: 'fees' },
-            { href: '/dashboard/fees/bank-reconciliation', label: '🧾 Bank Reconciliation', icon: FiCreditCard, perm: 'fees' },
-            { href: '/dashboard/fees/notifications', label: '🔔 Notification Centre', icon: FiBell, perm: 'fees' },
-            { href: '/dashboard/fees/vote-heads/ledger', label: '📋 Vote Head Ledger', icon: FiLayers, perm: 'fees' },
+        ]
+    },
+    // ── 🏦 ACCOUNTING & BANKING ──────────────────────────────────
+    {
+        label: "🏦 Accounting & Banking",
+        icon: FiDollarSign,
+        name: 'accounting',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/budget', label: '📊 Budget vs Actual', icon: FiBarChart2, perm: 'fees' },
+            { href: '/dashboard/fees/cashbook', label: '📒 Cash Book (Full)', icon: FiBookOpen, perm: 'fees' },
+            { href: '/dashboard/fees/petty-cash', label: '💵 Petty Cash / Cash Book', icon: FiDollarSign, perm: 'fees' },
+            { href: '/dashboard/bank-reconciliation', label: '🏦 Bank Reconciliation', icon: FiCreditCard, perm: 'fees' },
+            { href: '/dashboard/fees/cheques', label: '📄 Cheque Management', icon: FiFileText, perm: 'fees' },
+            { href: '/dashboard/expenses', label: '📉 Expenses (Ultra)', icon: FiTrendingDown, perm: 'expenses' },
+            { href: '/dashboard/income', label: '📈 Income (Ultra)', icon: FiTrendingUp, perm: 'income' },
+            { href: '/dashboard/fees/audit', label: '🔒 Fee Audit Trail', icon: FiShield, perm: 'fees' },
+            { href: '/dashboard/etims', label: '🏛️ KRA eTIMS', icon: FiShield, perm: 'fees' },
+            { href: '/dashboard/fees/government-returns', label: '🏛️ Government Returns', icon: FiShield, perm: 'fees' },
+        ]
+    },
+    // ── 🎓 GRANTS & BURSARIES ────────────────────────────────────
+    {
+        label: "🎓 Grants & Bursaries",
+        icon: FiLayers,
+        name: 'grants-bursaries',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/bursary', label: '🎓 HELB & Bursary', icon: FiUsers, perm: 'fees' },
+            { href: '/dashboard/capitation', label: '🏫 Capitation Grants', icon: FiLayers, perm: 'fees' },
             { href: '/dashboard/fees/capitation', label: '🏫 Capitation Tracking', icon: FiDollarSign, perm: 'fees' },
+            { href: '/dashboard/fees/grants', label: '🏦 Grant Management', icon: FiTrendingUp, perm: 'fees' },
+            { href: '/dashboard/fees/insurance', label: '🛡️ Insurance Tracker', icon: FiShield, perm: 'fees' },
+        ]
+    },
+    // ── 📣 DEFAULTERS & REMINDERS ────────────────────────────────
+    {
+        label: "📣 Defaulters & Reminders",
+        icon: FiAlertCircle,
+        name: 'defaulters',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/fees/defaulter-automation', label: '🤖 Defaulter Automation', icon: FiAlertCircle, perm: 'fees' },
+            { href: '/dashboard/fees/demand-letters', label: '📨 Auto Demand Letters', icon: FiSend, perm: 'fees' },
+            { href: '/dashboard/fees/reminder-scheduler', label: '⏰ Reminder Scheduler', icon: FiClock, perm: 'fees' },
+            { href: '/dashboard/fees/bulk-reminders', label: '📱 Bulk SMS/WA Reminders', icon: FiSend, perm: 'fees' },
+            { href: '/dashboard/fees/combined-sms', label: '💬 Fee+Results SMS', icon: FiMessageSquare, perm: 'fees' },
         ]
     },
     {
