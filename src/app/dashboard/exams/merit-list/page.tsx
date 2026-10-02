@@ -719,16 +719,16 @@ export default function MeritListPage() {
                             <button onClick={async () => {
                                 const top10 = filtered.slice(0, 10);
                                 if (top10.length === 0) { toast.error('No students to notify'); return; }
-                                const inserts = top10.map((s, i) => ({
+                                const inserts = top10.map((s: any, i: number) => ({
                                     student_id: s.student?.id,
-                                    message: 🏆   ranked # in this term with avg %. Congratulations!,
+                                    message: 'Top performer #' + (i+1) + ': ' + (s.student?.first_name || '') + ' ' + (s.student?.last_name || '') + ' scored avg ' + (s.avg?.toFixed(1) || '0') + '%. Congratulations!',
                                     channel: 'sms', status: 'pending', created_at: new Date().toISOString()
                                 }));
-                                const { error } = await supabase.from('school_portal_notifications').insert(inserts as any);
+                                const { error } = await supabase.from('school_portal_notifications').insert(inserts);
                                 if (error) toast.error(error.message);
-                                else toast.success(📱 Notifications queued for Top  students!);
+                                else toast.success('Notifications queued for Top ' + top10.length + ' students!');
                             }} className="btn-icon" style={{ background: 'linear-gradient(135deg,#7c3aed,#6366f1)', borderColor:'transparent', color:'#fff' }}>
-                                📱 Notify Top 10
+                                Notify Top 10
                             </button>
                         </>}
                     </div>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -79,6 +79,35 @@ export default function KnecCompliancePage() {
     const missingNemis = students.filter(s => !s.nemis_no);
     const missingBirthCert = students.filter(s => !s.birth_cert_no);
     const missingDob = students.filter(s => !s.date_of_birth);
+
+    // ── Deadlines computation ──
+    const DEADLINE_YEAR = new Date().getFullYear();
+    const deadlineToday = new Date(); deadlineToday.setHours(0,0,0,0);
+    const DEADLINES_DATA = [
+        { id:'nemis-q1',   label:'NEMIS Data Update — Q1',         date:`${DEADLINE_YEAR}-02-28`, category:'NEMIS', urgent:true,  desc:'Update all student NEMIS numbers and biometric data in the NEMIS portal before end of February.' },
+        { id:'kcse-reg',   label:'KCSE Candidate Registration',     date:`${DEADLINE_YEAR}-03-31`, category:'KCSE',  urgent:true,  desc:'Register all Form 4 candidates on the KNEC portal. Late registrations incur penalties.' },
+        { id:'cba-t1',     label:'CBC CBA Submission — Term 1',     date:`${DEADLINE_YEAR}-04-15`, category:'CBC',   urgent:false, desc:'Submit CBA scores for Grade 4–9 on the KNEC portal.' },
+        { id:'mock-reg',   label:'Mock Exam Registration',          date:`${DEADLINE_YEAR}-06-30`, category:'KCSE',  urgent:false, desc:'Register candidates for National Mock Examination through your County Director.' },
+        { id:'cba-t2',     label:'CBC CBA Submission — Term 2',     date:`${DEADLINE_YEAR}-08-15`, category:'CBC',   urgent:false, desc:'Submit CBA scores for Grade 4–9 on the KNEC portal.' },
+        { id:'kcse-fee',   label:'KCSE Examination Fees Deadline',  date:`${DEADLINE_YEAR}-09-30`, category:'KCSE',  urgent:true,  desc:'All KCSE examination fees must be paid via MPesa Paybill 222111 before end of September.' },
+        { id:'knec-bio',   label:'KNEC Biometric Verification',     date:`${DEADLINE_YEAR}-10-15`, category:'KNEC',  urgent:true,  desc:'Biometric verification of KCSE candidates must be completed by mid-October.' },
+        { id:'cba-t3',     label:'CBC CBA Submission — Term 3',     date:`${DEADLINE_YEAR}-10-31`, category:'CBC',   urgent:false, desc:'Submit CBA scores for Grade 4–9 on the KNEC portal.' },
+        { id:'kcse-start', label:'KCSE Examinations Start',         date:`${DEADLINE_YEAR}-11-01`, category:'KCSE',  urgent:true,  desc:'KCSE National Examinations commence. Ensure all exam materials and halls are ready.' },
+        { id:'nemis-q4',   label:'NEMIS Data Update — Q4',         date:`${DEADLINE_YEAR}-11-30`, category:'NEMIS', urgent:false, desc:'Final NEMIS data update for the year. Ensure all leavers and new students are updated.' },
+        { id:'tsc-cpd',    label:'TSC CPD Hours Submission',        date:`${DEADLINE_YEAR}-12-15`, category:'TSC',   urgent:false, desc:'Teachers must submit CPD hours for the year on the TSC portal.' },
+        { id:'yr-report',  label:'Annual School Report to MOE',     date:`${DEADLINE_YEAR}-12-31`, category:'MoE',   urgent:false, desc:'Submit annual statistics and performance report to the Ministry of Education.' },
+    ];
+    const deadlinesWithCountdown = DEADLINES_DATA.map(d => {
+        const dl = new Date(d.date); dl.setHours(0,0,0,0);
+        const diff = Math.ceil((dl.getTime() - deadlineToday.getTime()) / (1000*60*60*24));
+        return { ...d, diff, passed: diff < 0 };
+    }).sort((a,b) => a.diff - b.diff);
+    const deadlinesUpcoming = deadlinesWithCountdown.filter(d => !d.passed && d.diff <= 90);
+    const CAT_COLORS: Record<string,[string,string]> = {
+        KNEC: ['#1e40af','#dbeafe'], KCSE: ['#7c3aed','#ede9fe'],
+        CBC:  ['#059669','#d1fae5'], NEMIS:['#0891b2','#cffafe'],
+        TSC:  ['#d97706','#fef3c7'], MoE:  ['#dc2626','#fee2e2'],
+    };
 
     if (loading) return (
         <div className="flex items-center justify-center h-[60vh]">
@@ -369,148 +398,110 @@ export default function KnecCompliancePage() {
                 </div>
             )}
 
-            {/* ══════════════════════════════════════════════════════ */}
-            {/* DEADLINES TAB                                          */}
-            {/* ══════════════════════════════════════════════════════ */}
-            {tab === 'deadlines' && (() => {
-                const YEAR = new Date().getFullYear();
-                const today = new Date(); today.setHours(0,0,0,0);
-                const deadlines = [
-                    { id:'nemis-q1',   label:'NEMIS Data Update — Q1',            date:`${YEAR}-02-28`, category:'NEMIS',   urgent:true,  desc:'Update all student NEMIS numbers and biometric data in the NEMIS portal before end of February.' },
-                    { id:'kcse-reg',   label:'KCSE Candidate Registration',        date:`${YEAR}-03-31`, category:'KCSE',    urgent:true,  desc:'Register all Form 4 candidates on the KNEC portal. Late registrations incur penalties.' },
-                    { id:'cba-t1',     label:'CBC CBA Submission — Term 1',        date:`${YEAR}-04-15`, category:'CBC',     urgent:false, desc:'Submit Classroom-Based Assessment scores for Grade 4–9 on the KNEC portal.' },
-                    { id:'mock-reg',   label:'Mock Exam Registration',             date:`${YEAR}-06-30`, category:'KCSE',    urgent:false, desc:'Register candidates for the National Mock Examination through your County Director of Education.' },
-                    { id:'cba-t2',     label:'CBC CBA Submission — Term 2',        date:`${YEAR}-08-15`, category:'CBC',     urgent:false, desc:'Submit Classroom-Based Assessment scores for Grade 4–9 on the KNEC portal.' },
-                    { id:'kcse-fee',   label:'KCSE Examination Fees Deadline',     date:`${YEAR}-09-30`, category:'KCSE',    urgent:true,  desc:'All KCSE examination fees must be paid via MPesa Paybill 222111 before end of September.' },
-                    { id:'cba-t3',     label:'CBC CBA Submission — Term 3',        date:`${YEAR}-10-31`, category:'CBC',     urgent:false, desc:'Submit Classroom-Based Assessment scores for Grade 4–9 on the KNEC portal.' },
-                    { id:'nemis-q4',   label:'NEMIS Data Update — Q4',            date:`${YEAR}-11-30`, category:'NEMIS',   urgent:false, desc:'Final NEMIS data update for the year. Ensure all leavers and new students are updated.' },
-                    { id:'kcse-start', label:'KCSE Examinations Start',            date:`${YEAR}-11-01`, category:'KCSE',    urgent:true,  desc:'KCSE National Examinations commence. Ensure all exam materials and halls are ready.' },
-                    { id:'tsc-cpd',    label:'TSC CPD Hours Submission',           date:`${YEAR}-12-15`, category:'TSC',     urgent:false, desc:'Teachers must submit their Continuing Professional Development hours for the year on the TSC portal.' },
-                    { id:'yr-report',  label:'Annual School Report to MOE',        date:`${YEAR}-12-31`, category:'MoE',     urgent:false, desc:'Submit annual statistics and school performance report to the Ministry of Education.' },
-                    { id:'knec-bio',   label:'KNEC Biometric Verification',        date:`${YEAR}-10-15`, category:'KNEC',    urgent:true,  desc:'Biometric verification of KCSE candidates must be completed by mid-October.' },
-                ];
-
-                const withCountdown = deadlines.map(d => {
-                    const dl = new Date(d.date); dl.setHours(0,0,0,0);
-                    const diff = Math.ceil((dl.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                    return { ...d, diff, passed: diff < 0 };
-                }).sort((a, b) => a.diff - b.diff);
-
-                const CAT_COLORS: Record<string,[string,string]> = {
-                    KNEC:  ['#1e40af','#dbeafe'], KCSE: ['#7c3aed','#ede9fe'],
-                    CBC:   ['#059669','#d1fae5'], NEMIS:['#0891b2','#cffafe'],
-                    TSC:   ['#d97706','#fef3c7'], MoE:  ['#dc2626','#fee2e2'],
-                };
-
-                const upcoming = withCountdown.filter(d => !d.passed && d.diff <= 90);
-                const overdue  = withCountdown.filter(d => d.passed);
-
-                return (
-                    <div className="space-y-5">
-                        {/* Banner */}
-                        <div className="rounded-2xl p-5 text-white" style={{background:'linear-gradient(135deg,#1e3a5f,#1d4ed8)'}}>
-                            <div className="flex items-center gap-3 mb-3">
-                                <FiBell size={22}/>
-                                <div>
-                                    <h2 className="font-black text-lg">📅 KNEC / MoE Deadline Reminders</h2>
-                                    <p className="text-sm text-white/70">Kenya curriculum compliance calendar — {YEAR}</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-6 flex-wrap">
-                                {[
-                                    {l:'Total Deadlines', v:withCountdown.length, c:'#93c5fd'},
-                                    {l:'Due in 90 days',  v:upcoming.length,       c:'#fde68a'},
-                                    {l:'Overdue',         v:overdue.length,         c:'#fca5a5'},
-                                    {l:'Completed/Passed',v:overdue.length,         c:'#86efac'},
-                                ].map(k=>(
-                                    <div key={k.l}>
-                                        <p className="text-2xl font-black" style={{color:k.c}}>{k.v}</p>
-                                        <p className="text-[10px] text-white/50 font-bold uppercase">{k.l}</p>
-                                    </div>
-                                ))}
+            {/* ══ DEADLINES TAB ══ */}
+            {tab === 'deadlines' && (
+                <div className="space-y-5">
+                    {/* Banner */}
+                    <div className="rounded-2xl p-5 text-white" style={{background:'linear-gradient(135deg,#1e3a5f,#1d4ed8)'}}>
+                        <div className="flex items-center gap-3 mb-3">
+                            <FiBell size={22}/>
+                            <div>
+                                <h2 className="font-black text-lg">📅 KNEC / MoE Deadline Reminders</h2>
+                                <p className="text-sm text-white/70">Kenya curriculum compliance calendar — {DEADLINE_YEAR}</p>
                             </div>
                         </div>
-
-                        {/* Urgent / upcoming */}
-                        {upcoming.length > 0 && (
-                            <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
-                                <p className="font-black text-amber-800 mb-3 flex items-center gap-2"><FiAlertTriangle/> ⚠️ Due in the Next 90 Days</p>
-                                <div className="space-y-2">
-                                    {upcoming.map(d => {
-                                        const [tc, bc] = CAT_COLORS[d.category] || ['#374151','#f3f4f6'];
-                                        return (
-                                            <div key={d.id} className="bg-white rounded-xl border border-amber-100 p-3 flex items-center gap-4">
-                                                <div className="flex-shrink-0 text-center w-14">
-                                                    <p className="text-2xl font-black" style={{color: d.diff <= 14 ? '#dc2626' : d.diff <= 30 ? '#d97706' : '#059669'}}>{d.diff}</p>
-                                                    <p className="text-[9px] font-bold text-gray-400 uppercase">days left</p>
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-0.5">
-                                                        <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{background:bc,color:tc}}>{d.category}</span>
-                                                        {d.urgent && <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-700">🔴 URGENT</span>}
-                                                    </div>
-                                                    <p className="font-bold text-gray-800 text-sm">{d.label}</p>
-                                                    <p className="text-[10px] text-gray-500 mt-0.5">{d.desc}</p>
-                                                </div>
-                                                <div className="text-right flex-shrink-0">
-                                                    <p className="text-xs font-bold text-gray-500">{new Date(d.date).toLocaleDateString('en-KE',{day:'2-digit',month:'short',year:'numeric'})}</p>
-                                                    <button onClick={async () => {
-                                                        await supabase.from('school_portal_notifications').insert({
-                                                            message: `📅 KNEC Deadline Reminder: ${d.label} is due on ${d.date} (${d.diff} days left). ${d.desc}`,
-                                                            channel: 'system', status: 'pending', created_at: new Date().toISOString()
-                                                        }).then(() => toast.success(`Reminder set for: ${d.label}`));
-                                                    }} className="mt-1 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-white" style={{background:'#1d4ed8'}}>
-                                                        <FiBell size={9}/> Remind
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                        <div className="flex gap-6 flex-wrap">
+                            {[
+                                {l:'Total Deadlines', v:deadlinesWithCountdown.length, c:'#93c5fd'},
+                                {l:'Due in 90 days',  v:deadlinesUpcoming.length,      c:'#fde68a'},
+                                {l:'Overdue/Passed',  v:deadlinesWithCountdown.filter(d=>d.passed).length, c:'#fca5a5'},
+                            ].map(k=>(
+                                <div key={k.l}>
+                                    <p className="text-2xl font-black" style={{color:k.c}}>{k.v}</p>
+                                    <p className="text-[10px] text-white/50 font-bold uppercase">{k.l}</p>
                                 </div>
-                            </div>
-                        )}
+                            ))}
+                        </div>
+                    </div>
 
-                        {/* Full calendar */}
-                        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                            <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-                                <FiClock className="text-blue-600"/>
-                                <h3 className="font-black text-gray-800">Full {YEAR} Compliance Calendar</h3>
-                            </div>
-                            <div className="divide-y divide-gray-50">
-                                {withCountdown.map(d => {
+                    {/* Upcoming urgent deadlines */}
+                    {deadlinesUpcoming.length > 0 && (
+                        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
+                            <p className="font-black text-amber-800 mb-3 flex items-center gap-2"><FiAlertTriangle/> Due in the Next 90 Days</p>
+                            <div className="space-y-2">
+                                {deadlinesUpcoming.map(d => {
                                     const [tc, bc] = CAT_COLORS[d.category] || ['#374151','#f3f4f6'];
                                     return (
-                                        <div key={d.id} className={`flex items-center gap-4 px-5 py-4 ${d.passed ? 'opacity-50' : ''} hover:bg-gray-50`}>
-                                            <div className="w-16 flex-shrink-0 text-center">
-                                                {d.passed
-                                                    ? <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">Done</span>
-                                                    : <div>
-                                                        <p className="text-lg font-black" style={{color: d.diff <= 14 ? '#dc2626' : d.diff <= 30 ? '#d97706' : '#059669'}}>{d.diff}</p>
-                                                        <p className="text-[9px] font-bold text-gray-400">days</p>
-                                                    </div>
-                                                }
+                                        <div key={d.id} className="bg-white rounded-xl border border-amber-100 p-3 flex items-center gap-4">
+                                            <div className="flex-shrink-0 text-center w-14">
+                                                <p className="text-2xl font-black" style={{color: d.diff <= 14 ? '#dc2626' : d.diff <= 30 ? '#d97706' : '#059669'}}>{d.diff}</p>
+                                                <p className="text-[9px] font-bold text-gray-400 uppercase">days left</p>
                                             </div>
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-0.5">
                                                     <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{background:bc,color:tc}}>{d.category}</span>
-                                                    {d.urgent && !d.passed && <span className="text-[9px] font-bold text-red-600">🔴 URGENT</span>}
-                                                    {d.passed && <span className="text-[9px] font-bold text-gray-400">✅ Passed</span>}
+                                                    {d.urgent && <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-700">URGENT</span>}
                                                 </div>
                                                 <p className="font-bold text-gray-800 text-sm">{d.label}</p>
-                                                <p className="text-[10px] text-gray-400 mt-0.5">{d.desc}</p>
+                                                <p className="text-[10px] text-gray-500 mt-0.5">{d.desc}</p>
                                             </div>
                                             <div className="text-right flex-shrink-0">
-                                                <p className="text-sm font-black text-gray-600">{new Date(d.date).toLocaleDateString('en-KE',{day:'2-digit',month:'short'})}</p>
-                                                <p className="text-[9px] text-gray-400">{YEAR}</p>
+                                                <p className="text-xs font-bold text-gray-500">{new Date(d.date).toLocaleDateString('en-KE',{day:'2-digit',month:'short',year:'numeric'})}</p>
+                                                <button onClick={async () => {
+                                                    const msg = 'KNEC Deadline: ' + d.label + ' due on ' + d.date + ' (' + d.diff + ' days left).';
+                                                    await supabase.from('school_portal_notifications').insert({ message: msg, channel: 'system', status: 'pending', created_at: new Date().toISOString() });
+                                                    toast.success('Reminder set for: ' + d.label);
+                                                }} className="mt-1 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-white" style={{background:'#1d4ed8'}}>
+                                                    <FiBell size={9}/> Remind
+                                                </button>
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
+                    )}
+
+                    {/* Full calendar */}
+                    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                            <FiClock className="text-blue-600"/>
+                            <h3 className="font-black text-gray-800">Full {DEADLINE_YEAR} Compliance Calendar</h3>
+                        </div>
+                        <div className="divide-y divide-gray-50">
+                            {deadlinesWithCountdown.map(d => {
+                                const [tc, bc] = CAT_COLORS[d.category] || ['#374151','#f3f4f6'];
+                                return (
+                                    <div key={d.id} className={'flex items-center gap-4 px-5 py-4 hover:bg-gray-50' + (d.passed ? ' opacity-50' : '')}>
+                                        <div className="w-16 flex-shrink-0 text-center">
+                                            {d.passed
+                                                ? <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">Done</span>
+                                                : <div>
+                                                    <p className="text-lg font-black" style={{color: d.diff <= 14 ? '#dc2626' : d.diff <= 30 ? '#d97706' : '#059669'}}>{d.diff}</p>
+                                                    <p className="text-[9px] font-bold text-gray-400">days</p>
+                                                </div>
+                                            }
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{background:bc,color:tc}}>{d.category}</span>
+                                                {d.urgent && !d.passed && <span className="text-[9px] font-bold text-red-600">URGENT</span>}
+                                                {d.passed && <span className="text-[9px] font-bold text-gray-400">Passed</span>}
+                                            </div>
+                                            <p className="font-bold text-gray-800 text-sm">{d.label}</p>
+                                            <p className="text-[10px] text-gray-400 mt-0.5">{d.desc}</p>
+                                        </div>
+                                        <div className="text-right flex-shrink-0">
+                                            <p className="text-sm font-black text-gray-600">{new Date(d.date).toLocaleDateString('en-KE',{day:'2-digit',month:'short'})}</p>
+                                            <p className="text-[9px] text-gray-400">{DEADLINE_YEAR}</p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
-                );
-            })()}
+                </div>
+            )}
         </div>
     );
 }
