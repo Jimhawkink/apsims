@@ -93,6 +93,9 @@ export default function ReportCardsPage() {
     // Subject teachers (for initials)
     const [subjectTeachers, setSubjectTeachers] = useState<any[]>([]);
 
+    // SBA scores for 40/60 formula (CBC 40% SBA + 60% KNEC exam)
+    const [sbaScores, setSbaScores] = useState<any[]>([]);
+
     // Fee data
     const [feeStructure, setFeeStructure] = useState<any[]>([]);
     const [feePayments, setFeePayments] = useState<any[]>([]);
@@ -234,7 +237,7 @@ export default function ReportCardsPage() {
             let stQuery = supabase.from('school_subject_teachers').select('*').eq('form_id', Number(selForm));
             if (selStream) stQuery = stQuery.eq('stream_id', Number(selStream));
 
-            // Fetch marks for every DB exam type in parallel
+            // Fetch marks for every DB exam type in parallel + SBA scores
             const examFetches = dbExamTypes.map((et: any) =>
                 supabase.from('school_exam_marks').select('*')
                     .eq('term_id', Number(selTerm))
@@ -242,11 +245,18 @@ export default function ReportCardsPage() {
                     .in('student_id', studentIds)
             );
 
-            const results = await Promise.all([...examFetches, stQuery]);
+            // Also fetch SBA scores for this class/term (for 40/60 calculation)
+            const sbaFetch = supabase.from('school_sba_scores')
+                .select('*, school_sba_tasks(subject_id, max_score, task_type)')
+                .eq('term_id', Number(selTerm))
+                .in('student_id', studentIds);
+
+            const results = await Promise.all([...examFetches, stQuery, sbaFetch]);
             const marksMap: Record<string, any[]> = {};
             dbExamTypes.forEach((et: any, i: number) => { marksMap[et.exam_name] = results[i].data || []; });
             setAllExamMarks(marksMap);
             setSubjectTeachers(results[dbExamTypes.length].data || []);
+            setSbaScores(results[dbExamTypes.length + 1].data || []);
             setLoadingMarks(false);
         };
         load();
@@ -337,7 +347,24 @@ export default function ReportCardsPage() {
             // If End-Term is selected and has a db combined_score, prefer it
             const etMark = (allExamMarks['End-Term'] || []).find((m: any) => m.student_id === studentId && m.subject_id === sub.id);
             const dbCombined = selectedExamTypes.includes('End-Term') && etMark?.combined_score ? Number(etMark.combined_score) : null;
-            const finalCombined = dbCombined || combined;
+
+            // ── SBA 40/60 Integration (KNEC CBC rule) ────────────────────────
+            // If SBA scores exist for this student+subject, apply: Final = (SBA_avg × 0.4) + (KNEC_exam × 0.6)
+            const studentSBA = sbaScores.filter((s: any) =>
+                s.student_id === studentId &&
+                (s.school_sba_tasks?.subject_id === sub.id || s.subject_id === sub.id)
+            );
+            let sbaAdjustedFinal: number | null = null;
+            if (studentSBA.length > 0) {
+                const sbaAvg = studentSBA.reduce((sum: number, s: any) => {
+                    const taskMax = s.school_sba_tasks?.max_score || 100;
+                    return sum + ((s.score || 0) / taskMax) * 100;
+                }, 0) / studentSBA.length;
+                const knecScore = examScores['End-Term'] ?? combined;
+                sbaAdjustedFinal = Math.round((sbaAvg * 0.4) + (knecScore * 0.6));
+            }
+
+            const finalCombined = sbaAdjustedFinal ?? dbCombined ?? combined;
             const combinedG = getGrade(finalCombined);
 
             const stEntry = subjectTeachers.find(st => st.subject_id === sub.id);
@@ -1386,14 +1413,14 @@ export default function ReportCardsPage() {
                             </div>
                         )}
 
-                        {/* ── Comments Section (AI-Powered) ── */}
+                        {/* ── Comments Section (Intelligent Generation) ── */}
                         <div className="px-4 pb-4 space-y-3">
-                            {/* 🤖 AI Generate Button */}
+                            {/* 🧠 Intelligent Generate Button */}
                             <div className="flex items-center gap-3 p-3 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50">
-                                <span className="text-2xl">🤖</span>
+                                <span className="text-2xl">🧠</span>
                                 <div className="flex-1">
-                                    <p className="text-xs font-bold text-indigo-700">AI Comment Generator</p>
-                                    <p className="text-[10px] text-indigo-500">Auto-generate English + Kiswahili comment using GPT-4o</p>
+                                    <p className="text-xs font-bold text-indigo-700">Intelligent Comment Generator</p>
+                                    <p className="text-[10px] text-indigo-500">Auto-generate English + Kiswahili comment based on student performance</p>
                                 </div>
                                 <button
                                     onClick={() => {
@@ -1407,7 +1434,7 @@ export default function ReportCardsPage() {
                                     {aiLoadingId === selectedStudentData.student.id ? (
                                         <><span className="animate-spin">⚙️</span> Generating…</>
                                     ) : (
-                                        <><span>✨</span> Generate AI Comment</>
+                                        <><span>✨</span> Generate Comment</>
                                     )}
                                 </button>
                             </div>
@@ -1417,7 +1444,7 @@ export default function ReportCardsPage() {
                                 <div className="flex items-center justify-between mb-1">
                                     <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wide">Class Teacher's Comment</p>
                                     {comments[selectedStudentData.student.id]?.classTeacher && (
-                                        <span className="text-[9px] bg-indigo-100 text-indigo-600 font-bold px-2 py-0.5 rounded-full">✨ AI Generated</span>
+                                        <span className="text-[9px] bg-indigo-100 text-indigo-600 font-bold px-2 py-0.5 rounded-full">✨ Intelligently Generated</span>
                                     )}
                                 </div>
                                 {comments[selectedStudentData.student.id]?.classTeacher ? (

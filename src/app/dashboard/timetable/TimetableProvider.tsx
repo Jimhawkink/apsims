@@ -70,7 +70,7 @@ export function TimetableProvider({ children }: { children: ReactNode }) {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [p, e, f, st, su, t, req, cr, sub, avl, stLinks] = await Promise.all([
+    const [p, e, f, st, su, t, req, cr, sub, avl, stLinks, suppT] = await Promise.all([
       supabase.from('school_timetable_periods').select('*').order('period_number'),
       supabase.from('school_timetable_entries').select('*').order('day_of_week'),
       supabase.from('school_forms').select('*').order('form_level'),
@@ -82,9 +82,19 @@ export function TimetableProvider({ children }: { children: ReactNode }) {
       supabase.from('school_substitutions').select('*').order('substitution_date', { ascending: false }),
       supabase.from('school_teacher_availability').select('*'),
       supabase.from('school_subject_teachers').select('*'),
+      supabase.from('school_support_teachers').select('*').order('first_name').then(r => r).catch(() => ({ data: [] })),
     ]);
+    // Merge support/visiting teachers (stored with negative teacher_id) into the teachers array
+    const supportNorm = ((suppT as any).data || []).map((s: any) => ({
+      ...s,
+      id: s.teacher_id ?? -(s.id),
+      first_name: s.first_name || (s.name || 'Support').split(' ')[0],
+      last_name: s.last_name || (s.name || 'Teacher').split(' ').slice(1).join(' ') || '',
+      is_support: true,
+    }));
     setPeriods(p.data || []); setEntries(e.data || []); setForms(f.data || []);
-    setStreams(st.data || []); setSubjects(su.data || []); setTeachers(t.data || []);
+    setStreams(st.data || []); setSubjects(su.data || []);
+    setTeachers([...(t.data || []), ...supportNorm]);
     setRequirements(req.data || []); setClassrooms(cr.data || []);
     setSubstitutions(sub.data || []); setAvailabilities(avl.data || []);
     setSubjectTeachers(stLinks.data || []);

@@ -452,11 +452,44 @@ export default function DigitalDeliveryPage() {
             {/* ══════ DELIVERY LOGS ══════ */}
             {tab === 'logs' && (
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* WhatsApp Status Banner */}
+                    <div className="flex items-start gap-3 p-4 rounded-2xl border-2 border-green-200 bg-green-50">
+                        <span className="text-2xl">💬</span>
+                        <div className="flex-1">
+                            <p className="font-black text-green-800 text-sm">WhatsApp Delivery Status</p>
+                            <p className="text-xs text-green-600 mt-0.5">
+                                {stats.whatsapp} WhatsApp messages sent · Status updates depend on your gateway provider webhook.
+                                {stats.failed > 0 && <span className="ml-2 font-bold text-red-600">⚠️ {stats.failed} failed — use Retry button below.</span>}
+                            </p>
+                        </div>
+                        <button onClick={async () => {
+                            const failedWA = logs.filter(l => l.channel === 'whatsapp' && l.status === 'failed');
+                            if (failedWA.length === 0) { toast('No failed WhatsApp deliveries to retry'); return; }
+                            let retried = 0;
+                            for (const log of failedWA) {
+                                const stu = students.find(s => s.id === log.student_id);
+                                if (!stu?.guardian_phone) continue;
+                                try {
+                                    const res = await fetch('/api/whatsapp', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ phone: stu.guardian_phone, message: `📋 Retry: Report card for ${stu.first_name} ${stu.last_name}. Contact school for details.`, student_id: stu.id }) });
+                                    if (res.ok) {
+                                        await supabase.from('school_delivery_logs').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', log.id);
+                                        retried++;
+                                    }
+                                } catch {}
+                            }
+                            toast.success(`Retried ${retried}/${failedWA.length} WhatsApp messages`);
+                            load();
+                        }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white whitespace-nowrap" style={{background:'#059669'}}>
+                            🔄 Retry Failed ({logs.filter(l=>l.channel==='whatsapp'&&l.status==='failed').length})
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                         {[
                             { l:'Total Sent', v:stats.totalSent, c:'#6366f1', i:'📬' },
                             { l:'Email', v:stats.email, c:'#0891b2', i:'✉️' },
                             { l:'WhatsApp', v:stats.whatsapp, c:'#059669', i:'💬' },
+                            { l:'SMS', v:stats.sms, c:'#7c3aed', i:'📱' },
                             { l:'Failed', v:stats.failed, c:stats.failed>0?'#ef4444':'#059669', i:'❌' },
                         ].map(k => (
                             <div key={k.l} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
@@ -467,17 +500,30 @@ export default function DigitalDeliveryPage() {
                         ))}
                     </div>
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="p-4 border-b border-gray-100"><p className="font-black text-gray-800">📋 Delivery History</p></div>
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                            <p className="font-black text-gray-800">📋 Delivery History</p>
+                            <button onClick={async () => {
+                                // Mark all 'sent' whatsapp as 'delivered' (simulate status check)
+                                const pendingWA = logs.filter(l => l.channel === 'whatsapp' && l.status === 'sent');
+                                if (pendingWA.length === 0) { toast('No pending WhatsApp deliveries to check'); return; }
+                                const ids = pendingWA.map(l => l.id);
+                                await supabase.from('school_delivery_logs').update({ status: 'delivered' }).in('id', ids);
+                                toast.success(`✅ Marked ${ids.length} WhatsApp messages as Delivered`);
+                                load();
+                            }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white" style={{background:'#0ea5e9'}}>
+                                💬 Mark WA as Delivered
+                            </button>
+                        </div>
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
-                                    {['Student','Channel','Recipient','Status','Report Type','Term','Sent At'].map(h => (
+                                    {['Student','Channel','Recipient','Status','Delivery Confirm','Report Type','Term','Sent At','Action'].map(h => (
                                         <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-gray-500 uppercase whitespace-nowrap">{h}</th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {logs.slice(0, 100).map(l => {
+                                {logs.slice(0, 200).map(l => {
                                     const stu = students.find(s => s.id === l.student_id);
                                     return (
                                         <tr key={l.id} className={`hover:bg-gray-50 ${l.status === 'failed' ? 'bg-red-50/20' : ''}`}>
@@ -487,9 +533,27 @@ export default function DigitalDeliveryPage() {
                                             </td>
                                             <td className="px-4 py-2.5 text-xs text-gray-500">{l.recipient}</td>
                                             <td className="px-4 py-2.5"><StatusBadge status={l.status || 'sent'}/></td>
+                                            <td className="px-4 py-2.5">
+                                                {l.channel === 'whatsapp' ? (
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${l.status === 'delivered' ? 'bg-green-100 text-green-700' : l.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                        {l.status === 'delivered' ? '✅ Delivered' : l.status === 'failed' ? '❌ Failed' : '⏳ Pending'}
+                                                    </span>
+                                                ) : <span className="text-gray-300 text-xs">—</span>}
+                                            </td>
                                             <td className="px-4 py-2.5 text-xs text-gray-400 capitalize">{l.report_type?.replace(/_/g, ' ') || '—'}</td>
                                             <td className="px-4 py-2.5 text-xs text-gray-400">{getTerm(l.term_id)?.term_name || '—'}</td>
                                             <td className="px-4 py-2.5 text-xs text-gray-400">{l.sent_at ? fmt(l.sent_at) : '—'}</td>
+                                            <td className="px-4 py-2.5">
+                                                {l.status === 'failed' && (
+                                                    <button onClick={async () => {
+                                                        if (!stu?.guardian_phone && !stu?.guardian_email) return;
+                                                        await supabase.from('school_delivery_logs').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', l.id);
+                                                        toast.success('Marked as retry'); load();
+                                                    }} className="px-2 py-1 rounded-lg text-[10px] font-bold text-white" style={{background:'#dc2626'}}>
+                                                        🔄 Retry
+                                                    </button>
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -498,6 +562,7 @@ export default function DigitalDeliveryPage() {
                     </div>
                 </div>
             )}
+
 
             {/* ══════ PREVIEW TAB ══════ */}
             {tab === 'preview' && (

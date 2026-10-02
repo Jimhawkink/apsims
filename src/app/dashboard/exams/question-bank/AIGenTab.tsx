@@ -182,7 +182,7 @@ export default function AIGenTab({ d }: any) {
     setGenerated([]);
     try {
       const { system, user } = buildPrompt({ ...cfg, subject_name: d.getSubjectName(Number(cfg.subject_id)) }, curriculumInfo, levelInfo);
-      setProgress(`Calling Claude AI — generating ${cfg.count} ${levelInfo?.label} ${qTypeInfo?.l} questions on "${cfg.topic}"...`);
+      setProgress(`Generating ${cfg.count} ${levelInfo?.label} ${qTypeInfo?.l} questions on "${cfg.topic}"...`);
       const response = await fetch('/api/ai-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -204,11 +204,10 @@ export default function AIGenTab({ d }: any) {
         difficulty: cfg.difficulty,
         blooms_level: cfg.blooms_level || q.blooms_level || 'apply',
         marks: q.marks || (cfg.question_type === 'essay' ? 20 : cfg.question_type === 'calculation' ? 10 : 2),
-        source: 'ai_generated',
-        ai_model: 'claude-sonnet-4-20250514',
+        source: 'intelligent_generated',
         is_approved: false,
         approval_status: 'pending',
-        created_by: 'AI Generator',
+        created_by: 'Intelligent Generator',
         curriculum_system: cfg.curriculum_system,
         _idx: i,
       }));
@@ -259,7 +258,7 @@ export default function AIGenTab({ d }: any) {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center"><FiCpu className="text-white" size={20}/></div>
               <div>
-                <h3 className="text-sm font-bold text-white">🇰🇪 Kenya Curriculum AI Question Generator</h3>
+                <h3 className="text-sm font-bold text-white">🇰🇪 Kenya Curriculum Intelligent Question Generator</h3>
                 <p className="text-xs text-indigo-200">8-4-4 (Form 1–4/KCSE) · CBC JSS (Grade 7–9/KJSEA) · CBC Senior (Grade 10–12)</p>
               </div>
             </div>

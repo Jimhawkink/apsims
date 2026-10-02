@@ -52,7 +52,7 @@ export default function GenerateTab() {
             </div>
             <div>
               <h2 className="text-2xl font-black tracking-tight">Auto-Generate Engine</h2>
-              <p className="text-indigo-200 text-sm">AI-powered constraint-based scheduling • {bTerm} {bYear}</p>
+              <p className="text-indigo-200 text-sm">Smart constraint-based scheduling • {bTerm} {bYear}</p>
             </div>
           </div>
 
@@ -180,6 +180,52 @@ export default function GenerateTab() {
           <button onClick={() => setTab('class')} className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-all">
             <FiEye size={16} /> View Generated Timetable
           </button>
+
+          {/* ── Clash Detection Panel ─────────────────────────────────────── */}
+          {(() => {
+            const clashes: { teacher: string; period: string; day: string; classes: string[] }[] = [];
+            const grouped: Record<string, { teacherId: number; period: number; day: number; classLabel: string }[]> = {};
+            genResults.placed.forEach(e => {
+              if (!e.teacher_id) return;
+              const key = `t${e.teacher_id}-d${e.day}-p${e.period}`;
+              if (!grouped[key]) grouped[key] = [];
+              grouped[key].push({ teacherId: e.teacher_id, period: e.period, day: e.day, classLabel: `${e.form_id}-${e.stream_id || ''}` });
+            });
+            Object.entries(grouped).forEach(([, entries]) => {
+              if (entries.length > 1) {
+                const days = ['Mon','Tue','Wed','Thu','Fri'];
+                clashes.push({ teacher: `Teacher #${entries[0].teacherId}`, period: `Period ${entries[0].period}`, day: days[entries[0].day] || `Day ${entries[0].day}`, classes: entries.map(e => e.classLabel) });
+              }
+            });
+            if (clashes.length === 0) return (
+              <div className="flex items-center gap-2 p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl">
+                <FiCheckCircle className="text-emerald-600" size={18} />
+                <div>
+                  <p className="text-sm font-bold text-emerald-800">✅ No Teacher Clashes Detected</p>
+                  <p className="text-xs text-emerald-600">All teachers are scheduled in one class per time slot.</p>
+                </div>
+              </div>
+            );
+            return (
+              <div className="bg-red-50 border-2 border-red-200 rounded-2xl overflow-hidden">
+                <div className="p-4 border-b border-red-200 flex items-center gap-2">
+                  <FiAlertTriangle className="text-red-600" size={16} />
+                  <h3 className="font-bold text-red-800 text-sm">⚠️ {clashes.length} Teacher Clash{clashes.length > 1 ? 'es' : ''} Detected — Fix Before Publishing</h3>
+                </div>
+                <div className="divide-y divide-red-100">
+                  {clashes.map((c, i) => (
+                    <div key={i} className="p-4 flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-red-100 flex items-center justify-center text-red-600 font-black text-xs flex-shrink-0">⚠️</div>
+                      <div>
+                        <p className="text-sm font-bold text-red-800">{c.teacher} — {c.day} {c.period}</p>
+                        <p className="text-xs text-red-600">Assigned to: {c.classes.join(', ')} at the same time</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

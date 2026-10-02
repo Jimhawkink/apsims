@@ -16,7 +16,7 @@ import toast from 'react-hot-toast';
 type Tab = 'questions'|'ai'|'marking'|'papers'|'practice'|'kcse'|'approval'|'stats'|'duplicates';
 const TABS: {id:Tab;label:string;icon:any;color:string}[] = [
   {id:'questions',label:'Questions',icon:FiFileText,color:'#6366f1'},
-  {id:'ai',label:'AI Generator',icon:FiCpu,color:'#7c3aed'},
+  {id:'ai',label:'Intelligent Generator',icon:FiCpu,color:'#7c3aed'},
   {id:'marking',label:'Marking Schemes',icon:FiCheck,color:'#059669'},
   {id:'papers',label:'Past Papers',icon:FiBook,color:'#1e40af'},
   {id:'practice',label:'Student Practice',icon:FiEdit2,color:'#b45309'},
@@ -49,13 +49,13 @@ export default function QuestionBankPage() {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div><h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><FiFileText className="text-indigo-500"/> Ultra Question Bank</h1><p className="text-sm text-gray-500 mt-1">AI · Marking Schemes · KCSE Analysis · Practice</p></div>
+        <div><h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><FiFileText className="text-indigo-500"/> Intelligent Question Bank</h1><p className="text-sm text-gray-500 mt-1">Intelligent Generation · Marking Schemes · KCSE Analysis · Practice</p></div>
         <div className="flex gap-2 flex-wrap">
           <button onClick={handleSeed} disabled={seeding} className="text-xs font-bold px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center gap-1.5 shadow-md hover:scale-105 transition-transform disabled:opacity-50">
             <FiDatabase size={12}/> {seeding ? 'Seeding...' : '🇰🇪 Load KCSE Data'}
           </button>
           <span className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-bold">{d.questions.length} Questions</span>
-          <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold">{d.questions.filter((q:any)=>q.source==='ai_generated').length} AI</span>
+          <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold">{d.questions.filter((q:any)=>q.source==='intelligent_generated'||q.source==='ai_generated').length} Intelligent</span>
           <span className="text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded-full font-bold">{d.questions.filter((q:any)=>q.approval_status==='pending').length} Pending</span>
         </div>
       </div>

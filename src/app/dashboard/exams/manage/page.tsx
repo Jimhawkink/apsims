@@ -368,17 +368,39 @@ export default function ExamManagerPage() {
                         Manage <strong>8-4-4</strong> exam types & <strong>CBC</strong> competency assessments in one place
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <button onClick={fetchAll} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all" title="Refresh">
                         <FiRefreshCw size={16} />
                     </button>
-                    {mode === '8-4-4' && (
+                    {mode === '8-4-4' && (<>
+                        <button onClick={async () => {
+                            const cur = terms.find(t => t.is_current);
+                            if (!cur) { toast.error('No current term set'); return; }
+                            if (!confirm(`Lock ALL subjects for ${cur.term_name}? Teachers will not be able to edit marks.`)) return;
+                            const subjectIds = subjects.map((s: any) => s.id);
+                            const rows = subjectIds.map((sid: number) => ({ term_id: cur.id, subject_id: sid, is_locked: true }));
+                            const { error } = await supabase.from('school_marks_lock').upsert(rows, { onConflict: 'term_id,subject_id' });
+                            if (error) toast.error('Lock failed: ' + error.message);
+                            else toast.success(`🔒 All subjects locked for ${cur.term_name}`);
+                        }} className="px-4 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow" style={{ background: 'linear-gradient(135deg,#dc2626,#b91c1c)' }}>
+                            <FiLock size={14} /> Lock All
+                        </button>
+                        <button onClick={async () => {
+                            const cur = terms.find(t => t.is_current);
+                            if (!cur) { toast.error('No current term set'); return; }
+                            if (!confirm(`Unlock ALL subjects for ${cur.term_name}?`)) return;
+                            const { error } = await supabase.from('school_marks_lock').update({ is_locked: false }).eq('term_id', cur.id);
+                            if (error) toast.error('Unlock failed: ' + error.message);
+                            else toast.success(`🔓 All subjects unlocked for ${cur.term_name}`);
+                        }} className="px-4 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow" style={{ background: 'linear-gradient(135deg,#059669,#047857)' }}>
+                            <FiUnlock size={14} /> Unlock All
+                        </button>
                         <button onClick={() => open844Create()}
                             className="px-5 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow-md"
                             style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
                             <FiPlus size={16} /> New Exam Type
                         </button>
-                    )}
+                    </>)}
                     {mode === 'CBC' && (
                         <button onClick={() => { setCbcForm({ student_id: null, subject_id: null, term_id: terms.find(t => t.is_current)?.id || null, assessment_type: 'Formative', task_name: '', rubric_level: 'ME', teacher_id: null, notes: '', raw_score: '' }); setShowCBCModal(true); }}
                             className="px-5 py-2.5 text-sm font-bold text-white rounded-xl flex items-center gap-2 shadow-md"

@@ -424,7 +424,7 @@ export default function QuestionsTab({ d }: any) {
           <button onClick={() => { setShowAI(!showAI); setAiPreview([]); }}
             className="px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md"
             style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>
-            <FiZap size={13} /> 🇰🇪 AI Generator
+            <FiZap size={13} /> 🇰🇪 Intelligent Generator
           </button>
           <button onClick={openAdd} className="px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-md" style={{ background: 'linear-gradient(135deg,#059669,#0d9488)' }}>
             <FiPlus size={13} /> Add Manual
@@ -439,8 +439,8 @@ export default function QuestionsTab({ d }: any) {
           <div className="px-5 py-3 flex items-center gap-3 border-b border-white/10">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl" style={{ background: 'linear-gradient(135deg,#f59e0b,#ef4444)' }}>🇰🇪</div>
             <div>
-              <h3 className="text-sm font-bold text-white">Kenya AI Question Generator</h3>
-              <p className="text-[10px] text-purple-300">KCSE Form 2/3/4 · CBC Grade 7–12 · Powered by Claude AI · Beats Zeraki & EduTech Kenya</p>
+              <h3 className="text-sm font-bold text-white">Kenya Intelligent Question Generator</h3>
+              <p className="text-[10px] text-purple-300">KCSE Form 2/3/4 · CBC Grade 7–12 · Intelligent Generation · Beats Zeraki & EduTech Kenya</p>
             </div>
           </div>
 
@@ -802,7 +802,7 @@ export default function QuestionsTab({ d }: any) {
           <div className="text-center py-14">
             <FiBook size={36} className="text-gray-200 mx-auto mb-3" />
             <p className="text-gray-400 font-semibold">No questions yet</p>
-            <p className="text-gray-300 text-xs mt-1">Click "AI Generator" to create premium Kenya exam questions instantly!</p>
+            <p className="text-gray-300 text-xs mt-1">Click "Intelligent Generator" to create premium Kenya exam questions instantly!</p>
           </div>
         )}
       </div>

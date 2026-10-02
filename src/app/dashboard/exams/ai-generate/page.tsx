@@ -130,11 +130,11 @@ export default function AIGeneratePage() {
 
   const subjectTopics = topics.filter(t => t.subject_id === form.subject_id);
 
-  if (loading) return (<div className="flex flex-col items-center justify-center h-64 gap-3"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: 'linear-gradient(135deg,#06b6d4,#0891b2)' }}>🤖</div><p className="text-sm font-bold text-gray-500">Loading AI Generator…</p></div>);
+  if (loading) return (<div className="flex flex-col items-center justify-center h-64 gap-3"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: 'linear-gradient(135deg,#06b6d4,#0891b2)' }}>🧠</div><p className="text-sm font-bold text-gray-500">Loading Intelligent Generator…</p></div>);
 
   return (<div className="animate-fadeIn space-y-5">
     <div className="flex items-center justify-between flex-wrap gap-3">
-      <div><h1 className="text-2xl font-extrabold text-gray-900" style={{ fontFamily: 'Outfit,sans-serif', letterSpacing: '-0.03em' }}>🤖 AI Question Generator</h1><p className="text-sm text-gray-500 mt-1">Generate curriculum-aligned questions using AI</p></div>
+      <div><h1 className="text-2xl font-extrabold text-gray-900" style={{ fontFamily: 'Outfit,sans-serif', letterSpacing: '-0.03em' }}>🧠 Intelligent Question Generator</h1><p className="text-sm text-gray-500 mt-1">Generate curriculum-aligned questions intelligently</p></div>
       <button onClick={fetchAll} className="p-2.5 rounded-xl border border-gray-200 text-gray-400 hover:text-indigo-600 hover:border-indigo-200 transition"><FiRefreshCw size={15} /></button>
     </div>
 
@@ -159,7 +159,7 @@ export default function AIGeneratePage() {
             <button onClick={handleGenerate} disabled={generating} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition shadow-md" style={{ background: 'linear-gradient(135deg,#06b6d4,#0891b2)' }}>
               {generating ? <><div className="spinner" style={{ width: 16, height: 16 }} /> Generating…</> : <><FiZap size={16} /> Generate Questions</>}
             </button>
-            <p className="text-[10px] text-gray-400 text-center">Powered by OpenAI GPT-4o · Max 20 questions per request</p>
+            <p className="text-[10px] text-gray-400 text-center">Intelligent generation · Max 20 questions per request</p>
           </div>
         </div>
 
@@ -180,7 +180,7 @@ export default function AIGeneratePage() {
       <div className="lg:col-span-2 space-y-4">
         {generating && <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 animate-pulse" style={{ background: 'linear-gradient(135deg,#06b6d4,#0891b2)' }}>🤖</div>
-          <p className="text-sm font-bold text-gray-700">AI is generating questions…</p>
+          <p className="text-sm font-bold text-gray-700">Generating questions intelligently…</p>
           <p className="text-xs text-gray-400 mt-1">This may take 10-30 seconds</p>
           <div className="mt-4 w-48 h-2 bg-gray-100 rounded-full mx-auto overflow-hidden"><div className="h-full bg-cyan-500 rounded-full animate-pulse" style={{ width: '60%' }} /></div>
         </div>}
@@ -229,7 +229,7 @@ export default function AIGeneratePage() {
 
         {generated.length === 0 && !generating && <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
           <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-4" style={{ background: 'linear-gradient(135deg,#ecfdf5,#d1fae5)' }}>🤖</div>
-          <h3 className="text-lg font-bold text-gray-800">AI Question Generator</h3>
+          <h3 className="text-lg font-bold text-gray-800">Intelligent Question Generator</h3>
           <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">Configure your question settings on the left panel and click <strong>Generate Questions</strong> to create curriculum-aligned questions automatically.</p>
           <div className="flex items-center justify-center gap-4 mt-6">
             {[{ e: '🔘', l: 'MCQ' }, { e: '✏️', l: 'Short Answer' }, { e: '📝', l: 'Essay' }, { e: '✅', l: 'True/False' }].map(t => (

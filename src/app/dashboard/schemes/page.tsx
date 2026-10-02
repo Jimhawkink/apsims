@@ -134,6 +134,22 @@ export default function SchemesPage() {
                             <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100">
                                 <span className="text-[10px] font-bold text-blue-600">{s.total_lessons||0} lessons</span>
                                 <span className="text-[10px] font-bold text-amber-600">{s.total_weeks||0} weeks</span>
+                                {/* Coverage tracker */}
+                                {(s.total_lessons||0) > 0 && (() => {
+                                    const taught = s.lessons_taught || 0;
+                                    const pct = Math.round((taught / (s.total_lessons||1)) * 100);
+                                    return (
+                                        <div className="flex-1 ml-2">
+                                            <div className="flex justify-between text-[9px] font-bold mb-1">
+                                                <span className="text-gray-500">Coverage</span>
+                                                <span style={{ color: pct >= 80 ? '#059669' : pct >= 50 ? '#d97706' : '#dc2626' }}>{pct}%</span>
+                                            </div>
+                                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct >= 80 ? '#059669' : pct >= 50 ? '#d97706' : '#dc2626' }} />
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     ))}

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -715,6 +715,20 @@ export default function MeritListPage() {
                             <button className="btn-icon btn-primary" onClick={exportExcel}
                                 style={{ background: 'linear-gradient(135deg,#059669,#10b981)', borderColor: 'transparent', color: '#fff' }}>
                                 <FiDownload size={13} /> 📊 Excel (Premium)
+                            </button>
+                            <button onClick={async () => {
+                                const top10 = filtered.slice(0, 10);
+                                if (top10.length === 0) { toast.error('No students to notify'); return; }
+                                const inserts = top10.map((s, i) => ({
+                                    student_id: s.student?.id,
+                                    message: 🏆   ranked # in this term with avg %. Congratulations!,
+                                    channel: 'sms', status: 'pending', created_at: new Date().toISOString()
+                                }));
+                                const { error } = await supabase.from('school_portal_notifications').insert(inserts as any);
+                                if (error) toast.error(error.message);
+                                else toast.success(📱 Notifications queued for Top  students!);
+                            }} className="btn-icon" style={{ background: 'linear-gradient(135deg,#7c3aed,#6366f1)', borderColor:'transparent', color:'#fff' }}>
+                                📱 Notify Top 10
                             </button>
                         </>}
                     </div>

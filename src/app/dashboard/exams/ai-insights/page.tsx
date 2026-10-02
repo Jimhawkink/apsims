@@ -66,7 +66,7 @@ function MessageBubble({ msg }: { msg: Message }) {
 export default function AIInsightsPage() {
   const [messages, setMessages] = useState<Message[]>([{
     id: '0', role: 'assistant', ts: new Date(),
-    content: `Hello! I'm **APSIMS AI** — your intelligent school performance analyst.\n\nI have access to all student marks, exam results, CBC assessments, attendance records, and school data. Ask me anything!\n\n**What I can do:**\n• Analyse performance trends across terms\n• Identify at-risk students needing intervention\n• Predict KCSE outcomes for Form 4\n• Compare streams, forms, and subjects\n• Generate detailed insight reports\n• Recommend targeted teaching strategies\n\nWhat would you like to know?`,
+    content: `Hello! I'm **APSIMS Intelligent Performance Analyst** — your smart school performance assistant.\n\nI have access to all student marks, exam results, CBC assessments, attendance records, and school data. Ask me anything!\n\n**What I can do:**\n• Analyse performance trends across terms\n• Identify at-risk students needing intervention\n• Predict KCSE outcomes for Form 4\n• Compare streams, forms, and subjects\n• Generate detailed insight reports\n• Recommend targeted teaching strategies\n\nWhat would you like to know?`,
   }]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -78,6 +78,7 @@ export default function AIInsightsPage() {
   const [dataLoading, setDataLoading] = useState(true);
   const [selForm, setSelForm] = useState('');
   const [selTerm, setSelTerm] = useState('');
+  const [dataFreshness, setDataFreshness] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -109,6 +110,7 @@ export default function AIInsightsPage() {
       const presentPct = attendance.length > 0 ? (attendance.filter(a => a.status === 'Present').length / attendance.length) * 100 : 0;
 
       setContext({ totalStudents, avgScore, failing, presentPct, totalMarks: marks.length, marks, students: studs, forms: fRes.data || [], terms: tData });
+      setDataFreshness(marks.length > 0 ? new Date().toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', hour12: true }) : null);
 
       // KPI cards
       setCards([
@@ -224,10 +226,14 @@ Keep responses concise but comprehensive. Use emojis to make content scannable.`
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, boxShadow: '0 8px 24px rgba(124,58,237,0.5)' }}>🤖</div>
             <div>
-              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#fff' }}>APSIMS AI Performance Analyst</h1>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#fff' }}>APSIMS Intelligent Performance Analyst</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s infinite' }} />
                 <span style={{ fontSize: 12, color: '#86efac', fontWeight: 600 }}>Online · Analysing {context.totalStudents || '—'} students</span>
+                {dataFreshness
+                  ? <span style={{ fontSize: 11, color: '#fde68a', fontWeight: 700, background: 'rgba(253,230,138,0.15)', padding: '2px 8px', borderRadius: 6, border: '1px solid rgba(253,230,138,0.2)' }}>📊 Data refreshed at {dataFreshness}</span>
+                  : <span style={{ fontSize: 11, color: '#fca5a5', fontWeight: 700, background: 'rgba(252,165,165,0.15)', padding: '2px 8px', borderRadius: 6, border: '1px solid rgba(252,165,165,0.2)' }}>⚠️ No marks data — enter marks first</span>
+                }
               </div>
             </div>
           </div>

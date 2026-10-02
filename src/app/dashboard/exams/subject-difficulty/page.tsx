@@ -145,7 +145,7 @@ export default function SubjectDifficultyPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr>{['Rank','Subject','Avg Score','Pass Rate','Difficulty Index','Std Dev','Category','Recommendation'].map(h=>(
+                  <tr>{['Rank','Subject','Avg Score','Pass Rate','Difficulty Index','Std Dev','Category','Recommendation','Action'].map(h=>(
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}</tr>
                 </thead>
@@ -171,6 +171,19 @@ export default function SubjectDifficultyPage() {
                           :s.di>=50?'Assign best teacher, review assessment approach'
                           :s.di>=30?'Monitor closely, targeted revision sessions'
                           :'Maintain standards, use as confidence builder'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {s.di >= 30 && (
+                          <a href="/dashboard/remedial" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white whitespace-nowrap"
+                            style={{ background: 'linear-gradient(135deg,#dc2626,#b91c1c)' }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              sessionStorage.setItem('remedial_subject_hint', JSON.stringify({ subjectId: s.id, subjectName: s.subject_name, difficulty: s.di }));
+                              window.location.href = '/dashboard/remedial';
+                            }}>
+                            🆘 Create Intervention
+                          </a>
+                        )}
                       </td>
                     </tr>
                   ))}

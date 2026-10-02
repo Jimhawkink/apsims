@@ -36,7 +36,7 @@ export default function AIGeneratorTab({ d }: any) {
           curriculum_type: 'CBC', total_lessons: weeks * 5, total_weeks: weeks,
           status: 'Draft', created_by: 'AI Generator'
         }]);
-        toast.success('AI Scheme generated & saved as Draft');
+        toast.success('Intelligent Scheme generated & saved as Draft');
       }
     } catch { toast.error('Generation failed'); }
     setGenerating(false);
@@ -63,7 +63,7 @@ export default function AIGeneratorTab({ d }: any) {
         assessment_methods: ['Oral questions', 'Written exercise', 'Observation'],
         status: 'Draft', ai_generated: true, ai_prompt: lessonPrompt
       }]);
-      toast.success('AI Lesson Plan generated & saved as Draft');
+      toast.success('Intelligent Lesson Plan generated & saved as Draft');
     } catch { toast.error('Generation failed'); }
     setGenerating(false);
   };
@@ -72,7 +72,7 @@ export default function AIGeneratorTab({ d }: any) {
     <div className="space-y-4">
       {/* AI Scheme Generator */}
       <div className="bg-white rounded-2xl border border-gray-200 p-4">
-        <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-3"><FiCpu className="text-purple-500" /> AI Scheme Generator</h3>
+        <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-3"><FiCpu className="text-purple-500" /> Intelligent Scheme Generator</h3>
         <p className="text-xs text-gray-400 mb-3">Select subject, form, term and generate a complete scheme of work</p>
         <div className="grid grid-cols-3 gap-3 mb-3">
           <select id="ai-scheme-subject" className="select-modern text-sm"><option value="">Subject...</option>{d.subjects.map((s: any) => <option key={s.id} value={s.id}>{s.subject_name}</option>)}</select>
@@ -91,7 +91,7 @@ export default function AIGeneratorTab({ d }: any) {
 
       {/* AI Lesson Plan Generator */}
       <div className="bg-white rounded-2xl border border-gray-200 p-4">
-        <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-3"><FiBookOpen className="text-blue-500" /> AI Lesson Plan Generator</h3>
+        <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-3"><FiBookOpen className="text-blue-500" /> Intelligent Lesson Plan Generator</h3>
         <p className="text-xs text-gray-400 mb-3">Enter a topic and get a complete lesson plan with objectives, activities, and assessments</p>
         <div className="flex gap-3 mb-3">
           <input value={lessonPrompt} onChange={e => setLessonPrompt(e.target.value)} placeholder="Enter topic e.g. 'Quadratic Equations'" className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-purple-400 outline-none" />
