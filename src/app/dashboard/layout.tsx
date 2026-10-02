@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { usePageIcon } from '@/lib/usePageIcon';
@@ -55,7 +55,7 @@ const menuGroups = [
             { href: '/dashboard/admissions', label: '📋 Online Applications', icon: FiUserPlus, perm: 'students' },
             { href: '/dashboard/students/promotion', label: 'Promotion', icon: FiTrendingUp, perm: 'students' },
             { href: '/dashboard/students/id-cards', label: 'ID Cards', icon: FiCreditCard, perm: 'students' },
-            { href: '/dashboard/discipline', label: 'Discipline', icon: FiShield, perm: 'discipline' },
+            { href: '/dashboard/discipline', label: '🎓 Student Discipline', icon: FiShield, perm: 'discipline' },
             { href: '/dashboard/guidance', label: '🫶 Guidance & Counselling', icon: FiHeart, perm: 'discipline' },
             { href: '/dashboard/leave-out', label: 'Leave Out', icon: FiExternalLink, perm: 'leave-out' },
             { href: '/dashboard/students/health', label: 'Health Records', icon: FiHeart, perm: 'students' },
@@ -239,7 +239,7 @@ const menuGroups = [
             { href: '/dashboard/hr-payroll/leave', label: '🏖️ Staff Leave Manager', icon: FiCalendar, perm: 'staff' },
             { href: '/dashboard/hr-payroll/appraisal', label: '⭐ Staff Appraisal (TSC P1/P2)', icon: FiAward, perm: 'staff' },
             { href: '/dashboard/hr-payroll/recruitment', label: '👔 Recruitment & Onboarding', icon: FiUserCheck, perm: 'staff' },
-            { href: '/dashboard/hr-payroll/discipline', label: '⚖️ Disciplinary Cases', icon: FiShield, perm: 'staff' },
+            { href: '/dashboard/hr-payroll/discipline', label: '⚖️ Staff Disciplinary Cases', icon: FiShield, perm: 'staff' },
             { href: '/dashboard/hr-payroll/welfare', label: '🤝 Staff Welfare & Benefits', icon: FiHeart, perm: 'staff' },
         ]
     },
