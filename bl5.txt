@@ -1,0 +1,466 @@
+﻿
+> alpha-school-management@1.0.0 build
+> next build
+
+   Γû▓ Next.js 14.0.4
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+node.exe : Browserslist: browsers data (caniuse-lite) is 8 months old. Please run:
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Browserslist: b...ld. Please run::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ΓÜá Compiled with warnings
+
+./src/app/dashboard/students/id-cards/BusPassTab.tsx
+Attempted import error: 'BusPassCardPreview' is not exported from './CardPreviews' (imported as 'BusPassCardPreview').
+
+Import trace for requested module:
+./src/app/dashboard/students/id-cards/BusPassTab.tsx
+./src/app/dashboard/students/id-cards/page.tsx
+
+./src/app/dashboard/students/id-cards/VisitorsTab.tsx
+Attempted import error: 'VisitorCardPreview' is not exported from './CardPreviews' (imported as 'VisitorCardPreview').
+
+Import trace for requested module:
+./src/app/dashboard/students/id-cards/VisitorsTab.tsx
+./src/app/dashboard/students/id-cards/page.tsx
+
+./src/app/dashboard/students/id-cards/BusPassTab.tsx
+Attempted import error: 'BusPassCardPreview' is not exported from './CardPreviews' (imported as 'BusPassCardPreview').
+
+Import trace for requested module:
+./src/app/dashboard/students/id-cards/BusPassTab.tsx
+./src/app/dashboard/students/id-cards/page.tsx
+
+./src/app/dashboard/students/id-cards/VisitorsTab.tsx
+Attempted import error: 'VisitorCardPreview' is not exported from './CardPreviews' (imported as 'VisitorCardPreview').
+
+Import trace for requested module:
+./src/app/dashboard/students/id-cards/VisitorsTab.tsx
+./src/app/dashboard/students/id-cards/page.tsx
+
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/277) ...
+
+   Generating static pages (69/277) 
+
+   Generating static pages (138/277) 
+
+   Generating static pages (207/277) 
+
+ Γ£ô Generating static pages (277/277) 
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                             Size     First Load JS
+Γöî Γùï /                                                   6.7 kB          150 kB
+Γö£ Γùï /_not-found                                         875 B          83.1 kB
+Γö£ Γùï /admissions                                         17.5 kB         157 kB
+Γö£ Γùï /admissions/status                                  11.1 kB         151 kB
+Γö£ ╬╗ /api/academic-events                                0 B                0 B
+Γö£ ╬╗ /api/academic-events/[id]                           0 B                0 B
+Γö£ ╬╗ /api/admin/fix-mpesa-rls                            0 B                0 B
+Γö£ ╬╗ /api/admin/smtp-settings                            0 B                0 B
+Γö£ ╬╗ /api/admissions/applications                        0 B                0 B
+Γö£ ╬╗ /api/admissions/applications/[id]/convert           0 B                0 B
+Γö£ ╬╗ /api/admissions/applications/[id]/documents         0 B                0 B
+Γö£ ╬╗ /api/admissions/applications/[id]/status            0 B                0 B
+Γö£ ╬╗ /api/admissions/apply                               0 B                0 B
+Γö£ ╬╗ /api/admissions/notify                              0 B                0 B
+Γö£ ╬╗ /api/admissions/send-otp                            0 B                0 B
+Γö£ ╬╗ /api/admissions/status                              0 B                0 B
+Γö£ ╬╗ /api/admissions/verify-otp                          0 B                0 B
+Γö£ ╬╗ /api/ai-generate                                    0 B                0 B
+Γö£ ╬╗ /api/ai/fee-prediction                              0 B                0 B
+Γö£ ╬╗ /api/ai/report-comments                             0 B                0 B
+Γö£ ╬╗ /api/ai/swahili-sms                                 0 B                0 B
+Γö£ ╬╗ /api/alumni                                         0 B                0 B
+Γö£ ╬╗ /api/alumni/[id]                                    0 B                0 B
+Γö£ ╬╗ /api/analytics/academic                             0 B                0 B
+Γö£ ╬╗ /api/analytics/attendance                           0 B                0 B
+Γö£ ╬╗ /api/analytics/dropout-risk                         0 B                0 B
+Γö£ ╬╗ /api/analytics/finance                              0 B                0 B
+Γö£ ╬╗ /api/auth/forgot-password                           0 B                0 B
+Γö£ ╬╗ /api/auth/login                                     0 B                0 B
+Γö£ ╬╗ /api/auth/logout                                    0 B                0 B
+Γö£ ╬╗ /api/auth/portal-login                              0 B                0 B
+Γö£ ╬╗ /api/auth/reset-password                            0 B                0 B
+Γö£ ╬╗ /api/auth/session                                   0 B                0 B
+Γö£ ╬╗ /api/backup                                         0 B                0 B
+Γö£ ╬╗ /api/biometric/devices                              0 B                0 B
+Γö£ ╬╗ /api/biometric/enrollments                          0 B                0 B
+Γö£ ╬╗ /api/biometric/logs                                 0 B                0 B
+Γö£ ╬╗ /api/biometric/push                                 0 B                0 B
+Γö£ ╬╗ /api/biometric/sync                                 0 B                0 B
+Γö£ ╬╗ /api/biometric/zkteco                               0 B                0 B
+Γö£ ╬╗ /api/bus-passes                                     0 B                0 B
+Γö£ ╬╗ /api/bus-passes/[id]/deactivate                     0 B                0 B
+Γö£ ╬╗ /api/clinic/visits                                  0 B                0 B
+Γö£ ╬╗ /api/clinic/visits/[id]                             0 B                0 B
+Γö£ ╬╗ /api/communication/whatsapp                         0 B                0 B
+Γö£ ╬╗ /api/communication/whatsapp/webhook                 0 B                0 B
+Γö£ ╬╗ /api/debug/mpesa-tx                                 0 B                0 B
+Γö£ ╬╗ /api/email/send-receipt                             0 B                0 B
+Γö£ ╬╗ /api/email/send-reminder                            0 B                0 B
+Γö£ ╬╗ /api/email/send-report-card                         0 B                0 B
+Γö£ ╬╗ /api/emergency-contacts                             0 B                0 B
+Γö£ ╬╗ /api/emergency-contacts/[id]                        0 B                0 B
+Γö£ ╬╗ /api/fees/defaulter-automation                      0 B                0 B
+Γö£ ╬╗ /api/fees/defaulter-automation/run                  0 B                0 B
+Γö£ ╬╗ /api/generate-questions                             0 B                0 B
+Γö£ ╬╗ /api/hostel/attendance                              0 B                0 B
+Γö£ ╬╗ /api/hostel/beds                                    0 B                0 B
+Γö£ ╬╗ /api/hostel/beds/[id]/deallocate                    0 B                0 B
+Γö£ ╬╗ /api/hostel/discipline                              0 B                0 B
+Γö£ ╬╗ /api/hostel/dormitories                             0 B                0 B
+Γö£ ╬╗ /api/hostel/dormitories/[id]                        0 B                0 B
+Γö£ ╬╗ /api/hostel/fees/outstanding                        0 B                0 B
+Γö£ ╬╗ /api/hostel/fees/payments                           0 B                0 B
+Γö£ ╬╗ /api/hostel/leave-passes                            0 B                0 B
+Γö£ ╬╗ /api/hostel/leave-passes/[id]/return                0 B                0 B
+Γö£ ╬╗ /api/jenga/pay                                      0 B                0 B
+Γö£ ╬╗ /api/kcb/pay                                        0 B                0 B
+Γö£ ╬╗ /api/knec-cba-export                                0 B                0 B
+Γö£ ╬╗ /api/knec-registration                              0 B                0 B
+Γö£ ╬╗ /api/lms/assignments                                0 B                0 B
+Γö£ ╬╗ /api/lms/assignments/[id]/submissions               0 B                0 B
+Γö£ ╬╗ /api/lms/grades                                     0 B                0 B
+Γö£ ╬╗ /api/lms/resources                                  0 B                0 B
+Γö£ ╬╗ /api/lms/resources/[id]                             0 B                0 B
+Γö£ ╬╗ /api/lms/resources/[id]/access                      0 B                0 B
+Γö£ ╬╗ /api/lms/submissions                                0 B                0 B
+Γö£ ╬╗ /api/lms/submissions/[id]                           0 B                0 B
+Γö£ ╬╗ /api/mobile/auth                                    0 B                0 B
+Γö£ ╬╗ /api/mobile/notifications                           0 B                0 B
+Γö£ ╬╗ /api/mobile/report-card                             0 B                0 B
+Γö£ ╬╗ /api/mobile/terms                                   0 B                0 B
+Γö£ ╬╗ /api/mpesa/c2b-confirm                              0 B                0 B
+Γö£ ╬╗ /api/mpesa/c2b-register                             0 B                0 B
+Γö£ ╬╗ /api/mpesa/c2b-validate                             0 B                0 B
+Γö£ ╬╗ /api/mpesa/callback                                 0 B                0 B
+Γö£ ╬╗ /api/mpesa/stk                                      0 B                0 B
+Γö£ ╬╗ /api/mpesa/stk-push                                 0 B                0 B
+Γö£ ╬╗ /api/mpesa/stk-status                               0 B                0 B
+Γö£ ╬╗ /api/nemis-export                                   0 B                0 B
+Γö£ ╬╗ /api/payments/kcb-callback                          0 B                0 B
+Γö£ Γùï /api/payments/kcb-debug                             0 B                0 B
+Γö£ ╬╗ /api/payments/kcb-status                            0 B                0 B
+Γö£ ╬╗ /api/payments/kcb-stk                               0 B                0 B
+Γö£ ╬╗ /api/payments/mpesa-stk                             0 B                0 B
+Γö£ ╬╗ /api/payments/record-fee-payment                    0 B                0 B
+Γö£ ╬╗ /api/payments/record-manual                         0 B                0 B
+Γö£ ╬╗ /api/payments/record-mpesa                          0 B                0 B
+Γö£ ╬╗ /api/portal-users                                   0 B                0 B
+Γö£ ╬╗ /api/portal-users/hash-existing                     0 B                0 B
+Γö£ ╬╗ /api/portal-users/toggle                            0 B                0 B
+Γö£ ╬╗ /api/promotion-letter                               0 B                0 B
+Γö£ ╬╗ /api/ptm/bookings                                   0 B                0 B
+Γö£ ╬╗ /api/ptm/sessions                                   0 B                0 B
+Γö£ ╬╗ /api/ptm/sessions/[id]/reminders                    0 B                0 B
+Γö£ ╬╗ /api/ptm/sessions/[id]/slots                        0 B                0 B
+Γö£ ╬╗ /api/seed-questions                                 0 B                0 B
+Γö£ ╬╗ /api/send-sms                                       0 B                0 B
+Γö£ ╬╗ /api/settings/mpesa                                 0 B                0 B
+Γö£ ╬╗ /api/sms/send                                       0 B                0 B
+Γö£ ╬╗ /api/transactions/mpesa                             0 B                0 B
+Γö£ ╬╗ /api/transport/assignments                          0 B                0 B
+Γö£ ╬╗ /api/transport/drivers                              0 B                0 B
+Γö£ ╬╗ /api/transport/fees/outstanding                     0 B                0 B
+Γö£ ╬╗ /api/transport/fees/payments                        0 B                0 B
+Γö£ ╬╗ /api/transport/notify                               0 B                0 B
+Γö£ ╬╗ /api/transport/routes                               0 B                0 B
+Γö£ ╬╗ /api/transport/sms-logs                             0 B                0 B
+Γö£ ╬╗ /api/transport/vehicles                             0 B                0 B
+Γö£ ╬╗ /api/visitors                                       0 B                0 B
+Γö£ ╬╗ /api/visitors/[id]/checkout                         0 B                0 B
+Γö£ ╬╗ /api/whatsapp/logs                                  0 B                0 B
+Γö£ ╬╗ /api/whatsapp/reports                               0 B                0 B
+Γö£ ╬╗ /api/whatsapp/send                                  0 B                0 B
+Γö£ ╬╗ /api/whatsapp/webhook                               0 B                0 B
+Γö£ Γùï /dashboard                                          50.4 kB         406 kB
+Γö£ Γùï /dashboard/academic-calendar                        9.3 kB          149 kB
+Γö£ Γùï /dashboard/admissions                               14.7 kB         154 kB
+Γö£ Γùï /dashboard/admissions/applications                  14.2 kB         103 kB
+Γö£ Γùï /dashboard/analytics                                8.85 kB         149 kB
+Γö£ Γùï /dashboard/assets                                   11.7 kB         155 kB
+Γö£ Γùï /dashboard/assets/ultra                             12.8 kB         152 kB
+Γö£ Γùï /dashboard/attendance                               16.1 kB         156 kB
+Γö£ Γùï /dashboard/attendance/biometric                     15.7 kB         295 kB
+Γö£ Γùï /dashboard/attendance/biometric-live                3.72 kB         137 kB
+Γö£ Γùï /dashboard/attendance/scanner-bridge                9.29 kB        98.1 kB
+Γö£ Γùï /dashboard/attendance/staff                         10.6 kB         220 kB
+Γö£ Γùï /dashboard/attendance/student-scanner               9.91 kB         150 kB
+Γö£ Γùï /dashboard/attendance/zkteco                        12.9 kB         153 kB
+Γö£ Γùï /dashboard/awards                                   10.3 kB         150 kB
+Γö£ Γùï /dashboard/backup                                   8.34 kB         148 kB
+Γö£ Γùï /dashboard/bank-reconciliation                      9.77 kB         149 kB
+Γö£ Γùï /dashboard/bog                                      10.2 kB         150 kB
+Γö£ Γùï /dashboard/budget                                   11.9 kB         158 kB
+Γö£ Γùï /dashboard/bursary                                  10.3 kB         150 kB
+Γö£ Γùï /dashboard/capitation                               10.2 kB         150 kB
+Γö£ Γùï /dashboard/cbc-analytics                            3.87 kB         144 kB
+Γö£ Γùï /dashboard/cbc/command-centre                       18.9 kB         165 kB
+Γö£ Γùï /dashboard/cbc/parent-portal                        19 kB           165 kB
+Γö£ Γùï /dashboard/cbc/portfolio                            15.3 kB         162 kB
+Γö£ Γùï /dashboard/cbc/senior-school                        10.9 kB         157 kB
+Γö£ Γùï /dashboard/circulars                                9.8 kB          150 kB
+Γö£ Γùï /dashboard/clubs                                    12.5 kB         152 kB
+Γö£ Γùï /dashboard/communication                            17.8 kB         158 kB
+Γö£ Γùï /dashboard/communication/cbc-templates              14.1 kB         161 kB
+Γö£ Γùï /dashboard/communication/hub                        11.5 kB         151 kB
+Γö£ Γùï /dashboard/communication/whatsapp-reports           10.9 kB         151 kB
+Γö£ Γùï /dashboard/curriculum                               26.4 kB         235 kB
+Γö£ Γùï /dashboard/curriculum/cbc-assessment                8.76 kB         148 kB
+Γö£ Γùï /dashboard/curriculum/cbc-schemes                   12.1 kB         152 kB
+Γö£ Γùï /dashboard/curriculum/cbc-tracking                  22.6 kB         162 kB
+Γö£ Γùï /dashboard/curriculum/kicd-alignment                11.7 kB         145 kB
+Γö£ Γùï /dashboard/curriculum/kicd-lesson-plans             12.3 kB         152 kB
+Γö£ Γùï /dashboard/curriculum/lesson-plans                  10.9 kB         154 kB
+Γö£ Γùï /dashboard/curriculum/schemes                       10.8 kB         151 kB
+Γö£ Γùï /dashboard/discipline                               10.9 kB         151 kB
+Γö£ Γùï /dashboard/duty-roster                              12.1 kB         152 kB
+Γö£ Γùï /dashboard/emergency                                9.47 kB         149 kB
+Γö£ Γùï /dashboard/etims                                    8.46 kB         148 kB
+Γö£ Γùï /dashboard/exams                                    4.18 kB         220 kB
+Γö£ Γùï /dashboard/exams/ai-generate                        9.44 kB         149 kB
+Γö£ Γùï /dashboard/exams/ai-insights                        7.54 kB         141 kB
+Γö£ Γùï /dashboard/exams/analysis                           23.4 kB         233 kB
+Γö£ Γùï /dashboard/exams/analytics-hub                      13.1 kB         229 kB
+Γö£ Γùï /dashboard/exams/broadsheet                         16.7 kB         156 kB
+Γö£ Γùï /dashboard/exams/cbc-analytics                      6.76 kB         216 kB
+Γö£ Γùï /dashboard/exams/cbc-formative                      12.5 kB         159 kB
+Γö£ Γùï /dashboard/exams/cbc-marks                          12.9 kB         170 kB
+Γö£ Γùï /dashboard/exams/cbc-marks/competency               4.59 kB         151 kB
+Γö£ Γùï /dashboard/exams/cbc-marks/history                  5.09 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-marks/rubric-config            9.59 kB         156 kB
+Γö£ Γùï /dashboard/exams/cbc-marks/summary                  6.36 kB         153 kB
+Γö£ Γùï /dashboard/exams/cbc-report-cards                   16.1 kB         159 kB
+Γö£ Γùï /dashboard/exams/cbc-reports                        4.84 kB         104 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/at-risk                3.53 kB         153 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/be-register            3.3 kB          153 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/broadsheet             4.47 kB         154 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/cohort-analysis        3.64 kB         153 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/competency-wheel       4.63 kB         214 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/formative-gap          2.79 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/gender-equity          2.67 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/grade-progress         2.81 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/intervention-tracker   2.52 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/learning-dna           2.82 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/marks-completion       2.67 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/merit-list             3.35 kB         153 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/pathway-engine         5.08 kB         214 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/pathway-readiness      2.51 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/rubric-analytics       4.77 kB         214 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/sba-audit              2.51 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/stream-comparison      2.85 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/subject-performance    2.58 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/teacher-effectiveness  2.34 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/term-tracker           2.83 kB         152 kB
+Γö£ Γùï /dashboard/exams/class-teacher                      12.9 kB         223 kB
+Γö£ Γùï /dashboard/exams/cohort-tracker                     8.79 kB         218 kB
+Γö£ Γùï /dashboard/exams/departmental                       3.68 kB         140 kB
+Γö£ Γùï /dashboard/exams/detailed-analysis                  9.54 kB         219 kB
+Γö£ Γùï /dashboard/exams/digital-delivery                   14.3 kB         155 kB
+Γö£ Γùï /dashboard/exams/exam-integrity                     13.1 kB         153 kB
+Γö£ Γùï /dashboard/exams/executive-dashboard                4.6 kB          214 kB
+Γö£ Γùï /dashboard/exams/five-year-trend                    3.59 kB         216 kB
+Γö£ Γùï /dashboard/exams/grade-distribution                 3.34 kB         206 kB
+Γö£ Γùï /dashboard/exams/grade-heatmap                      11.8 kB         152 kB
+Γö£ Γùï /dashboard/exams/intervention-engine                3.57 kB         137 kB
+Γö£ Γùï /dashboard/exams/kcse-history                       5.79 kB         215 kB
+Γö£ Γùï /dashboard/exams/kcse-prediction                    5.11 kB         145 kB
+Γö£ Γùï /dashboard/exams/kpsea                              12.3 kB         152 kB
+Γö£ Γùï /dashboard/exams/manage                             14.6 kB         154 kB
+Γö£ Γùï /dashboard/exams/marks                              14.6 kB         154 kB
+Γö£ Γùï /dashboard/exams/marks-completion                   8.97 kB         149 kB
+Γö£ Γùï /dashboard/exams/merit-list                         18.2 kB         159 kB
+Γö£ Γùï /dashboard/exams/national-readiness                 2.88 kB         139 kB
+Γö£ Γùï /dashboard/exams/online-exam                        11 kB           151 kB
+Γö£ Γùï /dashboard/exams/paper-generator                    11.1 kB         151 kB
+Γö£ Γùï /dashboard/exams/peer-comparison                    4.77 kB         214 kB
+Γö£ Γùï /dashboard/exams/principal-report                   4.38 kB         148 kB
+Γö£ Γùï /dashboard/exams/question-bank                      36.3 kB         176 kB
+Γö£ Γùï /dashboard/exams/release-results                    10.2 kB         150 kB
+Γö£ Γùï /dashboard/exams/report-cards                       19.7 kB         170 kB
+Γö£ Γùï /dashboard/exams/sba-evidence                       10.5 kB         150 kB
+Γö£ Γùï /dashboard/exams/sba-manager                        16.6 kB         163 kB
+Γö£ Γùï /dashboard/exams/school-ranking                     4.58 kB         214 kB
+Γö£ Γùï /dashboard/exams/stream-battle                      2.82 kB         205 kB
+Γö£ Γùï /dashboard/exams/student-passport                   4.5 kB          149 kB
+Γö£ Γùï /dashboard/exams/student-trajectory                 4.81 kB         214 kB
+Γö£ Γùï /dashboard/exams/study-hub                          8.41 kB         148 kB
+Γö£ Γùï /dashboard/exams/subject-difficulty                 4.17 kB         213 kB
+Γö£ Γùï /dashboard/exams/subject-grading                    11.3 kB         152 kB
+Γö£ Γùï /dashboard/exams/targets-tracker                    9.51 kB         149 kB
+Γö£ Γùï /dashboard/exams/teacher-correlation                3.95 kB         213 kB
+Γö£ Γùï /dashboard/exams/term-trend                         4.37 kB         213 kB
+Γö£ Γùï /dashboard/exams/ultra-report-cards                 5.87 kB         146 kB
+Γö£ Γùï /dashboard/exams/university-predictor               3.54 kB         148 kB
+Γö£ Γùï /dashboard/exams/value-added                        4.32 kB         213 kB
+Γö£ Γùï /dashboard/exams/weighted                           8.72 kB         148 kB
+Γö£ Γùï /dashboard/expenses                                 12.9 kB         222 kB
+Γö£ Γùï /dashboard/fees                                     12.9 kB         229 kB
+Γö£ Γùï /dashboard/fees/analytics                           11.6 kB         221 kB
+Γö£ Γùï /dashboard/fees/annual-report                       13 kB           153 kB
+Γö£ Γùï /dashboard/fees/approval-workflow                   9.85 kB         150 kB
+Γö£ Γùï /dashboard/fees/arrears                             9.94 kB         143 kB
+Γö£ Γùï /dashboard/fees/audit                               11.3 kB         151 kB
+Γö£ Γùï /dashboard/fees/balance-sheet                       9.47 kB         149 kB
+Γö£ Γùï /dashboard/fees/bank-reconciliation                 9.88 kB         150 kB
+Γö£ Γùï /dashboard/fees/budget                              837 B            83 kB
+Γö£ Γùï /dashboard/fees/bulk-reminders                      11.9 kB         158 kB
+Γö£ Γùï /dashboard/fees/capitation                          9.22 kB         149 kB
+Γö£ Γùï /dashboard/fees/cashbook                            9.53 kB         149 kB
+Γö£ Γùï /dashboard/fees/cheques                             9.17 kB         149 kB
+Γö£ Γùï /dashboard/fees/collect                             39.2 kB         182 kB
+Γö£ Γùï /dashboard/fees/combined-sms                        10.7 kB         150 kB
+Γö£ Γùï /dashboard/fees/defaulter-automation                8.12 kB        96.9 kB
+Γö£ Γùï /dashboard/fees/defaulters                          9.69 kB         149 kB
+Γö£ Γùï /dashboard/fees/demand-letters                      11.2 kB         151 kB
+Γö£ Γùï /dashboard/fees/exports                             9.01 kB         149 kB
+Γö£ Γùï /dashboard/fees/fee-waiver                          9.7 kB          149 kB
+Γö£ Γùï /dashboard/fees/government-returns                  9.84 kB         150 kB
+Γö£ Γùï /dashboard/fees/grants                              9.11 kB         149 kB
+Γö£ Γùï /dashboard/fees/insurance                           9.17 kB         149 kB
+Γö£ Γùï /dashboard/fees/invoices-demand                     11.3 kB         151 kB
+Γö£ Γùï /dashboard/fees/mpesa-push                          10.1 kB         150 kB
+Γö£ Γùï /dashboard/fees/mpesa-reconciliation                10.7 kB         150 kB
+Γö£ Γùï /dashboard/fees/notifications                       8.76 kB         148 kB
+Γö£ Γùï /dashboard/fees/outstanding                         15.4 kB         162 kB
+Γö£ Γùï /dashboard/fees/payment-plans                       13.9 kB         147 kB
+Γö£ Γùï /dashboard/fees/payments                            17.9 kB         158 kB
+Γö£ Γùï /dashboard/fees/petty-cash                          9.15 kB         149 kB
+Γö£ Γùï /dashboard/fees/pl-statement                        8.86 kB         149 kB
+Γö£ Γùï /dashboard/fees/plans-scholarships                  11.6 kB         151 kB
+Γö£ Γùï /dashboard/fees/projections                         4.71 kB         214 kB
+Γö£ Γùï /dashboard/fees/receipt                             10.9 kB         151 kB
+Γö£ Γùï /dashboard/fees/receipts                            11.5 kB         155 kB
+Γö£ Γùï /dashboard/fees/reminder-scheduler                  9.8 kB          150 kB
+Γö£ Γùï /dashboard/fees/reports/board                       7.41 kB         147 kB
+Γö£ Γùï /dashboard/fees/reports/pl                          11.1 kB         230 kB
+Γö£ Γùï /dashboard/fees/reports/vote-heads                  16.1 kB         163 kB
+Γö£ Γùï /dashboard/fees/statements                          12.8 kB         152 kB
+Γö£ Γùï /dashboard/fees/structure                           15.8 kB         162 kB
+Γö£ Γùï /dashboard/fees/structure-improvements              10.3 kB         150 kB
+Γö£ Γùï /dashboard/fees/trial-balance                       9.33 kB         149 kB
+Γö£ Γùï /dashboard/fees/vote-heads                          13.5 kB         153 kB
+Γö£ Γùï /dashboard/fees/vote-heads/ledger                   8.74 kB         148 kB
+Γö£ Γùï /dashboard/finance/analytics                        3.95 kB         144 kB
+Γö£ Γùï /dashboard/guidance                                 14 kB           154 kB
+Γö£ Γùï /dashboard/hostel                                   13.8 kB         103 kB
+Γö£ Γùï /dashboard/hr-payroll                               7.44 kB         223 kB
+Γö£ Γùï /dashboard/hr-payroll/appraisal                     850 B          83.1 kB
+Γö£ Γùï /dashboard/hr-payroll/discipline                    15.3 kB         155 kB
+Γö£ Γùï /dashboard/hr-payroll/leave                         853 B          83.1 kB
+Γö£ Γùï /dashboard/hr-payroll/payroll                       22.6 kB         232 kB
+Γö£ Γùï /dashboard/hr-payroll/recruitment                   10.1 kB         150 kB
+Γö£ Γùï /dashboard/hr-payroll/staff                         11.4 kB         151 kB
+Γö£ Γùï /dashboard/hr-payroll/welfare                       12.8 kB         153 kB
+Γö£ Γùï /dashboard/income                                   12.1 kB         221 kB
+Γö£ Γùï /dashboard/inspection                               8.8 kB         97.6 kB
+Γö£ Γùï /dashboard/jss/broadsheet                           9.99 kB         153 kB
+Γö£ Γùï /dashboard/jss/learner-profiles                     12.4 kB         155 kB
+Γö£ Γùï /dashboard/jss/marks                                6.83 kB         157 kB
+Γö£ Γùï /dashboard/jss/parent-consent                       8.09 kB         148 kB
+Γö£ Γùï /dashboard/jss/pathways                             19.6 kB         166 kB
+Γö£ Γùï /dashboard/jss/report-cards                         10.2 kB         153 kB
+Γö£ Γùï /dashboard/jss/sat-manager                          11.2 kB         151 kB
+Γö£ Γùï /dashboard/jss/setup                                17.7 kB         164 kB
+Γö£ Γùï /dashboard/jss/transition                           10.6 kB         150 kB
+Γö£ Γùï /dashboard/knec-compliance                          11.2 kB         151 kB
+Γö£ Γùï /dashboard/knec-compliance/cba-export               9.28 kB         149 kB
+Γö£ Γùï /dashboard/learning                                 21.5 kB         168 kB
+Γö£ Γùï /dashboard/learning/manage-videos                   10.5 kB         157 kB
+Γö£ Γùï /dashboard/leave-out                                14.8 kB         155 kB
+Γö£ Γùï /dashboard/library-inventory                        20.3 kB         160 kB
+Γö£ Γùï /dashboard/library-inventory/catalog                9.16 kB         149 kB
+Γö£ Γùï /dashboard/library-inventory/checkout               12.2 kB         152 kB
+Γö£ Γùï /dashboard/library-inventory/overdue                9.8 kB          156 kB
+Γö£ Γùï /dashboard/library-inventory/reading-stats          10.7 kB         150 kB
+Γö£ Γùï /dashboard/library-inventory/ultra                  11.7 kB         151 kB
+Γö£ Γùï /dashboard/lms                                      12.6 kB         101 kB
+Γö£ Γùï /dashboard/messaging                                8.06 kB         148 kB
+Γö£ Γùï /dashboard/multi-campus                             12.3 kB         145 kB
+Γö£ Γùï /dashboard/nemis                                    8.41 kB         148 kB
+Γö£ Γùï /dashboard/nemis/validation                         9.62 kB         149 kB
+Γö£ Γùï /dashboard/notifications                            9.69 kB         156 kB
+Γö£ Γùï /dashboard/parent-portal                            9.86 kB         150 kB
+Γö£ Γùï /dashboard/payments/integration                     12.1 kB         152 kB
+Γö£ Γùï /dashboard/payroll                                  8.55 kB         148 kB
+Γö£ Γùï /dashboard/portals                                  12.5 kB         152 kB
+Γö£ Γùï /dashboard/procurement                              23.7 kB         163 kB
+Γö£ Γùï /dashboard/ptm                                      12.4 kB         152 kB
+Γö£ Γùï /dashboard/remedial                                 17.8 kB         158 kB
+Γö£ Γùï /dashboard/remedial/academic                        16.6 kB         156 kB
+Γö£ Γùï /dashboard/reports                                  17.7 kB         157 kB
+Γö£ Γùï /dashboard/reports/government                       10.4 kB         150 kB
+Γö£ Γùï /dashboard/rim-paper                                12.3 kB         152 kB
+Γö£ Γùï /dashboard/schemes                                  23.6 kB         163 kB
+Γö£ Γùï /dashboard/settings                                 18.2 kB         165 kB
+Γö£ Γùï /dashboard/settings/cbc-config                      12.2 kB         159 kB
+Γö£ Γùï /dashboard/staff                                    5.18 kB         152 kB
+Γö£ Γùï /dashboard/staff/cbc-observation-log                13.4 kB         160 kB
+Γö£ Γùï /dashboard/staff/cbc-professional-dev               271 kB          418 kB
+Γö£ Γùï /dashboard/staff/salary-slips                       17.4 kB         164 kB
+Γö£ Γùï /dashboard/stores                                   9.47 kB         149 kB
+Γö£ Γùï /dashboard/stores/consumption-analytics             10.7 kB         150 kB
+Γö£ Γùï /dashboard/stores/income                            13.5 kB         153 kB
+Γö£ Γùï /dashboard/stores/reports                           13.7 kB         153 kB
+Γö£ Γùï /dashboard/stores/ultra                             19.9 kB         160 kB
+Γö£ Γùï /dashboard/stores/vouchers                          14.4 kB         154 kB
+Γö£ Γùï /dashboard/students                                 22.1 kB         179 kB
+Γö£ ╬╗ /dashboard/students/[id]                            6.41 kB         153 kB
+Γö£ Γùï /dashboard/students/admissions                      13.2 kB         160 kB
+Γö£ Γùï /dashboard/students/alumni                          9.21 kB         218 kB
+Γö£ Γùï /dashboard/students/bus-passes                      9.21 kB         149 kB
+Γö£ Γùï /dashboard/students/clinic                          10.9 kB         151 kB
+Γö£ Γùï /dashboard/students/health                          16.6 kB         156 kB
+Γö£ Γùï /dashboard/students/id-cards                        21 kB           164 kB
+Γö£ Γùï /dashboard/students/nemis-export                    8.87 kB         142 kB
+Γö£ Γùï /dashboard/students/profile                         20.5 kB         229 kB
+Γö£ Γùï /dashboard/students/promotion                       21.8 kB         162 kB
+Γö£ Γùï /dashboard/students/subject-combinations            7.27 kB         147 kB
+Γö£ Γùï /dashboard/students/subject-registration            15.1 kB         155 kB
+Γö£ Γùï /dashboard/subjects                                 16.8 kB         150 kB
+Γö£ Γùï /dashboard/super-admin                              13 kB           153 kB
+Γö£ Γùï /dashboard/teacher-subjects                         11.1 kB         151 kB
+Γö£ Γùï /dashboard/teachers/appraisal                       11.2 kB         151 kB
+Γö£ Γùï /dashboard/teachers/cpd                             10.9 kB         151 kB
+Γö£ Γùï /dashboard/teachers/leave                           18.4 kB         158 kB
+Γö£ Γùï /dashboard/teachers/performance                     10.5 kB         150 kB
+Γö£ Γùï /dashboard/timetable                                54.2 kB         194 kB
+Γö£ Γùï /dashboard/transport                                11.7 kB         100 kB
+Γö£ Γùï /dashboard/tutorials                                5.58 kB        94.4 kB
+Γö£ Γùï /dashboard/users                                    9.24 kB         149 kB
+Γö£ Γùï /dashboard/visitors                                 8.69 kB        97.5 kB
+Γö£ Γùï /dashboard/website-builder                          10.8 kB         157 kB
+Γö£ Γùï /offline                                            2.69 kB        91.5 kB
+Γö£ Γùï /parent                                             309 B          82.5 kB
+Γö£ Γùï /parent/dashboard                                   1.14 kB        83.3 kB
+Γö£ Γùï /portal                                             148 B          82.4 kB
+Γö£ Γùï /portal/lms                                         9.76 kB        98.6 kB
+Γö£ Γùï /portal/login                                       8.3 kB          148 kB
+Γö£ Γùï /portal/parent                                      16.7 kB         156 kB
+Γö£ Γùï /portal/ptm                                         7.9 kB         96.7 kB
+Γö£ Γùï /portal/student                                     10.9 kB         151 kB
+Γöö ╬╗ /school                                             148 B          82.4 kB
++ First Load JS shared by all                           82.2 kB
+  Γö£ chunks/4938-46d3223ab303fc4f.js                     26.8 kB
+  Γö£ chunks/fd9d1056-87af41a9b80cedb0.js                 53.3 kB
+  Γö£ chunks/main-app-a03a7ed932a35112.js                 227 B
+  Γöö chunks/webpack-7efa7d510e020344.js                  1.9 kB
+
+
+╞Æ Middleware                                            46.3 kB
+
+Γùï  (Static)   prerendered as static content
+╬╗  (Dynamic)  server-rendered on demand using Node.js
+

@@ -662,6 +662,35 @@ export default function UltraCollectFeePage() {
         });
       }
 
+      /* 📱 WhatsApp e-receipt — auto-open WhatsApp with pre-filled receipt message */
+      try {
+        const waPhone = (selectedStudent.guardian_phone as string | undefined)?.replace(/\D/g, '');
+        if (waPhone) {
+          const studentName = `${selectedStudent.first_name as string} ${selectedStudent.last_name as string}`;
+          const adm = (selectedStudent.admission_no as string | undefined) ?? (selectedStudent.admission_number as string | undefined) ?? '';
+          const balance = fees ? Math.max(0, (fees.termBalance as number) - data.amount) : 0;
+          const schoolName = settings?.school_name as string ?? 'APSIMS School';
+          const waMsg = encodeURIComponent(
+            `✅ *FEE RECEIPT — ${schoolName}*\n\n` +
+            `Student: *${studentName}*\n` +
+            `Adm No: ${adm}\n` +
+            `Receipt No: *${result.receipt_number as string}*\n` +
+            `Amount Paid: *KES ${data.amount.toLocaleString('en-KE')}*\n` +
+            `Payment Method: ${data.method}\n` +
+            (data.mpesaCode ? `Reference: ${data.mpesaCode}\n` : '') +
+            `Date: ${new Date().toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}\n\n` +
+            `Term Balance: *KES ${balance.toLocaleString('en-KE')}*\n\n` +
+            `Thank you for your payment. 🙏`
+          );
+          // Convert local 07xx → 2547xx format
+          const intlPhone = waPhone.startsWith('0') ? '254' + waPhone.slice(1) : waPhone.startsWith('254') ? waPhone : '254' + waPhone;
+          window.open(`https://wa.me/${intlPhone}?text=${waMsg}`, '_blank');
+          toast.success('📱 WhatsApp receipt opened for parent', { duration: 3000 });
+        }
+      } catch {
+        /* WhatsApp is non-fatal — payment still recorded */
+      }
+
       await fetchAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to record payment';
