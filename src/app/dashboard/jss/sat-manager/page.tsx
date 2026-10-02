@@ -471,6 +471,23 @@ export default function JSSatManagerPage() {
                       <th className="text-left py-3 px-4 min-w-[250px] text-xs font-bold text-gray-600 uppercase">Teacher Notes / Observations</th>
                       <th className="text-center py-3 px-3 min-w-[80px] text-xs font-bold text-gray-600 uppercase">Status</th>
                     </tr>
+                    {/* Bulk Fill Row */}
+                    <tr className="bg-purple-50 border-b-2 border-purple-200">
+                      <td className="sticky left-0 bg-purple-50 z-10 px-4 py-2 text-xs font-black text-purple-700">⚡ Bulk Fill ALL Students</td>
+                      <td className="px-4 py-2 text-center">
+                        <div className="flex gap-1.5 justify-center">
+                          {(['EE','ME','AE','BE'] as CompLevel[]).map(l => (
+                            <button key={l} onClick={() => { const bulk: Record<string,CompLevel> = {}; filteredStudents.forEach(s => { bulk[String(s.id)] = l; }); setScores(p => ({ ...p, ...bulk })); setDirty(true); toast.success('All students set to ' + l); }}
+                              className="px-3 py-1.5 text-[11px] font-black rounded-lg border-2 transition hover:scale-105"
+                              style={{ background:COMP[l].bg, color:COMP[l].color, borderColor:COMP[l].border }}>
+                              {l} All
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-xs text-purple-400 italic">Click a level to apply to all {filteredStudents.length} students</td>
+                      <td></td>
+                    </tr>
                   </thead>
                   <tbody>
                     {filteredStudents.map((s, idx) => {

@@ -255,6 +255,23 @@ export default function ExamIntegrityPage() {
             {/* ══════════════════ TAB 1: ANOMALIES ══════════════════ */}
             {tab === 'anomalies' && (
                 <div>
+                    {/* Auto-flag Spike Notification */}
+                    {highCount > 0 && (
+                        <div style={{ background: 'linear-gradient(135deg,#dc2626,#991b1b)', borderRadius: 12, padding: '14px 20px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 4px 12px rgba(220,38,38,0.3)' }}>
+                            <span style={{ fontSize: 28 }}>🚨</span>
+                            <div style={{ flex: 1 }}>
+                                <p style={{ color: '#fff', fontWeight: 900, fontSize: 14, margin: 0 }}>
+                                    AUTO-FLAG ALERT: {highCount} High-Severity Anomaly{highCount > 1 ? 'ies' : ''} Detected!
+                                </p>
+                                <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, margin: '4px 0 0' }}>
+                                    Score spikes flagged automatically. Review below and investigate suspected cases immediately.
+                                </p>
+                            </div>
+                            <button onClick={() => setFilterSev('High')} style={{ flexShrink: 0, background: '#fff', color: '#dc2626', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>
+                                View High Flags
+                            </button>
+                        </div>
+                    )}
                     <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
                         {['All', 'High', 'Medium', 'Low'].map(sev => (
                             <button key={sev} onClick={() => setFilterSev(sev)} style={{
