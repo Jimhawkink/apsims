@@ -340,6 +340,8 @@ const menuGroups = [
             { href: '/dashboard/inspection', label: '🏫 Inspection Readiness', icon: FiCheckSquare, perm: 'dashboard' },
             { href: '/dashboard/analytics', label: '🧠 Predictive Analytics', icon: FiActivity, perm: 'dashboard' },
             { href: '/dashboard/nemis', label: '📡 NEMIS Sync', icon: FiGlobe, perm: 'dashboard' },
+            { href: '/dashboard/parent-portal', label: '👨‍👩‍👧 Parent Portal', icon: FiUsers, perm: 'dashboard' },
+            { href: '/dashboard/circulars', label: '📰 Circulars & Notices', icon: FiFileText, perm: 'dashboard' },
             { href: '/dashboard/duty-roster', label: 'Duty Roster', icon: FiCalendar, perm: 'dashboard' },
             { href: '/dashboard/clubs', label: 'Clubs & Societies', icon: FiAward, perm: 'dashboard' },
             { href: '/dashboard/students/clinic', label: 'Clinic / Sick Bay', icon: FiHeart, perm: 'students' },

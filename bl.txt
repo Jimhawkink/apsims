@@ -22,15 +22,15 @@ Browserslist: caniuse-lite is outdated. Please run:
    Skipping validation of types
    Skipping linting
    Collecting page data ...
-   Generating static pages (0/266) ...
+   Generating static pages (0/268) ...
 
-   Generating static pages (66/266) 
+   Generating static pages (67/268) 
 
-   Generating static pages (132/266) 
+   Generating static pages (134/268) 
 
-   Generating static pages (199/266) 
+   Generating static pages (201/268) 
 
- Γ£ô Generating static pages (266/266) 
+ Γ£ô Generating static pages (268/268) 
    Finalizing page optimization ...
    Collecting build traces ...
 
@@ -184,6 +184,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/cbc/parent-portal                        19 kB           165 kB
 Γö£ Γùï /dashboard/cbc/portfolio                            15.3 kB         162 kB
 Γö£ Γùï /dashboard/cbc/senior-school                        10.9 kB         157 kB
+Γö£ Γùï /dashboard/circulars                                9.8 kB          149 kB
 Γö£ Γùï /dashboard/clubs                                    12.5 kB         152 kB
 Γö£ Γùï /dashboard/communication                            17.8 kB         157 kB
 Γö£ Γùï /dashboard/communication/cbc-templates              14.1 kB         161 kB
@@ -357,6 +358,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/nemis                                    8.41 kB         148 kB
 Γö£ Γùï /dashboard/nemis/validation                         9.62 kB         149 kB
 Γö£ Γùï /dashboard/notifications                            9.69 kB         156 kB
+Γö£ Γùï /dashboard/parent-portal                            9.86 kB         149 kB
 Γö£ Γùï /dashboard/payments/integration                     12.1 kB         152 kB
 Γö£ Γùï /dashboard/payroll                                  8.55 kB         148 kB
 Γö£ Γùï /dashboard/portals                                  12.5 kB         152 kB
@@ -419,7 +421,7 @@ Route (app)                                             Size     First Load JS
   Γö£ chunks/4938-46d3223ab303fc4f.js                     26.8 kB
   Γö£ chunks/fd9d1056-87af41a9b80cedb0.js                 53.3 kB
   Γö£ chunks/main-app-a03a7ed932a35112.js                 227 B
-  Γöö chunks/webpack-24e5280b4abfa51c.js                  1.9 kB
+  Γöö chunks/webpack-8f7702ddc8c99a23.js                  1.9 kB
 
 
 ╞Æ Middleware                                            46.2 kB
