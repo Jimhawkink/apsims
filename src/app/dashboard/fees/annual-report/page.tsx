@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast, { Toaster } from 'react-hot-toast';
@@ -22,7 +22,7 @@ export default function AnnualFinancialReportPage() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [pR, eR, fR, sR, sdR] = await Promise.all([
+    const [pR, fR, sR, sdR] = await Promise.all([
       supabase.from('school_fee_payments').select('*').gte('payment_date', `${filterYear}-01-01`).lte('payment_date', `${filterYear}-12-31`).order('payment_date'),
       supabase.from('school_expenses').select('*').gte('expense_date', `${filterYear}-01-01`).lte('expense_date', `${filterYear}-12-31`).order('expense_date'),
       supabase.from('school_fee_structures').select('*').eq('academic_year', filterYear),

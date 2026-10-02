@@ -62,16 +62,21 @@ export default function StaffWelfarePage() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [bR, wR, mR, lR, sR] = await Promise.all([
-      supabase.from('school_staff_benefits').select('*, school_teachers(first_name,last_name,tsc_number,role)').order('created_at', { ascending: false }),
+    // Fetch staff first — always, independently — so dropdown never fails
+    const sR = await supabase.from('school_teachers').select('*').order('first_name');
+    setStaff(sR.data || []);
+    // Then fetch the new tables (may not exist yet — handle gracefully)
+    const [bR, wR, mR, lR] = await Promise.all([
+      supabase.from('school_staff_benefits').select('*, school_teachers(first_name,last_name,tsc_number)').order('created_at', { ascending: false }),
       supabase.from('school_staff_welfare_events').select('*, school_teachers(first_name,last_name)').order('event_date', { ascending: false }),
       supabase.from('school_staff_medical_claims').select('*, school_teachers(first_name,last_name)').order('claim_date', { ascending: false }),
       supabase.from('school_staff_loans').select('*, school_teachers(first_name,last_name,tsc_number)').order('disbursed_date', { ascending: false }),
-      supabase.from('school_teachers').select('id,first_name,last_name,tsc_number,role').order('first_name'),
     ]);
-    setBenefits(bR.data || []); setWelfareEvents(wR.data || []);
-    setMedicalClaims(mR.data || []); setLoans(lR.data || []);
-    setStaff(sR.data || []); setLoading(false);
+    if (!bR.error) setBenefits(bR.data || []);
+    if (!wR.error) setWelfareEvents(wR.data || []);
+    if (!mR.error) setMedicalClaims(mR.data || []);
+    if (!lR.error) setLoans(lR.data || []);
+    setLoading(false);
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);

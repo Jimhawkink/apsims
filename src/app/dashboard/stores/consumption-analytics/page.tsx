@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast, { Toaster } from 'react-hot-toast';
@@ -22,14 +22,16 @@ export default function StoresConsumptionPage() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [iR, isR, gR] = await Promise.all([
-      supabase.from('school_store_items').select('*').order('item_name'),
+    // Always fetch store items first (always exists)
+    const iR = await supabase.from('school_store_items').select('*').order('item_name');
+    setItems(iR.data || []);
+    // Fetch issuances & GRNs (new tables - graceful if missing)
+    const [isR, gR] = await Promise.all([
       supabase.from('school_store_issuances').select('*, school_store_items(item_name,category,unit,unit_price)').order('created_at', { ascending: false }),
       supabase.from('school_store_grns').select('*, school_store_items(item_name,category)').order('created_at', { ascending: false }),
     ]);
-    setItems(iR.data || []);
-    setIssuances(isR.data || []);
-    setGrns(gR.data || []);
+    if (!isR.error) setIssuances(isR.data || []);
+    if (!gR.error) setGrns(gR.data || []);
     setLoading(false);
   }, []);
 
