@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { usePageIcon } from '@/lib/usePageIcon';
@@ -236,6 +236,11 @@ const menuGroups = [
             { href: '/dashboard/teachers/performance', label: '🏆 Teacher Performance', icon: FiBarChart2, perm: 'staff' },
             { href: '/dashboard/staff/cbc-observation-log', label: '👁️ Teacher Observation Log', icon: FiActivity, perm: 'staff' },
             { href: '/dashboard/staff/cbc-professional-dev', label: '📈 CBC Prof Dev Log', icon: FiTrendingUp, perm: 'staff' },
+            { href: '/dashboard/hr-payroll/leave', label: '🏖️ Staff Leave Manager', icon: FiCalendar, perm: 'staff' },
+            { href: '/dashboard/hr-payroll/appraisal', label: '⭐ Staff Appraisal (TSC P1/P2)', icon: FiAward, perm: 'staff' },
+            { href: '/dashboard/hr-payroll/recruitment', label: '👔 Recruitment & Onboarding', icon: FiUserCheck, perm: 'staff' },
+            { href: '/dashboard/hr-payroll/discipline', label: '⚖️ Disciplinary Cases', icon: FiShield, perm: 'staff' },
+            { href: '/dashboard/hr-payroll/welfare', label: '🤝 Staff Welfare & Benefits', icon: FiHeart, perm: 'staff' },
         ]
     },
 
@@ -295,6 +300,7 @@ const menuGroups = [
             { href: '/dashboard/fees/pl-statement', label: '📈 P&L Statement', icon: FiTrendingUp, perm: 'fees' },
             { href: '/dashboard/fees/projections', label: '🔮 Fee Projections', icon: FiTrendingUp, perm: 'fees' },
             { href: '/dashboard/fees/exports', label: '📤 Export Centre', icon: FiDownload, perm: 'fees' },
+            { href: '/dashboard/fees/annual-report', label: '📊 Annual Financial Report', icon: FiBarChart2, perm: 'fees' },
         ]
     },
     // ── 🏦 ACCOUNTING & BANKING ──────────────────────────────────
@@ -355,6 +361,7 @@ const menuGroups = [
             { href: '/dashboard/library-inventory/checkout', label: 'Issue & Return', icon: FiClock, perm: 'library' },
             { href: '/dashboard/library-inventory/overdue', label: 'Overdue Books', icon: FiAlertCircle, perm: 'library' },
             { href: '/dashboard/library-inventory/ultra', label: '📚 Ultra Library', icon: FiBookOpen, perm: 'library' },
+            { href: '/dashboard/library-inventory/reading-stats', label: '📊 Reading Statistics', icon: FiBarChart2, perm: 'library' },
             { href: '/dashboard/assets', label: 'Assets Register', icon: FiBox, perm: 'assets' },
             { href: '/dashboard/assets/ultra', label: '🏗️ Ultra Asset Manager', icon: FiBox, perm: 'assets' },
             { href: '/dashboard/stores', label: 'Store Items', icon: FiCopy, perm: 'settings' },
@@ -363,6 +370,7 @@ const menuGroups = [
             { href: '/dashboard/stores/vouchers', label: '💳 Payment Vouchers', icon: FiFileText, perm: 'expenses' },
             { href: '/dashboard/stores/income', label: '💰 Income Tracking', icon: FiTrendingUp, perm: 'income' },
             { href: '/dashboard/stores/reports', label: '📊 Stores Reports', icon: FiBarChart2, perm: 'reports' },
+            { href: '/dashboard/stores/consumption-analytics', label: '📈 Consumption Analytics', icon: FiTrendingUp, perm: 'reports' },
             { href: '/dashboard/rim-paper', label: 'Rim Paper', icon: FiCopy, perm: 'rim-paper' },
         ]
     },

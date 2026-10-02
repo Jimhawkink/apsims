@@ -51,15 +51,15 @@ Import trace for requested module:
    Skipping validation of types
    Skipping linting
    Collecting page data ...
-   Generating static pages (0/269) ...
+   Generating static pages (0/277) ...
 
-   Generating static pages (67/269) 
+   Generating static pages (69/277) 
 
-   Generating static pages (134/269) 
+   Generating static pages (138/277) 
 
-   Generating static pages (201/269) 
+   Generating static pages (207/277) 
 
- Γ£ô Generating static pages (269/269) 
+ Γ£ô Generating static pages (277/277) 
    Finalizing page optimization ...
    Collecting build traces ...
 
@@ -312,6 +312,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/expenses                                 12.9 kB         222 kB
 Γö£ Γùï /dashboard/fees                                     12.9 kB         229 kB
 Γö£ Γùï /dashboard/fees/analytics                           11.6 kB         221 kB
+Γö£ Γùï /dashboard/fees/annual-report                       13 kB           153 kB
 Γö£ Γùï /dashboard/fees/approval-workflow                   9.85 kB         150 kB
 Γö£ Γùï /dashboard/fees/arrears                             9.94 kB         143 kB
 Γö£ Γùï /dashboard/fees/audit                               11.3 kB         151 kB
@@ -359,8 +360,13 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/guidance                                 14 kB           154 kB
 Γö£ Γùï /dashboard/hostel                                   13.8 kB         103 kB
 Γö£ Γùï /dashboard/hr-payroll                               7.44 kB         223 kB
+Γö£ Γùï /dashboard/hr-payroll/appraisal                     10.7 kB         150 kB
+Γö£ Γùï /dashboard/hr-payroll/discipline                    10.3 kB         150 kB
+Γö£ Γùï /dashboard/hr-payroll/leave                         11.1 kB         151 kB
 Γö£ Γùï /dashboard/hr-payroll/payroll                       22.6 kB         232 kB
+Γö£ Γùï /dashboard/hr-payroll/recruitment                   10.1 kB         150 kB
 Γö£ Γùï /dashboard/hr-payroll/staff                         11.4 kB         151 kB
+Γö£ Γùï /dashboard/hr-payroll/welfare                       12.8 kB         153 kB
 Γö£ Γùï /dashboard/income                                   12.1 kB         221 kB
 Γö£ Γùï /dashboard/inspection                               8.8 kB         97.6 kB
 Γö£ Γùï /dashboard/jss/broadsheet                           9.99 kB         153 kB
@@ -381,6 +387,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/library-inventory/catalog                9.16 kB         149 kB
 Γö£ Γùï /dashboard/library-inventory/checkout               12.2 kB         152 kB
 Γö£ Γùï /dashboard/library-inventory/overdue                9.8 kB          156 kB
+Γö£ Γùï /dashboard/library-inventory/reading-stats          10.7 kB         150 kB
 Γö£ Γùï /dashboard/library-inventory/ultra                  11.7 kB         151 kB
 Γö£ Γùï /dashboard/lms                                      12.6 kB         101 kB
 Γö£ Γùï /dashboard/messaging                                8.06 kB         148 kB
@@ -407,6 +414,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/staff/cbc-professional-dev               271 kB          418 kB
 Γö£ Γùï /dashboard/staff/salary-slips                       17.4 kB         164 kB
 Γö£ Γùï /dashboard/stores                                   9.47 kB         149 kB
+Γö£ Γùï /dashboard/stores/consumption-analytics             10.7 kB         150 kB
 Γö£ Γùï /dashboard/stores/income                            13.5 kB         153 kB
 Γö£ Γùï /dashboard/stores/reports                           13.7 kB         153 kB
 Γö£ Γùï /dashboard/stores/ultra                             19.9 kB         160 kB
@@ -451,10 +459,10 @@ Route (app)                                             Size     First Load JS
   Γö£ chunks/4938-46d3223ab303fc4f.js                     26.8 kB
   Γö£ chunks/fd9d1056-87af41a9b80cedb0.js                 53.3 kB
   Γö£ chunks/main-app-a03a7ed932a35112.js                 227 B
-  Γöö chunks/webpack-e345ef70b9c1440c.js                  1.9 kB
+  Γöö chunks/webpack-b7f581bbbf0a7220.js                  1.9 kB
 
 
-╞Æ Middleware                                            46.2 kB
+╞Æ Middleware                                            46.3 kB
 
 Γùï  (Static)   prerendered as static content
 ╬╗  (Dynamic)  server-rendered on demand using Node.js
