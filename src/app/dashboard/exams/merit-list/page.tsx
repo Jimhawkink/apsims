@@ -412,7 +412,8 @@ export default function MeritListPage() {
     const [selExamType, setSelExamType] = useState('End-Term');
     const [filterGrade, setFilterGrade] = useState('');
     const [showBest7, setShowBest7] = useState(true);
-    const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+    const [viewMode, setViewMode] = useState<'table' | 'cards' | 'history'>('table');
+    const [prevTermMarks, setPrevTermMarks] = useState<Record<number, number>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [sortField, setSortField] = useState<'rank' | 'name' | 'points' | 'avg'>('rank');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -469,6 +470,32 @@ export default function MeritListPage() {
         load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selForm, selStream, selTerm, selExamType, students]);
+
+    // -- Fetch previous term marks for history comparison --
+    useEffect(() => {
+        if (!selForm || !selTerm || !selExamType) { setPrevTermMarks({}); return; }
+        const studentIds = classStudents.map(s => s.id);
+        if (studentIds.length === 0 || terms.length === 0) return;
+        const curIdx = terms.findIndex(t => String(t.id) === selTerm);
+        if (curIdx < 0 || curIdx >= terms.length - 1) { setPrevTermMarks({}); return; }
+        const prevTermId = terms[curIdx + 1].id;
+        const load = async () => {
+            const { data } = await supabase.from('school_exam_marks').select('student_id, marks_obtained')
+                .eq('term_id', prevTermId).eq('exam_type', selExamType).in('student_id', studentIds);
+            if (!data) return;
+            const avgMap: Record<number, number> = {};
+            const countMap: Record<number, number> = {};
+            data.forEach(m => {
+                avgMap[m.student_id] = (avgMap[m.student_id] || 0) + (m.marks_obtained || 0);
+                countMap[m.student_id] = (countMap[m.student_id] || 0) + 1;
+            });
+            const result: Record<number, number> = {};
+            Object.keys(avgMap).forEach(sid => { result[Number(sid)] = avgMap[Number(sid)] / countMap[Number(sid)]; });
+            setPrevTermMarks(result);
+        };
+        load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selForm, selStream, selTerm, selExamType, students, terms]);
 
     // ── Build merit data ──
     const meritData: MeritRow[] = useMemo(() => {
@@ -852,6 +879,9 @@ export default function MeritListPage() {
                             <button className="btn-icon" onClick={() => setViewMode('cards')} style={{ background: viewMode === 'cards' ? '#f8fafc' : '#fff', fontWeight: viewMode === 'cards' ? 700 : 500 }}>
                                 <FiGrid size={13} />
                             </button>
+                            <button className="btn-icon" onClick={() => setViewMode('history')} style={{ background: viewMode === 'history' ? '#f0fdf4' : '#fff', fontWeight: viewMode === 'history' ? 700 : 500, color: viewMode === 'history' ? '#059669' : undefined }} title="Term comparison">
+                                <FiTrendingUp size={13} />
+                            </button>
                         </div>
                         <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500 }}>
                             {filtered.length} / {meritData.length} students · {showBest7 ? 'Best 7' : 'All Subjects'} · {selExamType}
@@ -904,7 +934,57 @@ export default function MeritListPage() {
                         </div>
                     )}
 
-                    {/* ── TABLE VIEW ── */}
+                    
+                    {/* HISTORY VIEW - Term Comparison */}
+                    {viewMode === 'history' && (
+                        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden' }}>
+                            <div style={{ background: 'linear-gradient(135deg,#1e3a8a,#0d9488)', padding: '16px 20px', color: '#fff' }}>
+                                <p style={{ fontWeight: 900, fontSize: 15 }}>Term-over-Term Ranking Comparison</p>
+                                <p style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>Compare student performance vs previous term. Load previous term data via selector above.</p>
+                            </div>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                                            {['Rank','Student','Adm No','This Term Avg','Prev Term Avg','Change','Grade'].map(h => (
+                                                <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map((row, idx2) => {
+                                            const prevAvg = prevTermMarks[row.student?.id] ?? null;
+                                            const diff = prevAvg !== null ? Number((row.avg - prevAvg).toFixed(1)) : null;
+                                            return (
+                                                <tr key={row.student?.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 900, color: '#1e3a8a', fontSize: 14 }}>{idx2 + 1}</td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: 13 }}>{row.student?.first_name} {row.student?.last_name}</td>
+                                                    <td style={{ padding: '10px 14px', color: '#64748b', fontSize: 12 }}>{row.student?.admission_number}</td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#059669' }}>{row.avg?.toFixed(1)}%</td>
+                                                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{prevAvg !== null ? prevAvg.toFixed(1) + '%' : '-'}</td>
+                                                    <td style={{ padding: '10px 14px' }}>
+                                                        {diff !== null ? (
+                                                            <span style={{ color: diff > 0 ? '#059669' : diff < 0 ? '#dc2626' : '#64748b', fontWeight: 700, fontSize: 13 }}>
+                                                                {diff > 0 ? '+' : ''}{diff}%
+                                                            </span>
+                                                        ) : <span style={{ color: '#cbd5e1' }}>No prior data</span>}
+                                                    </td>
+                                                    <td style={{ padding: '10px 14px' }}><span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: '#f0fdf4', color: '#059669' }}>{row.grade}</span></td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {Object.keys(prevTermMarks).length === 0 && (
+                                <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                                    <p style={{ fontWeight: 700 }}>No previous term data loaded.</p>
+                                    <p style={{ marginTop: 4, fontSize: 11 }}>Previous term data is automatically compared when available in the database.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+{/* ── TABLE VIEW ── */}
                     {viewMode === 'table' && filtered.length === 0 && (
                         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: '32px 24px', textAlign: 'center' }}>
                             <p style={{ color: '#94a3b8', fontSize: 13 }}>No students match your filters.</p>

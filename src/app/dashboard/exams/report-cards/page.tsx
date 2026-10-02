@@ -160,6 +160,7 @@ export default function ReportCardsPage() {
     const [selTerm, setSelTerm] = useState('');
     const [selStudent, setSelStudent] = useState('');
     const [currentStudentIdx, setCurrentStudentIdx] = useState(0);
+    const [cbcBanner, setCbcBanner] = useState<'CBC' | 'JSS' | null>(null);
 
     // ── Delivery state ────────────────────────────────────────────────────────
     const [sendingWA, setSendingWA] = useState(false);
@@ -641,7 +642,7 @@ export default function ReportCardsPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     <div>
                         <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide block mb-1">Form *</label>
-                        <select value={selForm} onChange={e => { setSelForm(e.target.value); setSelStream(''); setSelStudent(''); }}
+                        <select value={selForm} onChange={e => { const fid = e.target.value; setSelForm(fid); setSelStream(''); setSelStudent(''); const f = forms.find((x: any) => String(x.id) === fid); if (f?.education_system === 'CBC' || f?.education_system === 'JSS') { setCbcBanner(f.education_system); } else { setCbcBanner(null); } }}
                             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
                             <option value="">Select Form</option>
                             {forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}
@@ -675,6 +676,26 @@ export default function ReportCardsPage() {
                         </select>
                     </div>
                 </div>
+
+                {/* CBC / JSS Auto-detect Banner */}
+                {cbcBanner && (
+                    <div className="flex items-center gap-3 p-3 rounded-xl border-2" style={{ background: cbcBanner === 'JSS' ? '#faf5ff' : '#f0fdf4', borderColor: cbcBanner === 'JSS' ? '#a855f7' : '#22c55e' }}>
+                        <span className="text-2xl">{cbcBanner === 'JSS' ? '🎓' : '🌿'}</span>
+                        <div className="flex-1">
+                            <p className="font-black text-sm" style={{ color: cbcBanner === 'JSS' ? '#7e22ce' : '#15803d' }}>
+                                This class uses {cbcBanner} curriculum — switch to {cbcBanner} Report Cards for full competency reports
+                            </p>
+                            <p className="text-xs mt-0.5" style={{ color: cbcBanner === 'JSS' ? '#9333ea' : '#16a34a' }}>
+                                {cbcBanner === 'JSS' ? 'Grade 7-9 JSS report cards include SAT scores, pathway data and KICD strand assessments.' : 'CBC report cards include EE/ME/AE/BE competency levels and SBA evidence.'}
+                            </p>
+                        </div>
+                        <a href={cbcBanner === 'JSS' ? '/dashboard/jss/report-cards' : '/dashboard/exams/cbc-report-cards'}
+                            className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-black text-white"
+                            style={{ background: cbcBanner === 'JSS' ? 'linear-gradient(135deg,#7e22ce,#a855f7)' : 'linear-gradient(135deg,#15803d,#22c55e)' }}>
+                            Open {cbcBanner} Reports →
+                        </a>
+                    </div>
+                )}
 
                 {/* ── Exam Type Selector (from DB: school_exam_types filtered by term) ── */}
                 {selTerm && (

@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase as sb } from '@/lib/supabase';
 import { FiCheckCircle, FiAlertTriangle, FiMessageSquare, FiRefreshCw, FiUserCheck, FiSearch } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
-const sb = createClientComponentClient();
+
+
 
 interface Transition {
   id: number;

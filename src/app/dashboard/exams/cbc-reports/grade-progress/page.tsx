@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useCBCReportData, getRubricColor, rubricNumeric } from '@/hooks/useCBCReportData';
 import { FiTarget, FiArrowLeft, FiPrinter } from 'react-icons/fi';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 
 const LEVELS = ['EE', 'ME', 'AE', 'BE'] as const;
 
@@ -18,12 +18,11 @@ export default function GradeProgressPage() {
     setMyClassOnly(on);
     if (on && myFormIds.length === 0) {
       try {
-        const sb = createClientComponentClient();
-        const { data: { user } } = await sb.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { data: teacher } = await sb.from('school_teachers').select('id').eq('user_id', user.id).single();
+          const { data: teacher } = await supabase.from('school_teachers').select('id').eq('user_id', user.id).single();
           if (teacher) {
-            const { data: subjectTeachers } = await sb.from('school_subject_teachers').select('form_id').eq('teacher_id', teacher.id);
+            const { data: subjectTeachers } = await supabase.from('school_subject_teachers').select('form_id').eq('teacher_id', teacher.id);
             const ids = [...new Set((subjectTeachers || []).map((st: any) => st.form_id))];
             setMyFormIds(ids);
           }

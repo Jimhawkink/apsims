@@ -116,9 +116,11 @@ export default function JSSMarksPage() {
   // Ensure JSS mode is set
   if (mode !== 'JSS') { setMode('JSS'); }
 
-  const [view, setView] = useState<'grid' | 'subject'>('grid');
+  const [view, setView] = useState<'grid' | 'subject' | 'kpsea'>('grid');
   const [showAtRisk, setShowAtRisk] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [kpseaMarks, setKpseaMarks] = useState<Record<string, Record<string, string>>>({});
+  const [kpseaSaving, setKpseaSaving] = useState(false);
 
   const las = (jssLearningAreas || JSS_LEARNING_AREAS) as typeof JSS_LEARNING_AREAS;
 

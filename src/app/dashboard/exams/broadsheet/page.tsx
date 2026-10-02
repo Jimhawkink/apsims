@@ -530,6 +530,15 @@ export default function UltraBroadsheetPage() {
                             <button onClick={() => window.print()} className="btn-outline text-sm flex items-center gap-1.5">
                                 <FiPrinter size={14} /> Print
                             </button>
+                            <button onClick={async () => {
+                                const prev = selStream;
+                                setSelStream('');
+                                await new Promise(r => setTimeout(r, 400));
+                                window.print();
+                                setSelStream(prev);
+                            }} className="btn-outline text-sm flex items-center gap-1.5" title="Print all streams">
+                                <FiPrinter size={14} /> Print All Classes
+                            </button>
                             <button onClick={exportBroadsheet} className="btn-primary text-sm flex items-center gap-1.5">
                                 <FiDownload size={14} /> Export CSV
                             </button>

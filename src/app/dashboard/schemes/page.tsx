@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { FiBookOpen, FiPlus, FiSearch, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
+import { FiBookOpen, FiPlus, FiSearch, FiRefreshCw, FiTrash2, FiDownload } from 'react-icons/fi';
 import { getSchemesOfWork, deleteScheme, getSubjects, getForms, getTerms, type SchemeOfWork } from '@/lib/schemes';
 import { C, statusBadge, curriculumBadge } from './helpers';
 import SchemeDetail from './detail';
+import { supabase } from '@/lib/supabase';
 
 export default function SchemesPage() {
     const [loading, setLoading] = useState(true);
@@ -150,6 +151,20 @@ export default function SchemesPage() {
                                         </div>
                                     );
                                 })()}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
+                                <button onClick={e => { e.stopPropagation(); window.open('/dashboard/schemes?print=' + s.id, '_blank'); }}
+                                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition">
+                                    <FiDownload size={10} /> PDF
+                                </button>
+                                <button onClick={async e => {
+                                    e.stopPropagation();
+                                    await supabase.from('school_schemes_of_work').update({ status: 'HOD Review' }).eq('id', s.id);
+                                    toast.success('Submitted to HOD!');
+                                    loadSchemes();
+                                }} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 transition">
+                                    📤 Share to HOD
+                                </button>
                             </div>
                         </div>
                     ))}

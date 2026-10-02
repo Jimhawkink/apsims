@@ -290,24 +290,37 @@ export default function CBCReportCardTemplate({ student, pathway, subjects, summ
         </div>
 
         {/* SIGNATURES */}
-        <div className="px-5 pb-3 grid grid-cols-3 gap-6">
-          {[
-            { label: "Class Teacher's Signature", imgKey: 'teacher_signature_url' },
-            { label: "Principal's Signature", imgKey: 'principal_signature_url' },
-            { label: "Parent / Guardian's Signature", imgKey: null },
-          ].map(sig => (
-            <div key={sig.label} className="text-center">
-              <div className="h-12 flex items-end justify-center mb-1">
-                {sig.imgKey && schoolDetails?.[sig.imgKey] ? (
-                  <img src={schoolDetails[sig.imgKey]} alt={sig.label} className="max-h-10 max-w-[120px] object-contain" />
-                ) : (
-                  <div className="w-full border-b-2 border-gray-400 h-0" />
-                )}
-              </div>
-              <div className="border-b-2 border-gray-400 mb-1" />
-              <p className="text-[9px] font-bold text-gray-500 uppercase">{sig.label}</p>
+        <div className="px-5 pb-2">
+          <div className="border border-indigo-200 rounded-xl overflow-hidden mb-2">
+            <div className="bg-indigo-50 px-4 py-1.5">
+              <p className="text-[9px] font-black text-indigo-700 uppercase tracking-wide">Parent / Guardian Acknowledgment</p>
+              <p className="text-[8px] text-indigo-500 mt-0.5">I have read and understood this report card and am aware of my child's academic performance for this term.</p>
             </div>
-          ))}
+            <div className="grid grid-cols-3 gap-0 divide-x divide-gray-200">
+              {[
+                { label: "Class Teacher's Signature", imgKey: 'teacher_signature_url' },
+                { label: "Principal's Signature", imgKey: 'principal_signature_url' },
+                { label: "Parent / Guardian's Signature", imgKey: null },
+              ].map(sig => (
+                <div key={sig.label} className="px-4 py-3 text-center">
+                  <div className="h-10 flex items-end justify-center mb-1.5">
+                    {sig.imgKey && schoolDetails?.[sig.imgKey] ? (
+                      <img src={schoolDetails[sig.imgKey]} alt={sig.label} className="max-h-9 max-w-[110px] object-contain" />
+                    ) : (
+                      <div className="w-full border-b-2 border-gray-400 h-0" />
+                    )}
+                  </div>
+                  <p className="text-[8px] font-bold text-gray-500 uppercase">{sig.label}</p>
+                  {sig.label.includes('Parent') && (
+                    <div className="mt-1.5 flex items-center gap-1">
+                      <p className="text-[7px] text-gray-400 font-bold">DATE:</p>
+                      <div className="flex-1 border-b border-gray-400" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* FOOTER */}
