@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { FiShield, FiAlertTriangle, FiRefreshCw, FiLock, FiUnlock, FiClock, FiBarChart2, FiCheckCircle, FiUsers, FiAlertCircle, FiSearch } from 'react-icons/fi';
@@ -12,7 +12,7 @@ interface Anomaly {
     description: string;
 }
 
-type IntTab = 'anomalies' | 'audit' | 'lock' | 'stats';
+type IntTab = 'anomalies' | 'audit' | 'lock' | 'stats' | 'biometric';
 
 const SEV_COLOR = (s: string) => s === 'High' ? '#dc2626' : s === 'Medium' ? '#d97706' : '#059669';
 const SEV_BG   = (s: string) => s === 'High' ? '#fef2f2' : s === 'Medium' ? '#fffbeb' : '#f0fdf4';
@@ -187,6 +187,7 @@ export default function ExamIntegrityPage() {
         { key: 'audit',     label: 'Audit Trail',       icon: FiClock },
         { key: 'lock',      label: 'Mark Locking',      icon: FiLock },
         { key: 'stats',     label: 'Entry Stats',       icon: FiBarChart2 },
+        { key: 'biometric', label: 'Biometric Tie-in',  icon: FiShield },
     ];
 
     return (
@@ -497,6 +498,64 @@ export default function ExamIntegrityPage() {
                                     <div style={{ fontSize: 11, color: '#64748b' }}>mark entries</div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB 5: BIOMETRIC TIE-IN */}
+            {tab === 'biometric' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 16 }}>
+                    <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', gridColumn: '1/-1' }}>
+                        <div style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', padding: '16px 24px', color: '#fff' }}>
+                            <h3 style={{ margin: 0, fontWeight: 900, fontSize: 16 }}>🔐 Biometric Attendance Tie-in</h3>
+                            <p style={{ margin: '4px 0 0', opacity: 0.8, fontSize: 12 }}>Cross-reference exam sittings with biometric attendance records to flag unverified students.</p>
+                        </div>
+                        <div style={{ padding: 20 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
+                                {[
+                                    { l: 'Biometric Verified', v: marks.filter((m: any) => m.biometric_verified).length, c: '#059669', b: '#f0fdf4' },
+                                    { l: 'Not Verified', v: marks.filter((m: any) => !m.biometric_verified && m.student_id).length, c: '#dc2626', b: '#fef2f2' },
+                                    { l: 'Verification Rate', v: marks.length > 0 ? Math.round(marks.filter((m: any) => m.biometric_verified).length / marks.length * 100) + '%' : '0%', c: '#7c3aed', b: '#faf5ff' },
+                                ].map((k: any) => (
+                                    <div key={k.l} style={{ background: k.b, borderRadius: 12, padding: '14px 18px', textAlign: 'center', border: '1px solid ' + k.c + '30' }}>
+                                        <div style={{ fontSize: 28, fontWeight: 900, color: k.c }}>{k.v}</div>
+                                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{k.l}</div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ background: '#faf5ff', borderRadius: 12, padding: '14px 18px', border: '1px solid #c4b5fd', marginBottom: 16 }}>
+                                <p style={{ fontWeight: 800, color: '#6d28d9', margin: 0, fontSize: 13 }}>📋 How to enable biometric verification</p>
+                                <ol style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 12, color: '#475569', lineHeight: 1.7 }}>
+                                    <li>Ensure your biometric device exports to <code>school_biometric_logs</code> table (student_id, verified_at, device_id).</li>
+                                    <li>Mark entry system auto-reads <code>biometric_verified</code> field from <code>school_exam_marks</code>.</li>
+                                    <li>Students not checked in biometrically on exam day are flagged as unverified.</li>
+                                    <li>Use APSIMS Attendance module with biometric integration to auto-populate this field.</li>
+                                </ol>
+                            </div>
+                            {marks.filter((m: any) => !m.biometric_verified && m.student_id).length > 0 ? (
+                                <div>
+                                    <p style={{ fontWeight: 800, color: '#dc2626', fontSize: 13, marginBottom: 10 }}>⚠️ Students with marks but NO biometric verification:</p>
+                                    <div style={{ display: 'grid', gap: 6 }}>
+                                        {marks.filter((m: any) => !m.biometric_verified && m.student_id).slice(0, 20).map((m: any, i: number) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', borderRadius: 10, background: '#fff7f7', border: '1px solid #fecaca' }}>
+                                                <span style={{ fontSize: 18 }}>🔴</span>
+                                                <div style={{ flex: 1 }}>
+                                                    <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: '#1e293b' }}>Student ID: {m.student_id}</p>
+                                                    <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{m.subject_name || 'Unknown Subject'} · {m.exam_type}</p>
+                                                </div>
+                                                <span style={{ fontSize: 10, fontWeight: 800, color: '#dc2626', background: '#fecaca', padding: '2px 8px', borderRadius: 99 }}>NOT VERIFIED</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '24px 0', color: '#059669' }}>
+                                    <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
+                                    <p style={{ fontWeight: 800, margin: 0 }}>All students with marks are biometrically verified</p>
+                                    <p style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Or biometric_verified field not yet populated — connect your biometric device.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

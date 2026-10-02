@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
@@ -129,7 +129,7 @@ export default function SBAManagerPage() {
     const [students, setStudents]   = useState<Student[]>([]);
     const [loading, setLoading]     = useState(true);
     const [dbReady, setDbReady]     = useState(false);
-    const [view, setView]           = useState<'tasks' | 'scoring' | 'analytics'>('tasks');
+    const [view, setView]           = useState<'tasks' | 'scoring' | 'analytics' | 'config'>('tasks');
     const [search, setSearch]       = useState('');
     const [fForm, setFForm]         = useState('');
     const [fStatus, setFStatus]     = useState('');
@@ -380,7 +380,7 @@ export default function SBAManagerPage() {
 
             {/* ── VIEW TABS ───────────────────────────────────────────── */}
             <div className="flex items-center gap-1 mb-5 bg-white rounded-xl p-1 shadow-sm border border-gray-100 w-fit">
-                {([['tasks','📋 SBA Tasks',FiFileText],['scoring','🎯 Score Entry',FiTarget],['analytics','📊 Analytics',FiBarChart2]] as const).map(([key,lbl,Ic])=>(
+                {([['tasks','📋 SBA Tasks',FiFileText],['scoring','🎯 Score Entry',FiTarget],['analytics','📊 Analytics',FiBarChart2],['config','⚙️ CBC Config',FiZap]] as const).map(([key,lbl,Ic])=>(
                     <button key={key} onClick={()=>setView(key as any)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${view===key?'text-white shadow-md':'text-gray-500 hover:text-gray-800'}`} style={view===key?{background:'linear-gradient(135deg,#0F2044,#1E3A5F)'}:{}}>
                         <Ic size={13}/>{lbl}
                     </button>
@@ -803,6 +803,84 @@ export default function SBAManagerPage() {
                                 </button>
                                 <button onClick={()=>{setShowCreate(false);setTaskForm(emptyTask);}} className="px-6 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CBC ASSESSMENT CONFIG VIEW */}
+            {view==='config' && (
+                <div className="space-y-6">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white">
+                        <h2 className="text-xl font-black mb-1">⚙️ CBC Assessment Configuration</h2>
+                        <p className="text-sm opacity-80">Configure SBA weight distribution, rubric levels and assessment criteria used across the SBA Manager.</p>
+                    </div>
+                    {/* SBA Weight Config */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                        <h3 className="font-black text-gray-800 mb-4 flex items-center gap-2"><FiZap className="text-indigo-500" size={16}/> SBA vs Summative Weight</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="p-5 rounded-xl bg-indigo-50 border-2 border-indigo-200">
+                                <p className="text-sm font-black text-indigo-700 mb-3">📝 School-Based Assessment (SBA)</p>
+                                <div className="text-5xl font-black text-indigo-600 text-center my-4">40%</div>
+                                <p className="text-xs text-indigo-500 text-center">Continuous assessment · Portfolios · Tasks · Projects</p>
+                                <div className="mt-4 space-y-2">
+                                    {[{label:'SBA Tasks & Projects',pct:20},{label:'Portfolio Evidence',pct:10},{label:'Observation & Practical',pct:10}].map(r=>(
+                                        <div key={r.label} className="flex justify-between items-center text-xs">
+                                            <span className="text-indigo-700 font-semibold">{r.label}</span>
+                                            <span className="font-black text-indigo-900">{r.pct}%</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="p-5 rounded-xl bg-emerald-50 border-2 border-emerald-200">
+                                <p className="text-sm font-black text-emerald-700 mb-3">📄 Summative Assessment</p>
+                                <div className="text-5xl font-black text-emerald-600 text-center my-4">60%</div>
+                                <p className="text-xs text-emerald-500 text-center">End of term exams · KNEC examinations</p>
+                                <div className="mt-4 space-y-2">
+                                    {[{label:'End of Term Written',pct:40},{label:'KNEC/KPSEA',pct:20}].map(r=>(
+                                        <div key={r.label} className="flex justify-between items-center text-xs">
+                                            <span className="text-emerald-700 font-semibold">{r.label}</span>
+                                            <span className="font-black text-emerald-900">{r.pct}%</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Competency Rubric Levels */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                        <h3 className="font-black text-gray-800 mb-4 flex items-center gap-2"><FiStar className="text-amber-500" size={16}/> CBC Competency Rubric Levels</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[
+                                {code:'EE',full:'Exceeds Expectation',range:'80–100',color:'#059669',bg:'#f0fdf4',border:'#86efac'},
+                                {code:'ME',full:'Meets Expectation',range:'60–79',color:'#2563eb',bg:'#eff6ff',border:'#93c5fd'},
+                                {code:'AE',full:'Approaches Expectation',range:'40–59',color:'#d97706',bg:'#fffbeb',border:'#fcd34d'},
+                                {code:'BE',full:'Below Expectation',range:'0–39',color:'#dc2626',bg:'#fef2f2',border:'#fca5a5'},
+                            ].map(r=>(
+                                <div key={r.code} style={{background:r.bg,border:'2px solid '+r.border,borderRadius:14,padding:'16px 12px',textAlign:'center'}}>
+                                    <div style={{fontSize:28,fontWeight:900,color:r.color}}>{r.code}</div>
+                                    <div style={{fontSize:11,fontWeight:700,color:r.color,marginTop:4}}>{r.full}</div>
+                                    <div style={{fontSize:12,color:'#64748b',marginTop:6,fontWeight:600}}>{r.range} marks</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    {/* Assessment Areas */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                        <h3 className="font-black text-gray-800 mb-4 flex items-center gap-2"><FiLayers className="text-teal-500" size={16}/> KICD Assessment Areas</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {[
+                                {area:'Literacy & Communication',icon:'📖',color:'#7c3aed',tasks:tasks.filter(t=>t.learning_area?.toLowerCase().includes('english')||t.learning_area?.toLowerCase().includes('kiswahili')).length},
+                                {area:'Numeracy & STEM',icon:'🔢',color:'#0284c7',tasks:tasks.filter(t=>t.learning_area?.toLowerCase().includes('math')||t.learning_area?.toLowerCase().includes('science')).length},
+                                {area:'Creative Arts & Social',icon:'🎨',color:'#059669',tasks:tasks.filter(t=>t.learning_area?.toLowerCase().includes('art')||t.learning_area?.toLowerCase().includes('social')).length},
+                            ].map(a=>(
+                                <div key={a.area} className="p-4 rounded-xl border-2 border-dashed" style={{borderColor:a.color+'50'}}>
+                                    <span className="text-3xl">{a.icon}</span>
+                                    <p className="font-black text-sm mt-2" style={{color:a.color}}>{a.area}</p>
+                                    <p className="text-xs text-gray-500 mt-1">{a.tasks} SBA task(s) linked</p>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
