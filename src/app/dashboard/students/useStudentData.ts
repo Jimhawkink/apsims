@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, getSchoolSection } from '@/lib/supabase';
 import { getEducationSystem } from '@/lib/cbc-utils';
 
 export function useStudentData() {
@@ -23,8 +23,27 @@ export function useStudentData() {
             supabase.from('school_forms').select('*').order('form_level'),
             supabase.from('school_streams').select('*').order('stream_name'),
         ]);
-        setStudents(s.data || []);
-        setForms(f.data || []);
+
+        // ── Section filtering (client-side — safe, no page breaking) ──
+        // primary   → only PP1-Grade6 forms + pupils in those forms
+        // secondary → only secondary forms + pupils in those forms
+        // both      → everything (Admin / Principal)
+        const section = getSchoolSection();
+        const allForms: any[] = f.data || [];
+        const filteredForms = section === 'primary'
+            ? allForms.filter(fm => fm.section === 'primary')
+            : section === 'secondary'
+            ? allForms.filter(fm => fm.section !== 'primary')
+            : allForms;
+
+        const primaryFormIds = new Set(filteredForms.map((fm: any) => fm.id));
+        const allStudents: any[] = s.data || [];
+        const filteredStudents = section === 'both'
+            ? allStudents
+            : allStudents.filter(st => primaryFormIds.has(st.form_id));
+
+        setForms(filteredForms);
+        setStudents(filteredStudents);
         setStreams(st.data || []);
 
         // Fetch CBC tables
