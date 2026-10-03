@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { usePageIcon } from '@/lib/usePageIcon';
@@ -573,13 +573,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         userData.school_section = freshSection;
                         if (freshUser.permissions) userData.permissions = freshUser.permissions;
                     } else {
-                        // Column exists but value is null → default 'both' (admin sees all)
-                        freshSection = 'both';
-                        userData.school_section = 'both';
+                        // Column exists but value is null → default 'secondary' (existing users are secondary)
+                        freshSection = 'secondary';
+                        userData.school_section = 'secondary';
                     }
                 } catch {
                     // DB unreachable — fall back to stored value or 'both'
-                    freshSection = (userData.school_section || 'both') as 'primary' | 'secondary' | 'both';
+                    freshSection = (userData.school_section || 'secondary') as 'primary' | 'secondary' | 'both';
                 }
 
                 // ── CRITICAL: Push section into interceptor IMMEDIATELY ──
