@@ -531,6 +531,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // 'secondary' → user only sees Secondary/JSS/CBC + shared modules
     // 'both'      → user sees ALL modules (Admin / Principal)
     const [userSection, setUserSection] = useState<'primary' | 'secondary' | 'both'>('secondary');
+    const [schoolName, setSchoolName] = useState<string>('');
 
     useEffect(() => {
         setMounted(true);
@@ -595,6 +596,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 // Set section from FRESH DB value — 100% reliable
                 setUserSection(freshSection);
+
+                // ── Fetch school name from school_details ──
+                // Primary user → school_details WHERE section='primary'
+                // Others      → school_details (first row / default)
+                try {
+                    const sectionFilter = freshSection === 'primary' ? 'primary' : 'secondary';
+                    const { data: schoolData } = await supabase
+                        .from('school_details')
+                        .select('school_name')
+                        .eq('section', sectionFilter)
+                        .single();
+                    if (schoolData?.school_name) setSchoolName(schoolData.school_name);
+                } catch { /* school_details may not have section column yet */ }
 
                 // Sync localStorage with fresh data including school_section
                 localStorage.setItem('school_user', JSON.stringify(userData));
@@ -789,9 +803,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             <h1
                                 className="font-black text-gray-900 tracking-tight leading-tight truncate"
                                 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(11px, 2.8vw, 14px)' }}
-                                title="AlphaSchool"
+                                title={schoolName || 'AlphaSchool'}
                             >
-                                Alpha<span className="text-blue-600">School</span>
+                                {schoolName
+                                    ? <><span className="text-gray-900">{schoolName}</span></>
+                                    : <>Alpha<span className="text-blue-600">School</span></>
+                                }
                             </h1>
                             <p className="text-[9px] text-gray-400 font-medium tracking-wide uppercase truncate">Management System</p>
                         </div>
