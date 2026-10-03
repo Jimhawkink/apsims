@@ -6,6 +6,7 @@ import { getEducationSystem } from '@/lib/cbc-utils';
 import EducationSystemBadge from '@/components/cbc/EducationSystemBadge';
 import CBCEnrollmentStep from '@/components/cbc/CBCEnrollmentStep';
 import { KENYAN_COUNTIES, COUNTY_NAMES, NATIONALITIES } from '@/lib/kenyan-data';
+import { getSchoolSection } from '@/lib/supabase';
 
 // ─────────────────────────────────────────────────────────────────
 // WORLD-CLASS DATEPICKER COMPONENT
@@ -266,8 +267,14 @@ export default function StudentEnrollModal({
 }: EnrollModalProps) {
     if (!showModal) return null;
 
+    // Detect primary vs secondary context — no prop needed, reads from session
+    const isPrimary = getSchoolSection() === 'primary';
+
     const subCounties = formData.county ? KENYAN_COUNTIES[formData.county] || [] : [];
-    const modalTabs = isCBCForm
+    const modalTabs = isPrimary
+        // Primary pupils: 5 basic tabs — no CBC Pathway, no KCSE Subjects
+        ? ['📋 Basic Info', '🏠 Location', '👨‍👩‍👦 Guardian', '🏥 Medical', '🎓 Academic']
+        : isCBCForm
         ? ['📋 Basic Info', '🏠 Location', '👨‍👩‍👦 Guardian', '🏥 Medical', '🎓 Academic', '🛤️ CBC Pathway']
         : is844Form34
           ? ['📋 Basic Info', '🏠 Location', '👨‍👩‍👦 Guardian', '🏥 Medical', '🎓 Academic', '📚 KCSE Subjects']
@@ -320,12 +327,19 @@ export default function StudentEnrollModal({
                                     placeholder="Select date of birth"
                                 /></div>
                             <div>
-                                <label className={labelClass}>Form</label>
+                                <label className={labelClass}>Form / Class</label>
                                 <select value={formData.form_id || ''} onChange={e => setFormData({ ...formData, form_id: e.target.value ? Number(e.target.value) : null })} className={inputClass}>
-                                    <option value="">Select Form</option>
-                                    {forms.map(f => <option key={f.id} value={f.id}>{f.form_name}{f.education_system === 'CBC_Senior_School' ? ' [CBC]' : ' [8-4-4]'}</option>)}
+                                    <option value="">{isPrimary ? 'Select Class' : 'Select Form'}</option>
+                                    {forms.map(f => (
+                                        <option key={f.id} value={f.id}>
+                                            {f.form_name}
+                                            {f.section === 'primary'
+                                                ? ' [Primary CBC]'
+                                                : f.education_system === 'CBC_Senior_School' ? ' [CBC]' : ' [8-4-4]'}
+                                        </option>
+                                    ))}
                                 </select>
-                                {formData.form_id && (() => {
+                                {!isPrimary && formData.form_id && (() => {
                                     const sys = getEducationSystem(Number(formData.form_id), forms);
                                     return sys ? <div className="mt-1.5 flex items-center gap-1.5"><EducationSystemBadge system={sys} /><span className="text-[10px] text-gray-400">{sys === 'CBC_Senior_School' ? 'CBC pathway required' : '8-4-4 curriculum'}</span></div> : null;
                                 })()}
@@ -385,8 +399,15 @@ export default function StudentEnrollModal({
                     {/* Tab 4: Academic */}
                     {modalTab === 4 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div><label className={labelClass}>Previous School</label><input type="text" value={formData.previous_school} onChange={e => setFormData({ ...formData, previous_school: e.target.value })} className={inputClass} /></div>
-                            <div><label className={labelClass}>KCPE Marks</label><input type="text" value={formData.kcpe_marks} onChange={e => setFormData({ ...formData, kcpe_marks: e.target.value })} className={inputClass} placeholder="e.g. 350" /></div>
+                            <div><label className={labelClass}>Previous School</label><input type="text" value={formData.previous_school} onChange={e => setFormData({ ...formData, previous_school: e.target.value })} className={inputClass} placeholder="Name of previous school" /></div>
+
+                            {/* Primary: Previous Grade/Class — Secondary: KCPE Marks */}
+                            {isPrimary ? (
+                                <div><label className={labelClass}>Previous Grade / Class</label><input type="text" value={formData.kcpe_marks} onChange={e => setFormData({ ...formData, kcpe_marks: e.target.value })} className={inputClass} placeholder="e.g. PP2, Grade 1" /></div>
+                            ) : (
+                                <div><label className={labelClass}>KCPE Marks</label><input type="text" value={formData.kcpe_marks} onChange={e => setFormData({ ...formData, kcpe_marks: e.target.value })} className={inputClass} placeholder="e.g. 350" /></div>
+                            )}
+
                             <div><label className={labelClass}>Birth Certificate No</label><input type="text" value={formData.birth_cert_no} onChange={e => setFormData({ ...formData, birth_cert_no: e.target.value })} className={inputClass} /></div>
                             <div><label className={labelClass}>NEMIS / UPI Number</label><input type="text" value={formData.nemis_no} onChange={e => setFormData({ ...formData, nemis_no: e.target.value })} className={inputClass} /></div>
                             <div className="sm:col-span-2"><label className={labelClass}>Additional Notes</label><textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className={`${inputClass} min-h-[80px]`} /></div>

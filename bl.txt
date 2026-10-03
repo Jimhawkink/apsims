@@ -418,7 +418,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/stores/reports                           13.8 kB         154 kB
 Γö£ Γùï /dashboard/stores/ultra                             20 kB           160 kB
 Γö£ Γùï /dashboard/stores/vouchers                          14.5 kB         154 kB
-Γö£ Γùï /dashboard/students                                 22.2 kB         179 kB
+Γö£ Γùï /dashboard/students                                 22.3 kB         180 kB
 Γö£ ╬╗ /dashboard/students/[id]                            6.55 kB         153 kB
 Γö£ Γùï /dashboard/students/admissions                      13.3 kB         160 kB
 Γö£ Γùï /dashboard/students/alumni                          9.33 kB         218 kB
