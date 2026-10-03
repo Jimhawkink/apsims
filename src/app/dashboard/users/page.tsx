@@ -11,6 +11,7 @@ interface SystemUser {
     id?: number; username: string; password_hash: string; full_name: string; email: string;
     phone: string; role: UserRole; user_type: string; is_active: boolean;
     permissions: Record<string, boolean>;
+    school_section: 'primary' | 'secondary' | 'both';
 }
 
 const ROLES: { key: UserRole; label: string; icon: string; color: string; desc: string }[] = [
@@ -51,6 +52,7 @@ const defaultUser: SystemUser = {
     username: '', password_hash: '', full_name: '', email: '', phone: '',
     role: 'teacher', user_type: 'teacher', is_active: true,
     permissions: {},
+    school_section: 'secondary',
 };
 
 export default function UsersPage() {
@@ -123,6 +125,7 @@ export default function UsersPage() {
             user_type: formData.role,
             is_active: formData.is_active,
             permissions: editId ? (formData.permissions || permObj) : permObj,
+            school_section: formData.school_section || 'secondary',
         };
 
         if (password) {
@@ -211,10 +214,15 @@ export default function UsersPage() {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="table-modern">
-                                <thead><tr><th>#</th><th>User</th><th>Username</th><th>Role</th><th>Email</th><th>Phone</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
+                                <thead><tr><th>#</th><th>User</th><th>Username</th><th>Role</th><th>Section</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead>
                                 <tbody>
                                     {filtered.map((u, i) => {
                                         const r = roleInfo(u.role);
+                                        const sectionInfo = u.school_section === 'primary'
+                                            ? { label: '🏫 Primary',   color: '#7c3aed', bg: '#f5f3ff' }
+                                            : u.school_section === 'secondary'
+                                            ? { label: '🎓 Secondary', color: '#2563eb', bg: '#eff6ff' }
+                                            : { label: '🌐 Both',      color: '#059669', bg: '#f0fdf4' };
                                         return (
                                             <tr key={u.id}>
                                                 <td className="text-xs text-gray-400">{i + 1}</td>
@@ -223,6 +231,11 @@ export default function UsersPage() {
                                                 <td>
                                                     <span className="badge" style={{ background: `${r.color}15`, color: r.color }}>
                                                         {r.icon} {r.label}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span className="badge text-xs font-semibold" style={{ background: sectionInfo.bg, color: sectionInfo.color }}>
+                                                        {sectionInfo.label}
                                                     </span>
                                                 </td>
                                                 <td className="text-sm">{u.email || '-'}</td>
@@ -288,6 +301,29 @@ export default function UsersPage() {
                                             {showPass ? <FiEyeOff size={16} /> : <FiEye size={16} />}
                                         </button>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* ── School Section Assignment ── */}
+                            <div>
+                                <label className="lbl">🏫 School Section *</label>
+                                <p className="text-xs text-gray-400 mb-2">Controls which part of APSIMS this user sees on login</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { key: 'primary',   icon: '🏫', label: 'Primary',   desc: 'PP1–Grade 6 only',          color: '#7c3aed' },
+                                        { key: 'secondary', icon: '🎓', label: 'Secondary',  desc: 'Form 1–12 / JSS / CBC',     color: '#2563eb' },
+                                        { key: 'both',      icon: '🌐', label: 'Both',       desc: 'Admin / Principal — all',   color: '#059669' },
+                                    ].map(s => (
+                                        <button key={s.key}
+                                            onClick={() => setFormData({ ...formData, school_section: s.key as any })}
+                                            className={`p-3 rounded-xl text-center transition-all border-2 ${formData.school_section === s.key ? 'border-current bg-opacity-10' : 'border-gray-200 hover:border-gray-300'}`}
+                                            style={formData.school_section === s.key ? { borderColor: s.color, background: s.color + '15' } : {}}
+                                        >
+                                            <div className="text-xl mb-0.5">{s.icon}</div>
+                                            <p className="text-xs font-bold" style={{ color: formData.school_section === s.key ? s.color : '#64748b' }}>{s.label}</p>
+                                            <p className="text-[10px] text-gray-400">{s.desc}</p>
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 

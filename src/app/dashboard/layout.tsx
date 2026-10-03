@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { usePageIcon } from '@/lib/usePageIcon';
@@ -23,6 +23,7 @@ import NotificationsDropdown from '@/components/NotificationsDropdown';
 import QuickActionsButton from '@/components/QuickActionsButton';
 import { useOffline } from '@/hooks/useOffline';
 import RealtimeProvider from '@/components/RealtimeProvider';
+import { SchoolModeProvider, useSchoolMode } from '@/contexts/SchoolModeContext';
 
 interface UserSession {
     id: number;
@@ -33,14 +34,39 @@ interface UserSession {
 }
 
 // Structured Menu configuration
+// section: 'primary' = only shown in primary mode
+// section: 'secondary' = only shown in secondary mode  
+// section: 'both' = shown in both modes (omit = 'both')
 const menuGroups = [
     {
         label: "", 
         collapsible: false,
         name: 'main',
+        section: 'both',
         items: [
             { href: '/dashboard/notifications', label: '🔔 Notification Centre', icon: FiBell, perm: 'dashboard' },
             { href: '/dashboard', label: 'Dashboard', icon: FiHome, perm: 'dashboard' },
+        ]
+    },
+    // ══════════════════════════════════════════════════════════════
+    // 🏫 PRIMARY HUB — Only visible when school_mode = 'primary'
+    // ══════════════════════════════════════════════════════════════
+    {
+        label: '🏫 Primary School Hub',
+        icon: FiHome,
+        name: 'primary-hub',
+        section: 'primary',
+        collapsible: true,
+        items: [
+            { href: '/dashboard/primary',              label: '🏫 Primary Dashboard',        icon: FiHome,       perm: 'dashboard' },
+            { href: '/dashboard/primary/marks',        label: '✏️ Primary Marks Entry',       icon: FiFileText,   perm: 'exams' },
+            { href: '/dashboard/primary/broadsheet',   label: '📊 Primary Broadsheet',        icon: FiGrid,       perm: 'exams' },
+            { href: '/dashboard/primary/report-cards', label: '📄 Primary Report Cards',      icon: FiAward,      perm: 'exams' },
+            { href: '/dashboard/primary/pp-activities',label: '👶 PP1 / PP2 Activities',      icon: FiActivity,   perm: 'exams' },
+            { href: '/dashboard/primary/analytics',    label: '📈 Primary Analytics',         icon: FiBarChart2,  perm: 'exams' },
+            { href: '/dashboard/exams/kpsea',          label: '🏆 KPSEA Hub (Grade 6)',       icon: FiShield,     perm: 'exams' },
+            { href: '/dashboard/primary/nemis-export', label: '📤 Primary NEMIS Export',      icon: FiDownload,   perm: 'reports' },
+            { href: '/dashboard/primary/timetable',    label: '📅 Primary Timetable',         icon: FiCalendar,   perm: 'timetable' },
         ]
     },
     {
@@ -446,15 +472,31 @@ const menuGroups = [
     }
 ];
 
-const filterMenuGroups = (groups: typeof menuGroups, isAdmin: boolean, permissions: Record<string, boolean>, isSuperAdmin?: boolean) => {
+const filterMenuGroups = (
+    groups: typeof menuGroups,
+    isAdmin: boolean,
+    permissions: Record<string, boolean>,
+    isSuperAdmin?: boolean,
+    userSection: 'primary' | 'secondary' | 'both' = 'secondary'
+) => {
     return groups.map(group => {
         const filteredItems = group.items.filter((item: any) => {
-            if (item.superAdminOnly && !isSuperAdmin) return false; // ZKTeco etc — ONLY super admin
-            if (isAdmin) return true;  // admin, principal, super-admin see everything
+            if (item.superAdminOnly && !isSuperAdmin) return false;
+            if (isAdmin) return true;
             return permissions[item.perm] === true;
         });
         return { ...group, items: filteredItems };
-    }).filter(group => group.items.length > 0);
+    }).filter(group => {
+        if (group.items.length === 0) return false;
+        // 'both' = Admin/Principal — sees ALL groups, no filtering
+        if (userSection === 'both') return true;
+        // 'primary' → show primary + shared(both) groups only
+        // 'secondary' → show secondary + shared(both) groups only
+        const groupSection = (group as any).section || 'both';
+        if (userSection === 'primary')   return groupSection === 'primary'   || groupSection === 'both';
+        if (userSection === 'secondary') return groupSection === 'secondary' || groupSection === 'both';
+        return true;
+    });
 };
 
 // All permission keys — super-admin gets all of these set to true
@@ -483,6 +525,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { isOffline } = useOffline();
     const [dashTheme, setDashTheme] = useState<'sidebar' | 'premier'>('sidebar');
 
+    // ── School Section — set from DB on login, NEVER manually toggled ──
+    // 'primary'   → user only sees Primary Hub + shared modules
+    // 'secondary' → user only sees Secondary/JSS/CBC + shared modules
+    // 'both'      → user sees ALL modules (Admin / Principal)
+    const [userSection, setUserSection] = useState<'primary' | 'secondary' | 'both'>('secondary');
+
     useEffect(() => {
         setMounted(true);
         // Load theme preference
@@ -494,16 +542,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             try {
                 const res = await fetch('/api/auth/session');
                 if (!res.ok) {
-                    // No valid server session — redirect to login
                     localStorage.removeItem('school_user');
                     router.push('/');
                     return;
                 }
                 const { user: serverUser } = await res.json();
-                // Use server-verified user data (authoritative)
                 const stored = localStorage.getItem('school_user');
                 const localUser = stored ? JSON.parse(stored) : null;
-                // If server user doesn't match local, use server data
                 const userData = serverUser || localUser;
                 if (!userData) { router.push('/'); return; }
                 setUser(userData);
@@ -511,14 +556,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 setUserRole(role);
                 const perms: Record<string, boolean> = userData.permissions || {};
                 setUserPermissions(perms);
-                // Sync localStorage with verified data
+
+                // ── School Section: 100% from DB — no toggle ever ──
+                // 'primary'   → only primary sidebar, only primary forms
+                // 'secondary' → only secondary sidebar, only secondary forms
+                // 'both'      → ALL sidebar groups + ALL forms (Admin / Principal)
+                const section = (userData.school_section || 'secondary') as 'primary' | 'secondary' | 'both';
+                setUserSection(section);
+
+                // Sync localStorage
                 localStorage.setItem('school_user', JSON.stringify(userData));
 
-                // ── Redirect restricted users away from /dashboard home ──
+                // ── Redirect on login ──
                 const isAdminRole = ['admin','principal','super-admin','superadmin','super_admin'].includes(role);
                 const hasDashboardPerm = isAdminRole || perms['dashboard'] === true;
                 if (!hasDashboardPerm && window.location.pathname === '/dashboard') {
-                    // Send them to their first allowed page
+                    if (section === 'primary') { router.replace('/dashboard/primary'); return; }
                     if (perms['stores'] === true) { router.replace('/dashboard/stores/ultra'); return; }
                     if (perms['library'] === true) { router.replace('/dashboard/library-inventory/ultra'); return; }
                     if (perms['fees'] === true) { router.replace('/dashboard/fees'); return; }
@@ -526,7 +579,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     if (perms['attendance'] === true) { router.replace('/dashboard/attendance'); return; }
                     if (perms['hostel'] === true) { router.replace('/dashboard/hostel'); return; }
                     if (perms['students_health'] === true) { router.replace('/dashboard/students/health'); return; }
-                    // Fallback — no valid page, log out
                     router.replace('/');
                 }
             } catch {
@@ -590,7 +642,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const isAdmin = isSuperAdmin || userRole === 'admin' || userRole === 'principal';
     // Super-admin gets ALL permissions — no page or function is ever blocked
     const effectivePermissions = isSuperAdmin ? ALL_PERMISSIONS : userPermissions;
-    const filteredGroups = filterMenuGroups(menuGroups, isAdmin, effectivePermissions, isSuperAdmin);
+    const filteredGroups = filterMenuGroups(menuGroups, isAdmin, effectivePermissions, isSuperAdmin, userSection);
 
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
@@ -629,6 +681,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // ═══ PREMIER THEME ═══
     if (dashTheme === 'premier') {
         return (
+            <SchoolModeProvider userSection={userSection}>
             <ThemeProvider>
                 <LayoutThemeExtras>
                     <CommandPalette />
@@ -638,11 +691,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </PremierDashboard>
                 </LayoutThemeExtras>
             </ThemeProvider>
+            </SchoolModeProvider>
         );
     }
 
     // ═══ SIDEBAR THEME (default) ═══
     return (
+        <SchoolModeProvider userSection={userSection}>
         <ThemeProvider>
         <LayoutThemeExtras>
         <div className="min-h-screen bg-[#f0f2f5] flex font-sans text-gray-800">
@@ -968,6 +1023,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         </LayoutThemeExtras>
         </ThemeProvider>
+        </SchoolModeProvider>
     );
 }
 
