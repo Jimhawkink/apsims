@@ -551,27 +551,59 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 const localUser = stored ? JSON.parse(stored) : null;
                 const userData = serverUser || localUser;
                 if (!userData) { router.push('/'); return; }
+
+                // ══════════════════════════════════════════════════════════
+                // ALWAYS fetch school_section fresh from DB
+                // The cookie/session was baked before school_section existed
+                // so we NEVER trust serverUser.school_section or
+                // localUser.school_section — always go to DB
+                // ══════════════════════════════════════════════════════════
+                let freshSection: 'primary' | 'secondary' | 'both' = 'both';
+                try {
+                    const { data: freshUser } = await supabase
+                        .from('school_users')
+                        .select('school_section, permissions, page_permissions')
+                        .eq('id', userData.id)
+                        .single();
+                    if (freshUser?.school_section) {
+                        freshSection = freshUser.school_section as 'primary' | 'secondary' | 'both';
+                        // Merge fresh data into userData
+                        userData.school_section = freshSection;
+                        if (freshUser.permissions) userData.permissions = freshUser.permissions;
+                    } else {
+                        // Column exists but value is null → default 'both' (admin sees all)
+                        freshSection = 'both';
+                        userData.school_section = 'both';
+                    }
+                } catch {
+                    // DB unreachable — fall back to stored value or 'both'
+                    freshSection = (userData.school_section || 'both') as 'primary' | 'secondary' | 'both';
+                }
+
                 setUser(userData);
                 const role = (userData.role || 'admin').toLowerCase();
                 setUserRole(role);
                 const perms: Record<string, boolean> = userData.permissions || {};
                 setUserPermissions(perms);
 
-                // ── School Section: 100% from DB — no toggle ever ──
-                // 'primary'   → only primary sidebar, only primary forms
-                // 'secondary' → only secondary sidebar, only secondary forms
-                // 'both'      → ALL sidebar groups + ALL forms (Admin / Principal)
-                const section = (userData.school_section || 'secondary') as 'primary' | 'secondary' | 'both';
-                setUserSection(section);
+                // Set section from FRESH DB value — 100% reliable
+                setUserSection(freshSection);
 
-                // Sync localStorage
+                // Sync localStorage with fresh data including school_section
                 localStorage.setItem('school_user', JSON.stringify(userData));
 
                 // ── Redirect on login ──
+                // Primary users → always go to /dashboard/primary
+                // regardless of admin/teacher/role
+                const currentPath = window.location.pathname;
+                if (freshSection === 'primary' && (currentPath === '/dashboard' || currentPath === '/dashboard/')) {
+                    router.replace('/dashboard/primary');
+                    return;
+                }
+
                 const isAdminRole = ['admin','principal','super-admin','superadmin','super_admin'].includes(role);
                 const hasDashboardPerm = isAdminRole || perms['dashboard'] === true;
-                if (!hasDashboardPerm && window.location.pathname === '/dashboard') {
-                    if (section === 'primary') { router.replace('/dashboard/primary'); return; }
+                if (!hasDashboardPerm && currentPath === '/dashboard') {
                     if (perms['stores'] === true) { router.replace('/dashboard/stores/ultra'); return; }
                     if (perms['library'] === true) { router.replace('/dashboard/library-inventory/ultra'); return; }
                     if (perms['fees'] === true) { router.replace('/dashboard/fees'); return; }
