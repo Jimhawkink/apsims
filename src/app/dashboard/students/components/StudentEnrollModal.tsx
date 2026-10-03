@@ -397,22 +397,55 @@ export default function StudentEnrollModal({
                     )}
 
                     {/* Tab 4: Academic */}
-                    {modalTab === 4 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div><label className={labelClass}>Previous School</label><input type="text" value={formData.previous_school} onChange={e => setFormData({ ...formData, previous_school: e.target.value })} className={inputClass} placeholder="Name of previous school" /></div>
+                    {modalTab === 4 && (() => {
+                        // Detect which class the pupil is joining
+                        const selectedForm = forms.find((f: any) => f.id === Number(formData.form_id));
+                        const formName = selectedForm?.form_name || '';
+                        const isJSS = selectedForm?.education_system === 'Junior_Secondary';
+                        const isGrade7 = formName === 'Grade 7';  // joining JSS → KPSEA entry
+                        const isGrade9 = formName === 'Grade 9';  // completing JSS → KJSEA
 
-                            {/* Primary: Previous Grade/Class — Secondary: KCPE Marks */}
-                            {isPrimary ? (
-                                <div><label className={labelClass}>Previous Grade / Class</label><input type="text" value={formData.kcpe_marks} onChange={e => setFormData({ ...formData, kcpe_marks: e.target.value })} className={inputClass} placeholder="e.g. PP2, Grade 1" /></div>
-                            ) : (
-                                <div><label className={labelClass}>KCPE Marks</label><input type="text" value={formData.kcpe_marks} onChange={e => setFormData({ ...formData, kcpe_marks: e.target.value })} className={inputClass} placeholder="e.g. 350" /></div>
-                            )}
+                        return (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div><label className={labelClass}>Previous School</label><input type="text" value={formData.previous_school} onChange={e => setFormData({ ...formData, previous_school: e.target.value })} className={inputClass} placeholder="Name of previous school" /></div>
 
-                            <div><label className={labelClass}>Birth Certificate No</label><input type="text" value={formData.birth_cert_no} onChange={e => setFormData({ ...formData, birth_cert_no: e.target.value })} className={inputClass} /></div>
-                            <div><label className={labelClass}>NEMIS / UPI Number</label><input type="text" value={formData.nemis_no} onChange={e => setFormData({ ...formData, nemis_no: e.target.value })} className={inputClass} /></div>
-                            <div className="sm:col-span-2"><label className={labelClass}>Additional Notes</label><textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className={`${inputClass} min-h-[80px]`} /></div>
-                        </div>
-                    )}
+                                {/* ── Exam / entry field — adapts by class ── */}
+                                {isPrimary ? (
+                                    isGrade7 ? (
+                                        // Grade 7 entry — pupil comes from Grade 6 with KPSEA marks
+                                        <div>
+                                            <label className={labelClass}>KPSEA Marks 🏆</label>
+                                            <input type="text" value={formData.kcpe_marks} onChange={e => setFormData({ ...formData, kcpe_marks: e.target.value })} className={inputClass} placeholder="e.g. 385 / 500" />
+                                            <p className="text-[10px] text-blue-500 mt-1">Kenya Primary School Education Assessment (Grade 6 exit)</p>
+                                        </div>
+                                    ) : (
+                                        // PP1-Grade6, Grade 8-9 — show previous grade/class
+                                        <div>
+                                            <label className={labelClass}>Previous Grade / Class</label>
+                                            <input type="text" value={formData.kcpe_marks} onChange={e => setFormData({ ...formData, kcpe_marks: e.target.value })} className={inputClass} placeholder={isJSS ? 'e.g. Grade 7, Grade 8' : 'e.g. PP2, Grade 3'} />
+                                        </div>
+                                    )
+                                ) : (
+                                    // Secondary — KCPE Marks
+                                    <div><label className={labelClass}>KCPE Marks</label><input type="text" value={formData.kcpe_marks} onChange={e => setFormData({ ...formData, kcpe_marks: e.target.value })} className={inputClass} placeholder="e.g. 350" /></div>
+                                )}
+
+                                <div><label className={labelClass}>Birth Certificate No</label><input type="text" value={formData.birth_cert_no} onChange={e => setFormData({ ...formData, birth_cert_no: e.target.value })} className={inputClass} /></div>
+                                <div><label className={labelClass}>NEMIS / UPI Number</label><input type="text" value={formData.nemis_no} onChange={e => setFormData({ ...formData, nemis_no: e.target.value })} className={inputClass} /></div>
+
+                                {/* KJSEA field — only for Grade 9 pupils (JSS exit exam) */}
+                                {isPrimary && isGrade9 && (
+                                    <div className="sm:col-span-2">
+                                        <label className={labelClass}>KJSEA Assessment 🎓</label>
+                                        <input type="text" value={formData.kjsea_marks || ''} onChange={e => setFormData({ ...formData, kjsea_marks: e.target.value })} className={inputClass} placeholder="Kenya Junior Secondary Education Assessment results" />
+                                        <p className="text-[10px] text-purple-500 mt-1">Kenya Junior Secondary Education Assessment — completed at end of Grade 9</p>
+                                    </div>
+                                )}
+
+                                <div className="sm:col-span-2"><label className={labelClass}>Additional Notes</label><textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className={`${inputClass} min-h-[80px]`} /></div>
+                            </div>
+                        );
+                    })()}
 
                     {/* Tab 5: CBC Pathway */}
                     {modalTab === 5 && isCBCForm && (
