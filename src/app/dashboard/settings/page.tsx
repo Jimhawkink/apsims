@@ -15,7 +15,7 @@ import PathwayBadge from '@/components/cbc/PathwayBadge';
 import { countElectivesForPathway } from '@/lib/cbc-utils';
 import ReceiptSettingsWidget from '@/components/settings/ReceiptSettingsWidget';
 
-type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'cbc-pathways' | 'cbc-grading' | 'sms' | 'mpesa' | 'whatsapp' | 'terms' | 'receipt-settings';
+type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'primary-school' | 'cbc-pathways' | 'cbc-grading' | 'sms' | 'mpesa' | 'whatsapp' | 'terms' | 'receipt-settings';
 
 /* ─── tiny helpers ─── */
 const TH = ({ children }: { children: React.ReactNode }) => (
@@ -128,6 +128,8 @@ export default function SettingsPage() {
   const [classes, setClasses] = useState<any[]>([]);
   const [subjectTeachers, setSubjectTeachers] = useState<any[]>([]);
   const [schoolDetails, setSchoolDetails] = useState<any>({});
+  const [primaryDetails, setPrimaryDetails] = useState<any>({});
+  const [savingPrimary, setSavingPrimary] = useState(false);
   const [cbcPathways, setCbcPathways] = useState<any[]>([]);
   const [cbcPathwaySubjects, setCbcPathwaySubjects] = useState<any[]>([]);
   const [cbcRubricConfig, setCbcRubricConfig] = useState<any[]>([]);
@@ -167,6 +169,7 @@ export default function SettingsPage() {
     try { const { data } = await supabase.from('school_classes').select('*'); setClasses(data || []); } catch { setClasses([]); }
     try { const { data } = await supabase.from('school_subject_teachers').select('*'); setSubjectTeachers(data || []); } catch { setSubjectTeachers([]); }
     try { const { data } = await supabase.from('school_details').select('*').limit(1).single(); if (data) setSchoolDetails(data); } catch {}
+    try { const { data } = await supabase.from('school_details').select('*').eq('section', 'primary').limit(1).single(); if (data) setPrimaryDetails(data); } catch {}
     try { const { data } = await supabase.from('cbc_pathways').select('*').order('id'); setCbcPathways(data || []); } catch { setCbcPathways([]); }
     try { const { data } = await supabase.from('cbc_pathway_subjects').select('*, school_subjects(id, subject_name, subject_code)'); setCbcPathwaySubjects(data || []); } catch { setCbcPathwaySubjects([]); }
     try {
@@ -296,9 +299,33 @@ export default function SettingsPage() {
     toast.success('School details saved ✅'); fetchAll();
   };
 
+  /* ─── Primary school details ─── */
+  const savePrimaryDetails = async () => {
+    if (!primaryDetails.school_name?.trim()) { toast.error('Primary school name is required'); return; }
+    setSavingPrimary(true);
+    const payload: any = { section: 'primary' };
+    Object.keys(primaryDetails).forEach(key => {
+      if (['id', 'created_at', 'updated_at'].includes(key)) return;
+      const val = primaryDetails[key];
+      payload[key] = (typeof val === 'string' && val.trim() === '') ? null : val;
+    });
+    payload.section = 'primary';
+    payload.updated_at = new Date().toISOString();
+    let error;
+    if (primaryDetails.id) {
+      ({ error } = await supabase.from('school_details').update(payload).eq('id', primaryDetails.id));
+    } else {
+      ({ error } = await supabase.from('school_details').insert([payload]));
+    }
+    setSavingPrimary(false);
+    if (error) { toast.error(error.message || 'Failed to save primary school details'); return; }
+    toast.success('Primary school details saved ✅'); fetchAll();
+  };
+
   /* ─── Tabs config ─── */
   const TABS: { key: Tab; label: string; icon: string; count: number; group: string }[] = [
-    { key: 'school-details', label: 'School Info', icon: '🏫', count: 0, group: 'General' },
+    { key: 'school-details', label: 'Secondary Info', icon: '🎓', count: 0, group: 'General' },
+    { key: 'primary-school', label: 'Primary School', icon: '🏫', count: 0, group: 'General' },
     { key: 'terms', label: 'Terms & Year', icon: '📅', count: terms.length, group: 'General' },
     { key: 'forms', label: 'Forms', icon: '📋', count: forms.length, group: 'Academic' },
     { key: 'streams', label: 'Streams', icon: '🏷️', count: streams.length, group: 'Academic' },
@@ -539,7 +566,128 @@ export default function SettingsPage() {
                 </div>
               </SectionCard>
 
-              <div className="flex justify-end pt-2"><SaveBtn onClick={saveSchoolDetails} loading={savingInfo} label="Save School Details" /></div>
+              <div className="flex justify-end pt-2"><SaveBtn onClick={saveSchoolDetails} loading={savingInfo} label="Save Secondary School Details" /></div>
+            </div>
+          )}
+
+          {/* ══════════ PRIMARY SCHOOL INFO ══════════ */}
+          {tab === 'primary-school' && (
+            <div className="p-6 space-y-5">
+              {/* Header */}
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-purple-50 border border-purple-100">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl">🏫</div>
+                <div>
+                  <p className="text-sm font-black text-purple-900">Primary School Information</p>
+                  <p className="text-[10px] text-purple-500 mt-0.5">PP1 · PP2 · Grade 1–6 · CBC Curriculum · KPSEA</p>
+                </div>
+                {primaryDetails.id && (
+                  <span className="ml-auto text-[10px] font-black text-green-600 bg-green-100 px-3 py-1 rounded-full">✅ Profile Saved</span>
+                )}
+              </div>
+
+              {/* Basic Info */}
+              <SectionCard icon="🏫" title="Primary School Identity" color="purple">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { label: 'Primary School Name', key: 'school_name', required: true, placeholder: 'e.g. St. Mary\'s Primary School' },
+                    { label: 'Motto', key: 'motto', placeholder: 'e.g. Excellence in All We Do' },
+                    { label: 'Registration No.', key: 'registration_number', placeholder: 'MoE Registration number' },
+                    { label: 'TSC Code', key: 'tsc_code', placeholder: 'TSC code' },
+                    { label: 'KNEC Code', key: 'knec_code', placeholder: 'KNEC code for KPSEA' },
+                    { label: 'Sub-County Code', key: 'sub_county_code', placeholder: 'Sub-county code' },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <Lbl required={(f as any).required}>{f.label}</Lbl>
+                      <Inp value={primaryDetails[f.key] || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, [f.key]: e.target.value })} placeholder={f.placeholder} />
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+
+              {/* Classification */}
+              <SectionCard icon="🏷️" title="Classification" color="indigo">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div><Lbl>School Type</Lbl>
+                    <Sel value={primaryDetails.school_type || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, school_type: e.target.value })}>
+                      <option value="">— Select Type —</option>
+                      {['Public', 'Private', 'National', 'County', 'Sub-County'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </Sel>
+                  </div>
+                  <div><Lbl>School Category</Lbl>
+                    <Sel value={primaryDetails.school_category || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, school_category: e.target.value })}>
+                      <option value="">— Select Category —</option>
+                      {['Mixed Day', 'Boys Day', 'Girls Day', 'Mixed Boarding', 'Boys Boarding', 'Girls Boarding'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </Sel>
+                  </div>
+                  <div><Lbl>Curriculum</Lbl>
+                    <Sel value={primaryDetails.curriculum || 'Primary CBC'} onChange={e => setPrimaryDetails({ ...primaryDetails, curriculum: e.target.value })}>
+                      {['Primary CBC', '8-4-4 Primary', 'Both'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </Sel>
+                  </div>
+                  <div><Lbl>Established Year</Lbl>
+                    <Inp type="number" value={primaryDetails.established_year || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, established_year: e.target.value })} placeholder="e.g. 1998" min={1900} max={2030} />
+                  </div>
+                  <div><Lbl>Total Capacity (Pupils)</Lbl>
+                    <Inp type="number" value={primaryDetails.total_capacity || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, total_capacity: e.target.value })} placeholder="Max pupil capacity" />
+                  </div>
+                </div>
+              </SectionCard>
+
+              {/* Location */}
+              <SectionCard icon="📍" title="Location & Address" color="green">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><Lbl>Postal Address</Lbl><Inp value={primaryDetails.postal_address || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, postal_address: e.target.value })} placeholder="P.O. Box 123" /></div>
+                  <div><Lbl>Physical Address / Location</Lbl><Inp value={primaryDetails.physical_address || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, physical_address: e.target.value })} placeholder="e.g. Westlands, Nairobi" /></div>
+                  <div><Lbl>County</Lbl>
+                    <Sel value={primaryDetails.county || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, county: e.target.value, sub_county: '' })}>
+                      <option value="">— Select County —</option>
+                      {counties.map(c => <option key={c} value={c}>{c}</option>)}
+                    </Sel>
+                  </div>
+                  <div><Lbl>Sub-County</Lbl>
+                    <Sel value={primaryDetails.sub_county || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, sub_county: e.target.value })}>
+                      <option value="">— Select Sub-County —</option>
+                      {primaryDetails.county && getSubCounties(primaryDetails.county).map((sc: string) => <option key={sc} value={sc}>{sc}</option>)}
+                    </Sel>
+                  </div>
+                </div>
+              </SectionCard>
+
+              {/* Contact */}
+              <SectionCard icon="📞" title="Contact Details" color="amber">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { label: 'Phone 1', key: 'phone1', type: 'tel', placeholder: '0712 345 678' },
+                    { label: 'Phone 2', key: 'phone2', type: 'tel', placeholder: '0700 000 000' },
+                    { label: 'Email', key: 'email', type: 'email', placeholder: 'primary@school.ac.ke' },
+                    { label: 'Website', key: 'website', type: 'url', placeholder: 'https://' },
+                    { label: 'Head Teacher Name', key: 'principal_name', type: 'text', placeholder: 'Mr./Ms. Full Name' },
+                    { label: 'Head Teacher Phone', key: 'principal_phone', type: 'tel', placeholder: '0712 000 000' },
+                  ].map(f => (
+                    <div key={f.key}><Lbl>{f.label}</Lbl><Inp type={f.type} value={primaryDetails[f.key] || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, [f.key]: e.target.value })} placeholder={f.placeholder} /></div>
+                  ))}
+                </div>
+              </SectionCard>
+
+              {/* Bank */}
+              <SectionCard icon="🏦" title="Bank & Fee Payment Details" color="blue">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { label: 'Bank Name', key: 'bank_name', placeholder: 'e.g. KCB, Equity, Co-op' },
+                    { label: 'Account Name', key: 'bank_account_name', placeholder: 'Official account name' },
+                    { label: 'Account Number', key: 'bank_account_number', placeholder: 'Account number' },
+                    { label: 'Bank Branch', key: 'bank_branch', placeholder: 'Branch name' },
+                    { label: 'M-Pesa Paybill', key: 'mpesa_paybill', placeholder: 'Paybill number' },
+                    { label: 'M-Pesa Account Name', key: 'mpesa_account_name', placeholder: 'Account name for M-Pesa' },
+                  ].map(f => (
+                    <div key={f.key}><Lbl>{f.label}</Lbl><Inp value={primaryDetails[f.key] || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, [f.key]: e.target.value })} placeholder={f.placeholder} /></div>
+                  ))}
+                </div>
+              </SectionCard>
+
+              <div className="flex justify-end pt-2">
+                <SaveBtn onClick={savePrimaryDetails} loading={savingPrimary} label="Save Primary School Details" color="#7c3aed" />
+              </div>
             </div>
           )}
 
