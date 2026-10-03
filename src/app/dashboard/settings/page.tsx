@@ -490,7 +490,15 @@ export default function SettingsPage() {
                   <div><Lbl>School Category</Lbl>
                     <Sel value={schoolDetails.school_category || ''} onChange={e => setSchoolDetails({ ...schoolDetails, school_category: e.target.value })}>
                       <option value="">— Select Category —</option>
-                      {['Mixed Day', 'Boys Boarding', 'Girls Boarding', 'Boys Day', 'Girls Day', 'Mixed Boarding', 'Mixed Day/Boarding'].map(t => <option key={t} value={t}>{t}</option>)}
+                      <optgroup label="── Day Schools ──">
+                        {['Mixed Day', 'Boys Day', 'Girls Day'].map(t => <option key={t} value={t}>{t}</option>)}
+                      </optgroup>
+                      <optgroup label="── Boarding Schools ──">
+                        {['Mixed Boarding', 'Boys Boarding', 'Girls Boarding'].map(t => <option key={t} value={t}>{t}</option>)}
+                      </optgroup>
+                      <optgroup label="── Day & Boarding (Combined) ──">
+                        {['Mixed Day & Boarding', 'Boys Day & Boarding', 'Girls Day & Boarding'].map(t => <option key={t} value={t}>{t}</option>)}
+                      </optgroup>
                     </Sel>
                   </div>
                   <div><Lbl>Education Level</Lbl>
@@ -616,7 +624,15 @@ export default function SettingsPage() {
                   <div><Lbl>School Category</Lbl>
                     <Sel value={primaryDetails.school_category || ''} onChange={e => setPrimaryDetails({ ...primaryDetails, school_category: e.target.value })}>
                       <option value="">— Select Category —</option>
-                      {['Mixed Day', 'Boys Day', 'Girls Day', 'Mixed Boarding', 'Boys Boarding', 'Girls Boarding'].map(t => <option key={t} value={t}>{t}</option>)}
+                      <optgroup label="── Day Schools ──">
+                        {['Mixed Day', 'Boys Day', 'Girls Day'].map(t => <option key={t} value={t}>{t}</option>)}
+                      </optgroup>
+                      <optgroup label="── Boarding Schools ──">
+                        {['Mixed Boarding', 'Boys Boarding', 'Girls Boarding'].map(t => <option key={t} value={t}>{t}</option>)}
+                      </optgroup>
+                      <optgroup label="── Day & Boarding (Combined) ──">
+                        {['Mixed Day & Boarding', 'Boys Day & Boarding', 'Girls Day & Boarding'].map(t => <option key={t} value={t}>{t}</option>)}
+                      </optgroup>
                     </Sel>
                   </div>
                   <div><Lbl>Curriculum</Lbl>
