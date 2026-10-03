@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs';
+﻿import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
@@ -36,6 +36,7 @@ export interface SessionData {
   email?: string;
   phone?: string;
   permissions?: Record<string, boolean>;
+  school_section?: string;
   // Portal session fields
   user_type_portal?: 'student' | 'parent' | 'teacher';
   student_id?: number;

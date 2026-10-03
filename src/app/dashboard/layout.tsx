@@ -24,6 +24,7 @@ import QuickActionsButton from '@/components/QuickActionsButton';
 import { useOffline } from '@/hooks/useOffline';
 import RealtimeProvider from '@/components/RealtimeProvider';
 import { SchoolModeProvider, useSchoolMode } from '@/contexts/SchoolModeContext';
+import { supabase, setSchoolSectionOverride } from '@/lib/supabase';
 
 interface UserSession {
     id: number;
@@ -579,6 +580,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     // DB unreachable — fall back to stored value or 'both'
                     freshSection = (userData.school_section || 'both') as 'primary' | 'secondary' | 'both';
                 }
+
+                // ── CRITICAL: Push section into interceptor IMMEDIATELY ──
+                // This runs BEFORE setUserSection (React state) and BEFORE
+                // components re-render, so every subsequent supabase.from()
+                // call uses the correct section. Eliminates race condition.
+                setSchoolSectionOverride(freshSection);
 
                 setUser(userData);
                 const role = (userData.role || 'admin').toLowerCase();

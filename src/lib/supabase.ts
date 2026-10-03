@@ -36,16 +36,34 @@ function createNoopProxy(): any {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 🏫 SCHOOL SECTION HELPER — reads from logged-in user in localStorage
+// 🏫 SCHOOL SECTION — module-level override + localStorage fallback
 // ══════════════════════════════════════════════════════════════════════════════
-// SAFETY RULES:
-//  1. Returns 'both' (= NO filter) for null / undefined / missing / 'both'
-//  2. Returns 'both' on any error or during SSR
-//  3. Only returns 'primary' or 'secondary' when EXPLICITLY set in DB
-//  4. This means ALL existing users are completely unaffected until they are
-//     explicitly assigned a section in User Management
+//
+// TWO-LAYER system:
+//  Layer 1: _sectionOverride — set by layout.tsx immediately after DB fetch.
+//           This is the most reliable source. Always wins.
+//  Layer 2: localStorage.school_user.school_section — fallback, populated:
+//           a) At login (login API now includes school_section)
+//           b) After verifySession updates it from DB
+//
+// SAFETY: Returns 'both' (= NO filter) if section is unknown → zero data loss.
 // ══════════════════════════════════════════════════════════════════════════════
+let _sectionOverride: 'primary' | 'secondary' | 'both' | null = null;
+
+/** Called by layout.tsx immediately after fetching fresh school_section from DB */
+export function setSchoolSectionOverride(section: 'primary' | 'secondary' | 'both') {
+  _sectionOverride = section;
+}
+
+export function clearSchoolSectionOverride() {
+  _sectionOverride = null;
+}
+
 function getSchoolSection(): 'primary' | 'secondary' | 'both' {
+  // Layer 1: module-level override (set by layout after fresh DB fetch)
+  if (_sectionOverride !== null) return _sectionOverride;
+
+  // Layer 2: localStorage (set at login or by verifySession)
   if (typeof window === 'undefined') return 'both'; // SSR — never filter
   try {
     const stored = localStorage.getItem('school_user');
@@ -54,7 +72,7 @@ function getSchoolSection(): 'primary' | 'secondary' | 'both' {
     const s = user?.school_section;
     if (s === 'primary')   return 'primary';
     if (s === 'secondary') return 'secondary';
-    return 'both'; // null / undefined / 'both' / anything else → NO filter
+    return 'both';
   } catch {
     return 'both';
   }
@@ -63,19 +81,11 @@ function getSchoolSection(): 'primary' | 'secondary' | 'both' {
 // ══════════════════════════════════════════════════════════════════════════════
 // 🧠 SECTION-FILTERED TABLES
 // ══════════════════════════════════════════════════════════════════════════════
-// These tables have a `section` column added by the SQL migration.
-// The interceptor adds a WHERE clause automatically so ALL 100+ pages that
-// query these tables get the right data for the logged-in user's section.
-//
 // school_forms    — PP1/Grade1-6 vs Form1-4/Grade7-12
 // school_subjects — Mathematical Activities vs Mathematics, etc.
 //
-// Everything else (school_students, school_exam_marks, school_attendance,
-// school_fee_payments, etc.) flows automatically because they all JOIN
-// through form_id or subject_id which are already section-filtered.
-//
 // section = 'primary'   → .eq('section', 'primary')
-// section = 'secondary' → .neq('section', 'primary')   [catches NULL too]
+// section = 'secondary' → .neq('section', 'primary')
 // section = 'both'      → NO filter (Admin/Principal sees all)
 // ══════════════════════════════════════════════════════════════════════════════
 const SECTION_FILTERED_TABLES = new Set(['school_forms', 'school_subjects']);
@@ -95,17 +105,12 @@ export const supabase = new Proxy({} as SupabaseClient<any, 'public', any>, {
       _supabase = createClient<any>(supabaseUrl, supabaseAnonKey);
     }
 
-    // ── Smart section filter ──────────────────────────────────────────────────
-    // Intercepts .from('school_forms') and .from('school_subjects') ONLY.
-    // For ALL other tables: passes through unchanged — zero impact.
-    // For 'both' section (all existing users until DB migration runs): no filter.
-    // ─────────────────────────────────────────────────────────────────────────
     if (prop === 'from') {
       return (table: string) => {
         const query = (_supabase as any).from(table);
         if (!SECTION_FILTERED_TABLES.has(table)) return query;
         const section = getSchoolSection();
-        if (section === 'both') return query; // no filter — safe default
+        if (section === 'both') return query;
         return applySection(query, section);
       };
     }
