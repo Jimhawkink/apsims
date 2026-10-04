@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { usePageIcon } from '@/lib/usePageIcon';
@@ -598,17 +598,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 setUserSection(freshSection);
 
                 // ── Fetch school name from school_details ──
-                // Primary user → school_details WHERE section='primary'
-                // Others      → school_details (first row / default)
+                // Primary user  → section='primary' row (SUNSHINE ACADEMY etc.)
+                // Secondary user → section='secondary' row, OR any non-primary row as fallback
                 try {
-                    const sectionFilter = freshSection === 'primary' ? 'primary' : 'secondary';
-                    const { data: schoolData } = await supabase
-                        .from('school_details')
-                        .select('school_name')
-                        .eq('section', sectionFilter)
-                        .single();
-                    if (schoolData?.school_name) setSchoolName(schoolData.school_name);
-                } catch { /* school_details may not have section column yet */ }
+                    if (freshSection === 'primary') {
+                        const { data: schoolData } = await supabase
+                            .from('school_details')
+                            .select('school_name')
+                            .eq('section', 'primary')
+                            .limit(1)
+                            .single();
+                        if (schoolData?.school_name) setSchoolName(schoolData.school_name);
+                    } else {
+                        // Try section='secondary' first
+                        const { data: secData } = await supabase
+                            .from('school_details')
+                            .select('school_name')
+                            .eq('section', 'secondary')
+                            .limit(1)
+                            .single();
+                        if (secData?.school_name) {
+                            setSchoolName(secData.school_name);
+                        } else {
+                            // Fall back to any non-primary row (old rows without section tag)
+                            const { data: anyData } = await supabase
+                                .from('school_details')
+                                .select('school_name')
+                                .neq('section', 'primary')
+                                .limit(1)
+                                .single();
+                            if (anyData?.school_name) setSchoolName(anyData.school_name);
+                        }
+                    }
+                } catch { /* school_details may not exist yet */ }
+
 
                 // Sync localStorage with fresh data including school_section
                 localStorage.setItem('school_user', JSON.stringify(userData));
@@ -834,16 +857,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </button>
                     )}
 
-                    {/* Premier layout toggle */}
-                    {!sidebarCollapsed && (
-                        <button
-                            onClick={() => { localStorage.setItem('apsims_theme', 'premier'); setDashTheme('premier'); }}
-                            title="Switch to Premier Layout"
-                            className="hidden lg:flex flex-shrink-0 ml-1 items-center justify-center w-6 h-6 rounded-full border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-all text-blue-500 hover:text-blue-700"
-                        >
+                    {/* Premier layout toggle — hidden */}
+                    {/* {!sidebarCollapsed && (
+                        <button onClick={() => { localStorage.setItem('apsims_theme', 'premier'); setDashTheme('premier'); }} title="Switch to Premier Layout" className="hidden lg:flex flex-shrink-0 ml-1 items-center justify-center w-6 h-6 rounded-full border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-all text-blue-500 hover:text-blue-700">
                             <FiGrid size={11} />
                         </button>
-                    )}
+                    )} */}
 
                     <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden ml-auto text-gray-400 hover:text-gray-600">
                         <FiX size={20} />
@@ -993,8 +1012,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Link href="/dashboard/settings" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors" title="Settings">
                             <FiSettings size={17} />
                         </Link>
-                        {/* 🎨 Theme Switcher */}
-                        <ThemeSwitcher />
+                        {/* 🎨 Theme Switcher — hidden */}
+                        {/* <ThemeSwitcher /> */}
 
                         {/* ══ ULTRA USER CHIP ══ */}
                         {user && (

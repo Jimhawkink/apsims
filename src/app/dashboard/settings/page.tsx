@@ -168,7 +168,7 @@ export default function SettingsPage() {
     setTeachers([...(t.data || []).map((x: any) => ({ ...x, _source: 'tsc' })), ...(sp.data || []).map((x: any) => ({ ...x, tsc_number: x.staff_no || 'Support', _source: 'support' }))]);
     try { const { data } = await supabase.from('school_classes').select('*'); setClasses(data || []); } catch { setClasses([]); }
     try { const { data } = await supabase.from('school_subject_teachers').select('*'); setSubjectTeachers(data || []); } catch { setSubjectTeachers([]); }
-    try { const { data } = await supabase.from('school_details').select('*').limit(1).single(); if (data) setSchoolDetails(data); } catch {}
+    try { const { data } = await supabase.from('school_details').select('*').neq('section', 'primary').order('id', { ascending: true }).limit(1).single(); if (data) setSchoolDetails(data); } catch {}
     try { const { data } = await supabase.from('school_details').select('*').eq('section', 'primary').limit(1).single(); if (data) setPrimaryDetails(data); } catch {}
     try { const { data } = await supabase.from('cbc_pathways').select('*').order('id'); setCbcPathways(data || []); } catch { setCbcPathways([]); }
     try { const { data } = await supabase.from('cbc_pathway_subjects').select('*, school_subjects(id, subject_name, subject_code)'); setCbcPathwaySubjects(data || []); } catch { setCbcPathwaySubjects([]); }
@@ -284,19 +284,27 @@ export default function SettingsPage() {
   const saveSchoolDetails = async () => {
     if (!schoolDetails.school_name?.trim()) { toast.error('School name is required'); return; }
     setSavingInfo(true);
-    const payload: any = {};
+    const payload: any = { section: 'secondary' }; // always tag as secondary
     Object.keys(schoolDetails).forEach(key => {
       if (['id', 'created_at', 'updated_at'].includes(key)) return;
       const val = schoolDetails[key];
       payload[key] = (typeof val === 'string' && val.trim() === '') ? null : val;
     });
+    payload.section = 'secondary'; // ensure it stays secondary even if schoolDetails had something else
     payload.updated_at = new Date().toISOString();
     let error;
-    if (schoolDetails.id) { ({ error } = await supabase.from('school_details').update(payload).eq('id', schoolDetails.id)); }
-    else { ({ error } = await supabase.from('school_details').insert([payload])); }
+    if (schoolDetails.id) {
+      // Row exists — update it
+      ({ error } = await supabase.from('school_details').update(payload).eq('id', schoolDetails.id));
+    } else {
+      // No row yet — insert secondary row
+      payload.created_at = new Date().toISOString();
+      ({ error } = await supabase.from('school_details').insert([payload]));
+    }
     setSavingInfo(false);
-    if (error) { toast.error(error.message || 'Failed to save'); return; }
-    toast.success('School details saved ✅'); fetchAll();
+    if (error) { toast.error(error.message || 'Failed to save school details'); return; }
+    toast.success('Secondary school details saved ✅');
+    fetchAll();
   };
 
   /* ─── Primary school details ─── */
