@@ -15,6 +15,9 @@ At line:1 char:1
  
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: caniuse-lite is outdated. Please run:
+  npx browserslist@latest --update-db
+  Why you should do it regularly: https://github.com/browserslist/browserslist#browsers-data-updating
  ΓÜá Compiled with warnings
 
 ./src/app/dashboard/students/id-cards/BusPassTab.tsx
@@ -458,7 +461,7 @@ Route (app)                                             Size     First Load JS
   Γö£ chunks/4938-46d3223ab303fc4f.js                     26.8 kB
   Γö£ chunks/fd9d1056-87af41a9b80cedb0.js                 53.3 kB
   Γö£ chunks/main-app-a03a7ed932a35112.js                 227 B
-  Γöö chunks/webpack-610465c3718a15e8.js                  1.9 kB
+  Γöö chunks/webpack-7728ed6b54c63042.js                  1.9 kB
 
 
 ╞Æ Middleware                                            46.3 kB

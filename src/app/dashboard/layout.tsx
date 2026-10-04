@@ -813,7 +813,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `}>
                 {/* Logo Header */}
-                <div className={`relative flex items-center h-[64px] border-b border-gray-100 ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'}`}>
+                <div className={`relative flex items-center min-h-[64px] py-2 border-b border-gray-100 ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'}`}>
 
                     {/* School icon */}
                     <div className={`flex-shrink-0 ${sidebarCollapsed ? 'w-9 h-9' : 'w-9 h-9'} rounded-xl overflow-hidden shadow-md`}>
@@ -824,16 +824,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {!sidebarCollapsed && (
                         <div className="ml-2.5 flex-1 min-w-0">
                             <h1
-                                className="font-black text-gray-900 tracking-tight leading-tight truncate"
-                                style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(11px, 2.8vw, 14px)' }}
+                                className="font-black tracking-tight leading-tight break-words"
+                                style={{
+                                    fontFamily: 'Outfit, sans-serif',
+                                    fontSize: 'clamp(9px, 2.2vw, 13px)',
+                                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 50%, #0ea5e9 100%)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    backgroundClip: 'text',
+                                    wordBreak: 'break-word',
+                                    whiteSpace: 'normal',
+                                    lineHeight: 1.25,
+                                }}
                                 title={schoolName || 'AlphaSchool'}
                             >
-                                {schoolName
-                                    ? <><span className="text-gray-900">{schoolName}</span></>
-                                    : <>Alpha<span className="text-blue-600">School</span></>
-                                }
+                                {schoolName || <>Alpha<span style={{ background: 'linear-gradient(135deg,#3b82f6,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>School</span></>}
                             </h1>
-                            <p className="text-[9px] text-gray-400 font-medium tracking-wide uppercase truncate">Management System</p>
+                            <p className="text-[8px] text-gray-400 font-semibold tracking-widest uppercase mt-0.5">Management System</p>
                         </div>
                     )}
 
