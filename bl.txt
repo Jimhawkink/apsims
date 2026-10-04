@@ -282,7 +282,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/exams/kcse-prediction                    5.25 kB         145 kB
 Γö£ Γùï /dashboard/exams/kpsea                              12.3 kB         152 kB
 Γö£ Γùï /dashboard/exams/manage                             14.7 kB         154 kB
-Γö£ Γùï /dashboard/exams/marks                              14.7 kB         154 kB
+Γö£ Γùï /dashboard/exams/marks                              16.6 kB         156 kB
 Γö£ Γùï /dashboard/exams/marks-completion                   9.12 kB         149 kB
 Γö£ Γùï /dashboard/exams/merit-list                         18.3 kB         159 kB
 Γö£ Γùï /dashboard/exams/national-readiness                 2.88 kB         140 kB
@@ -461,7 +461,7 @@ Route (app)                                             Size     First Load JS
   Γö£ chunks/4938-46d3223ab303fc4f.js                     26.8 kB
   Γö£ chunks/fd9d1056-87af41a9b80cedb0.js                 53.3 kB
   Γö£ chunks/main-app-a03a7ed932a35112.js                 227 B
-  Γöö chunks/webpack-7728ed6b54c63042.js                  1.9 kB
+  Γöö chunks/webpack-d8435654e9229408.js                  1.9 kB
 
 
 ╞Æ Middleware                                            46.3 kB

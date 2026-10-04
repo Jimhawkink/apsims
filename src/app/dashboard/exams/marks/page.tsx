@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -493,69 +493,125 @@ export default function MarkEntryPage() {
     const enteredCount   = classStudents.filter(s => (marks[`${s.id}_${selSubject}`] || '') !== '').length;
     const completionPct  = classStudents.length > 0 ? Math.round((enteredCount / classStudents.length) * 100) : 0;
 
-    const sel = 'w-full px-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 text-gray-700 transition-all';
+    const sel = 'w-full px-3 py-2.5 bg-white/80 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 text-gray-800 transition-all backdrop-blur-sm';
 
     return (
-        <div className="space-y-4 animate-fadeIn">
+        <div className="space-y-4 pb-24" style={{ fontFamily: 'Outfit, Inter, sans-serif' }}>
             <style>{`
                 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
                 input[type=number]{-moz-appearance:textfield;appearance:textfield}
-                @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-                .animate-fadeIn{animation:fadeIn 0.3s ease}
+                @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+                @keyframes pulse-ring{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.4);opacity:0}}
+                @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+                @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+                .animate-fadeIn{animation:fadeIn 0.35s ease both}
+                .mark-input:focus{transform:scale(1.08);z-index:10}
+                .mark-input{transition:all 0.15s cubic-bezier(.4,0,.2,1)}
+                .row-hover:hover{background:linear-gradient(90deg,#f0f4ff,#fdf4ff)!important;transform:translateX(2px)}
+                .row-hover{transition:all 0.12s ease}
+                .grade-pill{transition:all 0.2s ease}
+                .glass{background:rgba(255,255,255,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+                .hero-dot{background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.12) 1px,transparent 0);background-size:20px 20px}
+                ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:6px}
             `}</style>
 
-            {/* ════ HERO BANNER ════ */}
-            <div className="relative overflow-hidden rounded-2xl" style={{ background: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 45%,#4338ca 100%)' }}>
-                <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px,#fff 1px,transparent 0)', backgroundSize: '22px 22px' }} />
-                <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10" style={{ background: 'radial-gradient(circle,#a5b4fc,transparent)', transform: 'translate(30%,-30%)' }} />
-                <div className="relative px-6 py-5">
-                    <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+            {/* ══════════════════════════════════════════
+                HERO COMMAND CENTRE
+            ══════════════════════════════════════════ */}
+            <div className="relative overflow-hidden rounded-3xl shadow-2xl animate-fadeIn"
+                style={{ background: 'linear-gradient(135deg,#0f0c29 0%,#1e1b6b 35%,#24243e 70%,#0f0c29 100%)' }}>
+
+                {/* Mesh dot grid */}
+                <div className="absolute inset-0 hero-dot opacity-100" />
+
+                {/* Glow orbs */}
+                <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full opacity-20"
+                    style={{ background: 'radial-gradient(circle,#818cf8,transparent 70%)' }} />
+                <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full opacity-15"
+                    style={{ background: 'radial-gradient(circle,#c084fc,transparent 70%)' }} />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-32 opacity-5 rounded-full"
+                    style={{ background: 'radial-gradient(ellipse,#fff,transparent 70%)' }} />
+
+                <div className="relative px-6 py-6">
+                    {/* Top row: Title + Actions */}
+                    <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-xl" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
-                                <span className="text-2xl">✏️</span>
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h1 className="text-white font-black text-xl tracking-tight">Mark Entry System</h1>
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black" style={{ background: 'rgba(255,255,255,0.15)', color: '#c7d2fe' }}>
-                                        ULTRA
-                                    </span>
+                            {/* Icon badge */}
+                            <div className="relative flex-shrink-0">
+                                <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl"
+                                    style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6,#a78bfa)' }}>
+                                    <span className="text-2xl">✏️</span>
                                 </div>
-                                <p className="text-indigo-300 text-xs mt-0.5">
-                                    {isReady && subjectInfo ? (
-                                        <>{subjectInfo.subject_name} · {formInfo?.form_name} {streamInfo ? `(${streamInfo.stream_name})` : ''} · {termInfo?.term_name} · {selExamType}</>
-                                    ) : 'Select class, subject, term and exam type to begin'}
+                                <div className="absolute -inset-1 rounded-3xl opacity-30 animate-pulse"
+                                    style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', filter: 'blur(6px)' }} />
+                            </div>
+
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <h1 className="font-black text-2xl tracking-tight"
+                                        style={{ background: 'linear-gradient(135deg,#fff 0%,#c7d2fe 50%,#e9d5ff 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                                        Mark Entry System
+                                    </h1>
+                                    <span className="px-2.5 py-1 rounded-full text-[9px] font-black tracking-widest uppercase"
+                                        style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', boxShadow: '0 4px 12px rgba(99,102,241,0.5)' }}>
+                                        ULTRA PRO
+                                    </span>
+                                    {locked && (
+                                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black"
+                                            style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)', color: '#fff' }}>
+                                            <FiLock size={9} /> LOCKED
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs font-medium" style={{ color: 'rgba(199,210,254,0.8)' }}>
+                                    {isReady && subjectInfo
+                                        ? <><span className="font-black text-white">{subjectInfo.subject_name}</span> · {formInfo?.form_name}{streamInfo ? ` (${streamInfo.stream_name})` : ''} · {termInfo?.term_name} · <span className="text-purple-300 font-bold">{selExamType}</span></>
+                                        : 'Kenya\'s Most Advanced Marks Entry System — Select filters below to begin'}
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 flex-wrap">
                             {isReady && (
                                 <>
-                                    <button onClick={() => setShowImport(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-white/20 text-white/80 hover:bg-white/10 transition">
+                                    <button onClick={() => setShowImport(true)}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition-all hover:scale-105"
+                                        style={{ background: 'rgba(255,255,255,0.1)', color: '#c7d2fe', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
                                         <FiUpload size={12} /> Import CSV
                                     </button>
-                                    <button onClick={exportMarks} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-white/20 text-white/80 hover:bg-white/10 transition">
+                                    <button onClick={exportMarks}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition-all hover:scale-105"
+                                        style={{ background: 'rgba(255,255,255,0.1)', color: '#c7d2fe', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
                                         <FiDownload size={12} /> Export
                                     </button>
-                                    {/* Teacher identity badge */}
                                     {currentUser?.full_name && (
-                                        <span className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black rounded-xl bg-white/10 text-white/80 border border-white/20">
+                                        <span className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black rounded-xl"
+                                            style={{ background: 'rgba(99,102,241,0.3)', color: '#e0e7ff', border: '1px solid rgba(99,102,241,0.4)' }}>
                                             ✍️ {currentUser.full_name}
                                         </span>
                                     )}
-                                    {/* Lock button — super users can manually lock/unlock; teachers see read-only */}
                                     {isSuperUser ? (
-                                        <button onClick={() => setLocked(l => !l)} className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition ${locked ? 'bg-red-500 text-white' : 'border border-white/20 text-white/80 hover:bg-white/10'}`}>
-                                            {locked ? <><FiLock size={12}/> Locked</> : <><FiUnlock size={12}/> Lock</>}
+                                        <button onClick={() => setLocked(l => !l)}
+                                            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition-all hover:scale-105"
+                                            style={locked
+                                                ? { background: 'linear-gradient(135deg,#dc2626,#ef4444)', color: '#fff', boxShadow: '0 4px 16px rgba(220,38,38,0.4)' }
+                                                : { background: 'rgba(255,255,255,0.1)', color: '#c7d2fe', border: '1px solid rgba(255,255,255,0.15)' }}>
+                                            {locked ? <><FiLock size={12} /> Locked</> : <><FiUnlock size={12} /> Lock</>}
                                         </button>
                                     ) : dbLocked ? (
-                                        <span className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-red-500 text-white">
-                                            <FiLock size={12}/> Marks Locked
+                                        <span className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-black rounded-xl"
+                                            style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)', color: '#fff' }}>
+                                            <FiLock size={12} /> Locked
                                         </span>
                                     ) : null}
                                 </>
                             )}
-                            <button onClick={fetchAll} className="p-2 rounded-xl border border-white/20 text-white/70 hover:bg-white/10 transition"><FiRefreshCw size={14} /></button>
+                            <button onClick={fetchAll}
+                                className="p-2 rounded-xl transition-all hover:scale-110"
+                                style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(199,210,254,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <FiRefreshCw size={14} />
+                            </button>
                         </div>
                     </div>
 
@@ -563,206 +619,313 @@ export default function MarkEntryPage() {
                     {isReady && (
                         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                             {[
-                                { label: 'Students', value: classStudents.length, icon: '👨‍🎓' },
-                                { label: 'Entered', value: `${enteredCount}/${classStudents.length}`, icon: '✏️' },
-                                { label: 'Completion', value: `${completionPct}%`, icon: completionPct === 100 ? '🎉' : '📋' },
-                                { label: 'Class Mean', value: analytics ? `${analytics.mean}` : '—', icon: '📊' },
-                                { label: 'Mean Grade', value: analytics ? analytics.meanGrade.grade : '—', icon: '🏅' },
-                                { label: 'Unsaved', value: unsavedCells.size, icon: unsavedCells.size > 0 ? '⚠️' : '✅' },
+                                { label: 'Students', value: classStudents.length, icon: '👨‍🎓', color: '#818cf8' },
+                                { label: 'Entered', value: `${enteredCount}/${classStudents.length}`, icon: '✏️', color: '#34d399' },
+                                { label: 'Completion', value: `${completionPct}%`, icon: completionPct === 100 ? '🎉' : '📋', color: completionPct === 100 ? '#10b981' : '#f59e0b' },
+                                { label: 'Class Mean', value: analytics ? analytics.mean : '—', icon: '📊', color: '#60a5fa' },
+                                { label: 'Mean Grade', value: analytics ? analytics.meanGrade.grade : '—', icon: '🏅', color: '#c084fc' },
+                                { label: 'Unsaved', value: unsavedCells.size, icon: unsavedCells.size > 0 ? '⚡' : '✅', color: unsavedCells.size > 0 ? '#fbbf24' : '#10b981' },
                             ].map(k => (
-                                <div key={k.label} className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)' }}>
-                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                        <span className="text-xs">{k.icon}</span>
-                                        <p className="text-indigo-300 text-[9px] font-bold uppercase tracking-wider">{k.label}</p>
+                                <div key={k.label} className="rounded-2xl px-3 py-2.5 group hover:scale-105 transition-all duration-200"
+                                    style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <span className="text-sm">{k.icon}</span>
+                                        <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(165,180,252,0.7)' }}>{k.label}</p>
                                     </div>
-                                    <p className="text-white font-black text-sm">{k.value}</p>
+                                    <p className="text-lg font-black" style={{ color: k.color }}>{k.value}</p>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {/* Completion bar */}
+                    {isReady && (
+                        <div className="mt-3">
+                            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                <div className="h-full rounded-full transition-all duration-700 ease-out"
+                                    style={{ width: `${completionPct}%`, background: completionPct === 100 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#6366f1,#8b5cf6,#a855f7)' }} />
+                            </div>
                         </div>
                     )}
                 </div>
             </div>
 
             {loading ? (
-                <div className="flex flex-col items-center justify-center h-64 gap-3">
+                <div className="flex flex-col items-center justify-center h-64 gap-4">
                     <div className="relative">
-                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-lg" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>✏️</div>
-                        <div className="absolute -inset-2 rounded-3xl border-2 border-indigo-200 animate-ping opacity-30" />
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-xl"
+                            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>✏️</div>
+                        <div className="absolute -inset-2 rounded-3xl border-2 border-indigo-300 animate-ping opacity-30" />
                     </div>
-                    <p className="text-sm font-bold text-gray-500">Loading Mark Entry System…</p>
+                    <div className="text-center">
+                        <p className="text-sm font-black text-gray-700">Loading Mark Entry System</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Kenya's #1 Academic Management Platform</p>
+                    </div>
                 </div>
             ) : (
                 <>
-                    {/* ════ DB LOCK BANNER ════ */}
+                    {/* DB Lock Banner */}
                     {dbLocked && !isSuperUser && (
-                        <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 flex items-start gap-3">
-                            <FiLock className="text-red-500 shrink-0 mt-0.5" size={18}/>
+                        <div className="rounded-2xl p-4 flex items-center gap-3 animate-fadeIn"
+                            style={{ background: 'linear-gradient(135deg,#fef2f2,#fff1f1)', border: '2px solid #fecaca' }}>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                                style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)' }}>
+                                <FiLock className="text-white" size={16} />
+                            </div>
                             <div>
                                 <p className="font-black text-red-800 text-sm">🔒 Marks Locked by Administration</p>
-                                <p className="text-xs text-red-600 mt-1">Marks entry for this form/term has been locked. You can view but not edit marks. Contact the Principal to unlock.</p>
+                                <p className="text-xs text-red-600 mt-0.5">Marks entry for this form/term has been locked. Contact the Principal to unlock.</p>
                             </div>
                         </div>
                     )}
 
-                    {/* ════ TEACHER INFO BANNER ════ */}
+                    {/* Teacher Identity Banner */}
                     {!isSuperUser && currentUser?.full_name && !dbLocked && (
-                        <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3 flex items-center gap-3">
-                            <span className="text-xl">✍️</span>
+                        <div className="rounded-2xl p-3.5 flex items-center gap-3 animate-fadeIn"
+                            style={{ background: 'linear-gradient(135deg,#eef2ff,#f5f3ff)', border: '1px solid #c7d2fe' }}>
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
+                                style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>✍️</div>
                             <div>
                                 <p className="font-black text-indigo-800 text-sm">Entering marks as: {currentUser.full_name}</p>
-                                <p className="text-xs text-indigo-600 mt-0.5">Your name will be stamped on every mark you enter and will appear on student report cards. Only your assigned subjects are shown.</p>
+                                <p className="text-xs text-indigo-500 mt-0.5">Your name is stamped on every mark. Only your assigned subjects are shown.</p>
                             </div>
                         </div>
                     )}
 
                     {/* ════ SELECTION PANEL ════ */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <div className="flex items-center gap-2 mb-3">
-                            <FiBookOpen className="text-indigo-500" size={14} />
-                            <p className="text-xs font-black text-gray-500 uppercase tracking-wider">Class & Exam Selection</p>
+                    <div className="glass rounded-3xl shadow-xl border border-white/80 overflow-hidden animate-fadeIn"
+                        style={{ boxShadow: '0 8px 32px rgba(99,102,241,0.1), 0 2px 8px rgba(0,0,0,0.06)' }}>
+                        {/* Panel header */}
+                        <div className="px-5 py-3 flex items-center justify-between"
+                            style={{ background: 'linear-gradient(135deg,#f8faff,#f3f0ff)', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg flex items-center justify-center"
+                                    style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+                                    <FiBookOpen className="text-white" size={12} />
+                                </div>
+                                <p className="text-xs font-black text-gray-700 uppercase tracking-widest">Class & Exam Selection</p>
+                            </div>
+                            {isReady && (
+                                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full"
+                                    style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff' }}>
+                                    ✓ Ready
+                                </span>
+                            )}
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Form *</label>
-                                <select value={selForm} onChange={e => { setSelForm(e.target.value); setSelStream(''); }} className={sel}>
-                                    <option value="">Select Form</option>
-                                    {forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Stream</label>
-                                <select value={selStream} onChange={e => setSelStream(e.target.value)} className={sel}>
-                                    <option value="">All Streams</option>
-                                    {streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Subject *</label>
-                                <select value={selSubject} onChange={e => setSelSubject(e.target.value)} className={sel}>
-                                    <option value="">Select Subject</option>
-                                    {availableSubjects.map(s => <option key={s.id} value={s.id}>{s.subject_name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Term *</label>
-                                <select value={selTerm} onChange={e => setSelTerm(e.target.value)} className={sel}>
-                                    <option value="">Select Term</option>
-                                    {terms.map(t => <option key={t.id} value={t.id}>{t.term_name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Exam Type</label>
-                                <select value={selExamType} onChange={e => setSelExamType(e.target.value)} className={sel}>
-                                    {(dbExamTypes.length > 0 ? dbExamTypes.map((et: any) => et.exam_name) : fallbackExamTypes).map(e => <option key={e} value={e}>{e}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Max Score</label>
-                                <input type="number" min={10} max={1000} value={maxScore} onChange={e => setMaxScore(Math.max(10, Number(e.target.value)))} className={sel} placeholder="100" />
+
+                        <div className="p-5">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                                {[
+                                    { label: 'Form / Class', icon: '🏫', content: (
+                                        <select value={selForm} onChange={e => { setSelForm(e.target.value); setSelStream(''); }} className={sel}>
+                                            <option value="">Select Form</option>
+                                            {forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}
+                                        </select>
+                                    )},
+                                    { label: 'Stream', icon: '🌊', content: (
+                                        <select value={selStream} onChange={e => setSelStream(e.target.value)} className={sel}>
+                                            <option value="">All Streams</option>
+                                            {streams.map(s => <option key={s.id} value={s.id}>{s.stream_name}</option>)}
+                                        </select>
+                                    )},
+                                    { label: 'Subject', icon: '📚', content: (
+                                        <select value={selSubject} onChange={e => setSelSubject(e.target.value)} className={sel}>
+                                            <option value="">Select Subject</option>
+                                            {availableSubjects.map(s => <option key={s.id} value={s.id}>{s.subject_name}</option>)}
+                                        </select>
+                                    )},
+                                    { label: 'Term', icon: '📅', content: (
+                                        <select value={selTerm} onChange={e => setSelTerm(e.target.value)} className={sel}>
+                                            <option value="">Select Term</option>
+                                            {terms.map(t => <option key={t.id} value={t.id}>{t.term_name}</option>)}
+                                        </select>
+                                    )},
+                                    { label: 'Exam Type', icon: '📝', content: (
+                                        <select value={selExamType} onChange={e => setSelExamType(e.target.value)} className={sel}>
+                                            {(dbExamTypes.length > 0 ? dbExamTypes.map((et: any) => et.exam_name) : fallbackExamTypes).map(e => <option key={e} value={e}>{e}</option>)}
+                                        </select>
+                                    )},
+                                    { label: 'Max Score', icon: '🎯', content: (
+                                        <input type="number" min={10} max={1000} value={maxScore}
+                                            onChange={e => setMaxScore(Math.max(10, Number(e.target.value)))}
+                                            className={sel} placeholder="100" />
+                                    )},
+                                ].map(({ label, icon, content }) => (
+                                    <div key={label}>
+                                        <label className="flex items-center gap-1 text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1.5">
+                                            <span>{icon}</span> {label}
+                                        </label>
+                                        {content}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
 
+                    {/* ════ EMPTY / NO STUDENTS ════ */}
                     {!isReady ? (
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm text-center py-24">
-                            <span className="text-6xl block mb-4">📊</span>
-                            <p className="font-black text-lg text-gray-600 mb-2">Select Form, Subject & Term</p>
-                            <p className="text-sm text-gray-400">Choose from the filters above to load the marks sheet</p>
+                        <div className="glass rounded-3xl border border-white/80 text-center py-20 animate-fadeIn"
+                            style={{ boxShadow: '0 8px 32px rgba(99,102,241,0.08)' }}>
+                            <div className="text-7xl mb-5" style={{ animation: 'float 3s ease-in-out infinite' }}>📊</div>
+                            <p className="font-black text-xl text-gray-700 mb-2">Select Form, Subject & Term</p>
+                            <p className="text-sm text-gray-400 max-w-sm mx-auto">Choose your filters above to load the marks sheet. Kenya's most powerful mark entry interface awaits.</p>
+                            <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-400">
+                                {['⌨️ Keyboard Nav', '💾 Auto-Save', '📥 CSV Import', '📊 Live Analytics'].map(f => (
+                                    <span key={f} className="flex items-center gap-1 px-3 py-1.5 rounded-full"
+                                        style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.12)' }}>{f}</span>
+                                ))}
+                            </div>
                         </div>
                     ) : classStudents.length === 0 ? (
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm text-center py-24">
-                            <span className="text-6xl block mb-4">👤</span>
-                            <p className="font-black text-lg text-gray-600">No students in this class</p>
+                        <div className="glass rounded-3xl border border-white/80 text-center py-20 animate-fadeIn">
+                            <div className="text-7xl mb-4">👤</div>
+                            <p className="font-black text-xl text-gray-700">No students in this class</p>
+                            <p className="text-sm text-gray-400 mt-1">Enroll students first from the Students module</p>
                         </div>
                     ) : (
                         <>
                             {/* ════ ACTION BAR ════ */}
-                            <div className="flex items-center justify-between gap-3 flex-wrap">
-                                <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-between gap-3 flex-wrap animate-fadeIn">
+                                <div className="flex items-center gap-2">
+                                    {/* Search */}
                                     <div className="relative">
-                                        <FiSearch className="absolute left-3 top-2.5 text-gray-400" size={13} />
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
                                         <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
                                             placeholder="Search student or adm no…"
-                                            className="pl-8 pr-3 py-2 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 w-52 transition-all" />
+                                            className="pl-8 pr-4 py-2.5 text-sm font-medium bg-white border border-gray-200 rounded-2xl focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 w-56 transition-all shadow-sm" />
                                     </div>
-                                    {searchQ && <button onClick={() => setSearchQ('')} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"><FiX size={12} /> Clear</button>}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => setShowShortcuts(s => !s)} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-50 transition">
+                                    {searchQ && <button onClick={() => setSearchQ('')}
+                                        className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
+                                        <FiX size={12} /> Clear
+                                    </button>}
+
+                                    {/* Shortcuts toggle */}
+                                    <button onClick={() => setShowShortcuts(s => !s)}
+                                        className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold border border-gray-200 bg-white text-gray-500 rounded-2xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-all shadow-sm">
                                         <FiInfo size={11} /> Shortcuts
                                     </button>
+                                </div>
+
+                                <div className="flex items-center gap-2">
                                     {unsavedCells.size > 0 && (
-                                        <span className="text-xs font-bold text-amber-600 animate-pulse flex items-center gap-1">
+                                        <span className="text-xs font-bold text-amber-600 flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
+                                            style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)' }}>
                                             <FiAlertTriangle size={11} /> {unsavedCells.size} unsaved
                                         </span>
                                     )}
-                                    <button onClick={handleSaveAll} disabled={saving || unsavedCells.size === 0}
-                                        className={`flex items-center gap-1.5 px-5 py-2 text-sm font-bold rounded-xl transition-all ${unsavedCells.size > 0 ? 'text-white shadow-lg hover:shadow-xl' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                                        style={unsavedCells.size > 0 ? { background: 'linear-gradient(135deg,#10b981,#059669)' } : {}}>
-                                        {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSave size={13} />}
+                                    <button
+                                        disabled={locked || saving}
+                                        onClick={handleSaveAll}
+                                        className="flex items-center gap-2 px-5 py-2.5 text-sm font-black rounded-2xl transition-all hover:scale-105 disabled:opacity-50 disabled:scale-100 shadow-lg"
+                                        style={unsavedCells.size > 0
+                                            ? { background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', boxShadow: '0 6px 20px rgba(16,185,129,0.4)' }
+                                            : { background: '#f1f5f9', color: '#94a3b8' }}>
+                                        {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSave size={14} />}
                                         {saving ? 'Saving…' : unsavedCells.size > 0 ? `Save All (${unsavedCells.size})` : 'All Saved ✅'}
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Shortcuts hint */}
+                            {/* Keyboard Shortcuts */}
                             {showShortcuts && (
-                                <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4">
-                                    <p className="text-xs font-black text-indigo-700 mb-2 uppercase">⌨️ Keyboard Shortcuts</p>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-indigo-800">
-                                        {[['Enter / ↓', 'Next student'], ['↑', 'Previous student'], ['Tab', 'Next row'], ['0–9', 'Type score directly']].map(([k, d]) => (
-                                            <div key={k} className="flex items-center gap-2"><kbd className="px-2 py-0.5 bg-white border border-indigo-200 rounded font-mono font-bold text-[10px]">{k}</kbd><span>{d}</span></div>
+                                <div className="rounded-2xl p-4 animate-fadeIn"
+                                    style={{ background: 'linear-gradient(135deg,#eef2ff,#f5f3ff)', border: '1px solid #c7d2fe' }}>
+                                    <p className="text-xs font-black text-indigo-700 mb-3 uppercase tracking-wider">⌨️ Keyboard Shortcuts</p>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {[['Enter / ↓', 'Move to next student'], ['↑', 'Move to previous student'], ['Tab', 'Jump to next row'], ['0–9', 'Type score directly']].map(([k, d]) => (
+                                            <div key={k} className="flex items-center gap-2 text-xs text-indigo-800">
+                                                <kbd className="px-2.5 py-1 bg-white border border-indigo-200 rounded-lg font-mono font-black text-[10px] shadow-sm">{k}</kbd>
+                                                <span>{d}</span>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
                             {/* ════ MARKS TABLE ════ */}
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="rounded-3xl overflow-hidden shadow-xl animate-fadeIn"
+                                style={{ border: '1px solid rgba(99,102,241,0.15)', boxShadow: '0 12px 40px rgba(99,102,241,0.12)' }}>
+
                                 {marksLoading ? (
-                                    <div className="flex items-center justify-center py-16 gap-3">
-                                        <div className="w-6 h-6 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                                        <p className="text-sm font-bold text-gray-400">Loading marks…</p>
+                                    <div className="flex items-center justify-center py-20 gap-3 bg-white rounded-3xl">
+                                        <div className="w-7 h-7 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                                        <p className="text-sm font-bold text-gray-400">Loading marks sheet…</p>
                                     </div>
                                 ) : (
                                     <div className="overflow-x-auto">
                                         <table className="w-full border-collapse" style={{ fontSize: 12 }}>
                                             <thead>
-                                                <tr style={{ background: 'linear-gradient(135deg,#1e1b4b,#312e81)' }}>
-                                                    {['#', 'Adm No', 'Student Name', 'Gender', `Score (/${maxScore})`, 'Pct %', 'Grade', 'Points', 'Remarks', 'Rank', 'Status'].map((h, i) => (
-                                                        <th key={i} className="text-left px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-indigo-200 whitespace-nowrap">
+                                                <tr style={{ background: 'linear-gradient(135deg,#0f0c29 0%,#1e1b6b 60%,#312e81 100%)' }}>
+                                                    {[
+                                                        { h: '#', w: 40 }, { h: 'Adm No', w: 90 }, { h: 'Student Name', w: 180 },
+                                                        { h: '♂♀', w: 50 }, { h: `Score /${maxScore}`, w: 110 },
+                                                        { h: 'Pct %', w: 60 }, { h: 'Grade', w: 70 },
+                                                        { h: 'Pts', w: 50 }, { h: 'Remarks', w: 120 },
+                                                        { h: 'Rank', w: 60 }, { h: '●', w: 50 },
+                                                    ].map(({ h, w }) => (
+                                                        <th key={h} className="text-left px-3 py-4 font-black uppercase tracking-widest whitespace-nowrap"
+                                                            style={{ fontSize: 9, color: 'rgba(199,210,254,0.85)', minWidth: w, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                                             {h}
                                                         </th>
                                                     ))}
                                                 </tr>
                                             </thead>
-                                            <tbody>
+                                            <tbody style={{ background: '#fff' }}>
                                                 {classStudents.map((s, i) => {
-                                                    const key     = `${s.id}_${selSubject}`;
-                                                    const score   = marks[key] ?? '';
+                                                    const key = `${s.id}_${selSubject}`;
+                                                    const score = marks[key] ?? '';
                                                     const isUnsaved = unsavedCells.has(key);
-                                                    const g       = score !== '' ? getGrade(Number(score)) : null;
-                                                    const pct     = score !== '' ? ((Number(score) / maxScore) * 100).toFixed(1) : '';
-                                                    const rank    = score !== '' ? ranks[s.id] : null;
-                                                    const rowBg   = isUnsaved ? 'rgba(251,191,36,0.06)' : i % 2 === 0 ? '#fff' : '#fafbff';
+                                                    const g = score !== '' ? getGrade(Number(score)) : null;
+                                                    const pct = score !== '' ? ((Number(score) / maxScore) * 100).toFixed(1) : '';
+                                                    const pctNum = score !== '' ? (Number(score) / maxScore) * 100 : -1;
+                                                    const rank = score !== '' ? ranks[s.id] : null;
+
+                                                    // Row color: unsaved=amber tint, failing=red tint, top=green tint, alt=light
+                                                    const rowBg = isUnsaved
+                                                        ? 'rgba(251,191,36,0.05)'
+                                                        : pctNum >= 0 && pctNum < 40 ? 'rgba(239,68,68,0.03)'
+                                                        : rank === 1 ? 'rgba(16,185,129,0.04)'
+                                                        : i % 2 === 0 ? '#ffffff' : '#fafbff';
+
+                                                    // Input border color based on score
+                                                    const inputStyle = locked
+                                                        ? { borderColor: '#e2e8f0', background: '#f8fafc', color: '#94a3b8', cursor: 'not-allowed' }
+                                                        : isUnsaved
+                                                        ? { borderColor: '#f59e0b', background: 'rgba(251,191,36,0.08)', color: '#92400e', boxShadow: '0 0 0 3px rgba(251,191,36,0.15)' }
+                                                        : score !== ''
+                                                        ? pctNum >= 60
+                                                            ? { borderColor: '#10b981', background: 'rgba(16,185,129,0.06)', color: '#065f46' }
+                                                            : pctNum >= 40
+                                                            ? { borderColor: '#f59e0b', background: 'rgba(245,158,11,0.06)', color: '#78350f' }
+                                                            : { borderColor: '#ef4444', background: 'rgba(239,68,68,0.06)', color: '#7f1d1d' }
+                                                        : { borderColor: '#e2e8f0', background: '#fff', color: '#1e293b' };
+
                                                     return (
-                                                        <tr key={s.id} style={{ background: rowBg, borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}
-                                                            onMouseEnter={e => { if (!isUnsaved) (e.currentTarget as HTMLElement).style.background = '#f0f4ff'; }}
-                                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = rowBg; }}>
-                                                            <td className="px-3 py-2.5 text-center font-black text-indigo-600 text-xs" style={{ minWidth: 36 }}>{i + 1}</td>
-                                                            <td className="px-3 py-2.5 font-mono text-xs font-bold text-blue-600">{s.admission_no || s.admission_number}</td>
-                                                            <td className="px-3 py-2.5" style={{ minWidth: 180 }}>
+                                                        <tr key={s.id} className="row-hover"
+                                                            style={{ background: rowBg, borderBottom: '1px solid #f1f5f9' }}>
+                                                            {/* # */}
+                                                            <td className="px-3 py-3 text-center font-black text-xs"
+                                                                style={{ color: '#6366f1', minWidth: 40 }}>{i + 1}</td>
+                                                            {/* Adm No */}
+                                                            <td className="px-3 py-3 font-mono font-black text-xs" style={{ color: '#3b82f6' }}>
+                                                                {s.admission_no || s.admission_number}
+                                                            </td>
+                                                            {/* Name */}
+                                                            <td className="px-3 py-3" style={{ minWidth: 180 }}>
                                                                 <div className="flex items-center gap-2.5">
                                                                     <Avatar name={`${s.first_name} ${s.last_name}`} size={28} />
-                                                                    <span className="font-bold text-gray-900">{s.first_name} {s.last_name}</span>
+                                                                    <span className="font-bold text-gray-900 text-xs">{s.first_name} {s.last_name}</span>
                                                                 </div>
                                                             </td>
-                                                            <td className="px-3 py-2.5 text-center">
-                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.gender === 'Female' ? 'bg-pink-100 text-pink-600' : 'bg-blue-100 text-blue-600'}`}>
+                                                            {/* Gender */}
+                                                            <td className="px-3 py-3 text-center">
+                                                                <span className={`text-[10px] font-black px-2 py-1 rounded-full ${s.gender === 'Female' ? 'text-pink-600' : 'text-blue-600'}`}
+                                                                    style={{ background: s.gender === 'Female' ? 'rgba(236,72,153,0.1)' : 'rgba(59,130,246,0.1)' }}>
                                                                     {s.gender === 'Female' ? '♀' : '♂'}
                                                                 </span>
                                                             </td>
-                                                            <td className="px-3 py-1.5 text-center" style={{ minWidth: 90 }}>
+                                                            {/* Score input */}
+                                                            <td className="px-2 py-2 text-center" style={{ minWidth: 110 }}>
                                                                 <input
                                                                     id={`mark-${s.id}`}
                                                                     type="number" min={0} max={maxScore}
@@ -780,31 +943,45 @@ export default function MarkEntryPage() {
                                                                             if (prev) (document.getElementById(`mark-${prev.id}`) as HTMLInputElement)?.focus();
                                                                         }
                                                                     }}
-                                                                    className={`w-20 text-center text-sm font-black rounded-xl border-2 py-1.5 outline-none transition-all
-                                                                        ${locked ? 'bg-gray-50 border-gray-200 cursor-not-allowed text-gray-500' :
-                                                                            isUnsaved ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-100 text-amber-900' :
-                                                                            score !== '' ? 'border-green-300 bg-green-50 text-green-800' :
-                                                                            'border-gray-200 bg-white text-gray-700'}
-                                                                        focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200`}
+                                                                    style={{ width: 80, border: '2px solid', borderRadius: 12, padding: '6px 10px', textAlign: 'center', fontWeight: 900, fontSize: 14, outline: 'none', transition: 'all 0.15s', ...inputStyle }}
+                                                                    className="mark-input focus:scale-105"
                                                                 />
                                                             </td>
-                                                            <td className="px-3 py-2.5 text-center text-xs font-bold text-gray-600">{pct ? `${pct}%` : '—'}</td>
-                                                            <td className="px-3 py-2.5 text-center">
-                                                                {g ? <GradePill grade={g.grade} /> : <span className="text-gray-300">—</span>}
+                                                            {/* Pct */}
+                                                            <td className="px-3 py-3 text-center font-bold text-xs"
+                                                                style={{ color: pctNum >= 60 ? '#059669' : pctNum >= 40 ? '#d97706' : pctNum >= 0 ? '#dc2626' : '#cbd5e1' }}>
+                                                                {pct ? `${pct}%` : '—'}
                                                             </td>
-                                                            <td className="px-3 py-2.5 text-center font-black text-purple-700 text-sm">{g?.points ?? '—'}</td>
-                                                            <td className="px-3 py-2.5 text-xs font-medium text-gray-500 max-w-[120px] truncate">{g?.remarks || '—'}</td>
-                                                            <td className="px-3 py-2.5 text-center">
+                                                            {/* Grade */}
+                                                            <td className="px-3 py-3 text-center">
+                                                                {g ? <GradePill grade={g.grade} /> : <span style={{ color: '#e2e8f0' }}>—</span>}
+                                                            </td>
+                                                            {/* Points */}
+                                                            <td className="px-3 py-3 text-center font-black text-sm" style={{ color: '#7c3aed' }}>
+                                                                {g?.points ?? <span style={{ color: '#e2e8f0' }}>—</span>}
+                                                            </td>
+                                                            {/* Remarks */}
+                                                            <td className="px-3 py-3 text-xs font-medium" style={{ color: '#64748b', maxWidth: 120 }}>
+                                                                <span className="truncate block">{g?.remarks || '—'}</span>
+                                                            </td>
+                                                            {/* Rank */}
+                                                            <td className="px-3 py-3 text-center">
                                                                 {rank ? (
-                                                                    <span className={`text-xs font-black px-2 py-0.5 rounded-full ${rank <= 3 ? 'bg-amber-100 text-amber-700' : 'text-gray-500'}`}>
+                                                                    <span className="text-xs font-black px-2 py-1 rounded-full"
+                                                                        style={rank <= 3
+                                                                            ? { background: 'rgba(245,158,11,0.12)', color: '#b45309' }
+                                                                            : { color: '#94a3b8' }}>
                                                                         {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
                                                                     </span>
-                                                                ) : <span className="text-gray-300">—</span>}
+                                                                ) : <span style={{ color: '#e2e8f0' }}>—</span>}
                                                             </td>
-                                                            <td className="px-3 py-2.5 text-center">
-                                                                {isUnsaved ? <span title="Unsaved" className="text-amber-500 animate-pulse">⚡</span> :
-                                                                    score !== '' ? <FiCheckCircle className="text-green-500 mx-auto" size={15} /> :
-                                                                    <span className="text-gray-300 text-lg">○</span>}
+                                                            {/* Status */}
+                                                            <td className="px-3 py-3 text-center">
+                                                                {isUnsaved
+                                                                    ? <span title="Unsaved" className="text-amber-400 animate-pulse text-lg">⚡</span>
+                                                                    : score !== ''
+                                                                    ? <FiCheckCircle className="mx-auto" style={{ color: '#10b981' }} size={16} />
+                                                                    : <span style={{ color: '#e2e8f0', fontSize: 18 }}>○</span>}
                                                             </td>
                                                         </tr>
                                                     );
@@ -814,48 +991,56 @@ export default function MarkEntryPage() {
                                     </div>
                                 )}
 
-                                {/* ── Footer Analytics ── */}
-                                <div className="px-5 py-4 border-t border-gray-100" style={{ background: 'linear-gradient(135deg,#fafbff,#f5f3ff)' }}>
-                                    <div className="flex items-center justify-between flex-wrap gap-4">
+                                {/* ── Premium Analytics Footer ── */}
+                                <div className="px-6 py-5" style={{ background: 'linear-gradient(135deg,#f8faff 0%,#f5f0ff 100%)', borderTop: '1px solid rgba(99,102,241,0.1)' }}>
+                                    <div className="flex items-start justify-between flex-wrap gap-5">
+                                        {/* Stats row */}
                                         <div className="flex items-center gap-5 flex-wrap">
                                             {analytics ? (
                                                 <>
                                                     {[
-                                                        { label: 'Mean', value: `${analytics.mean}/${maxScore}`, color: '#6366f1' },
-                                                        { label: 'Grade', value: analytics.meanGrade.grade, color: GRADE_COLORS[analytics.meanGrade.grade] || '#6366f1' },
-                                                        { label: 'Highest', value: String(analytics.max), color: '#059669' },
-                                                        { label: 'Lowest', value: String(analytics.min), color: '#dc2626' },
-                                                        { label: 'Median', value: String(analytics.median), color: '#0891b2' },
-                                                        { label: 'Pass Rate', value: `${analytics.passRate}%`, color: analytics.passRate >= 50 ? '#059669' : '#dc2626' },
+                                                        { label: 'Class Mean', value: `${analytics.mean}/${maxScore}`, color: '#6366f1', bg: 'rgba(99,102,241,0.08)' },
+                                                        { label: 'Mean Grade', value: analytics.meanGrade.grade, color: GRADE_COLORS[analytics.meanGrade.grade] || '#6366f1', bg: 'rgba(99,102,241,0.06)' },
+                                                        { label: 'Highest', value: String(analytics.max), color: '#059669', bg: 'rgba(5,150,105,0.08)' },
+                                                        { label: 'Lowest', value: String(analytics.min), color: '#dc2626', bg: 'rgba(220,38,38,0.08)' },
+                                                        { label: 'Median', value: String(analytics.median), color: '#0891b2', bg: 'rgba(8,145,178,0.08)' },
+                                                        { label: 'Pass Rate', value: `${analytics.passRate}%`, color: analytics.passRate >= 50 ? '#059669' : '#dc2626', bg: analytics.passRate >= 50 ? 'rgba(5,150,105,0.08)' : 'rgba(220,38,38,0.08)' },
                                                     ].map(a => (
-                                                        <div key={a.label}>
-                                                            <p className="text-[10px] text-gray-400 font-bold uppercase">{a.label}</p>
-                                                            <p className="text-sm font-black" style={{ color: a.color }}>{a.value}</p>
+                                                        <div key={a.label} className="text-center px-3 py-2 rounded-xl"
+                                                            style={{ background: a.bg }}>
+                                                            <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-0.5">{a.label}</p>
+                                                            <p className="text-base font-black" style={{ color: a.color }}>{a.value}</p>
                                                         </div>
                                                     ))}
                                                 </>
                                             ) : (
-                                                <p className="text-xs text-gray-400">No marks entered yet</p>
+                                                <p className="text-xs text-gray-400 italic">Enter marks to see live analytics</p>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-4">
-                                            <GradeDistBar marks={marks} grading={grading} max={maxScore} />
-                                            <div className="flex gap-2 text-[10px]">
-                                                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" />Saved</span>
-                                                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />Unsaved</span>
-                                                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-gray-200 inline-block" />Empty</span>
+
+                                        {/* Grade distribution + legend */}
+                                        <div className="flex items-end gap-4">
+                                            <div>
+                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Grade Distribution</p>
+                                                <GradeDistBar marks={marks} grading={grading} max={maxScore} />
+                                            </div>
+                                            <div className="flex flex-col gap-1 text-[10px] text-gray-400 pb-1">
+                                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#10b981' }} />Saved</span>
+                                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#f59e0b' }} />Unsaved</span>
+                                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block bg-gray-200" />Empty</span>
                                             </div>
                                         </div>
                                     </div>
+
                                     {/* Completion progress bar */}
-                                    <div className="mt-3">
-                                        <div className="flex justify-between text-[10px] text-gray-400 mb-1">
-                                            <span>{enteredCount} of {classStudents.length} marks entered</span>
-                                            <span className="font-bold" style={{ color: completionPct === 100 ? '#059669' : '#6366f1' }}>{completionPct}% complete</span>
+                                    <div className="mt-4">
+                                        <div className="flex justify-between items-center text-[10px] text-gray-400 mb-1.5">
+                                            <span className="font-bold">{enteredCount} of {classStudents.length} marks entered</span>
+                                            <span className="font-black text-sm" style={{ color: completionPct === 100 ? '#059669' : '#6366f1' }}>{completionPct}% complete</span>
                                         </div>
-                                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                            <div className="h-full rounded-full transition-all duration-500"
-                                                style={{ width: `${completionPct}%`, background: completionPct === 100 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#6366f1,#8b5cf6)' }} />
+                                        <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(99,102,241,0.1)' }}>
+                                            <div className="h-full rounded-full transition-all duration-700 ease-out"
+                                                style={{ width: `${completionPct}%`, background: completionPct === 100 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#6366f1,#8b5cf6,#a855f7)', boxShadow: completionPct > 0 ? '0 2px 8px rgba(99,102,241,0.4)' : 'none' }} />
                                         </div>
                                     </div>
                                 </div>
@@ -867,6 +1052,19 @@ export default function MarkEntryPage() {
 
             {/* ── CSV Import Modal ── */}
             {showImport && <CSVImportModal students={classStudents} maxScore={maxScore} onImport={handleImport} onClose={() => setShowImport(false)} />}
+
+            {/* ── Floating Save Pill (visible when unsaved marks exist) ── */}
+            {unsavedCells.size > 0 && isReady && !saving && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fadeIn">
+                    <button onClick={handleSaveAll}
+                        className="flex items-center gap-2.5 px-6 py-3 font-black text-sm rounded-full shadow-2xl hover:scale-105 transition-all"
+                        style={{ background: 'linear-gradient(135deg,#059669,#10b981)', color: '#fff', boxShadow: '0 8px 32px rgba(16,185,129,0.5)' }}>
+                        <FiSave size={15} />
+                        Save {unsavedCells.size} Unsaved Mark{unsavedCells.size > 1 ? 's' : ''}
+                        <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs">{unsavedCells.size}</span>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
