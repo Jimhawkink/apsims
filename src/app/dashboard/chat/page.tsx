@@ -4,11 +4,13 @@
 // Contacts-based DIRECT messaging: parent↔teacher, parent↔school, staff↔staff
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 import { FiSearch, FiMoreVertical, FiPhone, FiVideo, FiArrowLeft, FiSmile, FiPaperclip } from 'react-icons/fi';
 import { BsSend } from 'react-icons/bs';
 
-
+// Dynamic import — emoji-picker-react is client-only (large bundle)
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 
 interface Contact {
@@ -112,6 +114,7 @@ export default function ChatPage() {
     const [activeContact, setActiveContact] = useState<Contact|null>(null);
     const [activeRoomId, setActiveRoomId]   = useState<number|null>(null);
     const [text, setText]                   = useState('');
+    const [showEmoji, setShowEmoji]         = useState(false);
     const [searchQ, setSearchQ]             = useState('');
     const [loading, setLoading]             = useState(true);
     const [loadingMsgs, setLoadingMsgs]     = useState(false);
@@ -169,13 +172,29 @@ export default function ChatPage() {
             return;
         }
 
-
-        const { data } = await supabase
+        // ── Staff from school_users ─────────────────────────────────────────
+        const { data: staffData } = await supabase
             .from('school_users')
-            .select('id, full_name, username, role')
+            .select('id, full_name, username, role, phone')
             .neq('id', currentUser.id)
+            .eq('is_active', true)
             .order('role').order('full_name');
-        if (!data){ setLoading(false); return; }
+
+        // ── Parents + students from school_portal_users ─────────────────────
+        const { data: portalData } = await supabase
+            .from('school_portal_users')
+            .select('id, full_name, username, user_type, phone')
+            .in('user_type', ['parent', 'student'])
+            .eq('is_active', true)
+            .order('full_name');
+
+        // Merge — offset portal IDs by 100000 to avoid room-key collision
+        const staffList  = (staffData  || []).map((u: any) => ({ ...u, _source: 'staff' }));
+        const parentList = (portalData || []).map((u: any) => ({
+            ...u, role: u.user_type, id: u.id + 100000, _portalId: u.id, _source: 'portal'
+        }));
+        const data = [...staffList, ...parentList];
+        if (!data.length){ setLoading(false); return; }
 
         // fetch last msg for each
         const enriched: Contact[] = await Promise.all(data.map(async(u:any)=>{
@@ -483,9 +502,9 @@ export default function ChatPage() {
                     {/* Messages — WhatsApp wallpaper */}
                     <div style={{
                         flex:1,overflowY:'auto',padding:'12px 5% 8px',display:'flex',flexDirection:'column',gap:1,
-                        background:'linear-gradient(160deg,#ffcbb8 0%,#ffddd4 20%,#eef6fb 55%,#c5e8f8 80%,#a8d8f0 100%)',
+                        background:'#f5d4c0',
                         backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cdefs%3E%3Cpattern id='p' width='80' height='80' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='8' cy='8' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='40' cy='8' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='72' cy='8' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='24' cy='24' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='56' cy='24' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='8' cy='40' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='40' cy='40' r='1.5' fill='%23c8bfb0' opacity='0.35'/%3E%3Ccircle cx='72' cy='40' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='24' cy='56' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='56' cy='56' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='8' cy='72' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='40' cy='72' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='72' cy='72' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='80' height='80' fill='url(%23p)'/%3E%3C/svg%3E")`,
-                        backgroundImage:'radial-gradient(circle 110px at 8% 8%,rgba(255,155,115,0.38) 0%,transparent 70%),radial-gradient(circle 80px at 82% 6%,rgba(255,135,105,0.32) 0%,transparent 70%),radial-gradient(circle 70px at 72% 22%,rgba(255,195,178,0.3) 0%,transparent 65%),radial-gradient(circle 130px at 12% 48%,rgba(135,200,240,0.4) 0%,transparent 65%),radial-gradient(circle 95px at 86% 58%,rgba(125,198,235,0.42) 0%,transparent 65%),radial-gradient(circle 110px at 38% 78%,rgba(145,208,242,0.38) 0%,transparent 65%),radial-gradient(circle 60px at 68% 82%,rgba(165,218,248,0.34) 0%,transparent 60%),radial-gradient(circle 40px at 55% 38%,rgba(195,232,255,0.48) 0%,transparent 60%),radial-gradient(circle 25px at 28% 28%,rgba(220,242,255,0.55) 0%,transparent 60%)',backgroundRepeat:'no-repeat',
+                        backgroundImage:`url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22900%22%20height%3D%22700%22%20viewBox%3D%220%200%20900%20700%22%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3Cfilter%20id%3D%22blur1%22%3E%3CfeGaussianBlur%20stdDeviation%3D%2218%22%2F%3E%3C%2Ffilter%3E%0A%20%20%20%20%3Cfilter%20id%3D%22blur2%22%3E%3CfeGaussianBlur%20stdDeviation%3D%2212%22%2F%3E%3C%2Ffilter%3E%0A%20%20%20%20%3Cfilter%20id%3D%22blur3%22%3E%3CfeGaussianBlur%20stdDeviation%3D%226%22%2F%3E%3C%2Ffilter%3E%0A%20%20%3C%2Fdefs%3E%0A%20%20%3C!--%20Base%20gradient%3A%20warm%20coral%20top%20to%20cool%20sky%20blue%20bottom%20--%3E%0A%20%20%3ClinearGradient%20id%3D%22bg%22%20x1%3D%220.3%22%20y1%3D%220%22%20x2%3D%220.7%22%20y2%3D%221%22%20gradientUnits%3D%22objectBoundingBox%22%3E%0A%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23f5a88e%22%2F%3E%0A%20%20%20%20%3Cstop%20offset%3D%2240%25%22%20stop-color%3D%22%23f8d4c6%22%2F%3E%0A%20%20%20%20%3Cstop%20offset%3D%2270%25%22%20stop-color%3D%22%23daeef9%22%2F%3E%0A%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23a8d8f2%22%2F%3E%0A%20%20%3C%2FlinearGradient%3E%0A%20%20%3Crect%20width%3D%22900%22%20height%3D%22700%22%20fill%3D%22url(%23bg)%22%2F%3E%0A%20%20%3C!--%20Large%20coral%20blob%20top-left%20--%3E%0A%20%20%3Ccircle%20cx%3D%22-30%22%20cy%3D%22-20%22%20r%3D%22200%22%20fill%3D%22%23ef8060%22%20opacity%3D%220.72%22%20filter%3D%22url(%23blur1)%22%2F%3E%0A%20%20%3C!--%20Large%20pink%20bubble%20top-right%20--%3E%0A%20%20%3Ccircle%20cx%3D%22780%22%20cy%3D%2230%22%20r%3D%22160%22%20fill%3D%22%23f0899a%22%20opacity%3D%220.62%22%20filter%3D%22url(%23blur1)%22%2F%3E%0A%20%20%3C!--%20Medium%20peach%20bubble%20middle-left%20--%3E%0A%20%20%3Ccircle%20cx%3D%2280%22%20cy%3D%22290%22%20r%3D%22120%22%20fill%3D%22%23f4b89a%22%20opacity%3D%220.55%22%20filter%3D%22url(%23blur2)%22%2F%3E%0A%20%20%3C!--%20Large%20sky%20blue%20bubble%20bottom-left%20--%3E%0A%20%20%3Ccircle%20cx%3D%22-20%22%20cy%3D%22600%22%20r%3D%22200%22%20fill%3D%22%235ec4e8%22%20opacity%3D%220.65%22%20filter%3D%22url(%23blur1)%22%2F%3E%0A%20%20%3C!--%20Large%20teal%20bubble%20bottom-right%20--%3E%0A%20%20%3Ccircle%20cx%3D%22820%22%20cy%3D%22580%22%20r%3D%22220%22%20fill%3D%22%2360c8e8%22%20opacity%3D%220.7%22%20filter%3D%22url(%23blur1)%22%2F%3E%0A%20%20%3C!--%20Medium%20blue%20bubble%20center-bottom%20--%3E%0A%20%20%3Ccircle%20cx%3D%22430%22%20cy%3D%22620%22%20r%3D%22130%22%20fill%3D%22%2378d0ea%22%20opacity%3D%220.55%22%20filter%3D%22url(%23blur2)%22%2F%3E%0A%20%20%3C!--%20Medium%20rose%20bubble%20top-center%20--%3E%0A%20%20%3Ccircle%20cx%3D%22430%22%20cy%3D%2260%22%20r%3D%2290%22%20fill%3D%22%23f498aa%22%20opacity%3D%220.45%22%20filter%3D%22url(%23blur2)%22%2F%3E%0A%20%20%3C!--%20Small%20glass%20droplets%20--%3E%0A%20%20%3Ccircle%20cx%3D%22300%22%20cy%3D%22180%22%20r%3D%2228%22%20fill%3D%22%23fff%22%20opacity%3D%220.38%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22580%22%20cy%3D%22260%22%20r%3D%2218%22%20fill%3D%22%23fff%22%20opacity%3D%220.42%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22190%22%20cy%3D%22450%22%20r%3D%2222%22%20fill%3D%22%23b8e8f8%22%20opacity%3D%220.55%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22700%22%20cy%3D%22380%22%20r%3D%2232%22%20fill%3D%22%23a8d8f8%22%20opacity%3D%220.5%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22480%22%20cy%3D%22350%22%20r%3D%2214%22%20fill%3D%22%23fff%22%20opacity%3D%220.45%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22350%22%20cy%3D%22520%22%20r%3D%2220%22%20fill%3D%22%23b0e0f8%22%20opacity%3D%220.52%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22620%22%20cy%3D%22150%22%20r%3D%2216%22%20fill%3D%22%23fff%22%20opacity%3D%220.4%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3C!--%20Tiny%20droplets%20--%3E%0A%20%20%3Ccircle%20cx%3D%22240%22%20cy%3D%22320%22%20r%3D%228%22%20fill%3D%22%23fff%22%20opacity%3D%220.55%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22660%22%20cy%3D%22480%22%20r%3D%226%22%20fill%3D%22%23d0eef8%22%20opacity%3D%220.6%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22520%22%20cy%3D%22200%22%20r%3D%227%22%20fill%3D%22%23fff%22%20opacity%3D%220.5%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22160%22%20cy%3D%22560%22%20r%3D%229%22%20fill%3D%22%23b8e8f8%22%20opacity%3D%220.55%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22760%22%20cy%3D%22250%22%20r%3D%225%22%20fill%3D%22%23fff%22%20opacity%3D%220.5%22%2F%3E%0A%3C%2Fsvg%3E')`,backgroundSize:'cover',backgroundRepeat:'no-repeat',
                     }}>
                         {loadingMsgs ? (
                             <div style={{ display:'flex',justifyContent:'center',paddingTop:48 }}>
@@ -546,9 +565,32 @@ export default function ChatPage() {
                     </div>
 
                     {/* Input bar — WhatsApp exact */}
-                    <div style={{ padding:'8px 14px',background:'#f0f2f5',display:'flex',alignItems:'flex-end',gap:10,borderTop:'1px solid #e9edef' }}>
-                        <div style={{ flex:1,display:'flex',alignItems:'flex-end',background:'#fff',borderRadius:24,padding:'8px 16px',gap:8,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',minHeight:44 }}>
-                            <button style={{ background:'none',border:'none',cursor:'pointer',color:'#54656f',padding:'2px 0',flexShrink:0 }}>
+                    <div style={{ padding:'8px 14px', background:'#f0f2f5', display:'flex', alignItems:'flex-end', gap:10, borderTop:'1px solid #e9edef', position:'relative' }}>
+
+                        {/* Emoji Picker Popup */}
+                        {showEmoji && (
+                            <div style={{ position:'absolute', bottom:64, left:14, zIndex:999 }}>
+                                <EmojiPicker
+                                    onEmojiClick={(emojiData: any) => {
+                                        setText(prev => prev + emojiData.emoji);
+                                        inputRef.current?.focus();
+                                    }}
+                                    height={380}
+                                    width={320}
+                                    searchDisabled={false}
+                                    skinTonesDisabled
+                                    previewConfig={{ showPreview: false }}
+                                />
+                            </div>
+                        )}
+                        {showEmoji && <div onClick={()=>setShowEmoji(false)} style={{ position:'fixed',inset:0,zIndex:998 }} />}
+
+                        <div style={{ flex:1, display:'flex', alignItems:'flex-end', background:'#fff', borderRadius:24, padding:'8px 16px', gap:8, boxShadow:'0 1px 3px rgba(0,0,0,0.08)', minHeight:44 }}>
+                            <button
+                                onClick={()=>setShowEmoji(v=>!v)}
+                                style={{ background:'none', border:'none', cursor:'pointer', color: showEmoji ? '#128C7E' : '#54656f', padding:'2px 0', flexShrink:0 }}
+                                title="Emoji"
+                            >
                                 <FiSmile size={22} />
                             </button>
                             <textarea

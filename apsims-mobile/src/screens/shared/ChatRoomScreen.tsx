@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
     StyleSheet, KeyboardAvoidingView, Platform, StatusBar,
@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import EmojiKeyboard from 'rn-emoji-keyboard';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ChatMessage {
@@ -178,6 +179,7 @@ export default function ChatRoomScreen() {
 
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [text, setText] = useState('');
+    const [showEmoji, setShowEmoji] = useState(false);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -509,14 +511,15 @@ export default function ChatRoomScreen() {
                 {/* ── INPUT BAR ── */}
                 <View style={styles.inputBar}>
                     <View style={styles.inputWrap}>
-                        <TouchableOpacity style={styles.iconBtn}>
-                            <Text style={styles.iconText}>😊</Text>
+                        <TouchableOpacity style={styles.iconBtn} onPress={() => { setShowEmoji(v => !v); inputRef.current?.blur(); }}>
+                            <Text style={[styles.iconText, showEmoji && { color: '#6366f1' }]}>😊</Text>
                         </TouchableOpacity>
                         <TextInput
                             ref={inputRef}
                             value={text}
                             onChangeText={val => { setText(val); broadcastTyping(val.length > 0); }}
-                            placeholder={`Message ${room?.room_name}…`}
+                            onFocus={() => setShowEmoji(false)}
+                            placeholder={`Message ${displayName}…`}
                             placeholderTextColor="#94a3b8"
                             style={styles.textInput}
                             multiline
@@ -545,6 +548,15 @@ export default function ChatRoomScreen() {
                     )}
                 </View>
             </KeyboardAvoidingView>
+
+            {/* ── Emoji Keyboard (slides up from bottom) ── */}
+            <EmojiKeyboard
+                onEmojiSelected={(emoji: any) => setText(prev => prev + (emoji.emoji || emoji))}
+                open={showEmoji}
+                onClose={() => setShowEmoji(false)}
+                enableSearchBar
+                categoryOrder={['recently_used','smileys_people','animals_nature','food_drink','travel_places','activities','objects','symbols','flags']}
+            />
         </View>
     );
 }

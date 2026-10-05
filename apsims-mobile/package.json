@@ -35,7 +35,8 @@
     "react-native-gesture-handler": "~2.20.2",
     "react-native-safe-area-context": "4.14.1",
     "react-native-screens": "~3.34.0",
-    "react-native-svg": "15.8.0"
+    "react-native-svg": "15.8.0",
+    "rn-emoji-keyboard": "^1.7.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

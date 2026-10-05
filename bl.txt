@@ -179,11 +179,11 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/bursary                                  10.4 kB         150 kB
 Γö£ Γùï /dashboard/capitation                               10.3 kB         150 kB
 Γö£ Γùï /dashboard/cbc-analytics                            4 kB            144 kB
-Γö£ Γùï /dashboard/cbc/command-centre                       18.9 kB         165 kB
+Γö£ Γùï /dashboard/cbc/command-centre                       18.9 kB         166 kB
 Γö£ Γùï /dashboard/cbc/parent-portal                        19 kB           166 kB
 Γö£ Γùï /dashboard/cbc/portfolio                            15.3 kB         162 kB
-Γö£ Γùï /dashboard/cbc/senior-school                        10.9 kB         157 kB
-Γö£ Γùï /dashboard/chat                                     7.6 kB          147 kB
+Γö£ Γùï /dashboard/cbc/senior-school                        10.9 kB         158 kB
+Γö£ Γùï /dashboard/chat                                     9 kB            149 kB
 Γö£ Γùï /dashboard/circulars                                9.94 kB         150 kB
 Γö£ Γùï /dashboard/clubs                                    12.7 kB         152 kB
 Γö£ Γùï /dashboard/communication                            17.9 kB         158 kB
@@ -193,7 +193,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/curriculum                               26.5 kB         236 kB
 Γö£ Γùï /dashboard/curriculum/cbc-assessment                8.89 kB         149 kB
 Γö£ Γùï /dashboard/curriculum/cbc-schemes                   12.3 kB         152 kB
-Γö£ Γùï /dashboard/curriculum/cbc-tracking                  22.7 kB         162 kB
+Γö£ Γùï /dashboard/curriculum/cbc-tracking                  22.7 kB         163 kB
 Γö£ Γùï /dashboard/curriculum/kicd-alignment                11.8 kB         145 kB
 Γö£ Γùï /dashboard/curriculum/kicd-lesson-plans             12.4 kB         152 kB
 Γö£ Γùï /dashboard/curriculum/lesson-plans                  10.9 kB         154 kB
@@ -222,7 +222,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/exams/cbc-reports/broadsheet             4.47 kB         154 kB
 Γö£ Γùï /dashboard/exams/cbc-reports/cohort-analysis        3.64 kB         153 kB
 Γö£ Γùï /dashboard/exams/cbc-reports/competency-wheel       4.78 kB         214 kB
-Γö£ Γùï /dashboard/exams/cbc-reports/formative-gap          2.79 kB         152 kB
+Γö£ Γùï /dashboard/exams/cbc-reports/formative-gap          2.79 kB         153 kB
 Γö£ Γùï /dashboard/exams/cbc-reports/gender-equity          2.67 kB         152 kB
 Γö£ Γùï /dashboard/exams/cbc-reports/grade-progress         2.81 kB         153 kB
 Γö£ Γùï /dashboard/exams/cbc-reports/intervention-tracker   2.52 kB         152 kB
@@ -288,7 +288,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/fees/audit                               11.4 kB         151 kB
 Γö£ Γùï /dashboard/fees/balance-sheet                       9.61 kB         149 kB
 Γö£ Γùï /dashboard/fees/bank-reconciliation                 10 kB           150 kB
-Γö£ Γùï /dashboard/fees/budget                              837 B            83 kB
+Γö£ Γùï /dashboard/fees/budget                              837 B          83.1 kB
 Γö£ Γùï /dashboard/fees/bulk-reminders                      12.1 kB         159 kB
 Γö£ Γùï /dashboard/fees/capitation                          9.35 kB         149 kB
 Γö£ Γùï /dashboard/fees/cashbook                            9.66 kB         149 kB
@@ -318,10 +318,10 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/fees/receipts                            11.6 kB         155 kB
 Γö£ Γùï /dashboard/fees/reminder-scheduler                  9.94 kB         150 kB
 Γö£ Γùï /dashboard/fees/reports/board                       7.55 kB         147 kB
-Γö£ Γùï /dashboard/fees/reports/pl                          11.2 kB         230 kB
+Γö£ Γùï /dashboard/fees/reports/pl                          11.2 kB         231 kB
 Γö£ Γùï /dashboard/fees/reports/vote-heads                  16.3 kB         163 kB
 Γö£ Γùï /dashboard/fees/statements                          12.9 kB         153 kB
-Γö£ Γùï /dashboard/fees/structure                           15.9 kB         162 kB
+Γö£ Γùï /dashboard/fees/structure                           15.9 kB         163 kB
 Γö£ Γùï /dashboard/fees/structure-improvements              10.4 kB         150 kB
 Γö£ Γùï /dashboard/fees/trial-balance                       9.46 kB         149 kB
 Γö£ Γùï /dashboard/fees/vote-heads                          13.6 kB         153 kB
@@ -329,7 +329,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/finance/analytics                        4.08 kB         144 kB
 Γö£ Γùï /dashboard/guidance                                 14.2 kB         154 kB
 Γö£ Γùï /dashboard/hostel                                   13.8 kB         103 kB
-Γö£ Γùï /dashboard/hr-payroll                               7.59 kB         223 kB
+Γö£ Γùï /dashboard/hr-payroll                               7.59 kB         224 kB
 Γö£ Γùï /dashboard/hr-payroll/appraisal                     850 B          83.1 kB
 Γö£ Γùï /dashboard/hr-payroll/discipline                    15.4 kB         155 kB
 Γö£ Γùï /dashboard/hr-payroll/leave                         853 B          83.1 kB
@@ -359,7 +359,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/library-inventory/overdue                9.92 kB         157 kB
 Γö£ Γùï /dashboard/library-inventory/reading-stats          10.8 kB         151 kB
 Γö£ Γùï /dashboard/library-inventory/ultra                  11.8 kB         152 kB
-Γö£ Γùï /dashboard/lms                                      12.6 kB         101 kB
+Γö£ Γùï /dashboard/lms                                      12.6 kB         102 kB
 Γö£ Γùï /dashboard/messaging                                8.16 kB         148 kB
 Γö£ Γùï /dashboard/multi-campus                             12.4 kB         146 kB
 Γö£ Γùï /dashboard/nemis                                    8.54 kB         148 kB
@@ -374,7 +374,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/procurement                              23.9 kB         164 kB
 Γö£ Γùï /dashboard/ptm                                      12.5 kB         152 kB
 Γö£ Γùï /dashboard/remedial                                 18 kB           158 kB
-Γö£ Γùï /dashboard/remedial/academic                        16.7 kB         156 kB
+Γö£ Γùï /dashboard/remedial/academic                        16.7 kB         157 kB
 Γö£ Γùï /dashboard/reports                                  17.8 kB         158 kB
 Γö£ Γùï /dashboard/reports/government                       10.6 kB         150 kB
 Γö£ Γùï /dashboard/rim-paper                                12.4 kB         152 kB
@@ -397,7 +397,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/students/alumni                          9.33 kB         218 kB
 Γö£ Γùï /dashboard/students/bus-passes                      9.33 kB         149 kB
 Γö£ Γùï /dashboard/students/clinic                          11 kB           151 kB
-Γö£ Γùï /dashboard/students/health                          16.7 kB         156 kB
+Γö£ Γùï /dashboard/students/health                          16.7 kB         157 kB
 Γö£ Γùï /dashboard/students/id-cards                        21.5 kB         165 kB
 Γö£ Γùï /dashboard/students/nemis-export                    9 kB            142 kB
 Γö£ Γùï /dashboard/students/profile                         20.6 kB         230 kB
@@ -414,27 +414,27 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/timetable                                54.4 kB         194 kB
 Γö£ Γùï /dashboard/transport                                11.7 kB         101 kB
 Γö£ Γùï /dashboard/tutorials                                5.58 kB        94.5 kB
-Γö£ Γùï /dashboard/users                                    9.72 kB         149 kB
+Γö£ Γùï /dashboard/users                                    9.72 kB         150 kB
 Γö£ Γùï /dashboard/visitors                                 8.69 kB        97.6 kB
 Γö£ Γùï /dashboard/website-builder                          10.9 kB         158 kB
 Γö£ Γùï /offline                                            2.69 kB        91.6 kB
-Γö£ Γùï /parent                                             309 B          82.5 kB
-Γö£ Γùï /parent/dashboard                                   1.14 kB        83.3 kB
+Γö£ Γùï /parent                                             309 B          82.6 kB
+Γö£ Γùï /parent/dashboard                                   1.14 kB        83.4 kB
 Γö£ Γùï /portal                                             148 B          82.4 kB
-Γö£ Γùï /portal/lms                                         9.76 kB        98.6 kB
+Γö£ Γùï /portal/lms                                         9.76 kB        98.7 kB
 Γö£ Γùï /portal/login                                       8.3 kB          148 kB
-Γö£ Γùï /portal/parent                                      16.7 kB         156 kB
+Γö£ Γùï /portal/parent                                      16.7 kB         157 kB
 Γö£ Γùï /portal/ptm                                         7.9 kB         96.8 kB
 Γö£ Γùï /portal/student                                     11 kB           151 kB
 Γöö ╬╗ /school                                             148 B          82.4 kB
-+ First Load JS shared by all                           82.2 kB
++ First Load JS shared by all                           82.3 kB
   Γö£ chunks/4938-46d3223ab303fc4f.js                     26.8 kB
   Γö£ chunks/fd9d1056-87af41a9b80cedb0.js                 53.3 kB
   Γö£ chunks/main-app-a03a7ed932a35112.js                 227 B
-  Γöö chunks/webpack-d8435654e9229408.js                  1.9 kB
+  Γöö chunks/webpack-ed4852b6de901314.js                  1.95 kB
 
 
-╞Æ Middleware                                            46.4 kB
+╞Æ Middleware                                            46.3 kB
 
 Γùï  (Static)   prerendered as static content
 ╬╗  (Dynamic)  server-rendered on demand using Node.js
