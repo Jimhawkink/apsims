@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 // ═══════════════════════════════════════════════════════════════════════════
 // APSIMS School Chat — WhatsApp-exact light UI
 // Contacts-based DIRECT messaging: parent↔teacher, parent↔school, staff↔staff
@@ -134,18 +134,36 @@ export default function ChatPage() {
         if (!currentUser?.id) return;
         setLoading(true);
 
-        // ── PARENT: skip contacts list, auto-open school admin inbox ──────────
+        // ── PARENT: skip contacts list, open direct inbox with SCHOOL ──────────
         if (currentUser.role === 'parent') {
+            // Step 1: find admin/principal to message
             const { data: admins } = await supabase
-                .from('school_portal_users')
-                .select('id, full_name, username, user_type, role')
-                .in('user_type', ['admin', 'principal'])
+                .from('school_users')
+                .select('id, full_name, phone, role')
+                .in('role', ['admin', 'principal'])
+                .eq('is_active', true)
                 .order('role').limit(1);
             const admin = admins?.[0];
             if (admin) {
-                const schoolContact: Contact = { id: admin.id, full_name: admin.full_name, username: admin.username, role: admin.role, unread: 0 };
+                // Step 2: get school name + phone from school_details
+                const { data: schoolInfo } = await supabase
+                    .from('school_details')
+                    .select('school_name, phone, email')
+                    .limit(1)
+                    .maybeSingle();
+
+                const schoolName  = schoolInfo?.school_name  || 'School Office';
+                const schoolPhone = schoolInfo?.phone        || schoolInfo?.email || admin.phone || '';
+
+                const schoolContact: Contact = {
+                    id:         admin.id,
+                    full_name:  schoolName,   // ← "Alpha School" not "JIMHAWKINS KORIR"
+                    username:   schoolPhone,  // shown as subtitle
+                    role:       'School',
+                    unread:     0,
+                };
                 setContacts([schoolContact]);
-                setAutoOpenContact(schoolContact); // trigger auto-open via effect
+                setAutoOpenContact(schoolContact);
             }
             setLoading(false);
             return;
@@ -153,7 +171,7 @@ export default function ChatPage() {
 
 
         const { data } = await supabase
-            .from('school_portal_users')
+            .from('school_users')
             .select('id, full_name, username, role')
             .neq('id', currentUser.id)
             .order('role').order('full_name');

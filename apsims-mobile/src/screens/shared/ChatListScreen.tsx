@@ -1,4 +1,4 @@
-﻿/**
+/**
  * APSIMS ChatListScreen — WhatsApp-exact premium contacts list
  * Shows CONTACTS (people) not groups — tap to open direct chat
  */
@@ -96,11 +96,16 @@ export default function ChatListScreen() {
                 }
 
                 if (room?.id) {
+                    // Fetch school details for display in header
+                    const { data: sch } = await supabase
+                        .from('school_details').select('school_name,phone,email').limit(1).maybeSingle();
+                    const schoolName = sch?.school_name || admin.full_name || 'School';
+                    const schoolPhone = sch?.phone || sch?.email || '';
+
                     setLoading(false);
-                    // Navigate directly to chat room — parent has no contacts list
                     (navigation as any).replace('ChatRoom', {
                         room: { id: room.id, room_type: 'direct', room_name: key },
-                        contact: { id: admin.id, full_name: admin.full_name, role: admin.role },
+                        contact: { id: admin.id, full_name: schoolName, role: 'School', phone: schoolPhone },
                         isParentDirectInbox: true,
                     });
                     return;

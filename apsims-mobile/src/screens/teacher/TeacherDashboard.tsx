@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════
 // APSIMS Ultra Premium — Teacher Dashboard v3.0
 // Ultra-light bright theme · Premium cards · Live data
 // Kenya's #1 School Management System

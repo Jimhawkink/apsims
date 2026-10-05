@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════
 // APSIMS Ultra Principal Dashboard — Cutting-Edge Analytics Hub
 // Premium light theme · SVG charts · Real-time KPIs · Filters
 // ═══════════════════════════════════════════════════════════════

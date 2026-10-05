@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════
 // APSIMS Ultra Premium — Student Dashboard v3.0
 // Ultra-light bright theme · Live timetable · Results · Homework
 // Kenya's #1 School Management System
@@ -44,6 +44,8 @@ export default function StudentDashboard() {
     const [attendanceData, setAttendanceData] = useState({ present: 0, total: 0, rate: 0 });
     const [termName, setTermName] = useState('');
     const [loading, setLoading] = useState(true);
+    const [schoolName, setSchoolName] = useState('');
+    const [schoolTagline, setSchoolTagline] = useState('');
     const [refreshing, setRefreshing] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -61,6 +63,9 @@ export default function StudentDashboard() {
     }, []);
 
     const hour = currentTime.getHours();
+    // School name
+    useEffect(() => { supabase.from('school_details').select('school_name,tagline').limit(1).maybeSingle().then(({ data }) => { if (data?.school_name) setSchoolName(data.school_name); if ((data as any)?.tagline) setSchoolTagline((data as any).tagline); }); }, []);
+
     const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
     const greetEmoji = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙';
     const todayName = DAYS[currentTime.getDay()];

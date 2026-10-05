@@ -64,6 +64,8 @@ export default function ParentDashboard() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [schoolName, setSchoolName] = useState('');
+    const [schoolTagline, setSchoolTagline] = useState('');
     const [announcements, setAnnouncements] = useState<any[]>([]);
 
     // ── Standalone fee statement — mirrors web getStudentFees exactly ────────
@@ -134,6 +136,9 @@ export default function ParentDashboard() {
         }
     }, [sesStudentId, sesFormId]);
 
+
+    // School name
+    useEffect(() => { supabase.from('school_details').select('school_name,tagline').limit(1).maybeSingle().then(({ data }) => { if (data?.school_name) setSchoolName(data.school_name); if ((data as any)?.tagline) setSchoolTagline((data as any).tagline); }); }, []);
 
     // Greeting
     const hour = new Date().getHours();
@@ -362,10 +367,28 @@ export default function ParentDashboard() {
 
     return (
         <View style={[styles.root, { backgroundColor: T.bg }]}>
-            <StatusBar barStyle="dark-content" backgroundColor={T.bg} />
+            <StatusBar barStyle="dark-content" backgroundColor="#4f46e5" />
+
+            {/* ─── School Name Banner ───────────────────────────── */}
+            {schoolName ? (
+                <LinearGradient
+                    colors={['#4f46e5', '#7c3aed', '#6366f1']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={{ paddingTop: insets.top + 4, paddingBottom: 8, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                >
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>🏫</Text>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '900', color: '#fff', letterSpacing: 0.5 }} numberOfLines={1}>{schoolName.toUpperCase()}</Text>
+                        {schoolTagline ? <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', fontWeight: '600' }} numberOfLines={1}>{schoolTagline}</Text> : null}
+                    </View>
+                    <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ fontSize: 9, color: '#fff', fontWeight: '800', letterSpacing: 1 }}>PARENT PORTAL</Text>
+                    </View>
+                </LinearGradient>
+            ) : <View style={{ height: insets.top + 4, backgroundColor: '#4f46e5' }} />}
 
             {/* ─── Top Bar ─────────────────────────────────────── */}
-            <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+            <View style={[styles.topBar, { paddingTop: 8 }]}>
                 <View style={styles.topLeft}>
                     <LinearGradient colors={T.gradPurple} style={styles.avatar}>
                         <Text style={styles.avatarText}>{parentInitials}</Text>
