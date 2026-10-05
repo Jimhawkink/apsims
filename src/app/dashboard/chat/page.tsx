@@ -196,11 +196,12 @@ export default function ChatPage() {
         const data = [...staffList, ...parentList];
         if (!data.length){ setLoading(false); return; }
 
-        // fetch last msg for each
+        // fetch last msg for each — use real portal ID for room key (matches mobile)
         const enriched: Contact[] = await Promise.all(data.map(async(u:any)=>{
+            const rid = u._portalId ?? u.id;   // real ID (no +100000 offset)
             const { data: room } = await supabase
                 .from('school_chat_rooms').select('id')
-                .eq('room_name', roomKey(currentUser.id, u.id)).maybeSingle();
+                .eq('room_name', roomKey(currentUser.id, rid)).maybeSingle();
             let lastMessage='', lastTime='', unread=0;
             if (room?.id) {
                 const { data: m } = await supabase
@@ -221,7 +222,7 @@ export default function ChatPage() {
 
     useEffect(()=>{ loadContacts(); },[loadContacts]);
 
-    // open direct chat
+    // open direct chat — use real portal ID for room key
     const openChat = useCallback(async(contact:Contact)=>{
         if (!currentUser?.id) return;
         setActiveContact(contact);
@@ -229,7 +230,8 @@ export default function ChatPage() {
         setTypingUsers(new Map());
         setLoadingMsgs(true);
 
-        const key = roomKey(currentUser.id, contact.id);
+        const rid = (contact as any)._portalId ?? contact.id;  // real portal ID
+        const key = roomKey(currentUser.id, rid);
         let { data: room } = await supabase
             .from('school_chat_rooms').select('id').eq('room_name', key).maybeSingle();
         if (!room) {
@@ -502,7 +504,7 @@ export default function ChatPage() {
                     {/* Messages — WhatsApp wallpaper */}
                     <div style={{
                         flex:1,overflowY:'auto',padding:'12px 5% 8px',display:'flex',flexDirection:'column',gap:1,
-                        background:'#f5d4c0',
+                        background:'linear-gradient(175deg,#f4a090 0%,#f8cdc0 30%,#e8f2f9 65%,#a8d8f0 100%)',
                         backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cdefs%3E%3Cpattern id='p' width='80' height='80' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='8' cy='8' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='40' cy='8' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='72' cy='8' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='24' cy='24' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='56' cy='24' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='8' cy='40' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='40' cy='40' r='1.5' fill='%23c8bfb0' opacity='0.35'/%3E%3Ccircle cx='72' cy='40' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='24' cy='56' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='56' cy='56' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='8' cy='72' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='40' cy='72' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='72' cy='72' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='80' height='80' fill='url(%23p)'/%3E%3C/svg%3E")`,
                         backgroundImage:`url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22900%22%20height%3D%22700%22%20viewBox%3D%220%200%20900%20700%22%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3Cfilter%20id%3D%22blur1%22%3E%3CfeGaussianBlur%20stdDeviation%3D%2218%22%2F%3E%3C%2Ffilter%3E%0A%20%20%20%20%3Cfilter%20id%3D%22blur2%22%3E%3CfeGaussianBlur%20stdDeviation%3D%2212%22%2F%3E%3C%2Ffilter%3E%0A%20%20%20%20%3Cfilter%20id%3D%22blur3%22%3E%3CfeGaussianBlur%20stdDeviation%3D%226%22%2F%3E%3C%2Ffilter%3E%0A%20%20%3C%2Fdefs%3E%0A%20%20%3C!--%20Base%20gradient%3A%20warm%20coral%20top%20to%20cool%20sky%20blue%20bottom%20--%3E%0A%20%20%3ClinearGradient%20id%3D%22bg%22%20x1%3D%220.3%22%20y1%3D%220%22%20x2%3D%220.7%22%20y2%3D%221%22%20gradientUnits%3D%22objectBoundingBox%22%3E%0A%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23f5a88e%22%2F%3E%0A%20%20%20%20%3Cstop%20offset%3D%2240%25%22%20stop-color%3D%22%23f8d4c6%22%2F%3E%0A%20%20%20%20%3Cstop%20offset%3D%2270%25%22%20stop-color%3D%22%23daeef9%22%2F%3E%0A%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23a8d8f2%22%2F%3E%0A%20%20%3C%2FlinearGradient%3E%0A%20%20%3Crect%20width%3D%22900%22%20height%3D%22700%22%20fill%3D%22url(%23bg)%22%2F%3E%0A%20%20%3C!--%20Large%20coral%20blob%20top-left%20--%3E%0A%20%20%3Ccircle%20cx%3D%22-30%22%20cy%3D%22-20%22%20r%3D%22200%22%20fill%3D%22%23ef8060%22%20opacity%3D%220.72%22%20filter%3D%22url(%23blur1)%22%2F%3E%0A%20%20%3C!--%20Large%20pink%20bubble%20top-right%20--%3E%0A%20%20%3Ccircle%20cx%3D%22780%22%20cy%3D%2230%22%20r%3D%22160%22%20fill%3D%22%23f0899a%22%20opacity%3D%220.62%22%20filter%3D%22url(%23blur1)%22%2F%3E%0A%20%20%3C!--%20Medium%20peach%20bubble%20middle-left%20--%3E%0A%20%20%3Ccircle%20cx%3D%2280%22%20cy%3D%22290%22%20r%3D%22120%22%20fill%3D%22%23f4b89a%22%20opacity%3D%220.55%22%20filter%3D%22url(%23blur2)%22%2F%3E%0A%20%20%3C!--%20Large%20sky%20blue%20bubble%20bottom-left%20--%3E%0A%20%20%3Ccircle%20cx%3D%22-20%22%20cy%3D%22600%22%20r%3D%22200%22%20fill%3D%22%235ec4e8%22%20opacity%3D%220.65%22%20filter%3D%22url(%23blur1)%22%2F%3E%0A%20%20%3C!--%20Large%20teal%20bubble%20bottom-right%20--%3E%0A%20%20%3Ccircle%20cx%3D%22820%22%20cy%3D%22580%22%20r%3D%22220%22%20fill%3D%22%2360c8e8%22%20opacity%3D%220.7%22%20filter%3D%22url(%23blur1)%22%2F%3E%0A%20%20%3C!--%20Medium%20blue%20bubble%20center-bottom%20--%3E%0A%20%20%3Ccircle%20cx%3D%22430%22%20cy%3D%22620%22%20r%3D%22130%22%20fill%3D%22%2378d0ea%22%20opacity%3D%220.55%22%20filter%3D%22url(%23blur2)%22%2F%3E%0A%20%20%3C!--%20Medium%20rose%20bubble%20top-center%20--%3E%0A%20%20%3Ccircle%20cx%3D%22430%22%20cy%3D%2260%22%20r%3D%2290%22%20fill%3D%22%23f498aa%22%20opacity%3D%220.45%22%20filter%3D%22url(%23blur2)%22%2F%3E%0A%20%20%3C!--%20Small%20glass%20droplets%20--%3E%0A%20%20%3Ccircle%20cx%3D%22300%22%20cy%3D%22180%22%20r%3D%2228%22%20fill%3D%22%23fff%22%20opacity%3D%220.38%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22580%22%20cy%3D%22260%22%20r%3D%2218%22%20fill%3D%22%23fff%22%20opacity%3D%220.42%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22190%22%20cy%3D%22450%22%20r%3D%2222%22%20fill%3D%22%23b8e8f8%22%20opacity%3D%220.55%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22700%22%20cy%3D%22380%22%20r%3D%2232%22%20fill%3D%22%23a8d8f8%22%20opacity%3D%220.5%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22480%22%20cy%3D%22350%22%20r%3D%2214%22%20fill%3D%22%23fff%22%20opacity%3D%220.45%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22350%22%20cy%3D%22520%22%20r%3D%2220%22%20fill%3D%22%23b0e0f8%22%20opacity%3D%220.52%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22620%22%20cy%3D%22150%22%20r%3D%2216%22%20fill%3D%22%23fff%22%20opacity%3D%220.4%22%20filter%3D%22url(%23blur3)%22%2F%3E%0A%20%20%3C!--%20Tiny%20droplets%20--%3E%0A%20%20%3Ccircle%20cx%3D%22240%22%20cy%3D%22320%22%20r%3D%228%22%20fill%3D%22%23fff%22%20opacity%3D%220.55%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22660%22%20cy%3D%22480%22%20r%3D%226%22%20fill%3D%22%23d0eef8%22%20opacity%3D%220.6%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22520%22%20cy%3D%22200%22%20r%3D%227%22%20fill%3D%22%23fff%22%20opacity%3D%220.5%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22160%22%20cy%3D%22560%22%20r%3D%229%22%20fill%3D%22%23b8e8f8%22%20opacity%3D%220.55%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22760%22%20cy%3D%22250%22%20r%3D%225%22%20fill%3D%22%23fff%22%20opacity%3D%220.5%22%2F%3E%0A%3C%2Fsvg%3E')`,backgroundSize:'cover',backgroundRepeat:'no-repeat',
                     }}>

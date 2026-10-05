@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════
 // APSIMS Ultra Premium — Parent Dashboard v3.0
 // Auto-detects ALL children linked to parent portal account
 // Ultra-light bright theme · Live fee status · Kenya #1
@@ -138,7 +138,7 @@ export default function ParentDashboard() {
 
 
     // School name
-    useEffect(() => { supabase.from('school_details').select('school_name,tagline').limit(1).maybeSingle().then(({ data }) => { if (data?.school_name) setSchoolName(data.school_name); if ((data as any)?.tagline) setSchoolTagline((data as any).tagline); }); }, []);
+    useEffect(() => { supabase.from('school_details').select('school_name,tagline,section').order('id').limit(1).maybeSingle().then(({ data }) => { if (data?.school_name) setSchoolName(data.school_name); if ((data as any)?.tagline) setSchoolTagline((data as any).tagline); }); }, []);
 
     // Greeting
     const hour = new Date().getHours();

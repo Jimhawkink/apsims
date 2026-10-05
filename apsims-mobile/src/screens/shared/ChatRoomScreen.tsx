@@ -190,10 +190,13 @@ export default function ChatRoomScreen() {
     const typingTimeouts = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
     const inputRef = useRef<TextInput>(null);
 
-    // ── Load current user ─────────────────────────────────────────────────────
+    // ── Load current user from SecureStore (correct session store) ─────────────
     useEffect(() => {
-        AsyncStorage.getItem('school_user').then(raw => {
-            try { if (raw) setCurrentUser(JSON.parse(raw)); } catch {}
+        import('expo-secure-store').then(SecureStore => {
+            SecureStore.getItemAsync('apsims_session_v2').then(raw => {
+                try { if (raw) { const s = JSON.parse(raw); setCurrentUser({ id: s.portal_user_id, full_name: s.full_name, role: s.user_type || s.role || 'staff' }); } }
+                catch { AsyncStorage.getItem('apsims_session_v2').then(r2 => { try { if (r2) { const s = JSON.parse(r2); setCurrentUser({ id: s.portal_user_id, full_name: s.full_name, role: s.user_type || s.role || 'staff' }); } } catch {} }); }
+            });
         });
     }, []);
 
@@ -432,7 +435,23 @@ export default function ChatRoomScreen() {
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={styles.header}
             >
-                <TouchableOpacity onPress={() => { if (navigation.canGoBack()) navigation.goBack(); else navigation.navigate('ParentTabs' as any); }} style={styles.backBtn}>
+                <TouchableOpacity
+                    onPress={() => {
+                        if (navigation.canGoBack()) {
+                            navigation.goBack();
+                        } else {
+                            // Navigate to the right home based on role
+                            const role = currentUser?.role || '';
+                            if (role === 'parent')    navigation.navigate('ParentTabs' as any);
+                            else if (role === 'teacher')   navigation.navigate('TeacherTabs' as any);
+                            else if (role === 'student')   navigation.navigate('StudentTabs' as any);
+                            else if (role === 'bursar')    navigation.navigate('BursarTabs' as any);
+                            else if (role === 'principal') navigation.navigate('PrincipalTabs' as any);
+                            else navigation.navigate('ParentTabs' as any);
+                        }
+                    }}
+                    style={styles.backBtn}
+                >
                     <Text style={styles.backArrow}>‹</Text>
                 </TouchableOpacity>
 

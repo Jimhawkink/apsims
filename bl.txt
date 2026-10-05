@@ -183,7 +183,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/cbc/parent-portal                        19 kB           166 kB
 Γö£ Γùï /dashboard/cbc/portfolio                            15.3 kB         162 kB
 Γö£ Γùï /dashboard/cbc/senior-school                        10.9 kB         158 kB
-Γö£ Γùï /dashboard/chat                                     9 kB            149 kB
+Γö£ Γùï /dashboard/chat                                     9.04 kB         149 kB
 Γö£ Γùï /dashboard/circulars                                9.94 kB         150 kB
 Γö£ Γùï /dashboard/clubs                                    12.7 kB         152 kB
 Γö£ Γùï /dashboard/communication                            17.9 kB         158 kB
