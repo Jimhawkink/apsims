@@ -15,9 +15,6 @@ At line:1 char:1
  
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
-Browserslist: caniuse-lite is outdated. Please run:
-  npx browserslist@latest --update-db
-  Why you should do it regularly: https://github.com/browserslist/browserslist#browsers-data-updating
  ΓÜá Compiled with warnings
 
 ./src/app/dashboard/students/id-cards/BusPassTab.tsx

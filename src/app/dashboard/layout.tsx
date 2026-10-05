@@ -25,6 +25,8 @@ import { useOffline } from '@/hooks/useOffline';
 import RealtimeProvider from '@/components/RealtimeProvider';
 import { SchoolModeProvider, useSchoolMode } from '@/contexts/SchoolModeContext';
 import { supabase, setSchoolSectionOverride } from '@/lib/supabase';
+import { useSyncEngine } from '@/components/SyncEngine';
+
 
 interface UserSession {
     id: number;
@@ -524,7 +526,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Track which groups are expanded
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
     const { isOffline } = useOffline();
+    const { SyncUI } = useSyncEngine();
     const [dashTheme, setDashTheme] = useState<'sidebar' | 'premier'>('sidebar');
+
 
     // ── School Section — set from DB on login, NEVER manually toggled ──
     // 'primary'   → user only sees Primary Hub + shared modules
@@ -985,7 +989,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* ═══ MAIN CONTENT ═══ */}
             <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-[68px]' : 'lg:ml-[260px]'}`}>
-                <OfflineBanner />
+                {/* ── Offline banner + premium sync overlay ── */}
+                {SyncUI}
+
                 {/* Top Bar */}
                 <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200/70 px-4 lg:px-6 h-14 flex items-center justify-between">
                     <div className="flex items-center gap-4">
