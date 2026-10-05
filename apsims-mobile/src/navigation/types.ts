@@ -63,6 +63,10 @@ export type RootStackParamList = {
     CBCAssessment: { studentId: number };
     Announcement: undefined;
     Export: undefined;
+    // ── Chat ──────────────────────────────────────────────────
+    ChatList: undefined;
+    ChatRoom: { room: { id: number; room_type: string; room_name: string } };
+
 
     // ── Teacher screens ────────────────────────────────────────
     StudentProfile: { studentId: number };

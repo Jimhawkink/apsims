@@ -410,7 +410,8 @@ const menuGroups = [
         collapsible: true,
         items: [
             { href: '/dashboard/awards', label: '🏆 Awards & Certificates', icon: FiAward, perm: 'dashboard' },
-            { href: '/dashboard/messaging', label: '💬 Staff Messaging', icon: FiMessageSquare, perm: 'dashboard' },
+            { href: '/dashboard/chat', label: '💬 Real-time Chat', icon: FiMessageSquare, perm: 'dashboard' },
+            { href: '/dashboard/messaging', label: '📝 Staff Messaging', icon: FiMessageSquare, perm: 'dashboard' },
             { href: '/dashboard/emergency', label: '🆘 Emergency Alerts', icon: FiAlertTriangle, perm: 'dashboard' },
             { href: '/dashboard/bog', label: '🏛️ Board of Governors', icon: FiUsers, perm: 'dashboard' },
             { href: '/dashboard/inspection', label: '🏫 Inspection Readiness', icon: FiCheckSquare, perm: 'dashboard' },

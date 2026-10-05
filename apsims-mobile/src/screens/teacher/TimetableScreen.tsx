@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     ActivityIndicator, StatusBar,
@@ -14,32 +14,34 @@ const C = {
     primary: "#2563eb", accent: "#059669", teal: "#0d9488",
     text: "#0f172a", textSub: "#64748b", textDim: "#94a3b8",
 };
-const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
-const DAY_SHORT = { Monday:"Mon", Tuesday:"Tue", Wednesday:"Wed", Thursday:"Thu", Friday:"Fri" };
-const DAY_COLORS = {
-    Monday:    ["#2563eb","#1d4ed8"], Tuesday:   ["#7c3aed","#6d28d9"],
-    Wednesday: ["#0d9488","#0f766e"], Thursday:  ["#ea580c","#c2410c"], Friday: ["#059669","#047857"],
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const DAY_SHORT: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri' };
+const DAY_COLORS: Record<string, [string, string]> = {
+    Monday:    ['#2563eb', '#1d4ed8'], Tuesday:   ['#7c3aed', '#6d28d9'],
+    Wednesday: ['#0d9488', '#0f766e'], Thursday:  ['#ea580c', '#c2410c'], Friday: ['#059669', '#047857'],
 };
+
 function getCurrentDay() {
     const day = new Date().getDay();
     return DAYS[Math.max(0,Math.min(4,day-1))] || "Monday";
 }
-function formatTime(time) {
-    if (!time) return "--";
+function formatTime(time: string): string {
+    if (!time) return '--';
     try {
-        const [h,m] = time.split(":").map(Number);
-        const ampm = h>=12?"PM":"AM"; const hour=h%12||12;
-        return `${hour}:${String(m).padStart(2,"0")} ${ampm}`;
+        const [h, m] = time.split(':').map(Number);
+        const ampm = h >= 12 ? 'PM' : 'AM'; const hour = h % 12 || 12;
+        return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
     } catch { return time; }
 }
 
 export default function TimetableScreen() {
     const { session } = useSession();
     const navigation = useNavigation();
-    const [entries, setEntries] = useState([]);
-    const [allPeriods, setAllPeriods] = useState([]);
+    const [entries, setEntries] = useState<TimetableEntry[]>([]);
+    const [allPeriods, setAllPeriods] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedDay, setSelectedDay] = useState(getCurrentDay());
+    const [selectedDay, setSelectedDay] = useState<string>(getCurrentDay());
+
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -50,13 +52,13 @@ export default function TimetableScreen() {
             ]);
             setEntries(timetableData);
             setAllPeriods(periodsRes.data || []);
-        } catch(err) { console.error("TimetableScreen:",err.message); }
+        } catch(err: any) { console.error('TimetableScreen:', err?.message); }
         finally { setLoading(false); }
     }, [session?.linked_teacher_id]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
-    const getDoubleEndTime = useCallback((periodId) => {
+    const getDoubleEndTime = useCallback((periodId: number) => {
         const lessonPeriods = allPeriods.filter(p=>p.period_type==="lesson").sort((a,b)=>a.period_number-b.period_number);
         const idx = lessonPeriods.findIndex(p=>p.id===periodId);
         const next = lessonPeriods[idx+1];
