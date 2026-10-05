@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ultra APSIMS",
     "slug": "apsims-mobile",
-    "version": "3.5.0",
+    "version": "3.6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F8FAFF"
+      "backgroundColor": "#0f0c29"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,7 +19,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "APSIMS needs camera access to scan documents and take student photos.",
         "NSPhotoLibraryUsageDescription": "APSIMS needs photo library access to upload student documents and photos.",
-        "NSLocationWhenInUseUsageDescription": "APSIMS uses location for attendance verification."
+        "NSLocationWhenInUseUsageDescription": "APSIMS uses location for attendance verification.",
+        "UIBackgroundModes": ["fetch", "remote-notification"]
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -28,10 +29,10 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F8FAFF"
+        "backgroundColor": "#0f0c29"
       },
       "package": "com.alphasolutions.apsims",
-      "versionCode": 31,
+      "versionCode": 32,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
@@ -42,8 +43,16 @@
         "USE_BIOMETRIC",
         "USE_FINGERPRINT",
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
-      ]
+        "ACCESS_NETWORK_STATE",
+        "POST_NOTIFICATIONS",
+        "WAKE_LOCK"
+      ],
+      "notification": {
+        "icon": "./assets/notification-icon.png",
+        "color": "#6366f1",
+        "androidMode": "default",
+        "androidCollapsedTitle": "APSIMS — {{unread_notifications}} new notifications"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -60,7 +69,8 @@
           "color": "#6366f1",
           "sounds": [],
           "androidMode": "default",
-          "androidCollapsedTitle": "APSIMS"
+          "androidCollapsedTitle": "APSIMS",
+          "iosDisplayInForeground": true
         }
       ]
     ],
