@@ -374,3 +374,54 @@ export function StaffCardBack({ staff, school, template }: any) {
         </div>
     );
 }
+
+// ── BusPassCardPreview ────────────────────────────────────────────────────────
+export function BusPassCardPreview({ busPass, student, school, getFormName }: any) {
+    return (
+        <div style={{ width: 320, borderRadius: 16, overflow: 'hidden', fontFamily: 'sans-serif', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '1px solid #e5e7eb' }}>
+            <div style={{ background: 'linear-gradient(135deg,#1d4ed8,#7c3aed)', padding: '16px 20px', color: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, opacity: 0.85, marginBottom: 4 }}>
+                    {school?.school_name || 'SCHOOL NAME'} · BUS PASS
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 900 }}>
+                    {student?.first_name} {student?.last_name}
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>{getFormName ? getFormName() : ''}</div>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '12px 20px', fontSize: 12, color: '#374151' }}>
+                <div><b>Route:</b> {busPass?.route_name}</div>
+                <div><b>Driver:</b> {busPass?.driver_name} · {busPass?.driver_phone}</div>
+                <div><b>Pickup:</b> {busPass?.pickup_point}</div>
+                <div><b>Drop-off:</b> {busPass?.dropoff_point}</div>
+                <div style={{ marginTop: 8, fontSize: 10, color: '#9ca3af' }}>
+                    Card No: {busPass?.card_number} · Expires: {busPass?.expiry_date}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── VisitorCardPreview ────────────────────────────────────────────────────────
+export function VisitorCardPreview({ visitor, school }: any) {
+    return (
+        <div style={{ width: 300, borderRadius: 16, overflow: 'hidden', fontFamily: 'sans-serif', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '1px solid #e5e7eb' }}>
+            <div style={{ background: 'linear-gradient(135deg,#059669,#0d9488)', padding: '16px 20px', color: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, opacity: 0.85, marginBottom: 4 }}>
+                    {school?.school_name || 'SCHOOL NAME'} · VISITOR PASS
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 900 }}>
+                    {visitor?.visitor_name || 'Visitor Name'}
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>{visitor?.purpose}</div>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '12px 20px', fontSize: 12, color: '#374151' }}>
+                <div><b>Host:</b> {visitor?.host_name}</div>
+                <div><b>Phone:</b> {visitor?.visitor_phone}</div>
+                <div><b>ID No:</b> {visitor?.id_number}</div>
+                <div style={{ marginTop: 8, fontSize: 10, color: '#9ca3af' }}>
+                    Badge: {visitor?.badge_number} · Date: {visitor?.visit_date}
+                </div>
+            </div>
+        </div>
+    );
+}

@@ -15,36 +15,7 @@ At line:1 char:1
  
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
- ΓÜá Compiled with warnings
-
-./src/app/dashboard/students/id-cards/BusPassTab.tsx
-Attempted import error: 'BusPassCardPreview' is not exported from './CardPreviews' (imported as 'BusPassCardPreview').
-
-Import trace for requested module:
-./src/app/dashboard/students/id-cards/BusPassTab.tsx
-./src/app/dashboard/students/id-cards/page.tsx
-
-./src/app/dashboard/students/id-cards/VisitorsTab.tsx
-Attempted import error: 'VisitorCardPreview' is not exported from './CardPreviews' (imported as 'VisitorCardPreview').
-
-Import trace for requested module:
-./src/app/dashboard/students/id-cards/VisitorsTab.tsx
-./src/app/dashboard/students/id-cards/page.tsx
-
-./src/app/dashboard/students/id-cards/BusPassTab.tsx
-Attempted import error: 'BusPassCardPreview' is not exported from './CardPreviews' (imported as 'BusPassCardPreview').
-
-Import trace for requested module:
-./src/app/dashboard/students/id-cards/BusPassTab.tsx
-./src/app/dashboard/students/id-cards/page.tsx
-
-./src/app/dashboard/students/id-cards/VisitorsTab.tsx
-Attempted import error: 'VisitorCardPreview' is not exported from './CardPreviews' (imported as 'VisitorCardPreview').
-
-Import trace for requested module:
-./src/app/dashboard/students/id-cards/VisitorsTab.tsx
-./src/app/dashboard/students/id-cards/page.tsx
-
+ Γ£ô Compiled successfully
    Skipping validation of types
    Skipping linting
    Collecting page data ...
@@ -212,7 +183,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/cbc/parent-portal                        19 kB           166 kB
 Γö£ Γùï /dashboard/cbc/portfolio                            15.3 kB         162 kB
 Γö£ Γùï /dashboard/cbc/senior-school                        10.9 kB         157 kB
-Γö£ Γùï /dashboard/chat                                     11.8 kB         152 kB
+Γö£ Γùï /dashboard/chat                                     7.26 kB         147 kB
 Γö£ Γùï /dashboard/circulars                                9.94 kB         150 kB
 Γö£ Γùï /dashboard/clubs                                    12.7 kB         152 kB
 Γö£ Γùï /dashboard/communication                            17.9 kB         158 kB
@@ -427,7 +398,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/students/bus-passes                      9.33 kB         149 kB
 Γö£ Γùï /dashboard/students/clinic                          11 kB           151 kB
 Γö£ Γùï /dashboard/students/health                          16.7 kB         156 kB
-Γö£ Γùï /dashboard/students/id-cards                        21.2 kB         164 kB
+Γö£ Γùï /dashboard/students/id-cards                        21.5 kB         165 kB
 Γö£ Γùï /dashboard/students/nemis-export                    9 kB            142 kB
 Γö£ Γùï /dashboard/students/profile                         20.6 kB         230 kB
 Γö£ Γùï /dashboard/students/promotion                       21.9 kB         162 kB
@@ -463,7 +434,7 @@ Route (app)                                             Size     First Load JS
   Γöö chunks/webpack-d8435654e9229408.js                  1.9 kB
 
 
-╞Æ Middleware                                            46.3 kB
+╞Æ Middleware                                            46.4 kB
 
 Γùï  (Static)   prerendered as static content
 ╬╗  (Dynamic)  server-rendered on demand using Node.js

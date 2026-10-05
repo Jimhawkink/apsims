@@ -31,6 +31,8 @@ import ReportCardScreen from './src/screens/shared/ReportCardScreen';
 import AcademicPassportScreen from './src/screens/shared/AcademicPassportScreen';
 import ExportScreen from './src/screens/shared/ExportScreen';
 import AnnouncementScreen from './src/screens/shared/AnnouncementScreen';
+import ChatListScreen from './src/screens/shared/ChatListScreen';
+import ChatRoomScreen from './src/screens/shared/ChatRoomScreen';
 
 // ── Teacher ──────────────────────────────────────────────────
 import StudentProfileScreen from './src/screens/teacher/StudentProfileScreen';
@@ -188,6 +190,11 @@ export default function App() {
                             <Stack.Screen name="AcademicPassport" component={AcademicPassportScreen} />
                             <Stack.Screen name="Export" component={ExportScreen} />
                             <Stack.Screen name="Announcement" component={AnnouncementScreen} />
+                            {/* ── Chat ─────────────────────────────────── */}
+                            <Stack.Screen name="ChatList" component={ChatListScreen}
+                                options={{ headerShown: false }} />
+                            <Stack.Screen name="ChatRoom" component={ChatRoomScreen}
+                                options={{ headerShown: false }} />
 
                             {/* ── Teacher ───────────────────────────────── */}
                             <Stack.Screen name="CBCAssessment" component={CBCAssessmentScreen} />

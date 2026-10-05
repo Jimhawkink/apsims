@@ -194,11 +194,13 @@ export default function TeacherDashboard() {
                         {/* Quick actions */}
                         <SectionLabel title="Quick Actions" subtitle="Tap to navigate" />
                         <View style={styles.qaRow}>
+                            <QuickActionItem icon="💬" label="Chat" gradient={['#6366f1', '#8b5cf6'] as const} onPress={() => navigation.navigate('ChatList' as any)} />
                             <QuickActionItem icon="🗓️" label="Timetable" gradient={T.gradTeal} onPress={() => navigation.navigate('TeacherTimetable')} />
                             <QuickActionItem icon="📢" label="Announce" gradient={T.gradPurple} onPress={() => navigation.navigate('Announcement')} />
                             <QuickActionItem icon="📤" label="Export" gradient={['#475569', '#334155']} onPress={() => navigation.navigate('Export')} />
                             <QuickActionItem icon="🔔" label="Alerts" gradient={T.gradPink} onPress={() => navigation.navigate('Notifications', { portalUserId })} badge={unreadCount > 0 ? String(unreadCount) : undefined} />
                         </View>
+
 
                         {/* Subject cards */}
                         <SectionLabel

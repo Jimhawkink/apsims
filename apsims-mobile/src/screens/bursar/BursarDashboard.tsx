@@ -295,6 +295,7 @@ export default function BursarDashboard() {
                     {/* ── QUICK ACTIONS ── */}
                     <Text style={styles.sectionTitle}>⚡ Quick Actions</Text>
                     <View style={styles.quickGrid}>
+                        <QuickAction icon="💬" label="Chat" color="#6366f1" onPress={() => navigation.navigate('ChatList' as any)} />
                         <QuickAction icon="💳" label="Collect Fee" color="#10b981" onPress={() => navigation.navigate('Fees')} />
                         <QuickAction icon="📝" label="Add Expense" color="#ef4444" onPress={() => navigation.navigate('Expenses')} />
                         <QuickAction icon="💵" label="Record Income" color="#6366f1" onPress={() => navigation.navigate('Income')} />
@@ -302,6 +303,7 @@ export default function BursarDashboard() {
                         <QuickAction icon="📱" label="Send Reminders" color="#0891b2" onPress={() => {}} />
                         <QuickAction icon="📥" label="Export Data" color="#7c3aed" onPress={() => {}} />
                     </View>
+
 
                     {/* ── MONTHLY TREND ── */}
                     <Text style={styles.sectionTitle}>📈 6-Month Fee Collection Trend</Text>

@@ -1,209 +1,325 @@
+/**
+ * APSIMS ChatListScreen — WhatsApp-exact premium contacts list
+ * Shows CONTACTS (people) not groups — tap to open direct chat
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    View, Text, FlatList, TouchableOpacity, StyleSheet,
-    TextInput, ActivityIndicator, RefreshControl, StatusBar, Platform,
+    View, Text, StyleSheet, FlatList, TouchableOpacity,
+    TextInput, ActivityIndicator, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSession } from '../../context/SessionContext';
 import { supabase } from '../../lib/supabase';
-import { RootStackParamList } from '../../navigation/types';
 
-type NavProp = NativeStackNavigationProp<RootStackParamList>;
-
-interface ChatRoom {
+interface Contact {
     id: number;
-    room_type: 'staff' | 'class' | 'parent_teacher' | 'broadcast' | 'direct';
-    room_name: string;
-    created_at: string;
+    full_name: string;
+    username: string;
+    role: string;
     lastMessage?: string;
-    lastSender?: string;
     lastTime?: string;
-    unreadCount?: number;
+    unread: number;
 }
 
-const ROOM_ICONS: Record<string, string> = {
-    staff: '👩‍🏫', class: '🏫', parent_teacher: '👨‍👩‍👧', broadcast: '📢', direct: '💬',
-};
-const ROOM_GRADIENTS: Record<string, [string, string]> = {
-    staff:          ['#6366f1', '#8b5cf6'],
-    class:          ['#0891b2', '#06b6d4'],
-    parent_teacher: ['#059669', '#10b981'],
-    broadcast:      ['#dc2626', '#ef4444'],
-    direct:         ['#d97706', '#f59e0b'],
-};
+function roomKey(a: number, b: number) {
+    return `direct_${Math.min(a, b)}_${Math.max(a, b)}`;
+}
 
-function formatTime(ts?: string) {
+function fmtTime(ts: string) {
     if (!ts) return '';
     const d = new Date(ts);
-    const now = new Date();
-    const diff = now.getTime() - d.getTime();
+    const diff = Date.now() - d.getTime();
     if (diff < 86400000) return d.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' });
     if (diff < 604800000) return d.toLocaleDateString('en-KE', { weekday: 'short' });
     return d.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
 }
 
+const ROLE_COLOR: Record<string, string> = {
+    admin: '#6366f1', principal: '#7c3aed', teacher: '#0d9488',
+    bursar: '#d97706', parent: '#059669', student: '#2563eb',
+};
+const ROLE_ORDER = ['admin', 'principal', 'teacher', 'bursar', 'parent', 'student'];
+const ROLE_LABEL: Record<string, string> = {
+    admin: '🔑 Admins', principal: '🎓 Principals', teacher: '👨‍🏫 Teachers',
+    bursar: '💰 Bursars', parent: '👨‍👩‍👧 Parents', student: '🎒 Students',
+};
+
+function rc(role: string) { return ROLE_COLOR[role?.toLowerCase()] || '#6366f1'; }
+
+function Avatar({ name, role, size = 50 }: { name: string; role?: string; size?: number }) {
+    const ini = (name || '?').split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('');
+    return (
+        <LinearGradient
+            colors={[rc(role || ''), rc(role || '') + 'aa']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: '900', fontSize: size * 0.36 }}>{ini}</Text>
+        </LinearGradient>
+    );
+}
+
 export default function ChatListScreen() {
-    const navigation = useNavigation<NavProp>();
-    const [rooms, setRooms] = useState<ChatRoom[]>([]);
+    const { session } = useSession();
+    const navigation = useNavigation();
+    const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
     const [search, setSearch] = useState('');
 
-    const loadRooms = useCallback(async () => {
-        const { data, error } = await supabase
-            .from('school_chat_rooms')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false });
+    const loadContacts = useCallback(async () => {
+        if (!session?.portal_user_id) return;
+        setLoading(true);
 
-        if (!error && data) {
-            // Fetch last message for each room
-            const enriched = await Promise.all(data.map(async (room) => {
+        // ── PARENT: skip contacts list, go straight to school admin ──────────
+        if (session.user_type === 'parent' || session.role === 'parent') {
+            // Find the admin/principal for this school
+            const { data: admins } = await supabase
+                .from('school_users')
+                .select('id, full_name, username, role, phone')
+                .in('role', ['admin', 'principal'])
+                .order('role')
+                .limit(1);
+
+            const admin = admins?.[0];
+            if (admin) {
+                const key = roomKey(session.portal_user_id, admin.id);
+                let { data: room } = await supabase
+                    .from('school_chat_rooms').select('id')
+                    .eq('room_name', key).maybeSingle();
+
+                if (!room) {
+                    const { data: nr } = await supabase
+                        .from('school_chat_rooms')
+                        .insert([{ room_type: 'direct', room_name: key, is_active: true, created_by: session.portal_user_id }])
+                        .select('id').single();
+                    room = nr;
+                }
+
+                if (room?.id) {
+                    setLoading(false);
+                    // Navigate directly to chat room — parent has no contacts list
+                    (navigation as any).replace('ChatRoom', {
+                        room: { id: room.id, room_type: 'direct', room_name: key },
+                        contact: { id: admin.id, full_name: admin.full_name, role: admin.role },
+                        isParentDirectInbox: true,
+                    });
+                    return;
+                }
+            }
+            setLoading(false);
+            return;
+        }
+
+        // ── ALL OTHER ROLES: load full contacts list ───────────────────────
+
+
+        const { data } = await supabase
+            .from('school_users')
+            .select('id, full_name, username, role')
+            .neq('id', session.portal_user_id)
+            .order('role').order('full_name');
+
+        if (!data) { setLoading(false); return; }
+
+        // Fetch last message for each contact
+        const enriched: Contact[] = await Promise.all(data.map(async (u: any) => {
+            const key = roomKey(session.portal_user_id, u.id);
+            const { data: room } = await supabase
+                .from('school_chat_rooms').select('id')
+                .eq('room_name', key).maybeSingle();
+            let lastMessage = '', lastTime = '', unread = 0;
+            if (room?.id) {
                 const { data: msgs } = await supabase
                     .from('school_chat_messages')
-                    .select('message, sender_name, created_at')
-                    .eq('room_id', room.id)
-                    .eq('is_deleted', false)
-                    .order('created_at', { ascending: false })
-                    .limit(1);
-                const last = msgs?.[0];
-                return {
-                    ...room,
-                    lastMessage: last?.message || 'No messages yet',
-                    lastSender: last?.sender_name,
-                    lastTime: last?.created_at,
-                } as ChatRoom;
-            }));
-            setRooms(enriched);
-        }
+                    .select('message, created_at, sender_id, read_by')
+                    .eq('room_id', room.id).eq('is_deleted', false)
+                    .order('created_at', { ascending: false }).limit(1);
+                if (msgs?.[0]) {
+                    lastMessage = msgs[0].message?.slice(0, 55) || '';
+                    lastTime = fmtTime(msgs[0].created_at);
+                    if (msgs[0].sender_id !== session.portal_user_id &&
+                        !(msgs[0].read_by || []).includes(session.portal_user_id)) {
+                        unread = 1;
+                    }
+                }
+            }
+            return { ...u, lastMessage, lastTime, unread };
+        }));
+
+        setContacts(enriched);
         setLoading(false);
-        setRefreshing(false);
-    }, []);
+    }, [session?.portal_user_id]);
 
-    useEffect(() => { loadRooms(); }, [loadRooms]);
+    useEffect(() => { loadContacts(); }, [loadContacts]);
 
-    const onRefresh = () => { setRefreshing(true); loadRooms(); };
+    const openChat = useCallback(async (contact: Contact) => {
+        if (!session?.portal_user_id) return;
+        const key = roomKey(session.portal_user_id, contact.id);
 
-    const filtered = rooms.filter(r => r.room_name?.toLowerCase().includes(search.toLowerCase()));
+        let { data: room } = await supabase
+            .from('school_chat_rooms').select('id')
+            .eq('room_name', key).maybeSingle();
 
-    const renderRoom = ({ item }: { item: ChatRoom }) => (
-        <TouchableOpacity
-            style={styles.roomItem}
-            onPress={() => (navigation as any).navigate('ChatRoom', { room: item })}
-            activeOpacity={0.75}
-        >
-            <LinearGradient
-                colors={ROOM_GRADIENTS[item.room_type] || ['#6366f1', '#8b5cf6']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.roomIcon}
-            >
-                <Text style={styles.roomIconText}>{ROOM_ICONS[item.room_type]}</Text>
-            </LinearGradient>
-            <View style={styles.roomInfo}>
-                <View style={styles.roomRow}>
-                    <Text style={styles.roomName} numberOfLines={1}>{item.room_name}</Text>
-                    <Text style={styles.roomTime}>{formatTime(item.lastTime)}</Text>
-                </View>
-                <View style={styles.roomRow}>
-                    <Text style={styles.roomLast} numberOfLines={1}>
-                        {item.lastSender ? `${item.lastSender.split(' ')[0]}: ` : ''}{item.lastMessage}
-                    </Text>
-                    <Text style={styles.roomType}>{item.room_type.replace('_', ' ')}</Text>
-                </View>
-            </View>
-        </TouchableOpacity>
+        if (!room) {
+            const { data: nr } = await supabase
+                .from('school_chat_rooms')
+                .insert([{ room_type: 'direct', room_name: key, is_active: true, created_by: session.portal_user_id }])
+                .select('id').single();
+            room = nr;
+        }
+
+        if (!room?.id) return;
+        // Mark as read
+        setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, unread: 0 } : c));
+
+        (navigation as any).navigate('ChatRoom', {
+            room: { id: room.id, room_type: 'direct', room_name: key },
+            contact: { id: contact.id, full_name: contact.full_name, role: contact.role },
+        });
+    }, [session, navigation]);
+
+    const filtered = contacts.filter(c =>
+        !search || c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+        c.role?.toLowerCase().includes(search.toLowerCase())
     );
 
+    // Group by role
+    const grouped: Record<string, Contact[]> = {};
+    filtered.forEach(c => {
+        const g = c.role?.toLowerCase() || 'other';
+        if (!grouped[g]) grouped[g] = [];
+        grouped[g].push(c);
+    });
+    const sections: { title: string; data: Contact[] }[] = ROLE_ORDER
+        .filter(r => grouped[r]?.length)
+        .map(r => ({ title: ROLE_LABEL[r] || r, data: grouped[r] }));
+
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#1e1b4b" />
+        <View style={S.root}>
+            <StatusBar barStyle="dark-content" backgroundColor="#f0f2f5" />
 
             {/* Header */}
-            <LinearGradient
-                colors={['#0f0c29', '#1e1b6b', '#24243e']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.header}
-            >
-                <View style={styles.headerContent}>
-                    <View>
-                        <Text style={styles.headerTitle}>💬 School Chat</Text>
-                        <Text style={styles.headerSub}>Real-time school communication</Text>
-                    </View>
-                    <View style={styles.liveBadge}>
-                        <View style={styles.liveDot} />
-                        <Text style={styles.liveText}>LIVE</Text>
-                    </View>
+            <View style={S.header}>
+                <View>
+                    <Text style={S.headerTitle}>School Chat</Text>
+                    <Text style={S.headerSub}>{session?.full_name}</Text>
                 </View>
+                <View style={S.headerRight}>
+                    <Text style={{ fontSize: 20 }}>💬</Text>
+                </View>
+            </View>
 
-                {/* Search bar */}
-                <View style={styles.searchBar}>
-                    <Text style={styles.searchIcon}>🔍</Text>
+            {/* Search */}
+            <View style={S.searchWrap}>
+                <View style={S.searchBox}>
+                    <Text style={{ fontSize: 14, marginRight: 6 }}>🔍</Text>
                     <TextInput
                         value={search}
                         onChangeText={setSearch}
-                        placeholder="Search rooms…"
-                        placeholderTextColor="rgba(165,180,252,0.5)"
-                        style={styles.searchInput}
+                        placeholder="Search contacts…"
+                        placeholderTextColor="#adb5bd"
+                        style={S.searchInput}
                     />
+                    {search.length > 0 && (
+                        <TouchableOpacity onPress={() => setSearch('')}>
+                            <Text style={{ fontSize: 14, color: '#adb5bd' }}>✕</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
-            </LinearGradient>
+            </View>
 
-            {/* Room list */}
             {loading ? (
-                <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#6366f1" />
-                    <Text style={styles.loadingText}>Loading chats…</Text>
+                <View style={S.center}>
+                    <ActivityIndicator size="large" color="#128C7E" />
+                    <Text style={S.loadTxt}>Loading contacts…</Text>
+                </View>
+            ) : contacts.length === 0 ? (
+                <View style={S.center}>
+                    <Text style={{ fontSize: 52 }}>👥</Text>
+                    <Text style={S.loadTxt}>No contacts yet</Text>
+                    <Text style={{ color: '#adb5bd', fontSize: 12, textAlign: 'center', marginTop: 4, paddingHorizontal: 32 }}>
+                        Contacts appear here once users are added to the school system
+                    </Text>
                 </View>
             ) : (
                 <FlatList
-                    data={filtered}
-                    keyExtractor={item => String(item.id)}
-                    renderItem={renderRoom}
-                    contentContainerStyle={filtered.length === 0 ? styles.emptyContainer : styles.listContent}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366f1" />}
-                    ListEmptyComponent={
-                        <View style={styles.empty}>
-                            <Text style={styles.emptyEmoji}>💬</Text>
-                            <Text style={styles.emptyTitle}>No rooms yet</Text>
-                            <Text style={styles.emptySub}>Rooms are created by the administrator</Text>
+                    data={sections}
+                    keyExtractor={item => item.title}
+                    showsVerticalScrollIndicator={false}
+                    renderItem={({ item: section }) => (
+                        <View>
+                            {/* Section label */}
+                            <View style={S.sectionHeader}>
+                                <Text style={S.sectionTitle}>{section.title}</Text>
+                            </View>
+
+                            {section.data.map(contact => (
+                                <TouchableOpacity
+                                    key={contact.id}
+                                    onPress={() => openChat(contact)}
+                                    activeOpacity={0.7}
+                                    style={S.contactRow}
+                                >
+                                    {/* Avatar */}
+                                    <View style={{ position: 'relative' }}>
+                                        <Avatar name={contact.full_name} role={contact.role} size={52} />
+                                    </View>
+
+                                    {/* Info */}
+                                    <View style={S.contactInfo}>
+                                        <View style={S.contactTop}>
+                                            <Text style={S.contactName} numberOfLines={1}>
+                                                {contact.full_name}
+                                            </Text>
+                                            {contact.lastTime ? (
+                                                <Text style={[S.contactTime, contact.unread > 0 && { color: '#25D366', fontWeight: '700' }]}>
+                                                    {contact.lastTime}
+                                                </Text>
+                                            ) : null}
+                                        </View>
+                                        <View style={S.contactBottom}>
+                                            <Text style={S.contactLast} numberOfLines={1}>
+                                                {contact.lastMessage ||
+                                                    <Text style={{ color: '#adb5bd', fontStyle: 'italic', fontSize: 13 }}>Tap to start chatting</Text>
+                                                }
+                                            </Text>
+                                            {contact.unread > 0 && (
+                                                <View style={S.badge}>
+                                                    <Text style={S.badgeTxt}>{contact.unread}</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
                         </View>
-                    }
-                    ItemSeparatorComponent={() => <View style={styles.separator} />}
+                    )}
                 />
             )}
         </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8faff' },
-    header: { paddingTop: Platform.OS === 'ios' ? 54 : 44, paddingBottom: 16, paddingHorizontal: 20 },
-    headerContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-    headerTitle: { color: '#fff', fontWeight: '900', fontSize: 20, fontFamily: 'System' },
-    headerSub: { color: 'rgba(199,210,254,0.7)', fontSize: 12, marginTop: 1 },
-    liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: 'rgba(16,185,129,0.15)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)' },
-    liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981' },
-    liveText: { color: '#10b981', fontWeight: '900', fontSize: 10, letterSpacing: 1 },
-    searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
-    searchIcon: { fontSize: 14 },
-    searchInput: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '600' },
-    listContent: { paddingBottom: 20 },
-    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
-    roomItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff', gap: 14 },
-    roomIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-    roomIconText: { fontSize: 24 },
-    roomInfo: { flex: 1, minWidth: 0 },
-    roomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 3 },
-    roomName: { fontWeight: '800', fontSize: 14, color: '#0f172a', flex: 1 },
-    roomTime: { fontSize: 11, color: '#94a3b8', flexShrink: 0 },
-    roomLast: { fontSize: 12, color: '#64748b', flex: 1, fontWeight: '500' },
-    roomType: { fontSize: 10, color: '#6366f1', fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, backgroundColor: 'rgba(99,102,241,0.08)', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-    separator: { height: 1, backgroundColor: '#f1f5f9', marginLeft: 82 },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-    loadingText: { color: '#64748b', fontWeight: '600', fontSize: 14 },
-    empty: { alignItems: 'center', paddingTop: 60 },
-    emptyEmoji: { fontSize: 64, marginBottom: 12 },
-    emptyTitle: { fontWeight: '800', fontSize: 18, color: '#1e293b', marginBottom: 6 },
-    emptySub: { fontSize: 13, color: '#94a3b8', textAlign: 'center' },
+const S = StyleSheet.create({
+    root:          { flex: 1, backgroundColor: '#fff' },
+    header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#f0f2f5', borderBottomWidth: 1, borderBottomColor: '#e9edef' },
+    headerTitle:   { fontSize: 20, fontWeight: '900', color: '#111b21' },
+    headerSub:     { fontSize: 12, color: '#128C7E', fontWeight: '700', marginTop: 1 },
+    headerRight:   { flexDirection: 'row', gap: 8 },
+    searchWrap:    { padding: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f0f2f5' },
+    searchBox:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f2f5', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+    searchInput:   { flex: 1, fontSize: 15, color: '#111b21' },
+    center:        { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingBottom: 60 },
+    loadTxt:       { fontSize: 14, color: '#667781', marginTop: 8 },
+    sectionHeader: { paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#f9fafb', borderBottomWidth: 1, borderBottomColor: '#f0f2f5' },
+    sectionTitle:  { fontSize: 11, fontWeight: '800', color: '#128C7E', letterSpacing: 0.7, textTransform: 'uppercase' },
+    contactRow:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f0f2f5', gap: 14 },
+    contactInfo:   { flex: 1 },
+    contactTop:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 },
+    contactName:   { fontSize: 16, fontWeight: '700', color: '#111b21', flex: 1, marginRight: 6 },
+    contactTime:   { fontSize: 11, color: '#667781' },
+    contactBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    contactLast:   { fontSize: 13, color: '#667781', flex: 1, marginRight: 6 },
+    badge:         { width: 20, height: 20, borderRadius: 10, backgroundColor: '#25D366', alignItems: 'center', justifyContent: 'center' },
+    badgeTxt:      { fontSize: 10, fontWeight: '900', color: '#fff' },
 });

@@ -300,12 +300,14 @@ export default function StudentDashboard() {
                         {/* ─── Quick Actions ─────────────────────── */}
                         <SectionLabel title="Quick Actions" subtitle="Tap to navigate" />
                         <View style={styles.qaGrid}>
+                            <QuickActionItem icon="💬" label="Chat" gradient={['#6366f1', '#8b5cf6'] as const} onPress={() => navigation.navigate('ChatList' as any)} />
                             <QuickActionItem icon="📊" label="My Results" gradient={T.gradBlue} onPress={() => navigation.navigate('StudentResults' as any)} />
                             <QuickActionItem icon="📅" label="Attendance" gradient={T.gradTeal} onPress={() => navigation.navigate('StudentAttendance' as any)} />
                             <QuickActionItem icon="💰" label="Fee Balance" gradient={feeData.balance > 0 ? T.gradRed : T.gradGreen} onPress={() => navigation.navigate('FeeBalance' as any)} />
                             <QuickActionItem icon="📄" label="Report Card" gradient={T.gradPurple} onPress={() => navigation.navigate('ReportCard' as any)} />
                             <QuickActionItem icon="🎓" label="Acad. Passport" gradient={['#4f46e5','#7c3aed'] as const} onPress={() => navigation.navigate('AcademicPassport' as any, { studentId, studentName: session?.full_name || '', formId, formLevel: session?.student_form_level || 0, isParent: false })} />
                         </View>
+
 
                         {/* ─── Fee Balance Gauge ─────────────────── */}
                         {feeData.totalDue > 0 && (

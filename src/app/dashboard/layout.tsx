@@ -1017,9 +1017,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             : <FiWifi size={13} className="text-green-600" />
                           }
                         </div>
-                        {/* 💬 Chat — always visible in topbar */}
-                        <a href="/dashboard/chat" style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:10, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'1px solid rgba(99,102,241,0.4)', textDecoration:'none', fontWeight:800, fontSize:11, color:'#fff', whiteSpace:'nowrap', boxShadow:'0 4px 14px rgba(99,102,241,0.35)' }}>
-                            <span style={{ fontSize:14 }}>💬</span> Chat
+                        {/* 💬 Chat icon */}
+                        <a href="/dashboard/chat" title="School Chat" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:'50%', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', textDecoration:'none', boxShadow:'0 3px 10px rgba(99,102,241,0.4)', flexShrink:0, fontSize:18 }}>
+                            💬
                         </a>
                         {/* Notifications - LIVE */}
                         <a href="/dashboard/notifications" style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:10, background:'linear-gradient(135deg,#fef3c7,#fde68a)', border:'1px solid #fcd34d', textDecoration:'none', fontWeight:800, fontSize:11, color:'#92400e', whiteSpace:'nowrap' }}>

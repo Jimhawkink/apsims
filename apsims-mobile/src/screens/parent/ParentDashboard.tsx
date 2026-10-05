@@ -587,6 +587,7 @@ export default function ParentDashboard() {
                         <SectionLabel title="Quick Actions" subtitle="Tap to view" />
                         <View style={styles.qaGrid}>
                             {[
+                                { icon: '💬', label: 'Chat', grad: ['#6366f1', '#8b5cf6'] as const, screen: 'ChatList', params: {} },
                                 { icon: '📊', label: 'Results', grad: T.gradBlue, screen: 'ReportCard', params: { studentId: child?.id, formId: child?.form_id, formLevel: 0, isParent: true } },
                                 { icon: '📅', label: 'Attendance', grad: T.gradTeal, screen: 'ParentAttendance', params: { studentId: child?.id } },
                                 { icon: '📋', label: 'Timetable', grad: T.gradPurple, screen: 'ChildTimetable', params: { formId: child?.form_id, formName: child?.form_name } },
