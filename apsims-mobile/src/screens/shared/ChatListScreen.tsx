@@ -1,4 +1,4 @@
-/**
+﻿/**
  * APSIMS ChatListScreen — WhatsApp-exact premium contacts list
  * Shows CONTACTS (people) not groups — tap to open direct chat
  */
@@ -82,7 +82,7 @@ export default function ChatListScreen() {
 
             const admin = admins?.[0];
             if (admin) {
-                const key = roomKey(session.portal_user_id, admin.id);
+                const key = `school_parent_${session.portal_user_id}`; // fixed room - works with any admin
                 let { data: room } = await supabase
                     .from('school_chat_rooms').select('id')
                     .eq('room_name', key).maybeSingle();

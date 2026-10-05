@@ -197,12 +197,13 @@ export default function ChatPage() {
         const data = [...staffList, ...parentList];
         if (!data.length){ setLoading(false); return; }
 
-        // fetch last msg for each — use real portal ID for room key (matches mobile)
+        // fetch last msg for each — use school_parent_{id} for portal users so any admin sees same room
         const enriched: Contact[] = await Promise.all(data.map(async(u:any)=>{
-            const rid = u._portalId ?? u.id;   // real ID (no +100000 offset)
+            const rid  = u._portalId ?? u.id;
+            const rkey = u._portalId ? `school_parent_${rid}` : roomKey(currentUser.id, rid);
             const { data: room } = await supabase
                 .from('school_chat_rooms').select('id')
-                .eq('room_name', roomKey(currentUser.id, rid)).maybeSingle();
+                .eq('room_name', rkey).maybeSingle();
             let lastMessage='', lastTime='', unread=0;
             if (room?.id) {
                 const { data: m } = await supabase
@@ -231,8 +232,11 @@ export default function ChatPage() {
         setTypingUsers(new Map());
         setLoadingMsgs(true);
 
-        const rid = (contact as any)._portalId ?? contact.id;  // real portal ID
-        const key = roomKey(currentUser.id, rid);
+        const rid = (contact as any)._portalId ?? contact.id;
+        // KEY FIX: portal users (parents/students) use a SHARED room name
+        // not tied to which specific admin is logged in — any admin sees the same room
+        const isPortal = !!(contact as any)._portalId;
+        const key = isPortal ? `school_parent_${rid}` : roomKey(currentUser.id, rid);
         let { data: room } = await supabase
             .from('school_chat_rooms').select('id').eq('room_name', key).maybeSingle();
         if (!room) {
