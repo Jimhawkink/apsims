@@ -2,13 +2,15 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
     StyleSheet, KeyboardAvoidingView, Platform, StatusBar,
-    ActivityIndicator, Animated, Easing, Vibration, Pressable,
+    ActivityIndicator, Animated, Easing, Vibration, Pressable, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import EmojiKeyboard from 'rn-emoji-keyboard';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ChatMessage {
@@ -346,6 +348,56 @@ export default function ChatRoomScreen() {
         }
     }, [text, room, currentUser, broadcastTyping]);
 
+    // ── Attachment: image gallery or document picker ───────────────────────────
+    const sendAttachment = useCallback(async () => {
+        if (!room?.id || !currentUser) return;
+        Alert.alert('Attach', 'Choose attachment type', [
+            {
+                text: '📷 Photo / Image', onPress: async () => {
+                    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                    if (!perm.granted) { Alert.alert('Permission required', 'Allow photo access to attach images.'); return; }
+                    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+                    if (result.canceled || !result.assets?.[0]) return;
+                    const asset = result.assets[0];
+                    const filename = asset.uri.split('/').pop() || `img_${Date.now()}.jpg`;
+                    const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+                    const path = `chat/${room.id}/${Date.now()}_${filename}`;
+                    const resp = await fetch(asset.uri);
+                    const blob = await resp.blob();
+                    const { error } = await supabase.storage.from('apsims-chat').upload(path, blob, { contentType: `image/${ext}`, upsert: true });
+                    if (error) { Alert.alert('Upload failed', error.message); return; }
+                    const { data: { publicUrl } } = supabase.storage.from('apsims-chat').getPublicUrl(path);
+                    await supabase.from('school_chat_messages').insert([{
+                        room_id: room.id, sender_id: currentUser.id,
+                        sender_name: currentUser.full_name || 'User', sender_role: currentUser.role || 'staff',
+                        message: `📷 [Image](${publicUrl})`, message_type: 'image',
+                        is_deleted: false, read_by: [currentUser.id], created_at: new Date().toISOString(),
+                    }]);
+                }
+            },
+            {
+                text: '📎 Document / File', onPress: async () => {
+                    const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+                    if (result.canceled || !result.assets?.[0]) return;
+                    const asset = result.assets[0];
+                    const path = `chat/${room.id}/${Date.now()}_${asset.name.replace(/\s+/g,'_')}`;
+                    const resp = await fetch(asset.uri);
+                    const blob = await resp.blob();
+                    const { error } = await supabase.storage.from('apsims-chat').upload(path, blob, { contentType: asset.mimeType || 'application/octet-stream', upsert: true });
+                    if (error) { Alert.alert('Upload failed', error.message); return; }
+                    const { data: { publicUrl } } = supabase.storage.from('apsims-chat').getPublicUrl(path);
+                    await supabase.from('school_chat_messages').insert([{
+                        room_id: room.id, sender_id: currentUser.id,
+                        sender_name: currentUser.full_name || 'User', sender_role: currentUser.role || 'staff',
+                        message: `📎 [${asset.name}](${publicUrl})`, message_type: 'file',
+                        is_deleted: false, read_by: [currentUser.id], created_at: new Date().toISOString(),
+                    }]);
+                }
+            },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
+    }, [room, currentUser]);
+
     // ── Group messages by date ────────────────────────────────────────────────
     const renderItem = useCallback(({ item: msg, index }: { item: ChatMessage; index: number }) => {
         const isMe = msg.sender_id === currentUser?.id;
@@ -439,15 +491,25 @@ export default function ChatRoomScreen() {
                     onPress={() => {
                         if (navigation.canGoBack()) {
                             navigation.goBack();
+                            return;
+                        }
+                        // Use route params for immediate nav (no async needed)
+                        const isParent = route.params?.isParentDirectInbox;
+                        const role = currentUser?.role || route.params?.userRole || '';
+                        if (isParent || role === 'parent') {
+                            navigation.navigate('ParentTabs' as any);
+                        } else if (role === 'teacher') {
+                            navigation.navigate('TeacherTabs' as any);
+                        } else if (role === 'student') {
+                            navigation.navigate('StudentTabs' as any);
+                        } else if (role === 'bursar') {
+                            navigation.navigate('BursarTabs' as any);
+                        } else if (role === 'principal') {
+                            navigation.navigate('PrincipalTabs' as any);
                         } else {
-                            // Navigate to the right home based on role
-                            const role = currentUser?.role || '';
-                            if (role === 'parent')    navigation.navigate('ParentTabs' as any);
-                            else if (role === 'teacher')   navigation.navigate('TeacherTabs' as any);
-                            else if (role === 'student')   navigation.navigate('StudentTabs' as any);
-                            else if (role === 'bursar')    navigation.navigate('BursarTabs' as any);
-                            else if (role === 'principal') navigation.navigate('PrincipalTabs' as any);
-                            else navigation.navigate('ParentTabs' as any);
+                            // Last resort — go to ChatList if it's in stack, else ParentTabs
+                            try { navigation.navigate('ChatList' as any); }
+                            catch { navigation.navigate('ParentTabs' as any); }
                         }
                     }}
                     style={styles.backBtn}
@@ -545,7 +607,7 @@ export default function ChatRoomScreen() {
                             maxLength={2000}
                             blurOnSubmit={false}
                         />
-                        <TouchableOpacity style={styles.iconBtn}>
+                        <TouchableOpacity style={styles.iconBtn} onPress={sendAttachment}>
                             <Text style={styles.iconText}>📎</Text>
                         </TouchableOpacity>
                     </View>

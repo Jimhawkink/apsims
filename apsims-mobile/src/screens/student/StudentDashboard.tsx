@@ -64,7 +64,7 @@ export default function StudentDashboard() {
 
     const hour = currentTime.getHours();
     // School name
-    useEffect(() => { supabase.from('school_details').select('school_name,tagline,section').order('id').limit(1).maybeSingle().then(({ data }) => { if (data?.school_name) setSchoolName(data.school_name); if ((data as any)?.tagline) setSchoolTagline((data as any).tagline); }); }, []);
+    useEffect(() => { supabase.from('school_details').select('school_name,tagline,phone,email,section').not('section','eq','primary').order('id').limit(1).maybeSingle().then(({ data }) => { if (data?.school_name) setSchoolName(data.school_name); if ((data as any)?.tagline) setSchoolTagline((data as any).tagline); }); }, []);
 
     const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
     const greetEmoji = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙';

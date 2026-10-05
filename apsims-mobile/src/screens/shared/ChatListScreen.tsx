@@ -98,15 +98,16 @@ export default function ChatListScreen() {
                 if (room?.id) {
                     // Fetch school details for display in header
                     const { data: sch } = await supabase
-                        .from('school_details').select('school_name,phone,email').limit(1).maybeSingle();
+                        .from('school_details').select('school_name,tagline,phone,email,section').not('section','eq','primary').order('id').limit(1).maybeSingle();
                     const schoolName = sch?.school_name || admin.full_name || 'School';
                     const schoolPhone = sch?.phone || sch?.email || '';
 
                     setLoading(false);
                     (navigation as any).replace('ChatRoom', {
-                        room: { id: room.id, room_type: 'direct', room_name: key },
+                        room:    { id: room.id, room_type: 'direct', room_name: key },
                         contact: { id: admin.id, full_name: schoolName, role: 'School', phone: schoolPhone },
                         isParentDirectInbox: true,
+                        userRole: 'parent',
                     });
                     return;
                 }

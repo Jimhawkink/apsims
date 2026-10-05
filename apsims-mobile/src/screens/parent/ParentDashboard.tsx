@@ -138,7 +138,7 @@ export default function ParentDashboard() {
 
 
     // School name
-    useEffect(() => { supabase.from('school_details').select('school_name,tagline,section').order('id').limit(1).maybeSingle().then(({ data }) => { if (data?.school_name) setSchoolName(data.school_name); if ((data as any)?.tagline) setSchoolTagline((data as any).tagline); }); }, []);
+    useEffect(() => { supabase.from('school_details').select('school_name,tagline,phone,email,section').not('section','eq','primary').order('id').limit(1).maybeSingle().then(({ data }) => { if (data?.school_name) setSchoolName(data.school_name); if ((data as any)?.tagline) setSchoolTagline((data as any).tagline); }); }, []);
 
     // Greeting
     const hour = new Date().getHours();
