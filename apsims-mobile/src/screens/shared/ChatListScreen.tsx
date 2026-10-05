@@ -1,4 +1,4 @@
-/**
+﻿/**
  * APSIMS ChatListScreen — WhatsApp-exact premium contacts list
  * Shows CONTACTS (people) not groups — tap to open direct chat
  */
@@ -302,7 +302,7 @@ export default function ChatListScreen() {
 
 const S = StyleSheet.create({
     root:          { flex: 1, backgroundColor: '#fff' },
-    header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#f0f2f5', borderBottomWidth: 1, borderBottomColor: '#e9edef' },
+    header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#ffe0d4', borderBottomWidth: 1, borderBottomColor: '#ffc9b5' },
     headerTitle:   { fontSize: 20, fontWeight: '900', color: '#111b21' },
     headerSub:     { fontSize: 12, color: '#128C7E', fontWeight: '700', marginTop: 1 },
     headerRight:   { flexDirection: 'row', gap: 8 },

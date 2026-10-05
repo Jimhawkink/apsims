@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 // ═══════════════════════════════════════════════════════════════════════════
 // APSIMS School Chat — WhatsApp-exact light UI
 // Contacts-based DIRECT messaging: parent↔teacher, parent↔school, staff↔staff
@@ -137,9 +137,9 @@ export default function ChatPage() {
         // ── PARENT: skip contacts list, auto-open school admin inbox ──────────
         if (currentUser.role === 'parent') {
             const { data: admins } = await supabase
-                .from('school_users')
-                .select('id, full_name, username, role')
-                .in('role', ['admin', 'principal'])
+                .from('school_portal_users')
+                .select('id, full_name, username, user_type, role')
+                .in('user_type', ['admin', 'principal'])
                 .order('role').limit(1);
             const admin = admins?.[0];
             if (admin) {
@@ -153,7 +153,7 @@ export default function ChatPage() {
 
 
         const { data } = await supabase
-            .from('school_users')
+            .from('school_portal_users')
             .select('id, full_name, username, role')
             .neq('id', currentUser.id)
             .order('role').order('full_name');
@@ -316,7 +316,7 @@ export default function ChatPage() {
 
     // group by role
     const grouped: Record<string,Contact[]>={};
-    filtered.forEach(c=>{ const g=c.role||'other'; if(!grouped[g]) grouped[g]=[]; grouped[g].push(c); });
+    filtered.forEach(c=>{ const g=c.user_type||c.role||'other'; if(!grouped[g]) grouped[g]=[]; grouped[g].push(c); });
     const ROLE_ORDER=['admin','principal','teacher','bursar','parent','student'];
     const sortedGroups = Object.entries(grouped).sort(([a],[b])=>ROLE_ORDER.indexOf(a)-ROLE_ORDER.indexOf(b));
 
@@ -341,7 +341,7 @@ export default function ChatPage() {
                 {/* Header bar */}
                 <div style={{ padding:'10px 16px',background:'#f0f2f5',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:'1px solid #e9edef' }}>
                     <div style={{ display:'flex',alignItems:'center',gap:10 }}>
-                        {currentUser && <Av name={currentUser.full_name||'?'} size={40} role={currentUser.role} />}
+                        {currentUser && <Av name={currentUser.full_name||'?'} size={40} role={currentUser.role||currentUser.user_type} />}
                         <div>
                             <p style={{ fontWeight:800,fontSize:15,color:'#111b21',margin:0,lineHeight:1.2 }}>School Chat</p>
                             <p style={{ fontSize:11,color:'#128C7E',margin:0,fontWeight:600 }}>{currentUser?.full_name}</p>
@@ -388,7 +388,7 @@ export default function ChatPage() {
                                             borderLeft:isActive?'3px solid #128C7E':'3px solid transparent',
                                             transition:'all .12s' }}>
                                         <div style={{ position:'relative',flexShrink:0 }}>
-                                            <Av name={contact.full_name} size={48} role={contact.role} />
+                                            <Av name={contact.full_name} size={48} role={contact.user_type||contact.role} />
                                             {online && <div style={{ position:'absolute',bottom:1,right:1,width:12,height:12,borderRadius:'50%',background:'#25D366',border:'2px solid #fff' }} />}
                                         </div>
                                         <div style={{ flex:1,minWidth:0 }}>
@@ -465,9 +465,9 @@ export default function ChatPage() {
                     {/* Messages — WhatsApp wallpaper */}
                     <div style={{
                         flex:1,overflowY:'auto',padding:'12px 5% 8px',display:'flex',flexDirection:'column',gap:1,
-                        backgroundColor:'#efeae2',
+                        background:'linear-gradient(160deg,#ffcbb8 0%,#ffddd4 20%,#eef6fb 55%,#c5e8f8 80%,#a8d8f0 100%)',
                         backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cdefs%3E%3Cpattern id='p' width='80' height='80' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='8' cy='8' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='40' cy='8' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='72' cy='8' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='24' cy='24' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='56' cy='24' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='8' cy='40' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='40' cy='40' r='1.5' fill='%23c8bfb0' opacity='0.35'/%3E%3Ccircle cx='72' cy='40' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='24' cy='56' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='56' cy='56' r='1' fill='%23c8bfb0' opacity='0.4'/%3E%3Ccircle cx='8' cy='72' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='40' cy='72' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3Ccircle cx='72' cy='72' r='1.2' fill='%23c8bfb0' opacity='0.5'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='80' height='80' fill='url(%23p)'/%3E%3C/svg%3E")`,
-                        backgroundRepeat:'repeat',
+                        backgroundImage:'radial-gradient(circle 110px at 8% 8%,rgba(255,155,115,0.38) 0%,transparent 70%),radial-gradient(circle 80px at 82% 6%,rgba(255,135,105,0.32) 0%,transparent 70%),radial-gradient(circle 70px at 72% 22%,rgba(255,195,178,0.3) 0%,transparent 65%),radial-gradient(circle 130px at 12% 48%,rgba(135,200,240,0.4) 0%,transparent 65%),radial-gradient(circle 95px at 86% 58%,rgba(125,198,235,0.42) 0%,transparent 65%),radial-gradient(circle 110px at 38% 78%,rgba(145,208,242,0.38) 0%,transparent 65%),radial-gradient(circle 60px at 68% 82%,rgba(165,218,248,0.34) 0%,transparent 60%),radial-gradient(circle 40px at 55% 38%,rgba(195,232,255,0.48) 0%,transparent 60%),radial-gradient(circle 25px at 28% 28%,rgba(220,242,255,0.55) 0%,transparent 60%)',backgroundRepeat:'no-repeat',
                     }}>
                         {loadingMsgs ? (
                             <div style={{ display:'flex',justifyContent:'center',paddingTop:48 }}>

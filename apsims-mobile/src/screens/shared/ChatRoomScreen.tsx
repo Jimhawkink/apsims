@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
     StyleSheet, KeyboardAvoidingView, Platform, StatusBar,
@@ -120,19 +120,49 @@ function MiniAvatar({ name, size = 28 }: { name: string; size?: number }) {
     );
 }
 
-// ─── WALLPAPER PATTERN dots ───────────────────────────────────────────────────
-// Rendered as a View with many absolute dots for WhatsApp-style background
+// ─── PREMIUM GLASS BUBBLE WALLPAPER ─────────────────────────────────────────
+const BUBBLES = [
+    { x: -30,  y: -40,  r: 130, color: 'rgba(255,180,150,0.55)' },
+    { x: 200,  y: -60,  r: 100, color: 'rgba(255,160,130,0.4)'  },
+    { x: 280,  y: 80,   r: 80,  color: 'rgba(255,200,180,0.35)' },
+    { x: 60,   y: 100,  r: 60,  color: 'rgba(255,220,200,0.3)'  },
+    { x: 150,  y: 180,  r: 45,  color: 'rgba(200,230,255,0.4)'  },
+    { x: 20,   y: 250,  r: 35,  color: 'rgba(180,220,250,0.35)' },
+    { x: 310,  y: 260,  r: 55,  color: 'rgba(160,210,240,0.4)'  },
+    { x: 100,  y: 340,  r: 90,  color: 'rgba(140,200,235,0.45)' },
+    { x: 260,  y: 380,  r: 40,  color: 'rgba(200,230,255,0.35)' },
+    { x: -20,  y: 420,  r: 70,  color: 'rgba(150,210,240,0.4)'  },
+    { x: 330,  y: 480,  r: 110, color: 'rgba(130,200,235,0.5)'  },
+    { x: 80,   y: 530,  r: 50,  color: 'rgba(180,225,250,0.4)'  },
+    { x: 210,  y: 600,  r: 75,  color: 'rgba(160,215,245,0.45)' },
+    { x: -10,  y: 650,  r: 95,  color: 'rgba(120,195,235,0.4)'  },
+    { x: 290,  y: 700,  r: 60,  color: 'rgba(170,220,248,0.38)' },
+    // Small glass droplets
+    { x: 180,  y: 70,   r: 18,  color: 'rgba(180,230,255,0.6)'  },
+    { x: 240,  y: 150,  r: 12,  color: 'rgba(200,240,255,0.55)' },
+    { x: 50,   y: 190,  r: 15,  color: 'rgba(255,210,195,0.5)'  },
+    { x: 340,  y: 350,  r: 20,  color: 'rgba(170,220,250,0.55)' },
+    { x: 130,  y: 460,  r: 14,  color: 'rgba(190,230,255,0.5)'  },
+    { x: 370,  y: 580,  r: 16,  color: 'rgba(160,215,245,0.5)'  },
+];
+
 function ChatWallpaper() {
-    const dots = Array.from({ length: 120 }, (_, i) => ({
-        x: (i * 67 + i * 13) % 400,
-        y: (i * 97 + i * 37) % 700,
-        size: i % 3 === 0 ? 2.5 : 1.5,
-        opacity: i % 5 === 0 ? 0.08 : 0.05,
-    }));
     return (
         <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-            {dots.map((d, i) => (
-                <View key={i} style={{ position: 'absolute', left: d.x, top: d.y, width: d.size, height: d.size, borderRadius: d.size / 2, backgroundColor: '#6366f1', opacity: d.opacity }} />
+            <LinearGradient
+                colors={['#ffcbb8', '#ffddd4', '#eef6fb', '#c5e8f8', '#a8d8f0']}
+                start={{ x: 0.3, y: 0 }} end={{ x: 0.7, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+            />
+            {BUBBLES.map((b, i) => (
+                <View key={i} style={{
+                    position: 'absolute', left: b.x, top: b.y,
+                    width: b.r * 2, height: b.r * 2, borderRadius: b.r,
+                    backgroundColor: b.color,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.5)',
+                    shadowColor: '#fff', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: -4, height: -4 },
+                }} />
             ))}
         </View>
     );
@@ -143,6 +173,8 @@ export default function ChatRoomScreen() {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
     const room: ChatRoom = route.params?.room;
+    const contact = route.params?.contact; // { id, full_name, role }
+    const displayName = contact?.full_name || room?.room_name || 'Chat';
 
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [text, setText] = useState('');
@@ -390,26 +422,26 @@ export default function ChatRoomScreen() {
     // ─────────────────────────────────────────────────────────────────────────
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#1e1b4b" />
+            <StatusBar barStyle="dark-content" backgroundColor="#ffe0d4" />
 
             {/* ── PREMIUM HEADER ── */}
             <LinearGradient
-                colors={['#0f0c29', '#1e1b6b', '#312e81']}
+                colors={['#ffe0d4', '#ffd4c8', '#e8f5fc']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={styles.header}
             >
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => { if (navigation.canGoBack()) navigation.goBack(); else navigation.navigate('ParentTabs' as any); }} style={styles.backBtn}>
                     <Text style={styles.backArrow}>‹</Text>
                 </TouchableOpacity>
 
-                <View style={styles.headerRoom}>
-                    <Text style={styles.headerRoomIcon}>
-                        {room?.room_type === 'staff' ? '👩‍🏫' : room?.room_type === 'class' ? '🏫' : room?.room_type === 'broadcast' ? '📢' : room?.room_type === 'parent_teacher' ? '👨‍👩‍👧' : '💬'}
+                <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,120,80,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,120,80,0.35)' }}>
+                    <Text style={{ fontSize: 18, fontWeight: '900', color: '#c0392b' }}>
+                        {(displayName || 'C').charAt(0).toUpperCase()}
                     </Text>
                 </View>
 
                 <View style={styles.headerInfo}>
-                    <Text style={styles.headerTitle} numberOfLines={1}>{room?.room_name}</Text>
+                    <Text style={styles.headerTitle} numberOfLines={1}>{displayName}</Text>
                     {/* Online / Typing status */}
                     {typingUsers.size > 0 ? (
                         <View style={styles.statusRow}>
@@ -423,7 +455,7 @@ export default function ChatRoomScreen() {
                     ) : (
                         <View style={styles.statusRow}>
                             <View style={[styles.onlineDot, { backgroundColor: onlineCount > 1 ? '#10b981' : '#94a3b8' }]} />
-                            <Text style={[styles.statusText, { color: onlineCount > 1 ? '#6ee7b7' : 'rgba(199,210,254,0.6)' }]}>
+                            <Text style={[styles.statusText, { color: onlineCount > 1 ? '#059669' : '#64748b' }]}>
                                 {onlineCount > 1 ? `${onlineCount} online` : 'School Chat'}
                             </Text>
                         </View>
@@ -438,9 +470,9 @@ export default function ChatRoomScreen() {
             </LinearGradient>
 
             {/* ── MESSAGES + WALLPAPER ── */}
-            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 {/* WhatsApp wallpaper background */}
-                <View style={styles.wallpaper}>
+                <View style={styles.wallpaper} pointerEvents='box-none'>
                     <View style={styles.wallpaperBg} />
                     <ChatWallpaper />
 
@@ -519,19 +551,19 @@ export default function ChatRoomScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#1e1b4b' },
+    container: { flex: 1, backgroundColor: '#ffcbb8' },
 
     // Header
     header: { paddingTop: Platform.OS === 'ios' ? 54 : 40, paddingBottom: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
     backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-    backArrow: { color: '#fff', fontSize: 32, fontWeight: '300', marginTop: -4 },
+    backArrow: { color: '#1a1a2e', fontSize: 32, fontWeight: '300', marginTop: -4 },
     headerRoom: { width: 42, height: 42, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
     headerRoomIcon: { fontSize: 22 },
     headerInfo: { flex: 1 },
-    headerTitle: { color: '#fff', fontWeight: '900', fontSize: 15 },
+    headerTitle: { color: '#1a1a2e', fontWeight: '900', fontSize: 15 },
     statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
     onlineDot: { width: 6, height: 6, borderRadius: 3 },
-    statusText: { fontSize: 11, fontWeight: '600' },
+    statusText: { fontSize: 11, fontWeight: '700', color: '#64748b' },
     typingText: { fontSize: 11, fontWeight: '700', color: '#a5b4fc' },
     typingDotRowInline: { flexDirection: 'row', gap: 2, alignItems: 'center' },
     typingDotInline: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#818cf8' },
