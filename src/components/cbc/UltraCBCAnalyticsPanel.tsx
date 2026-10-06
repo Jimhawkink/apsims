@@ -118,37 +118,60 @@ export default function UltraCBCAnalyticsPanel({
     <div className="w-[260px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col gap-0 overflow-auto">
 
       {/* ----------------------------------------------------------------- */}
+      {/* SECTION: Panel Header */}
+      {/* ----------------------------------------------------------------- */}
+      <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <FiBarChart2 size={15} className="text-blue-200" />
+        <span className="text-xs font-black text-white uppercase tracking-widest">Live Analytics</span>
+        {analytics.completionPct === 100 && (
+          <span className="ml-auto text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.3)', color: '#6ee7b7' }}>✓ Complete</span>
+        )}
+      </div>
+
+      {/* ----------------------------------------------------------------- */}
       {/* SECTION: Class Overview Stats */}
       {/* ----------------------------------------------------------------- */}
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-3">
-          <FiPieChart size={13} className="text-indigo-500" />
+          <FiPieChart size={13} className="text-blue-500" />
           Class Overview
         </div>
         <div className="grid grid-cols-2 gap-2">
           {/* Assessed */}
-          <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-            <div className="text-xl font-bold text-gray-800">{analytics.assessed}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Assessed</div>
+          <div className="rounded-xl p-2.5 text-center" style={{ background: 'rgba(29,78,216,0.06)', border: '1px solid rgba(29,78,216,0.1)' }}>
+            <div className="text-xl font-black" style={{ color: '#1d4ed8' }}>{analytics.assessed}</div>
+            <div className="text-[10px] text-gray-500 mt-0.5 font-medium">Assessed</div>
           </div>
           {/* Total */}
-          <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-            <div className="text-xl font-bold text-gray-800">{totalStudents}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Total</div>
+          <div className="rounded-xl p-2.5 text-center" style={{ background: '#f8faff', border: '1px solid #e2e8f0' }}>
+            <div className="text-xl font-black text-gray-800">{totalStudents}</div>
+            <div className="text-[10px] text-gray-500 mt-0.5 font-medium">Total</div>
           </div>
           {/* Mean Score */}
-          <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-            <div className="text-xl font-bold text-gray-800">
+          <div className="rounded-xl p-2.5 text-center" style={{ background: 'rgba(5,150,105,0.06)', border: '1px solid rgba(5,150,105,0.12)' }}>
+            <div className="text-xl font-black" style={{ color: '#059669' }}>
               {analytics.meanScore !== null ? analytics.meanScore : '—'}
             </div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Mean Score</div>
+            <div className="text-[10px] text-gray-500 mt-0.5 font-medium">Mean Score</div>
           </div>
           {/* Top Level */}
-          <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-            <div className="text-xl font-bold text-gray-800">
+          <div className="rounded-xl p-2.5 text-center" style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.12)' }}>
+            <div className="text-xl font-black" style={{ color: '#7c3aed' }}>
               {analytics.topLevel || '—'}
             </div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Top Level</div>
+            <div className="text-[10px] text-gray-500 mt-0.5 font-medium">Top Level</div>
+          </div>
+        </div>
+
+        {/* Completion bar */}
+        <div className="mt-3">
+          <div className="flex justify-between items-center text-[10px] mb-1">
+            <span className="text-gray-400 font-medium">Completion</span>
+            <span className="font-black" style={{ color: analytics.completionPct === 100 ? '#059669' : '#1d4ed8' }}>{analytics.completionPct}%</span>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(29,78,216,0.1)' }}>
+            <div className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${analytics.completionPct}%`, background: analytics.completionPct === 100 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#1d4ed8,#4f46e5)' }} />
           </div>
         </div>
       </div>

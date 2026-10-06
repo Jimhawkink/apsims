@@ -209,19 +209,20 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs border-collapse">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-gray-50 border-b-2 border-gray-200">
-              <th className="text-left py-3 px-4 sticky left-0 bg-gray-50 z-20 min-w-[195px] text-[10px] font-black text-gray-500 uppercase tracking-wider">
+            <tr style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8,#4f46e5)' }}>
+              <th className="text-left py-3 px-4 sticky left-0 z-20 min-w-[195px] text-[10px] font-black uppercase tracking-wider"
+                style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)', color: 'rgba(199,210,254,0.85)' }}>
                 # &nbsp; Student
               </th>
               {visibleLAs.map((la: any) => (
                 <th key={la.code} className="text-center py-3 px-2 min-w-[96px]">
                   <div className="flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-lg text-white" style={{ background: la.color }}>{la.code}</span>
-                    <span className="text-[9px] text-gray-400 font-medium leading-tight text-center max-w-[80px]">{la.name}</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-lg text-white" style={{ background: 'rgba(255,255,255,0.2)' }}>{la.code}</span>
+                    <span className="text-[9px] font-medium leading-tight text-center max-w-[80px]" style={{ color: 'rgba(199,210,254,0.75)' }}>{la.name}</span>
                   </div>
                 </th>
               ))}
-              <th className="text-center py-3 px-3 min-w-[80px] text-[10px] font-black text-gray-500 uppercase tracking-wider">Avg %</th>
+              <th className="text-center py-3 px-3 min-w-[80px] text-[10px] font-black uppercase tracking-wider" style={{ color: 'rgba(199,210,254,0.85)' }}>Avg %</th>
             </tr>
           </thead>
           <tbody>
@@ -567,110 +568,154 @@ export default function CBCMarksPage() {
         </div>
       )}
 
-      {/* ── Overwrite Confirm (CBC Senior) ────────────────────────────────── */}
-      {hook.showConfirm && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Overwrite Summative Assessment?</h3>
-            <p className="text-sm text-gray-600 mb-5">
-              A summative assessment already exists for this subject and term. Saving will overwrite the existing records. This cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => { hook.setShowConfirm(false); hook.setPendingSave(null); }}
-                className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200">
-                Cancel
-              </button>
-              <button onClick={async () => { hook.setShowConfirm(false); if (hook.pendingSave) await hook.pendingSave(); hook.setPendingSave(null); }}
-                className="px-4 py-2 text-sm font-bold text-white bg-red-500 rounded-xl hover:bg-red-600">
-                Overwrite
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ══════════════════════════════════════════════════════════════════════
-          TOP BAR
+          ULTRA-PREMIUM HERO COMMAND CENTRE
       ══════════════════════════════════════════════════════════════════════ */}
-      <div className="flex items-center justify-between py-2.5 px-5 bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm gap-3 flex-wrap">
+      <div className="relative overflow-hidden sticky top-0 z-40 shadow-2xl" style={{ background: 'linear-gradient(135deg,#1e3a5f 0%,#1d4ed8 55%,#4f46e5 100%)' }}>
+        {/* Dot mesh */}
+        <div className="absolute inset-0 opacity-100" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px,rgba(255,255,255,0.1) 1px,transparent 0)', backgroundSize: '20px 20px' }} />
+        {/* Glow orbs */}
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full opacity-15" style={{ background: 'radial-gradient(circle,#93c5fd,transparent 70%)' }} />
+        <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full opacity-10" style={{ background: 'radial-gradient(circle,#818cf8,transparent 70%)' }} />
 
-        {/* Left: Logo + Breadcrumb */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#6C63FF,#00D9A6)' }}>
-              <FiBook size={14} className="text-white" />
+        <div className="relative">
+          {/* Top row */}
+          <div className="flex items-center justify-between px-5 py-3 gap-3 flex-wrap">
+            {/* Left: Logo + Breadcrumb */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                <FiBook size={18} className="text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-black text-base tracking-tight">CBC Assessment</span>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                    KICD COMPLIANT
+                  </span>
+                  {(isSenior ? hook.saving : hook.saving) && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black text-white" style={{ background: 'rgba(16,185,129,0.3)' }}>
+                      <FiRefreshCw size={9} className="animate-spin" /> Saving…
+                    </span>
+                  )}
+                </div>
+                <div className="hidden sm:flex items-center gap-1 text-[11px] mt-0.5" style={{ color: 'rgba(199,210,254,0.75)' }}>
+                  <span>Dashboard</span><span className="opacity-40">›</span>
+                  <span>Exams</span><span className="opacity-40">›</span>
+                  <span style={{ color: '#bfdbfe', fontWeight: 600 }}>CBC Mark Entry</span>
+                </div>
+              </div>
             </div>
-            APSIMS
-          </div>
-          <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400">
-            <span>Exams</span><span className="opacity-50">›</span>
-            <span>CBC Assessment</span><span className="opacity-50">›</span>
-            <span className="text-gray-700 font-medium">Mark Entry</span>
-          </div>
-        </div>
 
-        {/* Center: Mode Switcher + Nav */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* MODE TOGGLE */}
-          <div className="flex gap-0.5 bg-gray-100 rounded-xl p-1 border border-gray-200">
-            <button onClick={() => hook.setMode('CBC_Senior')}
-              className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${isSenior ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100' : 'text-gray-500 hover:text-gray-700'}`}>
-              <FiLayers size={11} /> Senior (Gr 10–12)
-            </button>
-            <button onClick={() => hook.setMode('JSS')}
-              className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${isJSS ? 'bg-white text-purple-700 shadow-sm border border-purple-100' : 'text-gray-500 hover:text-gray-700'}`}>
-              <FiGrid size={11} /> JSS (Gr 7–9)
-            </button>
+            {/* Centre: Mode toggle */}
+            <div className="flex items-center gap-2">
+              <div className="flex gap-0.5 rounded-xl p-1" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <button onClick={() => hook.setMode('CBC_Senior')}
+                  className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  style={isSenior ? { background: '#fff', color: '#1d4ed8', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' } : { color: 'rgba(199,210,254,0.7)' }}>
+                  <FiLayers size={11} /> Senior Gr 10–12
+                </button>
+                <button onClick={() => hook.setMode('JSS')}
+                  className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  style={isJSS ? { background: '#fff', color: '#7c3aed', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' } : { color: 'rgba(199,210,254,0.7)' }}>
+                  <FiGrid size={11} /> JSS Gr 7–9
+                </button>
+              </div>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowRubricGuide(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all hover:scale-105"
+                style={{ background: 'rgba(255,255,255,0.12)', color: '#e0e7ff', border: '1px solid rgba(255,255,255,0.15)' }}>
+                <FiInfo size={12} /> Rubric Guide
+              </button>
+              <button onClick={hook.exportCSV}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all hover:scale-105"
+                style={{ background: 'rgba(255,255,255,0.12)', color: '#e0e7ff', border: '1px solid rgba(255,255,255,0.15)' }}>
+                <FiDownload size={12} /> Export
+              </button>
+              {isSenior && (
+                <button onClick={() => hook.triggerSave(false)} disabled={hook.saving}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-60 cursor-pointer hover:scale-105"
+                  style={{ background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
+                  {hook.saving ? <><FiCheck size={12} /> Saving…</> : <><FiSave size={12} /> Save All</>}
+                </button>
+              )}
+              {isJSS && hook.jssDirty && (
+                <button onClick={hook.saveJSSMarks} disabled={hook.saving}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-60 cursor-pointer hover:scale-105"
+                  style={{ background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
+                  {hook.saving ? <FiRefreshCw size={12} className="animate-spin" /> : <FiSave size={12} />}
+                  {hook.saving ? 'Saving…' : 'Save All'}
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* CBC Senior sub-tabs */}
-          {isSenior && (
-            <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+          {/* KPI Intelligence Strip */}
+          <div className="px-5 pb-3">
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
               {[
-                { id: 'entry', label: 'Mark Entry', icon: FiEdit3, href: '/dashboard/exams/cbc-marks' },
-                { id: 'summary', label: 'Summary', icon: FiBarChart2, href: '/dashboard/exams/cbc-marks/summary' },
-                { id: 'competency', label: 'Competency', icon: FiAward, href: '/dashboard/exams/cbc-marks/competency' },
-                { id: 'history', label: 'History', icon: FiClock, href: '/dashboard/exams/cbc-marks/history' },
-              ].map(tab => {
-                const Icon = tab.icon;
-                return (
-                  <Link key={tab.id} href={tab.href}
-                    className={`flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs cursor-pointer transition-all no-underline ${
-                      tab.id === 'entry' ? 'bg-white text-gray-800 font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                    }`}>
-                    <Icon size={12} />{tab.label}
-                  </Link>
-                );
-              })}
+                { label: 'Total Students', value: hook.totalStudents || 0, icon: '👨‍🎓', color: '#93c5fd' },
+                { label: 'Assessed', value: hook.assessedCount || 0, icon: '✏️', color: '#6ee7b7' },
+                { label: 'Completion', value: `${hook.completionPct || 0}%`, icon: hook.completionPct === 100 ? '🎉' : '📋', color: hook.completionPct === 100 ? '#6ee7b7' : '#fcd34d' },
+                { label: 'EE — Exceeds', value: (hook.analyticsCounts as any)?.EE || 0, icon: '🏆', color: '#6ee7b7' },
+                { label: 'ME — Meets', value: (hook.analyticsCounts as any)?.ME || 0, icon: '✅', color: '#93c5fd' },
+                { label: 'AE — Approaches', value: (hook.analyticsCounts as any)?.AE || 0, icon: '⚠️', color: '#fcd34d' },
+                { label: 'BE — Below', value: (hook.analyticsCounts as any)?.BE || 0, icon: '🔴', color: '#fca5a5' },
+                { label: 'Not Assessed', value: (hook.analyticsCounts as any)?.NA || (hook.totalStudents - hook.assessedCount) || 0, icon: '○', color: '#94a3b8' },
+              ].map(k => (
+                <div key={k.label} className="rounded-xl px-3 py-2 group hover:scale-105 transition-all duration-200"
+                  style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-sm">{k.icon}</span>
+                    <p className="text-[8px] font-black uppercase tracking-wider truncate" style={{ color: 'rgba(165,180,252,0.7)' }}>{k.label}</p>
+                  </div>
+                  <p className="text-lg font-black" style={{ color: k.color }}>{k.value}</p>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
 
-        {/* Right: Action buttons */}
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowRubricGuide(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-all cursor-pointer">
-            <FiInfo size={13} /> Rubric Guide
-          </button>
-          <button onClick={hook.exportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-all cursor-pointer">
-            <FiDownload size={13} /> Export
-          </button>
-          {isSenior && (
-            <button onClick={() => hook.triggerSave(false)} disabled={hook.saving}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white transition-all cursor-pointer disabled:opacity-60"
-              style={{ background: hook.saving ? '#1D9E75' : '#00D9A6' }}>
-              {hook.saving ? <><FiCheck size={13} /> Saving…</> : <><FiSave size={13} /> Save All</>}
-            </button>
-          )}
-          {isJSS && hook.jssDirty && (
-            <button onClick={hook.saveJSSMarks} disabled={hook.saving}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white transition-all cursor-pointer disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg,#6C63FF,#00D9A6)' }}>
-              {hook.saving ? <FiRefreshCw size={13} className="animate-spin" /> : <FiSave size={13} />}
-              {hook.saving ? 'Saving…' : 'Save All'}
-            </button>
-          )}
+            {/* Rubric legend pills */}
+            <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+              {RUBRIC_CFG.map(r => (
+                <div key={r.code} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold"
+                  style={{ background: r.bg + '25', border: `1px solid ${r.border}50`, color: '#fff' }}>
+                  <span className="w-5 h-5 rounded flex items-center justify-center text-white font-black text-[9px]" style={{ background: r.color }}>{r.code}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>{r.label} ({r.min}–{r.max}%)</span>
+                </div>
+              ))}
+              {isSenior && (
+                <div className="flex gap-0.5 ml-auto" style={{ background: 'rgba(0,0,0,0.15)', borderRadius: 8, padding: '2px' }}>
+                  {[
+                    { id: 'entry', label: 'Mark Entry', icon: FiEdit3, href: '/dashboard/exams/cbc-marks' },
+                    { id: 'summary', label: 'Summary', icon: FiBarChart2, href: '/dashboard/exams/cbc-marks/summary' },
+                    { id: 'competency', label: 'Competency', icon: FiAward, href: '/dashboard/exams/cbc-marks/competency' },
+                    { id: 'history', label: 'History', icon: FiClock, href: '/dashboard/exams/cbc-marks/history' },
+                  ].map(tab => {
+                    const Icon = tab.icon;
+                    return (
+                      <Link key={tab.id} href={tab.href}
+                        className="flex items-center gap-1 py-1 px-2.5 rounded-md text-[10px] cursor-pointer transition-all no-underline font-bold"
+                        style={tab.id === 'entry' ? { background: '#fff', color: '#1d4ed8' } : { color: 'rgba(199,210,254,0.7)' }}>
+                        <Icon size={10} />{tab.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Completion bar */}
+            {hook.totalStudents > 0 && (
+              <div className="mt-2.5">
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <div className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${hook.completionPct || 0}%`, background: hook.completionPct === 100 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#60a5fa,#818cf8,#a78bfa)' }} />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -820,15 +865,29 @@ export default function CBCMarksPage() {
 
             {/* JSS content */}
             {!hook.selJSSGrade || !hook.selTerm ? (
-              <div className="flex-1 flex flex-col items-center justify-center bg-white">
-                <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-5"
-                  style={{ background: 'linear-gradient(135deg,#EDE9FE,#CCFBF1)' }}>
-                  <FiZap size={36} className="text-purple-400" />
+              <div className="flex-1 flex flex-col items-center justify-center" style={{ background: 'linear-gradient(135deg,#f8faff,#eff6ff,#f5f3ff)' }}>
+                <div className="w-24 h-24 rounded-3xl flex items-center justify-center mb-5 shadow-xl"
+                  style={{ background: 'linear-gradient(135deg,#1d4ed8,#4f46e5)' }}>
+                  <FiZap size={40} className="text-white" />
                 </div>
-                <h3 className="text-xl font-black text-gray-700 mb-2">Select Grade &amp; Term</h3>
-                <p className="text-sm text-gray-400 text-center max-w-xs">
-                  Choose Grade 7, 8, or 9 from the sidebar, then select a Term to load students and enter marks.
+                <h3 className="text-2xl font-black mb-2" style={{ color: '#1e3a5f' }}>Select Grade &amp; Term</h3>
+                <p className="text-sm text-gray-400 text-center max-w-sm mb-6">
+                  Choose Grade 7, 8, or 9 from the sidebar, then select a Term to load students and begin CBC competency mark entry.
                 </p>
+                <div className="grid grid-cols-2 gap-3 max-w-xs">
+                  {[
+                    { icon: '🏆', label: 'EE — Exceeds Expectation', sub: '80–100%' },
+                    { icon: '✅', label: 'ME — Meets Expectation', sub: '60–79%' },
+                    { icon: '⚠️', label: 'AE — Approaches Expectation', sub: '40–59%' },
+                    { icon: '🔴', label: 'BE — Below Expectation', sub: '0–39%' },
+                  ].map(f => (
+                    <div key={f.label} className="px-3 py-2.5 rounded-2xl text-center" style={{ background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(29,78,216,0.06)' }}>
+                      <span className="text-xl">{f.icon}</span>
+                      <p className="text-[10px] font-bold text-gray-700 mt-1 leading-tight">{f.label}</p>
+                      <p className="text-[10px] text-blue-500 font-black">{f.sub}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : jssTab === 'grid' ? (
               <div className="flex-1 overflow-hidden flex flex-col">
@@ -948,18 +1007,27 @@ export default function CBCMarksPage() {
             />
 
             {!hook.isReady ? (
-              <div className="flex-1 flex items-center justify-center bg-white">
-                <div className="text-center py-20 text-gray-400">
-                  <span className="text-5xl block mb-4">📝</span>
-                  <p className="font-semibold text-lg">Select all required filters to enter marks</p>
-                  <p className="text-xs mt-1">
-                    Form, Subject, Term, Assessment Type{hook.selAssessmentType === 'Formative' ? ', and Task Name' : ''} are required
+              <div className="flex-1 flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#f8faff,#eff6ff,#f5f3ff)' }}>
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl"
+                    style={{ background: 'linear-gradient(135deg,#1d4ed8,#4f46e5)' }}>
+                    <span className="text-3xl">📝</span>
+                  </div>
+                  <p className="font-black text-xl mb-2" style={{ color: '#1e3a5f' }}>Select Filters to Begin</p>
+                  <p className="text-sm text-gray-400 max-w-xs mx-auto mb-6">
+                    Choose Form, Subject, Term &amp; Assessment Type{hook.selAssessmentType === 'Formative' ? ', and Task Name' : ''} to load the CBC marks sheet.
                   </p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {['🏫 Form / Class','📚 Subject','📅 Term','📋 Assessment Type', ...(hook.selAssessmentType === 'Formative' ? ['✏️ Task Name'] : [])].map(f => (
+                      <span key={f} className="px-3 py-1.5 rounded-full text-xs font-bold"
+                        style={{ background: '#fff', border: '1px solid #e2e8f0', color: '#1d4ed8', boxShadow: '0 2px 6px rgba(29,78,216,0.08)' }}>{f}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : hook.filteredStudents.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center bg-white">
-                <div className="text-center py-20 text-gray-400">
+              <div className="flex-1 flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#f8faff,#eff6ff)' }}>
+                <div className="text-center py-20">
                   <span className="text-5xl block mb-4">👥</span>
                   <p className="font-semibold">No students found</p>
                   <p className="text-xs mt-1">Try adjusting your filters or search query</p>
