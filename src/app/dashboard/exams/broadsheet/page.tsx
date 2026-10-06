@@ -160,7 +160,7 @@ function Insight({ type, text }: { type: 'good' | 'warn' | 'info' | 'bad'; text:
     );
 }
 
-// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+// ===============================================================================
 export default function UltraBroadsheetPage() {
     // --- State ----------------------------------------------------------------
     const [forms, setForms] = useState<Form[]>([]);
@@ -477,7 +477,7 @@ export default function UltraBroadsheetPage() {
         const formName = forms.find(f => String(f.id) === selForm)?.form_name || selForm;
         a.download = `broadsheet_${formName}_${termName}_${selExamType}_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
-        toast.success('Broadsheet exported Γ£à');
+        toast.success('Broadsheet exported ✓');
     };
 
     // --- Smart insights -------------------------------------------------------
@@ -486,7 +486,7 @@ export default function UltraBroadsheetPage() {
         if (sorted.length === 0) return list;
         if (passRate >= 80) list.push({ type: 'good', text: `Excellent! ${passRate.toFixed(0)}% of students scored above 50%. Class is performing well.` });
         else if (passRate >= 60) list.push({ type: 'info', text: `${passRate.toFixed(0)}% pass rate. Moderate performance - targeted remediation could boost results.` });
-        else list.push({ type: 'bad', text: `ΓÜá∩╕Å Only ${passRate.toFixed(0)}% of students passed. Urgent intervention required.` });
+        else list.push({ type: 'bad', text: `! Only ${passRate.toFixed(0)}% of students passed. Urgent intervention required.` });
 
         if (genderStats.boys.count > 0 && genderStats.girls.count > 0) {
             const diff = Math.abs(genderStats.boys.avg - genderStats.girls.avg);
@@ -923,18 +923,18 @@ export default function UltraBroadsheetPage() {
                                                                                     <span className="font-bold text-gray-800 text-[12px]">{s.score}</span>
                                                                                     <GradeBadge grade={s.grade} small />
                                                                                 </div>
-                                                                            ) : <span className="text-gray-300">ΓÇô</span>}
+                                                                            ) : <span className="text-gray-300">-</span>}
                                                                         </td>
                                                                     );
                                                                 })}
-                                                                <td className="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50/50">{row.totalScore || 'ΓÇô'}</td>
-                                                                <td className="px-2 py-2 text-center font-bold text-purple-700 bg-purple-50/50">{row.avgScore > 0 ? row.avgScore.toFixed(1) : 'ΓÇô'}</td>
+                                                                <td className="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50/50">{row.totalScore || '-'}</td>
+                                                                <td className="px-2 py-2 text-center font-bold text-purple-700 bg-purple-50/50">{row.avgScore > 0 ? row.avgScore.toFixed(1) : '-'}</td>
                                                                 <td className="px-2 py-2 text-center bg-green-50/50">
-                                                                    {row.avgScore > 0 ? <GradeBadge grade={row.meanGrade.grade} /> : <span className="text-gray-300">ΓÇô</span>}
+                                                                    {row.avgScore > 0 ? <GradeBadge grade={row.meanGrade.grade} /> : <span className="text-gray-300">-</span>}
                                                                 </td>
-                                                                <td className="px-2 py-2 text-center font-bold text-amber-700 bg-amber-50/50">{row.totalPoints || 'ΓÇô'}</td>
+                                                                <td className="px-2 py-2 text-center font-bold text-amber-700 bg-amber-50/50">{row.totalPoints || '-'}</td>
                                                                 <td className="px-2 py-2 text-center text-[10px] text-gray-500">
-                                                                    {row.avgScore > 0 ? row.meanGrade.remarks?.split(' ').slice(0, 1).join('') : 'ΓÇô'}
+                                                                    {row.avgScore > 0 ? row.meanGrade.remarks?.split(' ').slice(0, 1).join('') : '-'}
                                                                 </td>
                                                             </tr>
                                                             {/* Expanded student detail row */}
@@ -983,20 +983,20 @@ export default function UltraBroadsheetPage() {
                                                         return (
                                                             <td key={sub.id} className="px-1 py-3 text-center">
                                                                 <div className="flex flex-col items-center gap-0.5">
-                                                                    <span className="font-bold text-gray-700 text-[11px]">{ss && ss.avg > 0 ? ss.avg.toFixed(0) : 'ΓÇô'}</span>
+                                                                    <span className="font-bold text-gray-700 text-[11px]">{ss && ss.avg > 0 ? ss.avg.toFixed(0) : '-'}</span>
                                                                     {ss && ss.avg > 0 && <GradeBadge grade={ss.grade.grade} small />}
                                                                 </div>
                                                             </td>
                                                         );
                                                     })}
-                                                    <td className="px-2 py-3 text-center font-bold text-blue-700 bg-blue-50/50 text-xs">ΓÇô</td>
+                                                    <td className="px-2 py-3 text-center font-bold text-blue-700 bg-blue-50/50 text-xs">-</td>
                                                     <td className="px-2 py-3 text-center font-bold text-purple-700 bg-purple-50/50 text-xs">
-                                                        {classAvg > 0 ? classAvg.toFixed(1) : 'ΓÇô'}
+                                                        {classAvg > 0 ? classAvg.toFixed(1) : '-'}
                                                     </td>
                                                     <td className="px-2 py-3 text-center bg-green-50/50">
-                                                        {classAvg > 0 ? <GradeBadge grade={classAvgGrade.grade} /> : 'ΓÇô'}
+                                                        {classAvg > 0 ? <GradeBadge grade={classAvgGrade.grade} /> : '-'}
                                                     </td>
-                                                    <td className="px-2 py-3 text-center font-bold text-amber-700 bg-amber-50/50 text-xs">ΓÇô</td>
+                                                    <td className="px-2 py-3 text-center font-bold text-amber-700 bg-amber-50/50 text-xs">-</td>
                                                     <td className="px-2 py-3"></td>
                                                 </tr>
                                                 {/* Grade distribution footer */}
@@ -1007,7 +1007,7 @@ export default function UltraBroadsheetPage() {
                                                         const topGrade = ss ? Object.entries(ss.dist).sort((a, b) => b[1] - a[1])[0] : null;
                                                         return (
                                                             <td key={sub.id} className="px-1 py-2 text-center text-[9px] text-gray-500">
-                                                                {topGrade ? <><GradeBadge grade={topGrade[0]} small /><div className="mt-0.5">{topGrade[1]}</div></> : 'ΓÇô'}
+                                                                {topGrade ? <><GradeBadge grade={topGrade[0]} small /><div className="mt-0.5">{topGrade[1]}</div></> : '-'}
                                                             </td>
                                                         );
                                                     })}
@@ -1069,17 +1069,17 @@ export default function UltraBroadsheetPage() {
                                                                 </td>
                                                                 <td className="px-3 py-3 text-center font-semibold text-gray-700">{ss.total}</td>
                                                                 <td className="px-3 py-3 text-center">
-                                                                    <span className="font-bold text-gray-900 text-sm">{ss.avg > 0 ? ss.avg.toFixed(1) : 'ΓÇô'}</span>
+                                                                    <span className="font-bold text-gray-900 text-sm">{ss.avg > 0 ? ss.avg.toFixed(1) : '-'}</span>
                                                                 </td>
                                                                 <td className="px-3 py-3 text-center">
-                                                                    {ss.avg > 0 ? <GradeBadge grade={ss.grade.grade} /> : 'ΓÇô'}
+                                                                    {ss.avg > 0 ? <GradeBadge grade={ss.grade.grade} /> : '-'}
                                                                 </td>
-                                                                <td className="px-3 py-3 text-center text-green-700 font-bold">{ss.highest || 'ΓÇô'}</td>
-                                                                <td className="px-3 py-3 text-center text-red-500 font-bold">{ss.lowest || 'ΓÇô'}</td>
+                                                                <td className="px-3 py-3 text-center text-green-700 font-bold">{ss.highest || '-'}</td>
+                                                                <td className="px-3 py-3 text-center text-red-500 font-bold">{ss.lowest || '-'}</td>
                                                                 <td className="px-3 py-3 text-center">
                                                                     <div className="flex flex-col items-center gap-1">
                                                                         <span className={`font-bold text-[13px] ${subPassRate >= 70 ? 'text-green-600' : subPassRate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
-                                                                            {ss.total > 0 ? pct(subPassRate) : 'ΓÇô'}
+                                                                            {ss.total > 0 ? pct(subPassRate) : '-'}
                                                                         </span>
                                                                         <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                                                             <div className={`h-full rounded-full ${subPassRate >= 70 ? 'bg-green-500' : subPassRate >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
@@ -1110,7 +1110,7 @@ export default function UltraBroadsheetPage() {
                                                             <div className="flex items-center justify-between mb-2">
                                                                 <p className="text-xs font-bold text-gray-800 truncate">{ss.subject.subject_name}</p>
                                                                 <div className="flex items-center gap-1.5">
-                                                                    <span className="text-[10px] text-gray-500">{ss.avg > 0 ? ss.avg.toFixed(1) : 'ΓÇô'}</span>
+                                                                    <span className="text-[10px] text-gray-500">{ss.avg > 0 ? ss.avg.toFixed(1) : '-'}</span>
                                                                     {ss.avg > 0 && <GradeBadge grade={ss.grade.grade} small />}
                                                                 </div>
                                                             </div>
@@ -1160,9 +1160,9 @@ export default function UltraBroadsheetPage() {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                             {[
                                                 { label: 'Distinction (A/A-)', count: sorted.filter(r => ['A', 'A-'].includes(r.meanGrade.grade)).length, color: 'bg-green-500', textColor: 'text-green-700', bg: 'bg-green-50' },
-                                                { label: 'Credit (B+ΓÇôB-)', count: sorted.filter(r => ['B+', 'B', 'B-'].includes(r.meanGrade.grade)).length, color: 'bg-blue-500', textColor: 'text-blue-700', bg: 'bg-blue-50' },
-                                                { label: 'Pass (C+ΓÇôC-)', count: sorted.filter(r => ['C+', 'C', 'C-'].includes(r.meanGrade.grade)).length, color: 'bg-amber-500', textColor: 'text-amber-700', bg: 'bg-amber-50' },
-                                                { label: 'Below Pass (D+ΓÇôE)', count: sorted.filter(r => ['D+', 'D', 'D-', 'E'].includes(r.meanGrade.grade)).length, color: 'bg-red-500', textColor: 'text-red-700', bg: 'bg-red-50' },
+                                                { label: 'Credit (B+-B-)', count: sorted.filter(r => ['B+', 'B', 'B-'].includes(r.meanGrade.grade)).length, color: 'bg-blue-500', textColor: 'text-blue-700', bg: 'bg-blue-50' },
+                                                { label: 'Pass (C+-C-)', count: sorted.filter(r => ['C+', 'C', 'C-'].includes(r.meanGrade.grade)).length, color: 'bg-amber-500', textColor: 'text-amber-700', bg: 'bg-amber-50' },
+                                                { label: 'Below Pass (D+-E)', count: sorted.filter(r => ['D+', 'D', 'D-', 'E'].includes(r.meanGrade.grade)).length, color: 'bg-red-500', textColor: 'text-red-700', bg: 'bg-red-50' },
                                             ].map(tier => (
                                                 <div key={tier.label} className={`${tier.bg} rounded-xl border border-gray-200 p-4`}>
                                                     <p className="text-xs text-gray-500 font-semibold mb-1">{tier.label}</p>
@@ -1171,7 +1171,7 @@ export default function UltraBroadsheetPage() {
                                                         <div className={`h-full rounded-full ${tier.color}`}
                                                             style={{ width: `${sorted.length > 0 ? (tier.count / sorted.filter(r => r.avgScore > 0).length) * 100 : 0}%` }} />
                                                     </div>
-                                                    <p className="text-[10px] text-gray-500 mt-1">{sorted.filter(r => r.avgScore > 0).length > 0 ? pct((tier.count / sorted.filter(r => r.avgScore > 0).length) * 100) : 'ΓÇô'}</p>
+                                                    <p className="text-[10px] text-gray-500 mt-1">{sorted.filter(r => r.avgScore > 0).length > 0 ? pct((tier.count / sorted.filter(r => r.avgScore > 0).length) * 100) : '-'}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -1190,11 +1190,11 @@ export default function UltraBroadsheetPage() {
                                                         <div className="space-y-1 text-xs">
                                                             <div className="flex justify-between text-gray-600">
                                                                 <span>Average Score</span>
-                                                                <span className="font-bold">{g.data.avg > 0 ? pct(g.data.avg) : 'ΓÇô'}</span>
+                                                                <span className="font-bold">{g.data.avg > 0 ? pct(g.data.avg) : '-'}</span>
                                                             </div>
                                                             <div className="flex justify-between text-gray-600">
                                                                 <span>Mean Grade</span>
-                                                                <span className="font-bold">{g.data.avg > 0 ? getGrade(g.data.avg).grade : 'ΓÇô'}</span>
+                                                                <span className="font-bold">{g.data.avg > 0 ? getGrade(g.data.avg).grade : '-'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1206,11 +1206,11 @@ export default function UltraBroadsheetPage() {
                                         <div className="bg-white rounded-xl border border-gray-200 p-4">
                                             <h3 className="text-sm font-bold text-gray-700 mb-3">Score Band Distribution</h3>
                                             {[
-                                                { label: '80ΓÇô100 (Excellent)', min: 80, max: 100, color: 'bg-green-500' },
-                                                { label: '60ΓÇô79 (Good)', min: 60, max: 79, color: 'bg-blue-500' },
-                                                { label: '50ΓÇô59 (Average)', min: 50, max: 59, color: 'bg-amber-500' },
-                                                { label: '40ΓÇô49 (Below Avg)', min: 40, max: 49, color: 'bg-orange-500' },
-                                                { label: '0ΓÇô39 (Poor)', min: 0, max: 39, color: 'bg-red-500' },
+                                                { label: '80-100 (Excellent)', min: 80, max: 100, color: 'bg-green-500' },
+                                                { label: '60-79 (Good)', min: 60, max: 79, color: 'bg-blue-500' },
+                                                { label: '50-59 (Average)', min: 50, max: 59, color: 'bg-amber-500' },
+                                                { label: '40-49 (Below Avg)', min: 40, max: 49, color: 'bg-orange-500' },
+                                                { label: '0-39 (Poor)', min: 0, max: 39, color: 'bg-red-500' },
                                             ].map(band => {
                                                 const cnt = sorted.filter(r => r.avgScore >= band.min && r.avgScore <= band.max).length;
                                                 const scored = sorted.filter(r => r.avgScore > 0).length;
@@ -1298,14 +1298,14 @@ export default function UltraBroadsheetPage() {
                                                     <div className="space-y-2 text-xs">
                                                         <div className="flex justify-between text-gray-600">
                                                             <span>Average Score</span>
-                                                            <span className="font-bold text-gray-900">{ss.avg > 0 ? pct(ss.avg) : 'ΓÇô'}</span>
+                                                            <span className="font-bold text-gray-900">{ss.avg > 0 ? pct(ss.avg) : '-'}</span>
                                                         </div>
                                                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                                                             <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${ss.avg}%` }} />
                                                         </div>
                                                         <div className="flex justify-between text-gray-500">
                                                             <span>Mean Grade</span>
-                                                            <span className="font-semibold">{ss.avg > 0 ? ss.grade.grade : 'ΓÇô'}</span>
+                                                            <span className="font-semibold">{ss.avg > 0 ? ss.grade.grade : '-'}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1378,15 +1378,15 @@ export default function UltraBroadsheetPage() {
                                                         <h3 className="font-bold text-gray-800">{fs.form.form_name}</h3>
                                                         {fs.avg > 0 && <GradeBadge grade={fs.grade.grade} />}
                                                     </div>
-                                                    <div className="text-2xl font-extrabold text-gray-900 mb-1">{fs.avg > 0 ? pct(fs.avg) : 'ΓÇô'}</div>
+                                                    <div className="text-2xl font-extrabold text-gray-900 mb-1">{fs.avg > 0 ? pct(fs.avg) : '-'}</div>
                                                     <p className="text-[10px] text-gray-500">{fs.scored}/{fs.count} students scored</p>
                                                     <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                                         <div className={`h-full rounded-full ${fs.avg >= 70 ? 'bg-green-500' : fs.avg >= 50 ? 'bg-blue-500' : 'bg-red-500'}`}
                                                             style={{ width: `${fs.avg}%` }} />
                                                     </div>
-                                                    <p className="text-[10px] text-gray-500 mt-1">Pass rate: {fs.scored > 0 ? pct((fs.passes / fs.scored) * 100) : 'ΓÇô'}</p>
+                                                    <p className="text-[10px] text-gray-500 mt-1">Pass rate: {fs.scored > 0 ? pct((fs.passes / fs.scored) * 100) : '-'}</p>
                                                     {String(fs.form.id) === selForm && (
-                                                        <div className="mt-2 text-[10px] text-indigo-600 font-semibold">Currently viewing Γ£ô</div>
+                                                        <div className="mt-2 text-[10px] text-indigo-600 font-semibold">Currently viewing \u2713</div>
                                                     )}
                                                 </div>
                                             ))}
@@ -1425,7 +1425,7 @@ export default function UltraBroadsheetPage() {
                                                             <td className="px-3 py-2.5 text-center"><GradeBadge grade={fs.grade.grade} /></td>
                                                             <td className="px-3 py-2.5 text-center">
                                                                 <span className={`font-bold ${(fs.passes / fs.scored) * 100 >= 70 ? 'text-green-600' : 'text-amber-600'}`}>
-                                                                    {fs.scored > 0 ? pct((fs.passes / fs.scored) * 100) : 'ΓÇô'}
+                                                                    {fs.scored > 0 ? pct((fs.passes / fs.scored) * 100) : '-'}
                                                                 </span>
                                                             </td>
                                                         </tr>
@@ -1478,7 +1478,7 @@ export default function UltraBroadsheetPage() {
                                                             {ss.subject.subject_code && <span className="text-[10px] text-gray-400 font-mono ml-1">({ss.subject.subject_code})</span>}
                                                         </td>
                                                         <td className="px-3 py-2.5 text-center text-gray-600">{ss.total}</td>
-                                                        <td className="px-3 py-2.5 text-center font-bold text-gray-900">{ss.avg > 0 ? ss.avg.toFixed(1) : 'ΓÇô'}</td>
+                                                        <td className="px-3 py-2.5 text-center font-bold text-gray-900">{ss.avg > 0 ? ss.avg.toFixed(1) : '-'}</td>
                                                         <td className="px-3 py-2.5 text-center"><GradeBadge grade={ss.grade.grade} /></td>
                                                         <td className="px-3 py-2.5 text-center">
                                                             <span className={`font-bold ${ss.passRate >= 70 ? 'text-green-600' : ss.passRate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
@@ -1507,10 +1507,10 @@ export default function UltraBroadsheetPage() {
                                         <div>
                                             <h3 className="text-sm font-bold text-indigo-800 mb-1">CBC Broadsheet Note</h3>
                                             <p className="text-xs text-indigo-700 leading-relaxed">
-                                                Under Kenya's Competency-Based Curriculum (CBC), traditional numerical broadsheets apply to the 8-4-4 remnant cohorts (Forms 1ΓÇô4).
+                                                Under Kenya's Competency-Based Curriculum (CBC), traditional numerical broadsheets apply to the 8-4-4 remnant cohorts (Forms 1-4).
                                                 CBC assessments use competency levels: <strong>Exceeds Expectation (EE)</strong>, <strong>Meets Expectation (ME)</strong>,
                                                 <strong> Approaches Expectation (AE)</strong>, and <strong>Below Expectation (BE)</strong> - rather than letter grades.
-                                                Use <strong>CBC Mark Entry</strong> and <strong>CBC Report Cards</strong> pages for Junior Secondary (Grade 7ΓÇô9) students.
+                                                Use <strong>CBC Mark Entry</strong> and <strong>CBC Report Cards</strong> pages for Junior Secondary (Grade 7-9) students.
                                                 This broadsheet is designed for the 8-4-4 system with letter grade output compatible with KNEC grading.
                                             </p>
                                         </div>

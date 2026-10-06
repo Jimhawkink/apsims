@@ -434,7 +434,7 @@ Route (app)                                             Size     First Load JS
   Γöö chunks/webpack-4b951c64df9a52e5.js                  1.95 kB
 
 
-╞Æ Middleware                                            46.3 kB
+╞Æ Middleware                                            46.4 kB
 
 Γùï  (Static)   prerendered as static content
 ╬╗  (Dynamic)  server-rendered on demand using Node.js
