@@ -15,6 +15,9 @@ At line:1 char:1
  
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: caniuse-lite is outdated. Please run:
+  npx browserslist@latest --update-db
+  Why you should do it regularly: https://github.com/browserslist/browserslist#browsers-data-updating
  Γ£ô Compiled successfully
    Skipping validation of types
    Skipping linting
@@ -202,7 +205,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/duty-roster                              12.3 kB         152 kB
 Γö£ Γùï /dashboard/emergency                                9.61 kB         149 kB
 Γö£ Γùï /dashboard/etims                                    8.6 kB          148 kB
-Γö£ Γùï /dashboard/exams                                    4.33 kB         220 kB
+Γö£ Γùï /dashboard/exams                                    9.15 kB         225 kB
 Γö£ Γùï /dashboard/exams/ai-generate                        9.56 kB         149 kB
 Γö£ Γùï /dashboard/exams/ai-insights                        7.67 kB         141 kB
 Γö£ Γùï /dashboard/exams/analysis                           23.6 kB         234 kB
@@ -367,7 +370,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/notifications                            9.8 kB          156 kB
 Γö£ Γùï /dashboard/parent-portal                            10 kB           150 kB
 Γö£ Γùï /dashboard/payments/integration                     12.2 kB         152 kB
-Γö£ Γùï /dashboard/payroll                                  8.68 kB         148 kB
+Γö£ Γùï /dashboard/payroll                                  8.68 kB         149 kB
 Γö£ Γùï /dashboard/portals                                  12.7 kB         152 kB
 Γö£ Γùï /dashboard/primary                                  3.59 kB         144 kB
 Γö£ Γùï /dashboard/primary/marks                            8.91 kB         142 kB
@@ -431,10 +434,10 @@ Route (app)                                             Size     First Load JS
   Γö£ chunks/4938-46d3223ab303fc4f.js                     26.8 kB
   Γö£ chunks/fd9d1056-87af41a9b80cedb0.js                 53.3 kB
   Γö£ chunks/main-app-a03a7ed932a35112.js                 227 B
-  Γöö chunks/webpack-ed4852b6de901314.js                  1.95 kB
+  Γöö chunks/webpack-14de6f8ea4ea1372.js                  1.95 kB
 
 
-╞Æ Middleware                                            46.4 kB
+╞Æ Middleware                                            46.3 kB
 
 Γùï  (Static)   prerendered as static content
 ╬╗  (Dynamic)  server-rendered on demand using Node.js
