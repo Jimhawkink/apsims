@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -6,8 +6,12 @@ import toast from 'react-hot-toast';
 import {
     FiSave, FiDownload, FiCheckCircle, FiRefreshCw, FiUpload,
     FiLock, FiUnlock, FiTrendingUp, FiUsers, FiBookOpen,
-    FiAlertTriangle, FiSearch, FiX, FiInfo,
+    FiAlertTriangle, FiSearch, FiX, FiInfo, FiPrinter,
+    FiChevronLeft, FiChevronRight, FiBarChart2, FiPieChart,
 } from 'react-icons/fi';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const GRADIENTS = [
@@ -166,6 +170,183 @@ function CSVImportModal({ students, maxScore, onImport, onClose }: {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+// ── Tabbed Analytics Footer Component ────────────────────────────────────────
+function AnalyticsFooter({ analytics, marks, classStudents, grading, maxScore, selSubject, enteredCount, completionPct }: {
+    analytics: any; marks: Record<string, string>; classStudents: any[];
+    grading: any[]; maxScore: number; selSubject: string; enteredCount: number; completionPct: number;
+}) {
+    const [tab, setTab] = useState<'stats' | 'chart' | 'gender'>('stats');
+
+    // Score histogram data
+    const histogram = useMemo(() => {
+        const buckets = 10;
+        const step = maxScore / buckets;
+        const labels: string[] = [];
+        const counts: number[] = [];
+        for (let i = 0; i < buckets; i++) {
+            const lo = Math.round(i * step), hi = Math.round((i + 1) * step);
+            labels.push(`${lo}-${hi}`);
+            const c = classStudents.filter(s => {
+                const v = marks[`${s.id}_${selSubject}`];
+                if (!v) return false;
+                return Number(v) >= lo && Number(v) < hi;
+            }).length;
+            counts.push(c);
+        }
+        return { labels, counts };
+    }, [marks, classStudents, maxScore, selSubject]);
+
+    // Gender analysis
+    const genderStats = useMemo(() => {
+        const male = classStudents.filter(s => s.gender !== 'Female');
+        const female = classStudents.filter(s => s.gender === 'Female');
+        const calc = (arr: any[]) => {
+            const vals = arr.map(s => marks[`${s.id}_${selSubject}`]).filter(v => v !== '' && v !== undefined).map(Number);
+            const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+            const pass = vals.filter(v => (v / maxScore) * 100 >= 50).length;
+            return { count: arr.length, entered: vals.length, avg, pass, passRate: vals.length ? Math.round((pass / vals.length) * 100) : 0 };
+        };
+        return { M: calc(male), F: calc(female) };
+    }, [marks, classStudents, maxScore, selSubject]);
+
+    const tabs = [
+        { key: 'stats', label: '📊 Stats' },
+        { key: 'chart', label: '📈 Distribution' },
+        { key: 'gender', label: '♂♀ Gender' },
+    ];
+
+    return (
+        <div style={{ background: 'linear-gradient(135deg,#f8faff 0%,#eff6ff 100%)', borderTop: '1px solid rgba(29,78,216,0.1)' }}>
+            {/* Tab bar */}
+            <div style={{ display: 'flex', gap: 3, padding: '10px 20px 0', borderBottom: '1px solid #e2e8f0' }}>
+                {tabs.map(t => (
+                    <button key={t.key} onClick={() => setTab(t.key as any)}
+                        style={{ padding: '7px 16px', borderRadius: '10px 10px 0 0', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12, transition: 'all .15s', background: tab === t.key ? '#fff' : 'transparent', color: tab === t.key ? '#1d4ed8' : '#94a3b8', borderBottom: tab === t.key ? '2px solid #1d4ed8' : '2px solid transparent' }}>
+                        {t.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Stats tab */}
+            {tab === 'stats' && (
+                <div style={{ padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                        {analytics ? [
+                            { label: 'Class Mean', value: `${analytics.mean}/${maxScore}`, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)' },
+                            { label: 'Mean Grade', value: analytics.meanGrade.grade, color: GRADE_COLORS[analytics.meanGrade.grade] || '#6366f1', bg: 'rgba(99,102,241,0.07)' },
+                            { label: 'Highest', value: `${analytics.max}/${maxScore}`, color: '#059669', bg: 'rgba(5,150,105,0.08)' },
+                            { label: 'Lowest', value: `${analytics.min}/${maxScore}`, color: '#dc2626', bg: 'rgba(220,38,38,0.08)' },
+                            { label: 'Median', value: `${analytics.median}/${maxScore}`, color: '#0891b2', bg: 'rgba(8,145,178,0.08)' },
+                            { label: 'Pass Rate', value: `${analytics.passRate}%`, color: analytics.passRate >= 50 ? '#059669' : '#dc2626', bg: analytics.passRate >= 50 ? 'rgba(5,150,105,0.08)' : 'rgba(220,38,38,0.08)' },
+                        ].map(a => (
+                            <div key={a.label} style={{ textAlign: 'center', padding: '8px 14px', borderRadius: 12, background: a.bg, minWidth: 80 }}>
+                                <p style={{ fontSize: 9, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>{a.label}</p>
+                                <p style={{ fontSize: 16, fontWeight: 900, color: a.color }}>{a.value}</p>
+                            </div>
+                        )) : <p style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>Enter marks to see live analytics</p>}
+                    </div>
+                    {/* Grade bar + completion */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                        <div>
+                            <p style={{ fontSize: 9, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Grade Distribution</p>
+                            <GradeDistBar marks={marks} grading={grading} max={maxScore} />
+                        </div>
+                        <div>
+                            <p style={{ fontSize: 9, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Completion — {enteredCount}/{classStudents.length}</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 160, height: 8, borderRadius: 99, overflow: 'hidden', background: 'rgba(29,78,216,0.1)' }}>
+                                    <div style={{ width: `${completionPct}%`, height: '100%', borderRadius: 99, background: completionPct === 100 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#1d4ed8,#4f46e5)', transition: 'width .7s' }} />
+                                </div>
+                                <span style={{ fontSize: 14, fontWeight: 900, color: completionPct === 100 ? '#059669' : '#1d4ed8' }}>{completionPct}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Chart tab — Score distribution histogram */}
+            {tab === 'chart' && (
+                <div style={{ padding: '16px 20px', height: 220 }}>
+                    {enteredCount > 0 ? (
+                        <Bar
+                            data={{
+                                labels: histogram.labels,
+                                datasets: [{
+                                    label: 'Students',
+                                    data: histogram.counts,
+                                    backgroundColor: histogram.labels.map((_, i) => {
+                                        const pct = (i / histogram.labels.length) * 100;
+                                        return pct >= 60 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444';
+                                    }),
+                                    borderRadius: 6, borderWidth: 0,
+                                }],
+                            }}
+                            options={{
+                                responsive: true, maintainAspectRatio: false,
+                                plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw} student${(ctx.raw as number) !== 1 ? 's' : ''}` } } },
+                                scales: {
+                                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                                    y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+                                },
+                            }}
+                        />
+                    ) : (
+                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>
+                            Enter marks to see score distribution chart
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Gender tab */}
+            {tab === 'gender' && (
+                <div style={{ padding: '16px 20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        {[
+                            { key: 'M', label: '♂ Male Students', color: '#3b82f6', bg: 'rgba(59,130,246,0.06)', border: '#bfdbfe' },
+                            { key: 'F', label: '♀ Female Students', color: '#ec4899', bg: 'rgba(236,72,153,0.06)', border: '#fbcfe8' },
+                        ].map(g => {
+                            const st = genderStats[g.key as 'M' | 'F'];
+                            const grade = grading.sort((a: any, b: any) => b.min_score - a.min_score).find((x: any) => {
+                                const pct = maxScore === 100 ? st.avg : (st.avg / maxScore) * 100;
+                                return pct >= x.min_score && pct <= x.max_score;
+                            }) || { grade: '—', points: 0 };
+                            return (
+                                <div key={g.key} style={{ border: `1px solid ${g.border}`, borderRadius: 14, padding: '14px 16px', background: g.bg }}>
+                                    <p style={{ fontSize: 13, fontWeight: 800, color: g.color, marginBottom: 12 }}>{g.label}</p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                                        {[
+                                            { l: 'Total', v: st.count },
+                                            { l: 'Entered', v: st.entered },
+                                            { l: 'Avg Score', v: st.entered ? st.avg.toFixed(1) : '—' },
+                                            { l: 'Pass Rate', v: st.entered ? `${st.passRate}%` : '—' },
+                                            { l: 'Passed', v: `${st.pass}/${st.entered}` },
+                                            { l: 'Mean Grade', v: grade.grade },
+                                        ].map(item => (
+                                            <div key={item.l} style={{ textAlign: 'center', background: '#fff', borderRadius: 8, padding: '6px 8px' }}>
+                                                <p style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>{item.l}</p>
+                                                <p style={{ fontSize: 15, fontWeight: 900, color: g.color }}>{item.v}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {st.entered > 0 && (
+                                        <div style={{ marginTop: 10 }}>
+                                            <div style={{ background: 'rgba(0,0,0,0.06)', borderRadius: 99, height: 6, overflow: 'hidden' }}>
+                                                <div style={{ width: `${st.passRate}%`, height: '100%', background: g.color, borderRadius: 99, transition: 'width .7s' }} />
+                                            </div>
+                                            <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 3 }}>Pass rate: {st.passRate}%</p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -519,16 +700,16 @@ export default function MarkEntryPage() {
                 HERO COMMAND CENTRE
             ══════════════════════════════════════════ */}
             <div className="relative overflow-hidden rounded-3xl shadow-2xl animate-fadeIn"
-                style={{ background: 'linear-gradient(135deg,#0f0c29 0%,#1e1b6b 35%,#24243e 70%,#0f0c29 100%)' }}>
+                style={{ background: 'linear-gradient(135deg,#1e3a5f 0%,#1d4ed8 55%,#4f46e5 100%)' }}>
 
                 {/* Mesh dot grid */}
                 <div className="absolute inset-0 hero-dot opacity-100" />
 
                 {/* Glow orbs */}
                 <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full opacity-20"
-                    style={{ background: 'radial-gradient(circle,#818cf8,transparent 70%)' }} />
+                    style={{ background: 'radial-gradient(circle,#93c5fd,transparent 70%)' }} />
                 <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full opacity-15"
-                    style={{ background: 'radial-gradient(circle,#c084fc,transparent 70%)' }} />
+                    style={{ background: 'radial-gradient(circle,#818cf8,transparent 70%)' }} />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-32 opacity-5 rounded-full"
                     style={{ background: 'radial-gradient(ellipse,#fff,transparent 70%)' }} />
 
@@ -855,7 +1036,7 @@ export default function MarkEntryPage() {
                                     <div className="overflow-x-auto">
                                         <table className="w-full border-collapse" style={{ fontSize: 12 }}>
                                             <thead>
-                                                <tr style={{ background: 'linear-gradient(135deg,#0f0c29 0%,#1e1b6b 60%,#312e81 100%)' }}>
+                                                <tr style={{ background: 'linear-gradient(135deg,#1e3a5f 0%,#1d4ed8 60%,#4f46e5 100%)' }}>
                                                     {[
                                                         { h: '#', w: 40 }, { h: 'Adm No', w: 90 }, { h: 'Student Name', w: 180 },
                                                         { h: '♂♀', w: 50 }, { h: `Score /${maxScore}`, w: 110 },
@@ -991,60 +1172,100 @@ export default function MarkEntryPage() {
                                     </div>
                                 )}
 
-                                {/* ── Premium Analytics Footer ── */}
-                                <div className="px-6 py-5" style={{ background: 'linear-gradient(135deg,#f8faff 0%,#f5f0ff 100%)', borderTop: '1px solid rgba(99,102,241,0.1)' }}>
-                                    <div className="flex items-start justify-between flex-wrap gap-5">
-                                        {/* Stats row */}
-                                        <div className="flex items-center gap-5 flex-wrap">
-                                            {analytics ? (
-                                                <>
-                                                    {[
-                                                        { label: 'Class Mean', value: `${analytics.mean}/${maxScore}`, color: '#6366f1', bg: 'rgba(99,102,241,0.08)' },
-                                                        { label: 'Mean Grade', value: analytics.meanGrade.grade, color: GRADE_COLORS[analytics.meanGrade.grade] || '#6366f1', bg: 'rgba(99,102,241,0.06)' },
-                                                        { label: 'Highest', value: String(analytics.max), color: '#059669', bg: 'rgba(5,150,105,0.08)' },
-                                                        { label: 'Lowest', value: String(analytics.min), color: '#dc2626', bg: 'rgba(220,38,38,0.08)' },
-                                                        { label: 'Median', value: String(analytics.median), color: '#0891b2', bg: 'rgba(8,145,178,0.08)' },
-                                                        { label: 'Pass Rate', value: `${analytics.passRate}%`, color: analytics.passRate >= 50 ? '#059669' : '#dc2626', bg: analytics.passRate >= 50 ? 'rgba(5,150,105,0.08)' : 'rgba(220,38,38,0.08)' },
-                                                    ].map(a => (
-                                                        <div key={a.label} className="text-center px-3 py-2 rounded-xl"
-                                                            style={{ background: a.bg }}>
-                                                            <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-0.5">{a.label}</p>
-                                                            <p className="text-base font-black" style={{ color: a.color }}>{a.value}</p>
-                                                        </div>
-                                                    ))}
-                                                </>
-                                            ) : (
-                                                <p className="text-xs text-gray-400 italic">Enter marks to see live analytics</p>
-                                            )}
-                                        </div>
-
-                                        {/* Grade distribution + legend */}
-                                        <div className="flex items-end gap-4">
-                                            <div>
-                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Grade Distribution</p>
-                                                <GradeDistBar marks={marks} grading={grading} max={maxScore} />
-                                            </div>
-                                            <div className="flex flex-col gap-1 text-[10px] text-gray-400 pb-1">
-                                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#10b981' }} />Saved</span>
-                                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#f59e0b' }} />Unsaved</span>
-                                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block bg-gray-200" />Empty</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Completion progress bar */}
-                                    <div className="mt-4">
-                                        <div className="flex justify-between items-center text-[10px] text-gray-400 mb-1.5">
-                                            <span className="font-bold">{enteredCount} of {classStudents.length} marks entered</span>
-                                            <span className="font-black text-sm" style={{ color: completionPct === 100 ? '#059669' : '#6366f1' }}>{completionPct}% complete</span>
-                                        </div>
-                                        <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(99,102,241,0.1)' }}>
-                                            <div className="h-full rounded-full transition-all duration-700 ease-out"
-                                                style={{ width: `${completionPct}%`, background: completionPct === 100 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#6366f1,#8b5cf6,#a855f7)', boxShadow: completionPct > 0 ? '0 2px 8px rgba(99,102,241,0.4)' : 'none' }} />
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* ── Premium Analytics Footer (Tabbed) ── */}
+                                <AnalyticsFooter
+                                    analytics={analytics}
+                                    marks={marks}
+                                    classStudents={classStudents}
+                                    grading={grading}
+                                    maxScore={maxScore}
+                                    selSubject={selSubject}
+                                    enteredCount={enteredCount}
+                                    completionPct={completionPct}
+                                />
                             </div>
+
+                            {/* ── Subject Navigation ── */}
+                            {availableSubjects.length > 1 && selSubject && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center', marginTop: 4 }}>
+                                    {(() => {
+                                        const idx = availableSubjects.findIndex(s => String(s.id) === selSubject);
+                                        const prev = availableSubjects[idx - 1];
+                                        const next = availableSubjects[idx + 1];
+                                        return (<>
+                                            <button disabled={!prev} onClick={() => prev && setSelSubject(String(prev.id))}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', fontSize: 13, fontWeight: 700, color: prev ? '#1d4ed8' : '#cbd5e1', cursor: prev ? 'pointer' : 'not-allowed' }}>
+                                                <FiChevronLeft size={15} /> {prev?.subject_name || 'First Subject'}
+                                            </button>
+                                            <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>
+                                                {availableSubjects.findIndex(s => String(s.id) === selSubject) + 1} / {availableSubjects.length} subjects
+                                            </span>
+                                            <button disabled={!next} onClick={() => next && setSelSubject(String(next.id))}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', fontSize: 13, fontWeight: 700, color: next ? '#1d4ed8' : '#cbd5e1', cursor: next ? 'pointer' : 'not-allowed' }}>
+                                                {next?.subject_name || 'Last Subject'} <FiChevronRight size={15} />
+                                            </button>
+                                        </>);
+                                    })()}
+                                </div>
+                            )}
+
+                            {/* ── Print Button row ── */}
+                            {isReady && classStudents.length > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                                    <button onClick={() => {
+                                        const subName = subjects.find(s => s.id === Number(selSubject))?.subject_name || 'Subject';
+                                        const formName = forms.find(f => f.id === Number(selForm))?.form_name || '';
+                                        const termName = terms.find(t => t.id === Number(selTerm))?.term_name || '';
+                                        const rows = classStudents.map((s, i) => {
+                                            const key = `${s.id}_${selSubject}`;
+                                            const sc = marks[key] || '';
+                                            const g = sc ? getGrade(Number(sc)) : null;
+                                            const pct = sc ? ((Number(sc) / maxScore) * 100).toFixed(1) : '';
+                                            return `<tr style="border-bottom:1px solid #e5e7eb;${i % 2 === 0 ? '' : 'background:#f9fafb'}">
+                                                <td style="padding:6px 10px;text-align:center;font-weight:700;color:#6366f1">${i + 1}</td>
+                                                <td style="padding:6px 10px;font-family:monospace;color:#3b82f6">${s.admission_no || s.admission_number || ''}</td>
+                                                <td style="padding:6px 10px;font-weight:600">${s.first_name} ${s.last_name}</td>
+                                                <td style="padding:6px 10px;text-align:center">${s.gender === 'Female' ? '♀' : '♂'}</td>
+                                                <td style="padding:6px 10px;text-align:center;font-weight:900;font-size:15px;color:${g ? (GRADE_COLORS[g.grade] || '#374151') : '#cbd5e1'}">${sc || '—'}</td>
+                                                <td style="padding:6px 10px;text-align:center;font-weight:700;color:${pct ? (Number(pct) >= 60 ? '#059669' : Number(pct) >= 40 ? '#d97706' : '#dc2626') : '#cbd5e1'}">${pct ? pct + '%' : '—'}</td>
+                                                <td style="padding:6px 10px;text-align:center"><span style="background:${g ? (GRADE_COLORS[g.grade] || '#94a3b8') : '#e5e7eb'};color:#fff;padding:2px 10px;border-radius:8px;font-weight:800;font-size:12px">${g?.grade || '—'}</span></td>
+                                                <td style="padding:6px 10px;text-align:center;font-weight:700;color:#7c3aed">${g?.points || '—'}</td>
+                                                <td style="padding:6px 10px;font-size:11px;color:#64748b">${g?.remarks || '—'}</td>
+                                            </tr>`;
+                                        }).join('');
+                                        const win = window.open('', '_blank');
+                                        if (!win) return;
+                                        win.document.write(`<!DOCTYPE html><html><head><title>${subName} Marks Sheet</title>
+                                        <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;padding:24px;color:#1e293b}
+                                        @media print{body{padding:12px}}</style></head><body>
+                                        <div style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8,#4f46e5);color:#fff;padding:20px 24px;border-radius:12px;margin-bottom:20px">
+                                            <h1 style="font-size:20px;font-weight:900;margin-bottom:4px">📝 MARKS REGISTER</h1>
+                                            <div style="font-size:13px;opacity:.85">${subName} &nbsp;|&nbsp; ${formName} &nbsp;|&nbsp; ${termName} &nbsp;|&nbsp; ${selExamType} &nbsp;|&nbsp; Max: ${maxScore}</div>
+                                            <div style="font-size:11px;opacity:.6;margin-top:4px">Printed: ${new Date().toLocaleString('en-KE')} &nbsp;|&nbsp; Teacher: ${currentUser?.full_name || 'N/A'}</div>
+                                        </div>
+                                        <table style="width:100%;border-collapse:collapse;font-size:12px">
+                                            <thead><tr style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8);color:#fff">
+                                                ${['#','Adm No','Student Name','M/F',`Score/${maxScore}`,'%','Grade','Pts','Remarks'].map(h => `<th style="padding:10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px">${h}</th>`).join('')}
+                                            </tr></thead>
+                                            <tbody>${rows}</tbody>
+                                        </table>
+                                        <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap">
+                                            ${analytics ? [
+                                                `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 14px"><p style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:700">CLASS MEAN</p><p style="font-size:18px;font-weight:900;color:#059669">${analytics.mean}/${maxScore}</p></div>`,
+                                                `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 14px"><p style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:700">PASS RATE</p><p style="font-size:18px;font-weight:900;color:#1d4ed8">${analytics.passRate}%</p></div>`,
+                                                `<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:8px 14px"><p style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:700">MEAN GRADE</p><p style="font-size:18px;font-weight:900;color:#7c3aed">${analytics.meanGrade.grade}</p></div>`,
+                                                `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 14px"><p style="font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:700">HIGHEST</p><p style="font-size:18px;font-weight:900;color:#d97706">${analytics.max}/${maxScore}</p></div>`,
+                                            ].join('') : ''}
+                                        </div>
+                                        <p style="margin-top:12px;font-size:10px;color:#cbd5e1">Signature: _____________________________ &nbsp;&nbsp; HOD: _____________________________ &nbsp;&nbsp; Principal: _____________________________</p>
+                                        <script>window.onload=()=>{window.print()}</script></body></html>`);
+                                        win.document.close();
+                                    }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 12, background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(29,78,216,0.3)' }}>
+                                        <FiPrinter size={15} /> Print Marks Sheet
+                                    </button>
+                                </div>
+                            )}
                         </>
                     )}
                 </>
