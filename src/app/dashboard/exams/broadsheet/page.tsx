@@ -11,7 +11,7 @@ import {
     FiStar, FiLayers, FiEye, FiFilter, FiSearch
 } from 'react-icons/fi';
 
-// ΓöÇΓöÇΓöÇ Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// --- Types --------------------------------------------------------------------
 interface GradeEntry { grade: string; min_score: number; max_score: number; points: number; remarks: string; }
 interface Student { id: number; first_name: string; last_name: string; admission_no?: string; admission_number?: string; form_id: number; stream_id?: number; gender?: string; status: string; }
 interface Subject { id: number; subject_name: string; subject_code?: string; is_active: boolean; teacher_id?: number; category?: string; }
@@ -32,7 +32,7 @@ interface StudentRow {
     rank?: number;
 }
 
-// ΓöÇΓöÇΓöÇ Grade color mapping ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// --- Grade color mapping -------------------------------------------------------
 const GRADE_COLORS: Record<string, { bg: string; text: string; light: string }> = {
     'A':  { bg: '#059669', text: '#fff', light: '#d1fae5' },
     'A-': { bg: '#10b981', text: '#fff', light: '#d1fae5' },
@@ -50,7 +50,7 @@ const GRADE_COLORS: Record<string, { bg: string; text: string; light: string }> 
 
 const getGradeColor = (grade: string) => GRADE_COLORS[grade] || { bg: '#94a3b8', text: '#fff', light: '#f1f5f9' };
 
-// ΓöÇΓöÇΓöÇ Tab Definition ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// --- Tab Definition ------------------------------------------------------------
 const TABS = [
     { key: 'broadsheet', label: 'Broadsheet', icon: FiGrid },
     { key: 'subject',    label: 'Subject Analysis', icon: FiBookOpen },
@@ -61,7 +61,7 @@ const TABS = [
 ] as const;
 type TabKey = typeof TABS[number]['key'];
 
-// ΓöÇΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// --- Helpers ------------------------------------------------------------------
 const pct = (n: number) => `${n.toFixed(1)}%`;
 const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
@@ -112,7 +112,7 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
     );
 }
 
-// ΓöÇΓöÇΓöÇ Grade distribution bar ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// --- Grade distribution bar ----------------------------------------------------
 function GradeDistBar({ data, total }: { data: Record<string, number>; total: number }) {
     const order = ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'E'];
     return (
@@ -143,7 +143,7 @@ function GradeDistBar({ data, total }: { data: Record<string, number>; total: nu
     );
 }
 
-// ΓöÇΓöÇΓöÇ Insight chip ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// --- Insight chip --------------------------------------------------------------
 function Insight({ type, text }: { type: 'good' | 'warn' | 'info' | 'bad'; text: string }) {
     const map = {
         good: { cls: 'bg-green-50 border-green-200 text-green-800', Icon: FiCheckCircle, ic: 'text-green-500' },
@@ -162,7 +162,7 @@ function Insight({ type, text }: { type: 'good' | 'warn' | 'info' | 'bad'; text:
 
 // ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 export default function UltraBroadsheetPage() {
-    // ΓöÇΓöÇΓöÇ State ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- State ----------------------------------------------------------------
     const [forms, setForms] = useState<Form[]>([]);
     const [streams, setStreams] = useState<Stream[]>([]);
     const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -193,7 +193,7 @@ export default function UltraBroadsheetPage() {
     const [cbcLAs, setCbcLAs] = useState<any[]>([]);
     const [loadingCBC, setLoadingCBC] = useState(false);
 
-    // ΓöÇΓöÇΓöÇ Fetch base data ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Fetch base data ------------------------------------------------------
     const fetchBase = useCallback(async () => {
         setLoading(true);
         const [f, st, sub, s, t, gr, sf] = await Promise.all([
@@ -219,7 +219,7 @@ export default function UltraBroadsheetPage() {
 
     useEffect(() => { fetchBase(); }, [fetchBase]);
 
-    // ΓöÇΓöÇΓöÇ Load exam types from DB when term changes ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Load exam types from DB when term changes ----------------------------
     useEffect(() => {
         if (!selTerm) { setDbExamTypes([]); return; }
         supabase.from('school_exam_types').select('*')
@@ -255,21 +255,21 @@ export default function UltraBroadsheetPage() {
     }, [curriculumMode, selTerm, selForm, students]);
 
 
-    // ΓöÇΓöÇΓöÇ Grade calculator ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Grade calculator -----------------------------------------------------
     const getGrade = useCallback((score: number): GradeEntry => {
         const sorted = [...grading].sort((a, b) => b.min_score - a.min_score);
         return sorted.find(g => score >= g.min_score && score <= g.max_score)
             || { grade: 'E', min_score: 0, max_score: 29, points: 1, remarks: 'Very Poor' };
     }, [grading]);
 
-    // ΓöÇΓöÇΓöÇ Students in selected class ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Students in selected class -------------------------------------------
     const classStudents = useMemo(() => students
         .filter(s => selForm && String(s.form_id) === selForm)
         .filter(s => !selStream || String(s.stream_id) === selStream)
         .filter(s => !genderFilter || s.gender === genderFilter),
     [students, selForm, selStream, genderFilter]);
 
-    // ΓöÇΓöÇΓöÇ Fetch marks when filters change ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Fetch marks when filters change -------------------------------------
     useEffect(() => {
         if (!selForm || !selTerm || !selExamType) { setMarks([]); return; }
         const studentIds = students
@@ -288,7 +288,7 @@ export default function UltraBroadsheetPage() {
         load();
     }, [selForm, selStream, selTerm, selExamType, students]);
 
-    // ΓöÇΓöÇΓöÇ Fetch ALL marks for school overview ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Fetch ALL marks for school overview ----------------------------------
     useEffect(() => {
         if (!selTerm || !selExamType) { setAllMarks([]); return; }
         const load = async () => {
@@ -299,7 +299,7 @@ export default function UltraBroadsheetPage() {
         load();
     }, [selTerm, selExamType]);
 
-    // ΓöÇΓöÇΓöÇ Build broadsheet rows ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Build broadsheet rows ------------------------------------------------
     const broadsheetData: StudentRow[] = useMemo(() => {
         return classStudents.map(student => {
             const studentMarks = marks.filter(m => m.student_id === student.id);
@@ -320,7 +320,7 @@ export default function UltraBroadsheetPage() {
         });
     }, [classStudents, marks, subjects, getGrade]);
 
-    // ΓöÇΓöÇΓöÇ Sort & rank ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Sort & rank ----------------------------------------------------------
     const sorted: StudentRow[] = useMemo(() => {
         let arr = [...broadsheetData];
         if (searchQ.trim()) {
@@ -352,7 +352,7 @@ export default function UltraBroadsheetPage() {
 
     const isReady = selForm && selTerm && selExamType;
 
-    // ΓöÇΓöÇΓöÇ Computed analytics ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Computed analytics ---------------------------------------------------
     const classAvg = useMemo(() => avg(sorted.filter(r => r.avgScore > 0).map(r => r.avgScore)), [sorted]);
     const classAvgGrade = useMemo(() => getGrade(classAvg), [classAvg, getGrade]);
     const topStudent = useMemo(() => sorted[0], [sorted]);
@@ -452,7 +452,7 @@ export default function UltraBroadsheetPage() {
         return avg(all);
     }, [allMarks]);
 
-    // ΓöÇΓöÇΓöÇ Export ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Export ---------------------------------------------------------------
     const exportBroadsheet = () => {
         const headers = ['Rank', 'Adm No', 'Name', 'Gender', ...activeSubjects.map(s => s.subject_code || s.subject_name), 'Total', 'Avg', 'Grade', 'Points'];
         const rows = sorted.map(row => [
@@ -480,12 +480,12 @@ export default function UltraBroadsheetPage() {
         toast.success('Broadsheet exported Γ£à');
     };
 
-    // ΓöÇΓöÇΓöÇ Smart insights ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Smart insights -------------------------------------------------------
     const insights = useMemo(() => {
         const list: { type: 'good' | 'warn' | 'info' | 'bad'; text: string }[] = [];
         if (sorted.length === 0) return list;
         if (passRate >= 80) list.push({ type: 'good', text: `Excellent! ${passRate.toFixed(0)}% of students scored above 50%. Class is performing well.` });
-        else if (passRate >= 60) list.push({ type: 'info', text: `${passRate.toFixed(0)}% pass rate. Moderate performance ΓÇö targeted remediation could boost results.` });
+        else if (passRate >= 60) list.push({ type: 'info', text: `${passRate.toFixed(0)}% pass rate. Moderate performance - targeted remediation could boost results.` });
         else list.push({ type: 'bad', text: `ΓÜá∩╕Å Only ${passRate.toFixed(0)}% of students passed. Urgent intervention required.` });
 
         if (genderStats.boys.count > 0 && genderStats.girls.count > 0) {
@@ -498,7 +498,7 @@ export default function UltraBroadsheetPage() {
 
         const weakSubjects = subjectStats.filter(s => s.avg < 40 && s.total > 0);
         if (weakSubjects.length > 0) {
-            list.push({ type: 'bad', text: `Weak subjects: ${weakSubjects.map(s => s.subject.subject_name).join(', ')} ΓÇö class average below 40. Immediate attention needed.` });
+            list.push({ type: 'bad', text: `Weak subjects: ${weakSubjects.map(s => s.subject.subject_name).join(', ')} - class average below 40. Immediate attention needed.` });
         }
 
         const strongSubjects = subjectStats.filter(s => s.avg >= 70 && s.total > 0);
@@ -507,17 +507,17 @@ export default function UltraBroadsheetPage() {
         }
 
         if (absentCount > 0) {
-            list.push({ type: 'warn', text: `${absentCount} student(s) have no marks recorded ΓÇö verify exam attendance.` });
+            list.push({ type: 'warn', text: `${absentCount} student(s) have no marks recorded - verify exam attendance.` });
         }
 
         if (topStudent) {
-            list.push({ type: 'info', text: `Top student: ${topStudent.student.first_name} ${topStudent.student.last_name} ΓÇö Avg ${topStudent.avgScore.toFixed(1)}%, Grade ${topStudent.meanGrade.grade}.` });
+            list.push({ type: 'info', text: `Top student: ${topStudent.student.first_name} ${topStudent.student.last_name} - Avg ${topStudent.avgScore.toFixed(1)}%, Grade ${topStudent.meanGrade.grade}.` });
         }
 
         return list;
     }, [sorted, passRate, genderStats, subjectStats, absentCount, topStudent]);
 
-    // ΓöÇΓöÇΓöÇ Loading ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Loading --------------------------------------------------------------
     if (loading) return (
         <div className="flex items-center justify-center h-[60vh]">
             <div className="text-center">
@@ -528,7 +528,7 @@ export default function UltraBroadsheetPage() {
         </div>
     );
 
-    // ΓöÇΓöÇΓöÇ Render ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // --- Render ---------------------------------------------------------------
     return (
         <div className="space-y-5 animate-fade-in">
 
@@ -723,7 +723,7 @@ export default function UltraBroadsheetPage() {
             )}
 
 
-            {/* ΓöÇΓöÇ Filters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* -- Filters ------------------------------------------------------ */}
             <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                     <FiFilter size={14} className="text-gray-400" />
@@ -777,7 +777,7 @@ export default function UltraBroadsheetPage() {
                 </div>
             </div>
 
-            {/* ΓöÇΓöÇ Not Ready ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* -- Not Ready ---------------------------------------------------- */}
             {!isReady ? (
                 <div className="bg-white rounded-2xl border border-gray-200 text-center py-24 text-gray-400">
                     <FiGrid size={40} className="mx-auto mb-4 text-gray-300" />
@@ -791,7 +791,7 @@ export default function UltraBroadsheetPage() {
                 </div>
             ) : (
                 <>
-                    {/* ΓöÇΓöÇ Summary Stat Cards ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                    {/* -- Summary Stat Cards ------------------------------------ */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                         <StatCard label="Students" value={sorted.length} icon={FiUsers} color="blue" />
                         <StatCard label="Subjects" value={activeSubjects.length} icon={FiBookOpen} color="purple" />
@@ -803,7 +803,7 @@ export default function UltraBroadsheetPage() {
                         <StatCard label="Girls" value={genderStats.girls.count} sub={genderStats.girls.avg > 0 ? `Avg ${pct(genderStats.girls.avg)}` : undefined} icon={FiUsers} color="pink" />
                     </div>
 
-                    {/* ΓöÇΓöÇ Insights ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                    {/* -- Insights --------------------------------------------- */}
                     {insights.length > 0 && (
                         <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-3">
@@ -816,7 +816,7 @@ export default function UltraBroadsheetPage() {
                         </div>
                     )}
 
-                    {/* ΓöÇΓöÇ Tabs ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                    {/* -- Tabs ------------------------------------------------- */}
                     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
                         {/* Tab Bar */}
                         <div className="border-b border-gray-200 overflow-x-auto">
@@ -836,7 +836,7 @@ export default function UltraBroadsheetPage() {
                             </div>
                         </div>
 
-                        {/* ΓöÇΓöÇ Tab: BROADSHEET ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                        {/* -- Tab: BROADSHEET ------------------------------------ */}
                         {activeTab === 'broadsheet' && (
                             <div className="p-4">
                                 {/* Search + Top-N */}
@@ -1025,17 +1025,17 @@ export default function UltraBroadsheetPage() {
                                 {/* Grade Distribution Bar */}
                                 {sorted.length > 0 && (
                                     <div className="mt-5 bg-gray-50 rounded-xl border border-gray-200 p-4">
-                                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Mean Grade Distribution ΓÇö {sorted.filter(r => r.avgScore > 0).length} students</p>
+                                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Mean Grade Distribution - {sorted.filter(r => r.avgScore > 0).length} students</p>
                                         <GradeDistBar data={classGradeDist} total={sorted.filter(r => r.avgScore > 0).length} />
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* ΓöÇΓöÇ Tab: SUBJECT ANALYSIS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                        {/* -- Tab: SUBJECT ANALYSIS ------------------------------- */}
                         {activeTab === 'subject' && (
                             <div className="p-4">
-                                <SectionHeader title="Subject-by-Subject Analysis" sub="Performance breakdown per subject ΓÇö averages, grade distribution, pass rates" />
+                                <SectionHeader title="Subject-by-Subject Analysis" sub="Performance breakdown per subject - averages, grade distribution, pass rates" />
                                 {subjectStats.length === 0 ? (
                                     <div className="text-center py-16 text-gray-400">
                                         <FiBookOpen size={32} className="mx-auto mb-3 text-gray-300" />
@@ -1144,7 +1144,7 @@ export default function UltraBroadsheetPage() {
                             </div>
                         )}
 
-                        {/* ΓöÇΓöÇ Tab: CLASS ANALYSIS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                        {/* -- Tab: CLASS ANALYSIS --------------------------------- */}
                         {activeTab === 'class' && (
                             <div className="p-4 space-y-5">
                                 <SectionHeader title="Class Performance Analysis" sub="Detailed breakdown of class results, gender split, and performance tiers" />
@@ -1273,10 +1273,10 @@ export default function UltraBroadsheetPage() {
                             </div>
                         )}
 
-                        {/* ΓöÇΓöÇ Tab: STREAM ANALYSIS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                        {/* -- Tab: STREAM ANALYSIS -------------------------------- */}
                         {activeTab === 'stream' && (
                             <div className="p-4 space-y-5">
-                                <SectionHeader title="Stream Comparison" sub={`Comparing streams in ${forms.find(f => String(f.id) === selForm)?.form_name || 'selected form'} ΓÇö ${selExamType}`} />
+                                <SectionHeader title="Stream Comparison" sub={`Comparing streams in ${forms.find(f => String(f.id) === selForm)?.form_name || 'selected form'} - ${selExamType}`} />
 
                                 {streamStats.filter((ss: any) => ss?.count > 0).length === 0 ? (
                                     <div className="text-center py-16 text-gray-400">
@@ -1357,10 +1357,10 @@ export default function UltraBroadsheetPage() {
                             </div>
                         )}
 
-                        {/* ΓöÇΓöÇ Tab: FORM ANALYSIS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                        {/* -- Tab: FORM ANALYSIS --------------------------------- */}
                         {activeTab === 'form' && (
                             <div className="p-4 space-y-5">
-                                <SectionHeader title="Form-Level Analysis" sub={`All forms ΓÇö ${selExamType} performance this ${terms.find(t => String(t.id) === selTerm)?.term_name || 'term'}`} />
+                                <SectionHeader title="Form-Level Analysis" sub={`All forms - ${selExamType} performance this ${terms.find(t => String(t.id) === selTerm)?.term_name || 'term'}`} />
 
                                 {formStats.filter((fs: any) => fs?.avg > 0).length === 0 ? (
                                     <div className="text-center py-16 text-gray-400">
@@ -1438,10 +1438,10 @@ export default function UltraBroadsheetPage() {
                             </div>
                         )}
 
-                        {/* ΓöÇΓöÇ Tab: SCHOOL OVERVIEW ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                        {/* -- Tab: SCHOOL OVERVIEW ------------------------------- */}
                         {activeTab === 'school' && (
                             <div className="p-4 space-y-5">
-                                <SectionHeader title="School-Wide Performance Overview" sub={`Aggregate intelligence across all forms ΓÇö ${selExamType}, ${terms.find(t => String(t.id) === selTerm)?.term_name || 'current term'}`} />
+                                <SectionHeader title="School-Wide Performance Overview" sub={`Aggregate intelligence across all forms - ${selExamType}, ${terms.find(t => String(t.id) === selTerm)?.term_name || 'current term'}`} />
 
                                 {/* School summary stats */}
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1454,7 +1454,7 @@ export default function UltraBroadsheetPage() {
                                 {/* Subject performance school-wide */}
                                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                                        <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wide">Subject Performance ΓÇö School Wide</h3>
+                                        <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wide">Subject Performance - School Wide</h3>
                                     </div>
                                     {schoolSubjectStats.filter((ss: any) => ss?.total > 0).length === 0 ? (
                                         <div className="text-center py-10 text-gray-400 text-xs">No data available</div>
@@ -1509,7 +1509,7 @@ export default function UltraBroadsheetPage() {
                                             <p className="text-xs text-indigo-700 leading-relaxed">
                                                 Under Kenya's Competency-Based Curriculum (CBC), traditional numerical broadsheets apply to the 8-4-4 remnant cohorts (Forms 1ΓÇô4).
                                                 CBC assessments use competency levels: <strong>Exceeds Expectation (EE)</strong>, <strong>Meets Expectation (ME)</strong>,
-                                                <strong> Approaches Expectation (AE)</strong>, and <strong>Below Expectation (BE)</strong> ΓÇö rather than letter grades.
+                                                <strong> Approaches Expectation (AE)</strong>, and <strong>Below Expectation (BE)</strong> - rather than letter grades.
                                                 Use <strong>CBC Mark Entry</strong> and <strong>CBC Report Cards</strong> pages for Junior Secondary (Grade 7ΓÇô9) students.
                                                 This broadsheet is designed for the 8-4-4 system with letter grade output compatible with KNEC grading.
                                             </p>
