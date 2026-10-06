@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -11,7 +11,7 @@ import {
     FiStar, FiLayers, FiEye, FiFilter, FiSearch
 } from 'react-icons/fi';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 interface GradeEntry { grade: string; min_score: number; max_score: number; points: number; remarks: string; }
 interface Student { id: number; first_name: string; last_name: string; admission_no?: string; admission_number?: string; form_id: number; stream_id?: number; gender?: string; status: string; }
 interface Subject { id: number; subject_name: string; subject_code?: string; is_active: boolean; teacher_id?: number; category?: string; }
@@ -32,7 +32,7 @@ interface StudentRow {
     rank?: number;
 }
 
-// ─── Grade color mapping ───────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Grade color mapping ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const GRADE_COLORS: Record<string, { bg: string; text: string; light: string }> = {
     'A':  { bg: '#059669', text: '#fff', light: '#d1fae5' },
     'A-': { bg: '#10b981', text: '#fff', light: '#d1fae5' },
@@ -50,7 +50,7 @@ const GRADE_COLORS: Record<string, { bg: string; text: string; light: string }> 
 
 const getGradeColor = (grade: string) => GRADE_COLORS[grade] || { bg: '#94a3b8', text: '#fff', light: '#f1f5f9' };
 
-// ─── Tab Definition ────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Tab Definition ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const TABS = [
     { key: 'broadsheet', label: 'Broadsheet', icon: FiGrid },
     { key: 'subject',    label: 'Subject Analysis', icon: FiBookOpen },
@@ -61,7 +61,7 @@ const TABS = [
 ] as const;
 type TabKey = typeof TABS[number]['key'];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const pct = (n: number) => `${n.toFixed(1)}%`;
 const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
@@ -112,7 +112,7 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
     );
 }
 
-// ─── Grade distribution bar ────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Grade distribution bar ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function GradeDistBar({ data, total }: { data: Record<string, number>; total: number }) {
     const order = ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'E'];
     return (
@@ -143,7 +143,7 @@ function GradeDistBar({ data, total }: { data: Record<string, number>; total: nu
     );
 }
 
-// ─── Insight chip ──────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Insight chip ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Insight({ type, text }: { type: 'good' | 'warn' | 'info' | 'bad'; text: string }) {
     const map = {
         good: { cls: 'bg-green-50 border-green-200 text-green-800', Icon: FiCheckCircle, ic: 'text-green-500' },
@@ -160,9 +160,9 @@ function Insight({ type, text }: { type: 'good' | 'warn' | 'info' | 'bad'; text:
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 export default function UltraBroadsheetPage() {
-    // ─── State ────────────────────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ State ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const [forms, setForms] = useState<Form[]>([]);
     const [streams, setStreams] = useState<Stream[]>([]);
     const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -188,8 +188,12 @@ export default function UltraBroadsheetPage() {
 
     const [dbExamTypes, setDbExamTypes] = useState<any[]>([]);
     const fallbackExamTypes = ['CAT 1', 'CAT 2', 'Mid-Term', 'End-Term', 'Mock', 'KCSE Trial'];
+    const [curriculumMode, setCurriculumMode] = useState<'844' | 'cbc'>('844');
+    const [cbcMarks, setCbcMarks] = useState<any[]>([]);
+    const [cbcLAs, setCbcLAs] = useState<any[]>([]);
+    const [loadingCBC, setLoadingCBC] = useState(false);
 
-    // ─── Fetch base data ──────────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Fetch base data ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const fetchBase = useCallback(async () => {
         setLoading(true);
         const [f, st, sub, s, t, gr, sf] = await Promise.all([
@@ -215,7 +219,7 @@ export default function UltraBroadsheetPage() {
 
     useEffect(() => { fetchBase(); }, [fetchBase]);
 
-    // ─── Load exam types from DB when term changes ────────────────────────────
+    // ΓöÇΓöÇΓöÇ Load exam types from DB when term changes ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     useEffect(() => {
         if (!selTerm) { setDbExamTypes([]); return; }
         supabase.from('school_exam_types').select('*')
@@ -230,22 +234,42 @@ export default function UltraBroadsheetPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selTerm]);
 
+    // --- Fetch CBC marks when CBC mode is active ---
+    useEffect(() => {
+        if (curriculumMode !== 'cbc' || !selTerm || !selForm) { setCbcMarks([]); setCbcLAs([]); return; }
+        const studentIds = students.filter((s: any) => String(s.form_id) === selForm).map((s: any) => s.id);
+        if (studentIds.length === 0) return;
+        setLoadingCBC(true);
+        Promise.all([
+            supabase.from('school_cbc_assessment_marks').select('*')
+                .eq('term_id', Number(selTerm)).in('student_id', studentIds)
+                .then((r: any) => r).catch(() => ({ data: [] })),
+            supabase.from('school_jss_learning_areas').select('*').order('code')
+                .then((r: any) => r).catch(() => ({ data: [] })),
+        ]).then(([m, la]: any[]) => {
+            setCbcMarks(m.data || []);
+            setCbcLAs(la.data || []);
+            setLoadingCBC(false);
+        }).catch(() => setLoadingCBC(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [curriculumMode, selTerm, selForm, students]);
 
-    // ─── Grade calculator ─────────────────────────────────────────────────────
+
+    // ΓöÇΓöÇΓöÇ Grade calculator ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const getGrade = useCallback((score: number): GradeEntry => {
         const sorted = [...grading].sort((a, b) => b.min_score - a.min_score);
         return sorted.find(g => score >= g.min_score && score <= g.max_score)
             || { grade: 'E', min_score: 0, max_score: 29, points: 1, remarks: 'Very Poor' };
     }, [grading]);
 
-    // ─── Students in selected class ───────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Students in selected class ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const classStudents = useMemo(() => students
         .filter(s => selForm && String(s.form_id) === selForm)
         .filter(s => !selStream || String(s.stream_id) === selStream)
         .filter(s => !genderFilter || s.gender === genderFilter),
     [students, selForm, selStream, genderFilter]);
 
-    // ─── Fetch marks when filters change ─────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Fetch marks when filters change ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     useEffect(() => {
         if (!selForm || !selTerm || !selExamType) { setMarks([]); return; }
         const studentIds = students
@@ -264,7 +288,7 @@ export default function UltraBroadsheetPage() {
         load();
     }, [selForm, selStream, selTerm, selExamType, students]);
 
-    // ─── Fetch ALL marks for school overview ──────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Fetch ALL marks for school overview ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     useEffect(() => {
         if (!selTerm || !selExamType) { setAllMarks([]); return; }
         const load = async () => {
@@ -275,7 +299,7 @@ export default function UltraBroadsheetPage() {
         load();
     }, [selTerm, selExamType]);
 
-    // ─── Build broadsheet rows ────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Build broadsheet rows ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const broadsheetData: StudentRow[] = useMemo(() => {
         return classStudents.map(student => {
             const studentMarks = marks.filter(m => m.student_id === student.id);
@@ -296,7 +320,7 @@ export default function UltraBroadsheetPage() {
         });
     }, [classStudents, marks, subjects, getGrade]);
 
-    // ─── Sort & rank ──────────────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Sort & rank ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const sorted: StudentRow[] = useMemo(() => {
         let arr = [...broadsheetData];
         if (searchQ.trim()) {
@@ -328,7 +352,7 @@ export default function UltraBroadsheetPage() {
 
     const isReady = selForm && selTerm && selExamType;
 
-    // ─── Computed analytics ───────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Computed analytics ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const classAvg = useMemo(() => avg(sorted.filter(r => r.avgScore > 0).map(r => r.avgScore)), [sorted]);
     const classAvgGrade = useMemo(() => getGrade(classAvg), [classAvg, getGrade]);
     const topStudent = useMemo(() => sorted[0], [sorted]);
@@ -428,7 +452,7 @@ export default function UltraBroadsheetPage() {
         return avg(all);
     }, [allMarks]);
 
-    // ─── Export ───────────────────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Export ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const exportBroadsheet = () => {
         const headers = ['Rank', 'Adm No', 'Name', 'Gender', ...activeSubjects.map(s => s.subject_code || s.subject_name), 'Total', 'Avg', 'Grade', 'Points'];
         const rows = sorted.map(row => [
@@ -453,16 +477,16 @@ export default function UltraBroadsheetPage() {
         const formName = forms.find(f => String(f.id) === selForm)?.form_name || selForm;
         a.download = `broadsheet_${formName}_${termName}_${selExamType}_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
-        toast.success('Broadsheet exported ✅');
+        toast.success('Broadsheet exported Γ£à');
     };
 
-    // ─── Smart insights ───────────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Smart insights ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const insights = useMemo(() => {
         const list: { type: 'good' | 'warn' | 'info' | 'bad'; text: string }[] = [];
         if (sorted.length === 0) return list;
         if (passRate >= 80) list.push({ type: 'good', text: `Excellent! ${passRate.toFixed(0)}% of students scored above 50%. Class is performing well.` });
-        else if (passRate >= 60) list.push({ type: 'info', text: `${passRate.toFixed(0)}% pass rate. Moderate performance — targeted remediation could boost results.` });
-        else list.push({ type: 'bad', text: `⚠️ Only ${passRate.toFixed(0)}% of students passed. Urgent intervention required.` });
+        else if (passRate >= 60) list.push({ type: 'info', text: `${passRate.toFixed(0)}% pass rate. Moderate performance ΓÇö targeted remediation could boost results.` });
+        else list.push({ type: 'bad', text: `ΓÜá∩╕Å Only ${passRate.toFixed(0)}% of students passed. Urgent intervention required.` });
 
         if (genderStats.boys.count > 0 && genderStats.girls.count > 0) {
             const diff = Math.abs(genderStats.boys.avg - genderStats.girls.avg);
@@ -474,7 +498,7 @@ export default function UltraBroadsheetPage() {
 
         const weakSubjects = subjectStats.filter(s => s.avg < 40 && s.total > 0);
         if (weakSubjects.length > 0) {
-            list.push({ type: 'bad', text: `Weak subjects: ${weakSubjects.map(s => s.subject.subject_name).join(', ')} — class average below 40. Immediate attention needed.` });
+            list.push({ type: 'bad', text: `Weak subjects: ${weakSubjects.map(s => s.subject.subject_name).join(', ')} ΓÇö class average below 40. Immediate attention needed.` });
         }
 
         const strongSubjects = subjectStats.filter(s => s.avg >= 70 && s.total > 0);
@@ -483,17 +507,17 @@ export default function UltraBroadsheetPage() {
         }
 
         if (absentCount > 0) {
-            list.push({ type: 'warn', text: `${absentCount} student(s) have no marks recorded — verify exam attendance.` });
+            list.push({ type: 'warn', text: `${absentCount} student(s) have no marks recorded ΓÇö verify exam attendance.` });
         }
 
         if (topStudent) {
-            list.push({ type: 'info', text: `Top student: ${topStudent.student.first_name} ${topStudent.student.last_name} — Avg ${topStudent.avgScore.toFixed(1)}%, Grade ${topStudent.meanGrade.grade}.` });
+            list.push({ type: 'info', text: `Top student: ${topStudent.student.first_name} ${topStudent.student.last_name} ΓÇö Avg ${topStudent.avgScore.toFixed(1)}%, Grade ${topStudent.meanGrade.grade}.` });
         }
 
         return list;
     }, [sorted, passRate, genderStats, subjectStats, absentCount, topStudent]);
 
-    // ─── Loading ──────────────────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Loading ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     if (loading) return (
         <div className="flex items-center justify-center h-[60vh]">
             <div className="text-center">
@@ -504,50 +528,202 @@ export default function UltraBroadsheetPage() {
         </div>
     );
 
-    // ─── Render ───────────────────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ Render ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     return (
         <div className="space-y-5 animate-fade-in">
 
-            {/* ── Header ─────────────────────────────────────────────────────── */}
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2.5">
-                        <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md">
-                            <FiGrid size={18} />
+            {/* ══ ULTRA-PREMIUM HERO COMMAND CENTRE ══════════════════════════════════════ */}
+            <div className="relative overflow-hidden rounded-2xl shadow-2xl" style={{ background: 'linear-gradient(135deg,#1e3a5f 0%,#1d4ed8 55%,#4f46e5 100%)' }}>
+                <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px,rgba(255,255,255,0.1) 1px,transparent 0)', backgroundSize: '20px 20px' }} />
+                <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full opacity-10" style={{ background: 'radial-gradient(circle,#93c5fd,transparent 70%)' }} />
+                <div className="relative px-6 pt-5 pb-4">
+                    {/* Title + Actions */}
+                    <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                                <FiGrid size={22} className="text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-black text-white tracking-tight leading-none">Broadsheet &amp; Analytics</h1>
+                                <div className="flex items-center gap-1 mt-1 text-[11px]" style={{ color: 'rgba(199,210,254,0.75)' }}>
+                                    <span>Dashboard</span><span className="opacity-40">›</span><span>Exams</span><span className="opacity-40">›</span>
+                                    <span style={{ color: '#bfdbfe', fontWeight: 700 }}>Broadsheet</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <button onClick={fetchBase} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer hover:scale-105 transition-all"
+                                style={{ background: 'rgba(255,255,255,0.12)', color: '#e0e7ff', border: '1px solid rgba(255,255,255,0.15)' }}>
+                                <FiRefreshCw size={12} /> Refresh
+                            </button>
+                            {isReady && sorted.length > 0 && (
+                                <>
+                                    <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer hover:scale-105 transition-all"
+                                        style={{ background: 'rgba(255,255,255,0.12)', color: '#e0e7ff', border: '1px solid rgba(255,255,255,0.15)' }}>
+                                        <FiPrinter size={12} /> Print
+                                    </button>
+                                    <button onClick={exportBroadsheet} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black cursor-pointer hover:scale-105 transition-all"
+                                        style={{ background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', boxShadow: '0 4px 16px rgba(16,185,129,0.35)' }}>
+                                        <FiDownload size={12} /> Export CSV
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    {/* Curriculum Toggle */}
+                    <div className="flex items-center gap-3 mb-4 flex-wrap">
+                        <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(165,180,252,0.7)' }}>Curriculum:</span>
+                        <div className="flex gap-0.5 rounded-xl p-1" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <button onClick={() => setCurriculumMode('844')} className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                style={curriculumMode === '844' ? { background: '#fff', color: '#1d4ed8', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' } : { color: 'rgba(199,210,254,0.7)' }}>
+                                <FiLayers size={11} /> 8.4.4 / KCSE
+                            </button>
+                            <button onClick={() => setCurriculumMode('cbc')} className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                style={curriculumMode === 'cbc' ? { background: '#fff', color: '#7c3aed', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' } : { color: 'rgba(199,210,254,0.7)' }}>
+                                <FiZap size={11} /> CBC / KICD
+                            </button>
+                        </div>
+                        <span className="text-[10px] px-2.5 py-1 rounded-full font-black"
+                            style={{ background: curriculumMode === 'cbc' ? 'rgba(124,58,237,0.25)' : 'rgba(29,78,216,0.25)', color: curriculumMode === 'cbc' ? '#c4b5fd' : '#bfdbfe', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            {curriculumMode === 'cbc' ? '🎓 JSS / Senior CBC — EE · ME · AE · BE rubric' : '📝 8.4.4 — A to E grades · 12-point KCSE scale'}
                         </span>
-                        Ultra Broadsheet
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-1">
-                        Full academic analysis — scores, grades, rankings, subject & class intelligence
-                    </p>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                    <button onClick={fetchBase} className="btn-outline text-xs flex items-center gap-1.5 py-2 px-3">
-                        <FiRefreshCw size={13} /> Refresh
-                    </button>
-                    {isReady && sorted.length > 0 && (
-                        <>
-                            <button onClick={() => window.print()} className="btn-outline text-sm flex items-center gap-1.5">
-                                <FiPrinter size={14} /> Print
-                            </button>
-                            <button onClick={async () => {
-                                const prev = selStream;
-                                setSelStream('');
-                                await new Promise(r => setTimeout(r, 400));
-                                window.print();
-                                setSelStream(prev);
-                            }} className="btn-outline text-sm flex items-center gap-1.5" title="Print all streams">
-                                <FiPrinter size={14} /> Print All Classes
-                            </button>
-                            <button onClick={exportBroadsheet} className="btn-primary text-sm flex items-center gap-1.5">
-                                <FiDownload size={14} /> Export CSV
-                            </button>
-                        </>
+                    </div>
+                    {/* Live KPI Strip — 8.4.4 only */}
+                    {isReady && sorted.length > 0 && curriculumMode === '844' && (
+                        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 mb-3">
+                            {[
+                                { label: 'Students', value: sorted.length, icon: '👨‍🎓', color: '#93c5fd' },
+                                { label: 'Subjects', value: activeSubjects.length, icon: '📚', color: '#a5b4fc' },
+                                { label: 'Class Avg', value: classAvg > 0 ? classAvg.toFixed(1)+'%' : '—', icon: '📊', color: '#6ee7b7' },
+                                { label: 'Mean Grade', value: classAvg > 0 ? classAvgGrade.grade : '—', icon: '🏆', color: '#fcd34d' },
+                                { label: 'Pass Rate', value: passRate > 0 ? passRate.toFixed(0)+'%' : '—', icon: passRate >= 70 ? '✅' : '⚠️', color: passRate >= 70 ? '#6ee7b7' : '#fca5a5' },
+                                { label: 'Top Score', value: sorted[0]?.avgScore > 0 ? sorted[0].avgScore.toFixed(1)+'%' : '—', icon: '⭐', color: '#fcd34d' },
+                                { label: 'Boys', value: genderStats.boys.count, icon: '♂', color: '#93c5fd' },
+                                { label: 'Girls', value: genderStats.girls.count, icon: '♀', color: '#f9a8d4' },
+                            ].map(k => (
+                                <div key={k.label} className="rounded-xl px-3 py-2 hover:scale-105 transition-all" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <div className="flex items-center gap-1 mb-1">
+                                        <span className="text-sm">{k.icon}</span>
+                                        <p className="text-[8px] font-black uppercase tracking-wider truncate" style={{ color: 'rgba(165,180,252,0.7)' }}>{k.label}</p>
+                                    </div>
+                                    <p className="text-lg font-black leading-none" style={{ color: k.color }}>{k.value}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {/* Completion bar */}
+                    {isReady && sorted.length > 0 && curriculumMode === '844' && (
+                        <div>
+                            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                <div className="h-full rounded-full transition-all duration-700"
+                                    style={{ width: Math.min(100,passRate)+'%', background: passRate >= 70 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#f59e0b,#ef4444)' }} />
+                            </div>
+                            <p className="text-[10px] mt-1" style={{ color: 'rgba(165,180,252,0.6)' }}>Pass rate — {passRate.toFixed(0)}% of students scored ≥50%</p>
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* ── Filters ────────────────────────────────────────────────────── */}
+            {/* ══ CBC BROADSHEET PANEL — shown when CBC mode ═════════════════════════════════════ */}
+            {curriculumMode === 'cbc' && isReady && (
+                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                    <div className="px-5 py-3 flex items-center gap-3 flex-wrap" style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8,#4f46e5)' }}>
+                        <FiZap size={16} className="text-purple-200" />
+                        <span className="text-sm font-black text-white uppercase tracking-widest">CBC Competency Broadsheet</span>
+                        {loadingCBC && <span className="text-[10px] text-purple-200 animate-pulse ml-2">Loading…</span>}
+                        <div className="ml-auto flex gap-2 flex-wrap">
+                            {[
+                                { code: 'EE', label: 'Exceeds', bg: 'rgba(16,185,129,0.25)' },
+                                { code: 'ME', label: 'Meets', bg: 'rgba(37,99,235,0.25)' },
+                                { code: 'AE', label: 'Approaches', bg: 'rgba(217,119,6,0.25)' },
+                                { code: 'BE', label: 'Below', bg: 'rgba(220,38,38,0.25)' },
+                            ].map(r => (
+                                <span key={r.code} className="text-[10px] font-black px-2 py-0.5 rounded-full text-white" style={{ background: r.bg, border: '1px solid rgba(255,255,255,0.15)' }}>
+                                    {r.code} — {r.label}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="p-5">
+                        {cbcMarks.length === 0 && !loadingCBC ? (
+                            <div className="text-center py-16 rounded-2xl" style={{ background: 'linear-gradient(135deg,#f8faff,#eff6ff)' }}>
+                                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg" style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>
+                                    <FiZap size={28} className="text-white" />
+                                </div>
+                                <p className="font-black text-lg mb-1" style={{ color: '#1e3a5f' }}>No CBC Marks Found</p>
+                                <p className="text-sm text-gray-400 max-w-xs mx-auto">Enter marks via CBC Mark Entry first, then return here to view the competency broadsheet.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                <table className="w-full border-collapse text-xs">
+                                    <thead>
+                                        <tr style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8,#4f46e5)' }}>
+                                            <th className="px-3 py-3 text-left text-[10px] font-black uppercase sticky left-0 z-10 min-w-[160px]" style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)', color: 'rgba(199,210,254,0.85)' }}># Student</th>
+                                            {cbcLAs.slice(0,12).map((la: any) => (
+                                                <th key={la.code} className="px-2 py-3 text-center text-[10px] font-black min-w-[70px]" style={{ color: 'rgba(199,210,254,0.85)' }}>
+                                                    <div className="text-[9px] font-black px-1.5 py-0.5 rounded-md mx-auto w-fit" style={{ background: 'rgba(255,255,255,0.18)' }}>{la.code}</div>
+                                                    <div className="text-[8px] mt-0.5 opacity-70">{la.name?.substring(0,8)}</div>
+                                                </th>
+                                            ))}
+                                            <th className="px-3 py-3 text-center text-[10px] font-black" style={{ color: '#6ee7b7' }}>Overall</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {classStudents.slice(0,50).map((student, idx) => {
+                                            const sMarks = cbcMarks.filter((m: any) => m.student_id === student.id);
+                                            const levels = sMarks.map((m: any) => m.level || m.rubric_level).filter(Boolean);
+                                            const scoreMap: Record<string,number> = { EE:4, ME:3, AE:2, BE:1 };
+                                            const avgPts = levels.length > 0 ? levels.reduce((a:number, l:any) => a+(scoreMap[l]||0), 0) / levels.length : 0;
+                                            const overall = avgPts >= 3.5 ? 'EE' : avgPts >= 2.5 ? 'ME' : avgPts >= 1.5 ? 'AE' : levels.length > 0 ? 'BE' : null;
+                                            const rc: Record<string,{bg:string,color:string,border:string}> = {
+                                                EE:{bg:'#d1fae5',color:'#059669',border:'#6ee7b7'},
+                                                ME:{bg:'#dbeafe',color:'#2563eb',border:'#93c5fd'},
+                                                AE:{bg:'#fef3c7',color:'#d97706',border:'#fcd34d'},
+                                                BE:{bg:'#fee2e2',color:'#dc2626',border:'#fca5a5'},
+                                            };
+                                            return (
+                                                <tr key={student.id} className={`border-b border-gray-100 ${idx%2===0?'bg-white':'bg-gray-50/40'} hover:bg-blue-50/20 transition`}>
+                                                    <td className="px-3 py-2.5 sticky left-0 bg-inherit z-10">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] font-black flex-shrink-0"
+                                                                style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>{student.first_name?.[0]}</div>
+                                                            <div>
+                                                                <p className="font-bold text-gray-800 text-[11px] leading-tight">{student.last_name}, {student.first_name}</p>
+                                                                <p className="text-[9px] text-gray-400">{student.admission_no || student.admission_number || '—'}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    {cbcLAs.slice(0,12).map((la: any) => {
+                                                        const m = sMarks.find((x:any) => x.learning_area_code === la.code || x.subject_code === la.code);
+                                                        const lvl = m?.level || m?.rubric_level;
+                                                        return (
+                                                            <td key={la.code} className="px-1 py-2.5 text-center">
+                                                                {lvl && rc[lvl] ? (
+                                                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-[10px] font-black"
+                                                                        style={{ background: rc[lvl].bg, color: rc[lvl].color, border: `1px solid ${rc[lvl].border}` }}>{lvl}</span>
+                                                                ) : <span className="text-gray-200">—</span>}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className="px-3 py-2.5 text-center">
+                                                        {overall && rc[overall] ? (
+                                                            <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg text-[11px] font-black"
+                                                                style={{ background: rc[overall].bg, color: rc[overall].color }}>{overall}</span>
+                                                        ) : <span className="text-gray-300">—</span>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+
+            {/* ΓöÇΓöÇ Filters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
             <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                     <FiFilter size={14} className="text-gray-400" />
@@ -601,7 +777,7 @@ export default function UltraBroadsheetPage() {
                 </div>
             </div>
 
-            {/* ── Not Ready ──────────────────────────────────────────────────── */}
+            {/* ΓöÇΓöÇ Not Ready ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
             {!isReady ? (
                 <div className="bg-white rounded-2xl border border-gray-200 text-center py-24 text-gray-400">
                     <FiGrid size={40} className="mx-auto mb-4 text-gray-300" />
@@ -615,7 +791,7 @@ export default function UltraBroadsheetPage() {
                 </div>
             ) : (
                 <>
-                    {/* ── Summary Stat Cards ──────────────────────────────────── */}
+                    {/* ΓöÇΓöÇ Summary Stat Cards ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                         <StatCard label="Students" value={sorted.length} icon={FiUsers} color="blue" />
                         <StatCard label="Subjects" value={activeSubjects.length} icon={FiBookOpen} color="purple" />
@@ -627,7 +803,7 @@ export default function UltraBroadsheetPage() {
                         <StatCard label="Girls" value={genderStats.girls.count} sub={genderStats.girls.avg > 0 ? `Avg ${pct(genderStats.girls.avg)}` : undefined} icon={FiUsers} color="pink" />
                     </div>
 
-                    {/* ── Insights ───────────────────────────────────────────── */}
+                    {/* ΓöÇΓöÇ Insights ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
                     {insights.length > 0 && (
                         <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-3">
@@ -640,7 +816,7 @@ export default function UltraBroadsheetPage() {
                         </div>
                     )}
 
-                    {/* ── Tabs ───────────────────────────────────────────────── */}
+                    {/* ΓöÇΓöÇ Tabs ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
                     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
                         {/* Tab Bar */}
                         <div className="border-b border-gray-200 overflow-x-auto">
@@ -651,7 +827,7 @@ export default function UltraBroadsheetPage() {
                                     return (
                                         <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                                             className={`flex items-center gap-2 px-4 py-3.5 text-[13px] font-semibold border-b-2 transition-all whitespace-nowrap
-                                            ${active ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+                                            ${active ? 'border-blue-600 text-blue-700 bg-blue-50/50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
                                             <Icon size={14} />
                                             {tab.label}
                                         </button>
@@ -660,7 +836,7 @@ export default function UltraBroadsheetPage() {
                             </div>
                         </div>
 
-                        {/* ── Tab: BROADSHEET ──────────────────────────────────── */}
+                        {/* ΓöÇΓöÇ Tab: BROADSHEET ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
                         {activeTab === 'broadsheet' && (
                             <div className="p-4">
                                 {/* Search + Top-N */}
@@ -747,18 +923,18 @@ export default function UltraBroadsheetPage() {
                                                                                     <span className="font-bold text-gray-800 text-[12px]">{s.score}</span>
                                                                                     <GradeBadge grade={s.grade} small />
                                                                                 </div>
-                                                                            ) : <span className="text-gray-300">–</span>}
+                                                                            ) : <span className="text-gray-300">ΓÇô</span>}
                                                                         </td>
                                                                     );
                                                                 })}
-                                                                <td className="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50/50">{row.totalScore || '–'}</td>
-                                                                <td className="px-2 py-2 text-center font-bold text-purple-700 bg-purple-50/50">{row.avgScore > 0 ? row.avgScore.toFixed(1) : '–'}</td>
+                                                                <td className="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50/50">{row.totalScore || 'ΓÇô'}</td>
+                                                                <td className="px-2 py-2 text-center font-bold text-purple-700 bg-purple-50/50">{row.avgScore > 0 ? row.avgScore.toFixed(1) : 'ΓÇô'}</td>
                                                                 <td className="px-2 py-2 text-center bg-green-50/50">
-                                                                    {row.avgScore > 0 ? <GradeBadge grade={row.meanGrade.grade} /> : <span className="text-gray-300">–</span>}
+                                                                    {row.avgScore > 0 ? <GradeBadge grade={row.meanGrade.grade} /> : <span className="text-gray-300">ΓÇô</span>}
                                                                 </td>
-                                                                <td className="px-2 py-2 text-center font-bold text-amber-700 bg-amber-50/50">{row.totalPoints || '–'}</td>
+                                                                <td className="px-2 py-2 text-center font-bold text-amber-700 bg-amber-50/50">{row.totalPoints || 'ΓÇô'}</td>
                                                                 <td className="px-2 py-2 text-center text-[10px] text-gray-500">
-                                                                    {row.avgScore > 0 ? row.meanGrade.remarks?.split(' ').slice(0, 1).join('') : '–'}
+                                                                    {row.avgScore > 0 ? row.meanGrade.remarks?.split(' ').slice(0, 1).join('') : 'ΓÇô'}
                                                                 </td>
                                                             </tr>
                                                             {/* Expanded student detail row */}
@@ -807,20 +983,20 @@ export default function UltraBroadsheetPage() {
                                                         return (
                                                             <td key={sub.id} className="px-1 py-3 text-center">
                                                                 <div className="flex flex-col items-center gap-0.5">
-                                                                    <span className="font-bold text-gray-700 text-[11px]">{ss && ss.avg > 0 ? ss.avg.toFixed(0) : '–'}</span>
+                                                                    <span className="font-bold text-gray-700 text-[11px]">{ss && ss.avg > 0 ? ss.avg.toFixed(0) : 'ΓÇô'}</span>
                                                                     {ss && ss.avg > 0 && <GradeBadge grade={ss.grade.grade} small />}
                                                                 </div>
                                                             </td>
                                                         );
                                                     })}
-                                                    <td className="px-2 py-3 text-center font-bold text-blue-700 bg-blue-50/50 text-xs">–</td>
+                                                    <td className="px-2 py-3 text-center font-bold text-blue-700 bg-blue-50/50 text-xs">ΓÇô</td>
                                                     <td className="px-2 py-3 text-center font-bold text-purple-700 bg-purple-50/50 text-xs">
-                                                        {classAvg > 0 ? classAvg.toFixed(1) : '–'}
+                                                        {classAvg > 0 ? classAvg.toFixed(1) : 'ΓÇô'}
                                                     </td>
                                                     <td className="px-2 py-3 text-center bg-green-50/50">
-                                                        {classAvg > 0 ? <GradeBadge grade={classAvgGrade.grade} /> : '–'}
+                                                        {classAvg > 0 ? <GradeBadge grade={classAvgGrade.grade} /> : 'ΓÇô'}
                                                     </td>
-                                                    <td className="px-2 py-3 text-center font-bold text-amber-700 bg-amber-50/50 text-xs">–</td>
+                                                    <td className="px-2 py-3 text-center font-bold text-amber-700 bg-amber-50/50 text-xs">ΓÇô</td>
                                                     <td className="px-2 py-3"></td>
                                                 </tr>
                                                 {/* Grade distribution footer */}
@@ -831,7 +1007,7 @@ export default function UltraBroadsheetPage() {
                                                         const topGrade = ss ? Object.entries(ss.dist).sort((a, b) => b[1] - a[1])[0] : null;
                                                         return (
                                                             <td key={sub.id} className="px-1 py-2 text-center text-[9px] text-gray-500">
-                                                                {topGrade ? <><GradeBadge grade={topGrade[0]} small /><div className="mt-0.5">{topGrade[1]}</div></> : '–'}
+                                                                {topGrade ? <><GradeBadge grade={topGrade[0]} small /><div className="mt-0.5">{topGrade[1]}</div></> : 'ΓÇô'}
                                                             </td>
                                                         );
                                                     })}
@@ -849,17 +1025,17 @@ export default function UltraBroadsheetPage() {
                                 {/* Grade Distribution Bar */}
                                 {sorted.length > 0 && (
                                     <div className="mt-5 bg-gray-50 rounded-xl border border-gray-200 p-4">
-                                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Mean Grade Distribution — {sorted.filter(r => r.avgScore > 0).length} students</p>
+                                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Mean Grade Distribution ΓÇö {sorted.filter(r => r.avgScore > 0).length} students</p>
                                         <GradeDistBar data={classGradeDist} total={sorted.filter(r => r.avgScore > 0).length} />
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* ── Tab: SUBJECT ANALYSIS ─────────────────────────────── */}
+                        {/* ΓöÇΓöÇ Tab: SUBJECT ANALYSIS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
                         {activeTab === 'subject' && (
                             <div className="p-4">
-                                <SectionHeader title="Subject-by-Subject Analysis" sub="Performance breakdown per subject — averages, grade distribution, pass rates" />
+                                <SectionHeader title="Subject-by-Subject Analysis" sub="Performance breakdown per subject ΓÇö averages, grade distribution, pass rates" />
                                 {subjectStats.length === 0 ? (
                                     <div className="text-center py-16 text-gray-400">
                                         <FiBookOpen size={32} className="mx-auto mb-3 text-gray-300" />
@@ -893,17 +1069,17 @@ export default function UltraBroadsheetPage() {
                                                                 </td>
                                                                 <td className="px-3 py-3 text-center font-semibold text-gray-700">{ss.total}</td>
                                                                 <td className="px-3 py-3 text-center">
-                                                                    <span className="font-bold text-gray-900 text-sm">{ss.avg > 0 ? ss.avg.toFixed(1) : '–'}</span>
+                                                                    <span className="font-bold text-gray-900 text-sm">{ss.avg > 0 ? ss.avg.toFixed(1) : 'ΓÇô'}</span>
                                                                 </td>
                                                                 <td className="px-3 py-3 text-center">
-                                                                    {ss.avg > 0 ? <GradeBadge grade={ss.grade.grade} /> : '–'}
+                                                                    {ss.avg > 0 ? <GradeBadge grade={ss.grade.grade} /> : 'ΓÇô'}
                                                                 </td>
-                                                                <td className="px-3 py-3 text-center text-green-700 font-bold">{ss.highest || '–'}</td>
-                                                                <td className="px-3 py-3 text-center text-red-500 font-bold">{ss.lowest || '–'}</td>
+                                                                <td className="px-3 py-3 text-center text-green-700 font-bold">{ss.highest || 'ΓÇô'}</td>
+                                                                <td className="px-3 py-3 text-center text-red-500 font-bold">{ss.lowest || 'ΓÇô'}</td>
                                                                 <td className="px-3 py-3 text-center">
                                                                     <div className="flex flex-col items-center gap-1">
                                                                         <span className={`font-bold text-[13px] ${subPassRate >= 70 ? 'text-green-600' : subPassRate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
-                                                                            {ss.total > 0 ? pct(subPassRate) : '–'}
+                                                                            {ss.total > 0 ? pct(subPassRate) : 'ΓÇô'}
                                                                         </span>
                                                                         <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                                                             <div className={`h-full rounded-full ${subPassRate >= 70 ? 'bg-green-500' : subPassRate >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
@@ -934,7 +1110,7 @@ export default function UltraBroadsheetPage() {
                                                             <div className="flex items-center justify-between mb-2">
                                                                 <p className="text-xs font-bold text-gray-800 truncate">{ss.subject.subject_name}</p>
                                                                 <div className="flex items-center gap-1.5">
-                                                                    <span className="text-[10px] text-gray-500">{ss.avg > 0 ? ss.avg.toFixed(1) : '–'}</span>
+                                                                    <span className="text-[10px] text-gray-500">{ss.avg > 0 ? ss.avg.toFixed(1) : 'ΓÇô'}</span>
                                                                     {ss.avg > 0 && <GradeBadge grade={ss.grade.grade} small />}
                                                                 </div>
                                                             </div>
@@ -968,7 +1144,7 @@ export default function UltraBroadsheetPage() {
                             </div>
                         )}
 
-                        {/* ── Tab: CLASS ANALYSIS ───────────────────────────────── */}
+                        {/* ΓöÇΓöÇ Tab: CLASS ANALYSIS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
                         {activeTab === 'class' && (
                             <div className="p-4 space-y-5">
                                 <SectionHeader title="Class Performance Analysis" sub="Detailed breakdown of class results, gender split, and performance tiers" />
@@ -984,9 +1160,9 @@ export default function UltraBroadsheetPage() {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                             {[
                                                 { label: 'Distinction (A/A-)', count: sorted.filter(r => ['A', 'A-'].includes(r.meanGrade.grade)).length, color: 'bg-green-500', textColor: 'text-green-700', bg: 'bg-green-50' },
-                                                { label: 'Credit (B+–B-)', count: sorted.filter(r => ['B+', 'B', 'B-'].includes(r.meanGrade.grade)).length, color: 'bg-blue-500', textColor: 'text-blue-700', bg: 'bg-blue-50' },
-                                                { label: 'Pass (C+–C-)', count: sorted.filter(r => ['C+', 'C', 'C-'].includes(r.meanGrade.grade)).length, color: 'bg-amber-500', textColor: 'text-amber-700', bg: 'bg-amber-50' },
-                                                { label: 'Below Pass (D+–E)', count: sorted.filter(r => ['D+', 'D', 'D-', 'E'].includes(r.meanGrade.grade)).length, color: 'bg-red-500', textColor: 'text-red-700', bg: 'bg-red-50' },
+                                                { label: 'Credit (B+ΓÇôB-)', count: sorted.filter(r => ['B+', 'B', 'B-'].includes(r.meanGrade.grade)).length, color: 'bg-blue-500', textColor: 'text-blue-700', bg: 'bg-blue-50' },
+                                                { label: 'Pass (C+ΓÇôC-)', count: sorted.filter(r => ['C+', 'C', 'C-'].includes(r.meanGrade.grade)).length, color: 'bg-amber-500', textColor: 'text-amber-700', bg: 'bg-amber-50' },
+                                                { label: 'Below Pass (D+ΓÇôE)', count: sorted.filter(r => ['D+', 'D', 'D-', 'E'].includes(r.meanGrade.grade)).length, color: 'bg-red-500', textColor: 'text-red-700', bg: 'bg-red-50' },
                                             ].map(tier => (
                                                 <div key={tier.label} className={`${tier.bg} rounded-xl border border-gray-200 p-4`}>
                                                     <p className="text-xs text-gray-500 font-semibold mb-1">{tier.label}</p>
@@ -995,7 +1171,7 @@ export default function UltraBroadsheetPage() {
                                                         <div className={`h-full rounded-full ${tier.color}`}
                                                             style={{ width: `${sorted.length > 0 ? (tier.count / sorted.filter(r => r.avgScore > 0).length) * 100 : 0}%` }} />
                                                     </div>
-                                                    <p className="text-[10px] text-gray-500 mt-1">{sorted.filter(r => r.avgScore > 0).length > 0 ? pct((tier.count / sorted.filter(r => r.avgScore > 0).length) * 100) : '–'}</p>
+                                                    <p className="text-[10px] text-gray-500 mt-1">{sorted.filter(r => r.avgScore > 0).length > 0 ? pct((tier.count / sorted.filter(r => r.avgScore > 0).length) * 100) : 'ΓÇô'}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -1014,11 +1190,11 @@ export default function UltraBroadsheetPage() {
                                                         <div className="space-y-1 text-xs">
                                                             <div className="flex justify-between text-gray-600">
                                                                 <span>Average Score</span>
-                                                                <span className="font-bold">{g.data.avg > 0 ? pct(g.data.avg) : '–'}</span>
+                                                                <span className="font-bold">{g.data.avg > 0 ? pct(g.data.avg) : 'ΓÇô'}</span>
                                                             </div>
                                                             <div className="flex justify-between text-gray-600">
                                                                 <span>Mean Grade</span>
-                                                                <span className="font-bold">{g.data.avg > 0 ? getGrade(g.data.avg).grade : '–'}</span>
+                                                                <span className="font-bold">{g.data.avg > 0 ? getGrade(g.data.avg).grade : 'ΓÇô'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1030,11 +1206,11 @@ export default function UltraBroadsheetPage() {
                                         <div className="bg-white rounded-xl border border-gray-200 p-4">
                                             <h3 className="text-sm font-bold text-gray-700 mb-3">Score Band Distribution</h3>
                                             {[
-                                                { label: '80–100 (Excellent)', min: 80, max: 100, color: 'bg-green-500' },
-                                                { label: '60–79 (Good)', min: 60, max: 79, color: 'bg-blue-500' },
-                                                { label: '50–59 (Average)', min: 50, max: 59, color: 'bg-amber-500' },
-                                                { label: '40–49 (Below Avg)', min: 40, max: 49, color: 'bg-orange-500' },
-                                                { label: '0–39 (Poor)', min: 0, max: 39, color: 'bg-red-500' },
+                                                { label: '80ΓÇô100 (Excellent)', min: 80, max: 100, color: 'bg-green-500' },
+                                                { label: '60ΓÇô79 (Good)', min: 60, max: 79, color: 'bg-blue-500' },
+                                                { label: '50ΓÇô59 (Average)', min: 50, max: 59, color: 'bg-amber-500' },
+                                                { label: '40ΓÇô49 (Below Avg)', min: 40, max: 49, color: 'bg-orange-500' },
+                                                { label: '0ΓÇô39 (Poor)', min: 0, max: 39, color: 'bg-red-500' },
                                             ].map(band => {
                                                 const cnt = sorted.filter(r => r.avgScore >= band.min && r.avgScore <= band.max).length;
                                                 const scored = sorted.filter(r => r.avgScore > 0).length;
@@ -1097,10 +1273,10 @@ export default function UltraBroadsheetPage() {
                             </div>
                         )}
 
-                        {/* ── Tab: STREAM ANALYSIS ──────────────────────────────── */}
+                        {/* ΓöÇΓöÇ Tab: STREAM ANALYSIS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
                         {activeTab === 'stream' && (
                             <div className="p-4 space-y-5">
-                                <SectionHeader title="Stream Comparison" sub={`Comparing streams in ${forms.find(f => String(f.id) === selForm)?.form_name || 'selected form'} — ${selExamType}`} />
+                                <SectionHeader title="Stream Comparison" sub={`Comparing streams in ${forms.find(f => String(f.id) === selForm)?.form_name || 'selected form'} ΓÇö ${selExamType}`} />
 
                                 {streamStats.filter((ss: any) => ss?.count > 0).length === 0 ? (
                                     <div className="text-center py-16 text-gray-400">
@@ -1122,14 +1298,14 @@ export default function UltraBroadsheetPage() {
                                                     <div className="space-y-2 text-xs">
                                                         <div className="flex justify-between text-gray-600">
                                                             <span>Average Score</span>
-                                                            <span className="font-bold text-gray-900">{ss.avg > 0 ? pct(ss.avg) : '–'}</span>
+                                                            <span className="font-bold text-gray-900">{ss.avg > 0 ? pct(ss.avg) : 'ΓÇô'}</span>
                                                         </div>
                                                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                                                             <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${ss.avg}%` }} />
                                                         </div>
                                                         <div className="flex justify-between text-gray-500">
                                                             <span>Mean Grade</span>
-                                                            <span className="font-semibold">{ss.avg > 0 ? ss.grade.grade : '–'}</span>
+                                                            <span className="font-semibold">{ss.avg > 0 ? ss.grade.grade : 'ΓÇô'}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1181,10 +1357,10 @@ export default function UltraBroadsheetPage() {
                             </div>
                         )}
 
-                        {/* ── Tab: FORM ANALYSIS ───────────────────────────────── */}
+                        {/* ΓöÇΓöÇ Tab: FORM ANALYSIS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
                         {activeTab === 'form' && (
                             <div className="p-4 space-y-5">
-                                <SectionHeader title="Form-Level Analysis" sub={`All forms — ${selExamType} performance this ${terms.find(t => String(t.id) === selTerm)?.term_name || 'term'}`} />
+                                <SectionHeader title="Form-Level Analysis" sub={`All forms ΓÇö ${selExamType} performance this ${terms.find(t => String(t.id) === selTerm)?.term_name || 'term'}`} />
 
                                 {formStats.filter((fs: any) => fs?.avg > 0).length === 0 ? (
                                     <div className="text-center py-16 text-gray-400">
@@ -1202,15 +1378,15 @@ export default function UltraBroadsheetPage() {
                                                         <h3 className="font-bold text-gray-800">{fs.form.form_name}</h3>
                                                         {fs.avg > 0 && <GradeBadge grade={fs.grade.grade} />}
                                                     </div>
-                                                    <div className="text-2xl font-extrabold text-gray-900 mb-1">{fs.avg > 0 ? pct(fs.avg) : '–'}</div>
+                                                    <div className="text-2xl font-extrabold text-gray-900 mb-1">{fs.avg > 0 ? pct(fs.avg) : 'ΓÇô'}</div>
                                                     <p className="text-[10px] text-gray-500">{fs.scored}/{fs.count} students scored</p>
                                                     <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                                         <div className={`h-full rounded-full ${fs.avg >= 70 ? 'bg-green-500' : fs.avg >= 50 ? 'bg-blue-500' : 'bg-red-500'}`}
                                                             style={{ width: `${fs.avg}%` }} />
                                                     </div>
-                                                    <p className="text-[10px] text-gray-500 mt-1">Pass rate: {fs.scored > 0 ? pct((fs.passes / fs.scored) * 100) : '–'}</p>
+                                                    <p className="text-[10px] text-gray-500 mt-1">Pass rate: {fs.scored > 0 ? pct((fs.passes / fs.scored) * 100) : 'ΓÇô'}</p>
                                                     {String(fs.form.id) === selForm && (
-                                                        <div className="mt-2 text-[10px] text-indigo-600 font-semibold">Currently viewing ✓</div>
+                                                        <div className="mt-2 text-[10px] text-indigo-600 font-semibold">Currently viewing Γ£ô</div>
                                                     )}
                                                 </div>
                                             ))}
@@ -1249,7 +1425,7 @@ export default function UltraBroadsheetPage() {
                                                             <td className="px-3 py-2.5 text-center"><GradeBadge grade={fs.grade.grade} /></td>
                                                             <td className="px-3 py-2.5 text-center">
                                                                 <span className={`font-bold ${(fs.passes / fs.scored) * 100 >= 70 ? 'text-green-600' : 'text-amber-600'}`}>
-                                                                    {fs.scored > 0 ? pct((fs.passes / fs.scored) * 100) : '–'}
+                                                                    {fs.scored > 0 ? pct((fs.passes / fs.scored) * 100) : 'ΓÇô'}
                                                                 </span>
                                                             </td>
                                                         </tr>
@@ -1262,10 +1438,10 @@ export default function UltraBroadsheetPage() {
                             </div>
                         )}
 
-                        {/* ── Tab: SCHOOL OVERVIEW ─────────────────────────────── */}
+                        {/* ΓöÇΓöÇ Tab: SCHOOL OVERVIEW ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
                         {activeTab === 'school' && (
                             <div className="p-4 space-y-5">
-                                <SectionHeader title="School-Wide Performance Overview" sub={`Aggregate intelligence across all forms — ${selExamType}, ${terms.find(t => String(t.id) === selTerm)?.term_name || 'current term'}`} />
+                                <SectionHeader title="School-Wide Performance Overview" sub={`Aggregate intelligence across all forms ΓÇö ${selExamType}, ${terms.find(t => String(t.id) === selTerm)?.term_name || 'current term'}`} />
 
                                 {/* School summary stats */}
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1278,7 +1454,7 @@ export default function UltraBroadsheetPage() {
                                 {/* Subject performance school-wide */}
                                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                                        <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wide">Subject Performance — School Wide</h3>
+                                        <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wide">Subject Performance ΓÇö School Wide</h3>
                                     </div>
                                     {schoolSubjectStats.filter((ss: any) => ss?.total > 0).length === 0 ? (
                                         <div className="text-center py-10 text-gray-400 text-xs">No data available</div>
@@ -1302,7 +1478,7 @@ export default function UltraBroadsheetPage() {
                                                             {ss.subject.subject_code && <span className="text-[10px] text-gray-400 font-mono ml-1">({ss.subject.subject_code})</span>}
                                                         </td>
                                                         <td className="px-3 py-2.5 text-center text-gray-600">{ss.total}</td>
-                                                        <td className="px-3 py-2.5 text-center font-bold text-gray-900">{ss.avg > 0 ? ss.avg.toFixed(1) : '–'}</td>
+                                                        <td className="px-3 py-2.5 text-center font-bold text-gray-900">{ss.avg > 0 ? ss.avg.toFixed(1) : 'ΓÇô'}</td>
                                                         <td className="px-3 py-2.5 text-center"><GradeBadge grade={ss.grade.grade} /></td>
                                                         <td className="px-3 py-2.5 text-center">
                                                             <span className={`font-bold ${ss.passRate >= 70 ? 'text-green-600' : ss.passRate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
@@ -1331,10 +1507,10 @@ export default function UltraBroadsheetPage() {
                                         <div>
                                             <h3 className="text-sm font-bold text-indigo-800 mb-1">CBC Broadsheet Note</h3>
                                             <p className="text-xs text-indigo-700 leading-relaxed">
-                                                Under Kenya's Competency-Based Curriculum (CBC), traditional numerical broadsheets apply to the 8-4-4 remnant cohorts (Forms 1–4).
+                                                Under Kenya's Competency-Based Curriculum (CBC), traditional numerical broadsheets apply to the 8-4-4 remnant cohorts (Forms 1ΓÇô4).
                                                 CBC assessments use competency levels: <strong>Exceeds Expectation (EE)</strong>, <strong>Meets Expectation (ME)</strong>,
-                                                <strong> Approaches Expectation (AE)</strong>, and <strong>Below Expectation (BE)</strong> — rather than letter grades.
-                                                Use <strong>CBC Mark Entry</strong> and <strong>CBC Report Cards</strong> pages for Junior Secondary (Grade 7–9) students.
+                                                <strong> Approaches Expectation (AE)</strong>, and <strong>Below Expectation (BE)</strong> ΓÇö rather than letter grades.
+                                                Use <strong>CBC Mark Entry</strong> and <strong>CBC Report Cards</strong> pages for Junior Secondary (Grade 7ΓÇô9) students.
                                                 This broadsheet is designed for the 8-4-4 system with letter grade output compatible with KNEC grading.
                                             </p>
                                         </div>
