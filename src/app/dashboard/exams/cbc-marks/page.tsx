@@ -14,7 +14,8 @@ import {
   FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight,
 } from 'react-icons/fi';
 import CBCImportModal from '@/components/cbc/CBCImportModal';
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
+import { getSubjectById, getSubjectStrands } from '@/data/cbc-senior-data';
 
 
 // ─── Rubric config (KICD) ─────────────────────────────────────────────────────
@@ -522,20 +523,23 @@ export default function CBCMarksPage() {
   const [showImport, setShowImport] = useState(false);
   const STUDENTS_PER_PAGE = 15;
 
-  // Handle bulk import from Excel — works for both Senior and JSS
+  // Handle bulk import from Excel — Senior: per-strand, JSS: per-learning-area
   const handleImportDone = useCallback((results: Record<string, Record<string, { score: string; level: string }>>) => {
     const seniorMode = hook.mode === 'CBC_Senior';
 
     if (seniorMode) {
-      // Senior: set each student score via handleScoreChange (updates state + triggers auto-save timer)
-      Object.entries(results).forEach(([studentId, laMap]) => {
-        const firstScore = Object.values(laMap)[0]?.score;
-        if (firstScore !== undefined) {
-          hook.handleScoreChange(Number(studentId), firstScore);
-        }
+      // Senior: each key in the inner map is a strand ID (e.g. 'ENG-S1', 'ENG-S2')
+      // Set each strand score via setStrandScore, then save all strands at once
+      Object.entries(results).forEach(([studentId, strandMap]) => {
+        Object.entries(strandMap).forEach(([strandId, { score }]) => {
+          hook.setStrandScore?.(Number(studentId), strandId, score);
+        });
       });
-      // Force-save all at once after all state updates are queued
-      setTimeout(() => { hook.triggerSave(true); }, 500);
+      // Save strand marks after state settles
+      const subjectData = getSubjectById(hook.selSubject || '');
+      const strands = subjectData?.strands ?? [];
+      const numSubjectId = Number(hook.selSubject) || 0;
+      setTimeout(() => { hook.saveStrandMarks?.(numSubjectId, strands); }, 500);
     } else {
       // JSS: set each student × learning-area mark
       Object.entries(results).forEach(([studentId, laMap]) => {
@@ -543,11 +547,12 @@ export default function CBCMarksPage() {
           hook.setJSSMark(Number(studentId), laCode, score);
         });
       });
-      // Save JSS marks after state updates
       setTimeout(() => { hook.saveJSSMarks(); }, 500);
     }
     setShowImport(false);
   }, [hook]);
+
+
 
 
 
@@ -563,6 +568,15 @@ export default function CBCMarksPage() {
     if (hook.selTerm) params.set('termId', hook.selTerm);
     router.push(`/dashboard/exams/cbc-marks/competency?${params.toString()}`);
   };
+
+  // Load existing strand marks whenever subject or term changes (Senior mode only)
+  useEffect(() => {
+    if (hook.mode !== 'CBC_Senior' || !hook.selSubject || !hook.selTerm) return;
+    const numId = Number(hook.selSubject);
+    if (!isNaN(numId) && numId > 0) {
+      hook.loadStrandMarks?.(numId);
+    }
+  }, [hook.selSubject, hook.selTerm, hook.mode]);
 
   if (hook.loading) {
     return (
@@ -675,13 +689,20 @@ export default function CBCMarksPage() {
                 style={{ background: 'rgba(255,255,255,0.12)', color: '#e0e7ff', border: '1px solid rgba(255,255,255,0.15)' }}>
                 <FiDownload size={12} /> Export
               </button>
-              {isSenior && (
-                <button onClick={() => hook.triggerSave(false)} disabled={hook.saving}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-60 cursor-pointer hover:scale-105"
-                  style={{ background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
-                  {hook.saving ? <><FiCheck size={12} /> Saving…</> : <><FiSave size={12} /> Save All</>}
-                </button>
-              )}
+              {isSenior && (() => {
+                const subjectData = getSubjectById(hook.selSubject || '');
+                const strands = subjectData?.strands ?? [];
+                const numSubjectId = Number(hook.selSubject) || 0;
+                return (
+                  <button
+                    onClick={() => hook.saveStrandMarks?.(numSubjectId, strands)}
+                    disabled={hook.saving || !hook.selSubject || !hook.selTerm}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-60 cursor-pointer hover:scale-105"
+                    style={{ background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
+                    {hook.saving ? <><FiRefreshCw size={12} className="animate-spin" /> Saving…</> : <><FiSave size={12} /> Save All Strands</>}
+                  </button>
+                );
+              })()}
               {isJSS && hook.jssDirty && (
                 <button onClick={hook.saveJSSMarks} disabled={hook.saving}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-60 cursor-pointer hover:scale-105"
@@ -1088,60 +1109,135 @@ export default function CBCMarksPage() {
               </div>
             ) : (
               <div className="flex-1 overflow-auto flex flex-col">
-                {/* Paginated student table */}
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 z-10 bg-gray-50">
-                    <tr>
-                      {hook.bulkMode && <th className="px-3 py-2 text-left w-9" />}
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider w-7">#</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Student</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                        Marks <span className="text-gray-300 font-normal">/100</span>
-                      </th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Rubric Level</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Current</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Prev Term</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Trend</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Form. Avg</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Teacher Note</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider w-[80px]">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hook.filteredStudents
-                      .slice(studentPage * STUDENTS_PER_PAGE, (studentPage + 1) * STUDENTS_PER_PAGE)
-                      .map((student: any, idx: number) => (
-                        <UltraCBCStudentRow
-                          key={student.id}
-                          student={{
-                            id: student.id,
-                            admNo: student.admission_no || student.admission_number || '—',
-                            firstName: student.first_name,
-                            lastName: student.last_name,
-                            gender: student.gender || '',
-                            stream: String(student.stream_id || ''),
-                            streamName: '',
-                          }}
-                          index={studentPage * STUDENTS_PER_PAGE + idx + 1}
-                          score={hook.markScores[student.id] || ''}
-                          level={hook.markLevels[student.id] || null}
-                          prevLevel={hook.prevTermLevels[student.id] || null}
-                          formativeAvgLevel={hook.formativeAvgLevels[student.id] || null}
-                          note={hook.markNotes[student.id] || ''}
-                          rubricConfig={hook.rubricConfig}
-                          bulkMode={hook.bulkMode}
-                          isSelected={hook.selected.has(student.id)}
-                          onScoreChange={hook.handleScoreChange}
-                          onLevelChange={hook.handleLevelChange}
-                          onClear={hook.handleClear}
-                          onNoteChange={hook.handleNoteChange}
-                          onCheckChange={hook.handleCheckChange}
-                          onViewProfile={handleViewProfile}
-                          onCompetencyDetail={handleCompetencyDetail}
-                        />
-                      ))}
-                  </tbody>
-                </table>
+                {/* ── Per-Strand Score Grid ── */}
+                {(() => {
+                  const subjectData = getSubjectById(hook.selSubject || '');
+                  const strands = subjectData?.strands ?? [];
+                  const RUBRIC_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
+                    EE: { label: 'EE', color: '#059669', bg: '#D1FAE5', border: '#6EE7B7' },
+                    ME: { label: 'ME', color: '#2563EB', bg: '#DBEAFE', border: '#93C5FD' },
+                    AE: { label: 'AE', color: '#D97706', bg: '#FEF3C7', border: '#FCD34D' },
+                    BE: { label: 'BE', color: '#DC2626', bg: '#FEE2E2', border: '#FCA5A5' },
+                  };
+
+                  return (
+                    <table className="w-full text-xs border-collapse">
+                      <thead className="sticky top-0 z-10">
+                        <tr>
+                          <th className="px-3 py-3 text-left text-[10px] font-black text-white uppercase tracking-wider min-w-[220px] sticky left-0 z-20"
+                            style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)' }}>
+                            Student
+                          </th>
+                          {strands.map(strand => (
+                            <th key={strand.id} className="px-2 py-3 text-center text-[10px] font-black text-white uppercase tracking-wider min-w-[130px]"
+                              style={{ background: 'linear-gradient(135deg,#1d4ed8,#4f46e5)', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+                              <div className="leading-tight">{strand.name}</div>
+                              <div className="text-[9px] font-normal opacity-70 mt-0.5">{strand.code}</div>
+                            </th>
+                          ))}
+                          <th className="px-2 py-3 text-center text-[10px] font-black text-white uppercase tracking-wider min-w-[110px]"
+                            style={{ background: 'linear-gradient(135deg,#059669,#10b981)', borderLeft: '2px solid rgba(255,255,255,0.2)' }}>
+                            Overall<div className="text-[9px] font-normal opacity-80">Auto-avg</div>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hook.filteredStudents
+                          .slice(studentPage * STUDENTS_PER_PAGE, (studentPage + 1) * STUDENTS_PER_PAGE)
+                          .map((student: any, rowIdx: number) => {
+                            const sid = String(student.id);
+                            const strandVals = strands.map(s => {
+                              const v = hook.strandScores?.[sid]?.[s.id] ?? '';
+                              return v !== '' ? Number(v) : null;
+                            }).filter(v => v !== null) as number[];
+                            const avg = strandVals.length > 0 ? Math.round(strandVals.reduce((a, b) => a + b, 0) / strandVals.length) : null;
+                            const overallLevel = avg !== null ? scoreToLevel(String(avg)) : null;
+                            const overallR = overallLevel ? RUBRIC_MAP[overallLevel] : null;
+                            const isEven = rowIdx % 2 === 0;
+
+                            return (
+                              <tr key={student.id} className={`transition-colors ${isEven ? 'bg-white' : 'bg-gray-50/50'} hover:bg-blue-50/30`}>
+                                {/* Student name */}
+                                <td className="px-3 py-2.5 sticky left-0 z-10 border-b border-gray-100"
+                                  style={{ background: isEven ? 'white' : '#fafbfc' }}>
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black text-white flex-shrink-0"
+                                      style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)' }}>
+                                      {(student.first_name?.[0] || '')}{(student.last_name?.[0] || '')}
+                                    </div>
+                                    <div>
+                                      <p className="font-black text-gray-800 text-[11px] leading-tight">{student.last_name}, {student.first_name}</p>
+                                      <p className="text-[9px] text-gray-400">{student.admission_no || student.admission_number || '—'}</p>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                {/* Per-strand score inputs */}
+                                {strands.map((strand, sIdx) => {
+                                  const val = hook.strandScores?.[sid]?.[strand.id] ?? '';
+                                  const level = val !== '' ? scoreToLevel(val) : null;
+                                  const r = level ? RUBRIC_MAP[level] : null;
+                                  return (
+                                    <td key={strand.id} className="px-1.5 py-2 text-center border-b border-gray-100 border-l border-gray-100">
+                                      <div className="flex flex-col items-center gap-1">
+                                        <input
+                                          type="number"
+                                          min={0} max={100}
+                                          value={val}
+                                          onChange={e => hook.setStrandScore?.(student.id, strand.id, e.target.value)}
+                                          onKeyDown={e => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              const nextInput = document.querySelector<HTMLInputElement>(
+                                                `input[data-strand-cell="${rowIdx + 1}-${sIdx}"]`
+                                              );
+                                              nextInput?.focus();
+                                            }
+                                          }}
+                                          data-strand-cell={`${rowIdx}-${sIdx}`}
+                                          placeholder="—"
+                                          className="w-16 h-8 text-center text-sm font-black rounded-lg border-2 outline-none transition-all"
+                                          style={{
+                                            borderColor: r ? r.border : '#e2e8f0',
+                                            background: r ? r.bg : '#f8faff',
+                                            color: r ? r.color : '#374151',
+                                          }}
+                                        />
+                                        {r && (
+                                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
+                                            style={{ background: r.bg, color: r.color, border: `1px solid ${r.border}` }}>
+                                            {r.label}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+
+                                {/* Overall auto-avg */}
+                                <td className="px-2 py-2 text-center border-b border-l-2 border-gray-200">
+                                  {avg !== null ? (
+                                    <div className="flex flex-col items-center gap-1">
+                                      <span className="text-sm font-black" style={{ color: overallR?.color ?? '#374151' }}>{avg}</span>
+                                      {overallR && (
+                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                                          style={{ background: overallR.bg, color: overallR.color, border: `1px solid ${overallR.border}` }}>
+                                          {overallR.label}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-200 text-xs">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  );
+                })()}
+
 
                 {/* ── Premium Pagination Bar ── */}
                 {hook.filteredStudents.length > STUDENTS_PER_PAGE && (() => {
@@ -1247,6 +1343,8 @@ export default function CBCMarksPage() {
         selStream={isSenior ? (hook.selStream || '') : ''}
         selAssessmentType={isSenior ? (hook.selAssessmentType || 'Summative') : 'Formative'}
         subjectName={isSenior ? (hook.subjectName || '') : ''}
+        selSubject={hook.selSubject || ''}
+        isSenior={isSenior}
         onImportDone={handleImportDone}
         gradeName={
           isSenior

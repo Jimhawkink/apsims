@@ -18,6 +18,7 @@ const CBC_SENIOR_DATA = {
     STEM: {
       label: 'Science, Technology, Engineering & Mathematics',
       icon: '🔬',
+
       color: '#0ea5e9',
       gradient: 'from-sky-500 to-blue-600',
       bg: '#f0f9ff',

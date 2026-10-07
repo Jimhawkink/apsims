@@ -75,10 +75,18 @@ export function useUltraCBCMarks() {
   const [jssSavedMarks, setJssSavedMarks] = useState<JSSMarksMap>({});
   const [jssDirty, setJssDirty] = useState(false);
 
-  // ── CBC Senior mark entry state ──
+  // ── CBC Senior mark entry state — SINGLE subject score ──
   const [markLevels, setMarkLevels] = useState<Record<number, RubricLevel | null>>({});
   const [markScores, setMarkScores] = useState<Record<number, string>>({});
   const [markNotes, setMarkNotes] = useState<Record<number, string>>({});
+
+  // ── CBC Senior STRAND-LEVEL scores: studentId → strandId → score (0-100) ──
+  // This is the Way A (per-strand) entry — each strand gets its own score+rubric
+  // Overall subject rubric = average of all strand scores
+  const [strandScores, setStrandScores] = useState<Record<string, Record<string, string>>>({});
+  const [strandLevels, setStrandLevels] = useState<Record<string, Record<string, RubricLevel | null>>>({});
+
+
 
   // ── Live refs so save always reads current data (not stale closures) ──
   const markLevelsRef = useRef<Record<number, RubricLevel | null>>({});
@@ -522,6 +530,162 @@ export function useUltraCBCMarks() {
     setJssDirty(true);
   }, []);
 
+  // ── CBC Senior STRAND score setter ──────────────────────────────────────────
+  // Called from the per-strand marks grid in cbc-marks page
+  const setStrandScore = useCallback((studentId: number, strandId: string, value: string) => {
+    const sid = String(studentId);
+    const num = Number(value);
+    const clamped = value !== '' && !isNaN(num) ? Math.min(Math.max(num, 0), 100) : null;
+    const score = clamped !== null ? String(clamped) : '';
+    const level = score !== '' ? scoreToLevel(score) : null;
+
+    setStrandScores(prev => ({
+      ...prev,
+      [sid]: { ...(prev[sid] || {}), [strandId]: score },
+    }));
+    setStrandLevels(prev => ({
+      ...prev,
+      [sid]: { ...(prev[sid] || {}), [strandId]: level },
+    }));
+
+    // Also update the overall subject score = average of all strand scores for this student
+    // This will be recalculated on save, but we keep the single-score state in sync
+  }, []);
+
+  // ── CBC Senior STRAND save ────────────────────────────────────────────────────
+  // Saves one cbc_assessments row per student per strand + one OVERALL row
+  const saveStrandMarks = useCallback(async (subjectId: number, subjectStrands: any[]) => {
+    if (!selSubject || !selTerm) {
+      toast.error('Select subject and term first');
+      return;
+    }
+    setSaving(true);
+    try {
+      const rows: any[] = [];
+      const tName = selAssessmentType === 'Summative' ? 'Summative' : (taskName || 'Formative Task');
+
+      const allStudents = enrolledStudentsRef.current;
+      if (allStudents.length === 0) { toast.error('No students loaded'); setSaving(false); return; }
+
+      for (const student of allStudents) {
+        const sid = String(student.id);
+        const studentStrandScores = strandScores[sid] || {};
+
+        // Build per-strand rows
+        const strandValues: number[] = [];
+        for (const strand of subjectStrands) {
+          const score = studentStrandScores[strand.id];
+          if (!score || score === '') continue;
+          const numScore = parseFloat(score);
+          const level = scoreToLevel(score);
+          if (!level) continue;
+          strandValues.push(numScore);
+          rows.push({
+            student_id: student.id,
+            subject_id: subjectId,
+            term_id: Number(selTerm),
+            assessment_type: selAssessmentType,
+            task_name: tName,
+            rubric_level: level,
+            raw_score: numScore,
+            strand_id: strand.id,
+            strand_name: strand.name,
+            strand_code: strand.code || strand.id,
+            notes: null,
+            assessed_at: new Date().toISOString(),
+          });
+        }
+
+        // Add OVERALL row = average of strand scores
+        if (strandValues.length > 0) {
+          const avg = strandValues.reduce((a, b) => a + b, 0) / strandValues.length;
+          const avgRounded = Math.round(avg);
+          const overallLevel = scoreToLevel(String(avgRounded));
+          rows.push({
+            student_id: student.id,
+            subject_id: subjectId,
+            term_id: Number(selTerm),
+            assessment_type: selAssessmentType,
+            task_name: tName,
+            rubric_level: overallLevel,
+            raw_score: avgRounded,
+            strand_id: 'OVERALL',
+            strand_name: 'Overall Subject Score',
+            strand_code: 'OVERALL',
+            notes: `Average of ${strandValues.length} strand(s)`,
+            assessed_at: new Date().toISOString(),
+          });
+          // Also sync to overall markScores/markLevels so existing UI stays consistent
+          setMarkScores(prev => ({ ...prev, [student.id]: String(avgRounded) }));
+          setMarkLevels(prev => ({ ...prev, [student.id]: overallLevel }));
+        }
+      }
+
+      if (rows.length === 0) {
+        toast.error('No strand marks entered yet');
+        setSaving(false);
+        return;
+      }
+
+      // Delete existing strand rows for these students + this subject/term
+      const studentIds = [...new Set(rows.map(r => r.student_id))];
+      await (supabase as any)
+        .from('cbc_assessments')
+        .delete()
+        .in('student_id', studentIds)
+        .eq('subject_id', subjectId)
+        .eq('term_id', Number(selTerm))
+        .eq('assessment_type', selAssessmentType);
+
+      // Insert fresh
+      const { error } = await (supabase as any)
+        .from('cbc_assessments')
+        .insert(rows);
+
+      if (error) {
+        toast.error('Save failed: ' + error.message);
+        setSaving(false);
+        return;
+      }
+
+      toast.success(`✅ Saved ${rows.length} strand records for ${studentIds.length} students!`);
+      setSaving(false);
+    } catch (err: any) {
+      toast.error('Save error: ' + err.message);
+      setSaving(false);
+    }
+  }, [selSubject, selTerm, selAssessmentType, taskName, strandScores]);
+
+  // ── Load existing STRAND marks when subject/term changes ─────────────────────
+  // Fetches per-strand rows from cbc_assessments and populates strandScores state
+  const loadStrandMarks = useCallback(async (subjectId: number) => {
+    if (!selTerm) return;
+    const { data, error } = await (supabase as any)
+      .from('cbc_assessments')
+      .select('student_id, strand_id, raw_score, rubric_level')
+      .eq('subject_id', subjectId)
+      .eq('term_id', Number(selTerm))
+      .eq('assessment_type', selAssessmentType)
+      .neq('strand_id', 'OVERALL')
+      .not('strand_id', 'is', null);
+
+    if (error || !data) return;
+
+    const newStrandScores: Record<string, Record<string, string>> = {};
+    const newStrandLevels: Record<string, Record<string, RubricLevel | null>> = {};
+    data.forEach((row: any) => {
+      const sid = String(row.student_id);
+      if (!newStrandScores[sid]) newStrandScores[sid] = {};
+      if (!newStrandLevels[sid]) newStrandLevels[sid] = {};
+      newStrandScores[sid][row.strand_id] = row.raw_score != null ? String(row.raw_score) : '';
+      newStrandLevels[sid][row.strand_id] = row.rubric_level || null;
+    });
+    setStrandScores(prev => ({ ...newStrandScores, ...prev }));
+    setStrandLevels(prev => ({ ...newStrandLevels, ...prev }));
+  }, [selTerm, selAssessmentType]);
+
+
+
   // ── JSS Save ──
   const saveJSSMarks = async () => {
     if (!selForm || !selTerm || students.length === 0) return;
@@ -825,5 +989,9 @@ export function useUltraCBCMarks() {
     toggleBulk, triggerSave, exportCSV,
     // Handlers (JSS)
     setJSSMark, saveJSSMarks,
+    // Handlers (CBC Senior — PER STRAND)
+    strandScores, strandLevels,
+    setStrandScore, saveStrandMarks, loadStrandMarks,
   };
 }
+
