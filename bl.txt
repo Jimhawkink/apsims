@@ -193,7 +193,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/curriculum                               26.5 kB         236 kB
 Γö£ Γùï /dashboard/curriculum/cbc-assessment                8.89 kB         149 kB
 Γö£ Γùï /dashboard/curriculum/cbc-schemes                   12.3 kB         152 kB
-Γö£ Γùï /dashboard/curriculum/cbc-tracking                  22.7 kB         163 kB
+Γö£ Γùï /dashboard/curriculum/cbc-tracking                  22.8 kB         163 kB
 Γö£ Γùï /dashboard/curriculum/kicd-alignment                11.8 kB         145 kB
 Γö£ Γùï /dashboard/curriculum/kicd-lesson-plans             12.4 kB         152 kB
 Γö£ Γùï /dashboard/curriculum/lesson-plans                  10.9 kB         154 kB
@@ -434,7 +434,7 @@ Route (app)                                             Size     First Load JS
   Γöö chunks/webpack-c38af34f465df19d.js                  1.95 kB
 
 
-╞Æ Middleware                                            46.4 kB
+╞Æ Middleware                                            46.3 kB
 
 Γùï  (Static)   prerendered as static content
 ╬╗  (Dynamic)  server-rendered on demand using Node.js
