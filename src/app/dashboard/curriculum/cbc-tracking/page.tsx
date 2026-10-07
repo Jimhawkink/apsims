@@ -713,7 +713,7 @@ export default function CBCSeniorTrackingPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [s, te, f] = await Promise.all([
-      supabase.from('school_students').select('id, first_name, last_name, admission_number, admission_no, form_id, grade_level, pathway_preference, stream_id').eq('status', 'Active').order('last_name'),
+      supabase.from('school_students').select('id, first_name, last_name, admission_number, admission_no, form_id, pathway_preference, stream_id, gender').eq('status', 'Active').order('last_name'),
       supabase.from('school_terms').select('*').order('id', { ascending: false }),
       supabase.from('school_forms').select('*').order('form_level'),
     ]);
@@ -777,7 +777,7 @@ export default function CBCSeniorTrackingPage() {
     const requiredPref = isCore ? null : PATHWAY_TO_PREF[subjectPathwayCode] || null;
 
     let list = students.filter(s => {
-      const gradeMatch = matchingFormIds.includes(s.form_id) || s.grade_level === selGrade;
+      const gradeMatch = matchingFormIds.includes(s.form_id);
       const classMatch = !selClass || String(s.form_id) === selClass;
       const searchMatch = !searchQuery ||
         `${s.first_name} ${s.last_name} ${s.admission_number} ${s.admission_no || ''}`
