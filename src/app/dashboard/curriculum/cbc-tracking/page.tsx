@@ -826,15 +826,6 @@ export default function CBCSeniorTrackingPage() {
     }
   }, [selSubjectId, selTerm, filteredStudents]);
 
-  // Auto-run silently whenever subject/term changes (after existing ratings load)
-  useEffect(() => {
-    if (!selSubjectId || !selTerm || filteredStudents.length === 0) return;
-    const timer = setTimeout(() => autoFillFromMarks(true), 800);
-    return () => clearTimeout(timer);
-  }, [selSubjectId, selTerm, filteredStudents, autoFillFromMarks]);
-
-
-
   // ── Derived data ─────────────────────────────────────────────────────────
   const selectedSubject = useMemo(() => getSubjectById(selSubjectId), [selSubjectId]);
 
