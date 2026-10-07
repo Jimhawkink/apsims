@@ -14,7 +14,9 @@ import {
   FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight,
 } from 'react-icons/fi';
 import CBCImportModal from '@/components/cbc/CBCImportModal';
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
+import { getCBCStrands, type CBCStrand } from '@/lib/cbc-strands';
 
 
 // ─── Rubric config (KICD) ─────────────────────────────────────────────────────
@@ -522,6 +524,150 @@ export default function CBCMarksPage() {
   const [showImport, setShowImport] = useState(false);
   const STUDENTS_PER_PAGE = 15;
 
+  // ── Strand Expandable Rows State ──────────────────────────────────────────
+  // expandedStudents: which student IDs have their strand rows open
+  const [expandedStudents, setExpandedStudents] = useState<Set<number>>(new Set());
+  // strandInputs: studentId → strandId → score string (0-100)
+  const [strandInputs, setStrandInputs] = useState<Record<string, Record<string, string>>>({});
+  const [strandSaving, setStrandSaving] = useState<Record<string, boolean>>({});
+  const [strandSaveMsg, setStrandSaveMsg] = useState<Record<string, string>>({});
+
+  // Derive strands for the currently selected Senior subject using subject name
+  const subjectStrands = useMemo<CBCStrand[]>(() => {
+    if (hook.mode !== 'CBC_Senior') return [];
+    return getCBCStrands(hook.subjectName || '');
+  }, [hook.subjectName, hook.mode]);
+
+  // Score → rubric level helper
+  const scoreToRubricLevel = (v: string): string | null => {
+    const n = parseFloat(v);
+    if (isNaN(n)) return null;
+    if (n >= 80) return 'EE';
+    if (n >= 60) return 'ME';
+    if (n >= 40) return 'AE';
+    return 'BE';
+  };
+
+  // Toggle a single student's strand rows open/closed
+  const toggleExpand = useCallback((studentId: number) => {
+    setExpandedStudents(prev => {
+      const next = new Set(prev);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
+  }, []);
+
+  // Expand all / Collapse all
+  const allExpanded = expandedStudents.size > 0 &&
+    hook.filteredStudents.every((s: any) => expandedStudents.has(s.id));
+  const toggleExpandAll = useCallback(() => {
+    if (allExpanded) {
+      setExpandedStudents(new Set());
+    } else {
+      setExpandedStudents(new Set(hook.filteredStudents.map((s: any) => s.id)));
+    }
+  }, [allExpanded, hook.filteredStudents]);
+
+  // Update one strand input value
+  const setStrandInput = useCallback((studentId: number, strandId: string, value: string) => {
+    setStrandInputs(prev => ({
+      ...prev,
+      [String(studentId)]: { ...(prev[String(studentId)] || {}), [strandId]: value },
+    }));
+  }, []);
+
+  // Load existing strand marks for current subject+term from DB
+  useEffect(() => {
+    if (hook.mode !== 'CBC_Senior' || !hook.selSubject || !hook.selTerm || subjectStrands.length === 0) {
+      setStrandInputs({});
+      return;
+    }
+    const subjectIdNum = Number(hook.selSubject);
+    const termIdNum = Number(hook.selTerm);
+    if (!subjectIdNum || !termIdNum) return;
+
+    supabase
+      .from('cbc_assessments')
+      .select('student_id, strand_id, raw_score')
+      .eq('subject_id', subjectIdNum)
+      .eq('term_id', termIdNum)
+      .not('strand_id', 'is', null)
+      .neq('strand_id', 'OVERALL')
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        const loaded: Record<string, Record<string, string>> = {};
+        data.forEach((row: any) => {
+          const sid = String(row.student_id);
+          if (!loaded[sid]) loaded[sid] = {};
+          loaded[sid][row.strand_id] = String(row.raw_score ?? '');
+        });
+        setStrandInputs(loaded);
+      });
+  }, [hook.selSubject, hook.selTerm, hook.mode, subjectStrands.length]);
+
+  // Save strand marks for one student to DB
+  const saveStrandMarks = useCallback(async (studentId: number) => {
+    if (!hook.selSubject || !hook.selTerm || subjectStrands.length === 0) return;
+    const sid = String(studentId);
+    const inputs = strandInputs[sid] || {};
+    const subjectIdNum = Number(hook.selSubject);
+    const termIdNum = Number(hook.selTerm);
+
+    setStrandSaving(prev => ({ ...prev, [sid]: true }));
+    setStrandSaveMsg(prev => ({ ...prev, [sid]: '' }));
+
+    // Build upsert rows — one per strand + one OVERALL
+    const strandRows = subjectStrands
+      .filter(s => inputs[s.id] !== '' && inputs[s.id] !== undefined)
+      .map(s => {
+        const score = parseFloat(inputs[s.id] || '');
+        const level = scoreToRubricLevel(String(score)) || '';
+        return {
+          student_id: studentId,
+          subject_id: subjectIdNum,
+          term_id: termIdNum,
+          assessment_type: hook.selAssessmentType || 'Summative',
+          task_name: s.name,
+          strand_id: s.id,
+          strand_name: s.name,
+          raw_score: isNaN(score) ? null : score,
+          rubric_level: level,
+          assessed_at: new Date().toISOString(),
+        };
+      });
+
+    // Overall average row
+    const scores = subjectStrands
+      .map(s => parseFloat(inputs[s.id] || ''))
+      .filter(n => !isNaN(n));
+    const overall = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+    const overallLevel = overall !== null ? scoreToRubricLevel(String(overall)) || '' : '';
+
+    if (strandRows.length > 0) {
+      const { error: strandErr } = await supabase
+        .from('cbc_assessments')
+        .upsert(strandRows, { onConflict: 'student_id,subject_id,term_id,strand_id' });
+
+      if (strandErr) {
+        // Try without onConflict (fallback for tables without unique constraint)
+        await supabase.from('cbc_assessments').delete()
+          .eq('student_id', studentId).eq('subject_id', subjectIdNum)
+          .eq('term_id', termIdNum).not('strand_id', 'is', null).neq('strand_id', 'OVERALL');
+        await supabase.from('cbc_assessments').insert(strandRows);
+      }
+    }
+
+    if (overall !== null) {
+      // Also update the main overall mark so the existing score column stays in sync
+      hook.handleScoreChange(studentId, String(overall));
+    }
+
+    setStrandSaving(prev => ({ ...prev, [sid]: false }));
+    setStrandSaveMsg(prev => ({ ...prev, [sid]: 'Saved!' }));
+    setTimeout(() => setStrandSaveMsg(prev => ({ ...prev, [sid]: '' })), 2500);
+  }, [hook, strandInputs, subjectStrands]);
+
   // Handle bulk import from Excel — works for both Senior and JSS
   const handleImportDone = useCallback((results: Record<string, Record<string, { score: string; level: string }>>) => {
     const seniorMode = hook.mode === 'CBC_Senior';
@@ -675,6 +821,14 @@ export default function CBCMarksPage() {
                 style={{ background: 'rgba(255,255,255,0.12)', color: '#e0e7ff', border: '1px solid rgba(255,255,255,0.15)' }}>
                 <FiDownload size={12} /> Export
               </button>
+              {isSenior && subjectStrands.length > 0 && (
+                <button onClick={toggleExpandAll}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all hover:scale-105"
+                  style={{ background: 'rgba(255,255,255,0.12)', color: '#e0e7ff', border: '1px solid rgba(255,255,255,0.2)' }}
+                  title={allExpanded ? 'Collapse all strand rows' : 'Expand all strand rows to enter per-strand scores'}>
+                  <FiLayers size={12} /> {allExpanded ? 'Collapse Strands' : 'Expand All Strands'}
+                </button>
+              )}
               {isSenior && (
                 <button onClick={() => hook.triggerSave(false)} disabled={hook.saving}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-60 cursor-pointer hover:scale-105"
@@ -1110,36 +1264,177 @@ export default function CBCMarksPage() {
                   <tbody>
                     {hook.filteredStudents
                       .slice(studentPage * STUDENTS_PER_PAGE, (studentPage + 1) * STUDENTS_PER_PAGE)
-                      .map((student: any, idx: number) => (
-                        <UltraCBCStudentRow
-                          key={student.id}
-                          student={{
-                            id: student.id,
-                            admNo: student.admission_no || student.admission_number || '—',
-                            firstName: student.first_name,
-                            lastName: student.last_name,
-                            gender: student.gender || '',
-                            stream: String(student.stream_id || ''),
-                            streamName: '',
-                          }}
-                          index={studentPage * STUDENTS_PER_PAGE + idx + 1}
-                          score={hook.markScores[student.id] || ''}
-                          level={hook.markLevels[student.id] || null}
-                          prevLevel={hook.prevTermLevels[student.id] || null}
-                          formativeAvgLevel={hook.formativeAvgLevels[student.id] || null}
-                          note={hook.markNotes[student.id] || ''}
-                          rubricConfig={hook.rubricConfig}
-                          bulkMode={hook.bulkMode}
-                          isSelected={hook.selected.has(student.id)}
-                          onScoreChange={hook.handleScoreChange}
-                          onLevelChange={hook.handleLevelChange}
-                          onClear={hook.handleClear}
-                          onNoteChange={hook.handleNoteChange}
-                          onCheckChange={hook.handleCheckChange}
-                          onViewProfile={handleViewProfile}
-                          onCompetencyDetail={handleCompetencyDetail}
-                        />
-                      ))}
+                      .map((student: any, idx: number) => {
+                        const sid = String(student.id);
+                        const isExpanded = expandedStudents.has(student.id);
+                        const hasStrands = isSenior && subjectStrands.length > 0;
+                        const inputs = strandInputs[sid] || {};
+                        const strandScores = subjectStrands.map(s => parseFloat(inputs[s.id] || '')).filter(n => !isNaN(n));
+                        const overallAvg = strandScores.length > 0 ? Math.round(strandScores.reduce((a, b) => a + b, 0) / strandScores.length) : null;
+                        const overallLvl = overallAvg !== null ? scoreToRubricLevel(String(overallAvg)) : null;
+                        const RBADGE: Record<string, { color: string; bg: string }> = {
+                          EE: { color: '#059669', bg: '#D1FAE5' },
+                          ME: { color: '#2563EB', bg: '#DBEAFE' },
+                          AE: { color: '#D97706', bg: '#FEF3C7' },
+                          BE: { color: '#DC2626', bg: '#FEE2E2' },
+                        };
+                        return (
+                          <tr key={student.id} style={{ display: 'contents' }}>
+                            {/* ── The original UNCHANGED student row ── */}
+                            <UltraCBCStudentRow
+                              student={{
+                                id: student.id,
+                                admNo: student.admission_no || student.admission_number || '—',
+                                firstName: student.first_name,
+                                lastName: student.last_name,
+                                gender: student.gender || '',
+                                stream: String(student.stream_id || ''),
+                                streamName: '',
+                              }}
+                              index={studentPage * STUDENTS_PER_PAGE + idx + 1}
+                              score={hook.markScores[student.id] || ''}
+                              level={hook.markLevels[student.id] || null}
+                              prevLevel={hook.prevTermLevels[student.id] || null}
+                              formativeAvgLevel={hook.formativeAvgLevels[student.id] || null}
+                              note={hook.markNotes[student.id] || ''}
+                              rubricConfig={hook.rubricConfig}
+                              bulkMode={hook.bulkMode}
+                              isSelected={hook.selected.has(student.id)}
+                              onScoreChange={hook.handleScoreChange}
+                              onLevelChange={hook.handleLevelChange}
+                              onClear={hook.handleClear}
+                              onNoteChange={hook.handleNoteChange}
+                              onCheckChange={hook.handleCheckChange}
+                              onViewProfile={handleViewProfile}
+                              onCompetencyDetail={handleCompetencyDetail}
+                            />
+
+                            {/* ── Strand expand toggle bar (Senior + strands only) ── */}
+                            {hasStrands && (
+                              <tr className="border-b border-gray-100" style={{ background: isExpanded ? '#eff6ff' : '#fafbff' }}>
+                                <td colSpan={10} className="px-4 py-1">
+                                  <div className="flex items-center justify-between">
+                                    <button
+                                      onClick={() => toggleExpand(student.id)}
+                                      className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                                    >
+                                      {isExpanded ? <FiChevronUp size={13} /> : <FiChevronDown size={13} />}
+                                      {isExpanded ? 'Hide strand scores' : `Enter strand scores (${subjectStrands.length} strands)`}
+                                    </button>
+                                    {!isExpanded && overallAvg !== null && (
+                                      <div className="flex items-center gap-2">
+                                        {subjectStrands.map(s => {
+                                          const v = inputs[s.id];
+                                          const lvl = v ? scoreToRubricLevel(v) : null;
+                                          const r = lvl ? RBADGE[lvl] : null;
+                                          return v ? (
+                                            <span key={s.id} className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                                              style={{ background: r?.bg, color: r?.color, border: `1px solid ${r?.bg}` }}
+                                              title={s.name}>
+                                              {s.name.split(' ')[0].substring(0,5)}: {v} ({lvl})
+                                            </span>
+                                          ) : null;
+                                        })}
+                                        <span className="text-[10px] font-black text-indigo-600 ml-1">Avg: {overallAvg}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+
+                            {/* ── Strand input grid (expanded) ── */}
+                            {hasStrands && isExpanded && (
+                              <tr style={{ background: '#eff6ff' }}>
+                                <td colSpan={10} className="px-4 pb-3 pt-1">
+                                  <div className="rounded-2xl border border-indigo-200 overflow-hidden shadow-sm">
+                                    {/* Header */}
+                                    <div className="px-4 py-2 flex items-center gap-3" style={{ background: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)' }}>
+                                      <FiLayers size={13} className="text-blue-200" />
+                                      <span className="text-white font-black text-xs">Per-Strand Scores — {student.first_name} {student.last_name}</span>
+                                      <span className="text-blue-300 text-[10px] ml-2">Enter 0–100 per strand • Overall auto-calculates</span>
+                                    </div>
+                                    {/* Strand rows */}
+                                    <div className="bg-white divide-y divide-indigo-50">
+                                      {subjectStrands.map((strand, si) => {
+                                        const val = inputs[strand.id] || '';
+                                        const lvl = val ? scoreToRubricLevel(val) : null;
+                                        const r = lvl ? RBADGE[lvl] : null;
+                                        return (
+                                          <div key={strand.id} className="flex items-center gap-3 px-4 py-2">
+                                            <div className="w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black text-white flex-shrink-0"
+                                              style={{ background: 'linear-gradient(135deg,#1d4ed8,#4f46e5)' }}>{si + 1}</div>
+                                            <span className="flex-1 text-xs font-semibold text-gray-700 min-w-[180px]">{strand.name}</span>
+                                            <input
+                                              type="number" min={0} max={100}
+                                              value={val}
+                                              onChange={e => setStrandInput(student.id, strand.id, e.target.value)}
+                                              onKeyDown={e => {
+                                                if (e.key === 'Enter' || e.key === 'Tab') {
+                                                  e.preventDefault();
+                                                  const next = document.querySelector<HTMLInputElement>(
+                                                    `input[data-strand="${student.id}-${si + 1}"]`
+                                                  );
+                                                  next?.focus();
+                                                }
+                                              }}
+                                              data-strand={`${student.id}-${si}`}
+                                              placeholder="0–100"
+                                              className="w-20 h-8 text-center text-sm font-black rounded-xl border-2 outline-none transition-all"
+                                              style={{
+                                                borderColor: r ? r.bg : '#e2e8f0',
+                                                background: r ? r.bg : '#f8faff',
+                                                color: r ? r.color : '#374151',
+                                              }}
+                                            />
+                                            {lvl && r ? (
+                                              <span className="w-9 text-center text-[11px] font-black px-1.5 py-1 rounded-lg"
+                                                style={{ background: r.bg, color: r.color }}>{lvl}</span>
+                                            ) : <span className="w-9 text-center text-gray-200 text-xs">—</span>}
+                                          </div>
+                                        );
+                                      })}
+                                      {/* Overall average row */}
+                                      <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: '#f0fdf4' }}>
+                                        <div className="w-5 h-5 flex-shrink-0" />
+                                        <span className="flex-1 text-xs font-black text-emerald-700 min-w-[180px]">OVERALL AVERAGE</span>
+                                        <div className="w-20 h-8 flex items-center justify-center rounded-xl text-sm font-black"
+                                          style={{ background: overallLvl ? RBADGE[overallLvl].bg : '#f0fdf4', color: overallLvl ? RBADGE[overallLvl].color : '#9ca3af' }}>
+                                          {overallAvg ?? '—'}
+                                        </div>
+                                        {overallLvl ? (
+                                          <span className="w-9 text-center text-[11px] font-black px-1.5 py-1 rounded-lg"
+                                            style={{ background: RBADGE[overallLvl].bg, color: RBADGE[overallLvl].color }}>{overallLvl}</span>
+                                        ) : <span className="w-9 text-center text-gray-200 text-xs">—</span>}
+                                      </div>
+                                    </div>
+                                    {/* Save button */}
+                                    <div className="px-4 py-2 flex items-center gap-3" style={{ background: '#f0f9ff', borderTop: '1px solid #bae6fd' }}>
+                                      <button
+                                        onClick={() => saveStrandMarks(student.id)}
+                                        disabled={strandSaving[sid] || strandScores.length === 0}
+                                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black text-white transition-all hover:scale-105 disabled:opacity-50"
+                                        style={{ background: 'linear-gradient(135deg,#059669,#10b981)', boxShadow: '0 3px 12px rgba(16,185,129,0.4)' }}>
+                                        {strandSaving[sid] ? <FiRefreshCw size={12} className="animate-spin" /> : <FiSave size={12} />}
+                                        {strandSaving[sid] ? 'Saving…' : 'Save Strand Scores'}
+                                      </button>
+                                      {strandSaveMsg[sid] && (
+                                        <span className="text-[11px] font-black text-emerald-600 flex items-center gap-1">
+                                          <FiCheckCircle size={12} /> {strandSaveMsg[sid]}
+                                        </span>
+                                      )}
+                                      <span className="text-[10px] text-gray-400 ml-auto">
+                                        Saves to DB • Overall auto-fills main score column • Feeds tracker rubrics
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </tr>
+                        );
+                      })}
+
                   </tbody>
                 </table>
 
