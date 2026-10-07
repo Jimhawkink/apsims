@@ -522,17 +522,29 @@ export default function CBCMarksPage() {
   const [showImport, setShowImport] = useState(false);
   const STUDENTS_PER_PAGE = 15;
 
-  // Handle bulk import from Excel — apply all marks at once to JSS state
+  // Handle bulk import from Excel — works for both Senior and JSS
+  // isSenior is declared below after the loading check (const isSenior = hook.mode === 'CBC_Senior')
   const handleImportDone = useCallback((results: Record<string, Record<string, { score: string; level: string }>>) => {
-    Object.entries(results).forEach(([studentId, laMap]) => {
-      Object.entries(laMap).forEach(([laCode, { score }]) => {
-        hook.setJSSMark(Number(studentId), laCode, score);
+    const seniorMode = hook.mode === 'CBC_Senior';
+    if (seniorMode) {
+      Object.entries(results).forEach(([studentId, laMap]) => {
+        const firstScore = Object.values(laMap)[0]?.score;
+        if (firstScore !== undefined) hook.onScoreChange(Number(studentId), firstScore);
       });
-    });
+    } else {
+      Object.entries(results).forEach(([studentId, laMap]) => {
+        Object.entries(laMap).forEach(([laCode, { score }]) => {
+          hook.setJSSMark(Number(studentId), laCode, score);
+        });
+      });
+    }
     setShowImport(false);
-    // Auto-save after import
-    setTimeout(() => { hook.saveJSSMarks(); }, 300);
+    setTimeout(() => {
+      if (seniorMode) hook.saveAll?.();
+      else hook.saveJSSMarks();
+    }, 300);
   }, [hook]);
+
 
 
   const handleViewProfile = (studentId: number) => {
@@ -994,6 +1006,11 @@ export default function CBCMarksPage() {
                   <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white cursor-pointer" style={{ background: '#6C63FF' }}>
                     <FiSettings size={13} /> Rubric Config
                   </button>
+                  <button onClick={() => setShowImport(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black text-white cursor-pointer hover:scale-105 transition-all"
+                    style={{ background: 'linear-gradient(135deg,#059669,#10b981)', boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}>
+                    <FiUpload size={13} /> Import Excel
+                  </button>
                 </div>
               </div>
 
@@ -1215,10 +1232,18 @@ export default function CBCMarksPage() {
       <CBCImportModal
         open={showImport}
         onClose={() => setShowImport(false)}
-        students={hook.jssStudents || hook.students || []}
-        learningAreas={hook.jssLearningAreas || []}
+        students={isSenior ? hook.students : (hook.jssStudents || hook.students || [])}
+        learningAreas={
+          isSenior
+            ? [{ code: hook.selSubject || 'SUBJ', name: hook.subjectName || 'Subject' }]
+            : (hook.jssLearningAreas || [])
+        }
         onImportDone={handleImportDone}
-        gradeName={hook.selJSSGrade ? `Grade ${hook.selJSSGrade}` : ''}
+        gradeName={
+          isSenior
+            ? (hook.forms?.find((f: any) => String(f.id) === String(hook.selForm))?.form_name || 'Grade 10')
+            : (hook.selJSSGrade ? `Grade ${hook.selJSSGrade}` : '')
+        }
         termName={hook.termName || ''}
       />
     </div>
