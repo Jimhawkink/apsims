@@ -614,66 +614,92 @@ export default function CBCMarksPage() {
       });
   }, [hook.selSubject, hook.selTerm, hook.mode, subjectStrands.length]);
 
-  // Save strand marks for one student to DB — saves at SUB-STRAND level
+  // Save strand marks for one student to DB
+  // Saves THREE levels so the tracker's autoFillFromMarks works correctly:
+  //   Level 1 — sub-strand rows  (ART-SS1, ART-SS2…) — detailed, per sub-strand
+  //   Level 2 — strand rows      (ART-S1, ART-S2…)   — tracker's autoFill reads THESE
+  //   Level 3 — overall average  (no strand_id)        — syncs main score column
   const saveStrandMarks = useCallback(async (studentId: number) => {
     if (!hook.selSubject || !hook.selTerm || allSubStrands.length === 0) return;
     const sid = String(studentId);
     const inputs = strandInputs[sid] || {};
     const subjectIdNum = Number(hook.selSubject);
     const termIdNum = Number(hook.selTerm);
+    const assessType = hook.selAssessmentType || 'Summative';
+    const now = new Date().toISOString();
 
     setStrandSaving(prev => ({ ...prev, [sid]: true }));
     setStrandSaveMsg(prev => ({ ...prev, [sid]: '' }));
 
-    // Build upsert rows — one per SUB-STRAND (strand_id = sub-strand id, matching tracker)
+    // ── Level 1: Sub-strand rows (e.g. ART-SS1 "Drawing Techniques") ─────────
     const subStrandRows = allSubStrands
       .filter(ss => inputs[ss.subId] !== '' && inputs[ss.subId] !== undefined)
       .map(ss => {
         const score = parseFloat(inputs[ss.subId] || '');
-        const level = scoreToRubricLevel(String(score)) || '';
         return {
-          student_id: studentId,
-          subject_id: subjectIdNum,
-          term_id: termIdNum,
-          assessment_type: hook.selAssessmentType || 'Summative',
-          task_name: ss.subName,
-          strand_id: ss.subId,          // sub-strand ID — matches tracker's sub_strand.id
+          student_id: studentId, subject_id: subjectIdNum, term_id: termIdNum,
+          assessment_type: assessType, task_name: ss.subName,
+          strand_id: ss.subId,       // e.g. "ART-SS1"
           strand_name: ss.subName,
           raw_score: isNaN(score) ? null : score,
-          rubric_level: level,
-          assessed_at: new Date().toISOString(),
+          rubric_level: isNaN(score) ? '' : scoreToRubricLevel(String(score)) || '',
+          assessed_at: now,
         };
       });
 
-    // Overall average across all entered sub-strand scores
-    const scores = allSubStrands
+    // ── Level 2: Strand-average rows (e.g. ART-S1 "Drawing and Painting") ────
+    // The tracker's autoFillFromMarks looks up: markMap[student_id::ART-S1]
+    // So we MUST save a row with strand_id = "ART-S1" for autoFill to work
+    const strandRows = subjectStrands.map(strand => {
+      const subScoresForStrand = strand.sub_strands
+        .map(ss => parseFloat(inputs[ss.id] || ''))
+        .filter(n => !isNaN(n));
+      if (subScoresForStrand.length === 0) return null;
+      const avgScore = Math.round(subScoresForStrand.reduce((a, b) => a + b, 0) / subScoresForStrand.length);
+      return {
+        student_id: studentId, subject_id: subjectIdNum, term_id: termIdNum,
+        assessment_type: assessType, task_name: strand.name,
+        strand_id: strand.id,        // e.g. "ART-S1" — what tracker reads
+        strand_name: strand.name,
+        raw_score: avgScore,
+        rubric_level: scoreToRubricLevel(String(avgScore)) || '',
+        assessed_at: now,
+      };
+    }).filter(Boolean) as any[];
+
+    // ── Level 3: Overall average ───────────────────────────────────────────────
+    const allScores = allSubStrands
       .map(ss => parseFloat(inputs[ss.subId] || ''))
       .filter(n => !isNaN(n));
-    const overall = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+    const overall = allScores.length > 0
+      ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+      : null;
 
-    if (subStrandRows.length > 0) {
+    // Combine sub-strand + strand rows for upsert
+    const allRows = [...subStrandRows, ...strandRows];
+    if (allRows.length > 0) {
       const { error: saveErr } = await supabase
         .from('cbc_assessments')
-        .upsert(subStrandRows, { onConflict: 'student_id,subject_id,term_id,strand_id' });
+        .upsert(allRows, { onConflict: 'student_id,subject_id,term_id,strand_id' });
 
       if (saveErr) {
-        // Fallback: delete then insert
+        // Fallback: delete all strand rows for this student/subject/term, then insert fresh
         await supabase.from('cbc_assessments').delete()
           .eq('student_id', studentId).eq('subject_id', subjectIdNum)
           .eq('term_id', termIdNum).not('strand_id', 'is', null).neq('strand_id', 'OVERALL');
-        await supabase.from('cbc_assessments').insert(subStrandRows);
+        await supabase.from('cbc_assessments').insert(allRows);
       }
     }
 
     if (overall !== null) {
-      // Keep overall score column in sync
       hook.handleScoreChange(studentId, String(overall));
     }
 
     setStrandSaving(prev => ({ ...prev, [sid]: false }));
     setStrandSaveMsg(prev => ({ ...prev, [sid]: 'Saved!' }));
     setTimeout(() => setStrandSaveMsg(prev => ({ ...prev, [sid]: '' })), 2500);
-  }, [hook, strandInputs, allSubStrands]);
+  }, [hook, strandInputs, allSubStrands, subjectStrands]);
+
 
 
   // Handle bulk import from Excel — works for both Senior and JSS

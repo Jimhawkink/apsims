@@ -851,16 +851,22 @@ export default function CBCSeniorTrackingPage() {
         return;
       }
 
-      // Step 3: for each student, fill LO keys using strand-level rubric where available
+      // Step 3: for each student, fill LO keys using most specific rubric available:
+      //   sub-strand rubric > parent strand rubric > OVERALL rubric
       const autoRatings: Record<string, string> = {};
       filteredStudents.forEach((student: any) => {
         subject.strands.forEach((strand: any) => {
-          // Prefer strand-specific rubric, fallback to overall
-          const level =
-            markMap[`${student.id}::${strand.id}`] ||
-            markMap[`${student.id}::OVERALL`];
-          if (!level) return;
           strand.sub_strands.forEach((ss: any) => {
+            // Most specific: sub-strand level (e.g. ART-SS1) — set from marks entry
+            const subStrandLevel = markMap[`${student.id}::${ss.id}`];
+            // Less specific: top-level strand (e.g. ART-S1)
+            const strandLevel = markMap[`${student.id}::${strand.id}`];
+            // Least specific: overall
+            const overallLevel = markMap[`${student.id}::OVERALL`];
+
+            const level = subStrandLevel || strandLevel || overallLevel;
+            if (!level) return;
+
             (ss.outcomes || ss.learning_outcomes || []).forEach((_lo: any, oIdx: number) => {
               const key = `${student.id}-${subject.id}-${strand.id}-${ss.id}-${oIdx}`;
               autoRatings[key] = level;
