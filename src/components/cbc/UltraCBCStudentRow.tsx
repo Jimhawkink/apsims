@@ -290,6 +290,15 @@ function UltraCBCStudentRow({
           value={score}
           onChange={handleScoreInput}
           placeholder="0–100"
+          data-row-index={index}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const nextIndex = index + 1;
+              const nextInput = document.querySelector<HTMLInputElement>(`input[data-row-index="${nextIndex}"]`);
+              if (nextInput) { nextInput.focus(); nextInput.select(); }
+            }
+          }}
           className="w-[52px] py-1 px-1.5 rounded-md border border-gray-200 bg-gray-50 text-gray-800 text-xs text-center transition-all focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         />
       </td>

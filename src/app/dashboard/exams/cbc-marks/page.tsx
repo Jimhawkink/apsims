@@ -13,7 +13,9 @@ import {
   FiAlertCircle, FiInfo, FiSearch, FiGrid, FiZap,
   FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight,
 } from 'react-icons/fi';
-import { useMemo, useState } from 'react';
+import CBCImportModal from '@/components/cbc/CBCImportModal';
+import { useMemo, useState, useCallback } from 'react';
+
 
 // ─── Rubric config (KICD) ─────────────────────────────────────────────────────
 const RUBRIC_CFG = [
@@ -264,6 +266,14 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
                             value={entry.score}
                             onChange={e => setJSSMark(student.id, la.code, e.target.value)}
                             placeholder="0–100"
+                            data-cell={`${idx}-${la.code}`}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const next = document.querySelector<HTMLInputElement>(`input[data-cell="${idx + 1}-${la.code}"]`);
+                                if (next) { next.focus(); next.select(); }
+                              }
+                            }}
                             className="w-16 text-center border rounded-lg px-1 py-1.5 text-xs font-bold focus:ring-2 outline-none transition"
                             style={{
                               borderColor: rubric ? rubric.border : '#E5E7EB',
@@ -509,7 +519,21 @@ export default function CBCMarksPage() {
   const [showRubricGuide, setShowRubricGuide] = useState(false);
   const [studentPage, setStudentPage] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showImport, setShowImport] = useState(false);
   const STUDENTS_PER_PAGE = 15;
+
+  // Handle bulk import from Excel — apply all marks at once to JSS state
+  const handleImportDone = useCallback((results: Record<string, Record<string, { score: string; level: string }>>) => {
+    Object.entries(results).forEach(([studentId, laMap]) => {
+      Object.entries(laMap).forEach(([laCode, { score }]) => {
+        hook.setJSSMark(Number(studentId), laCode, score);
+      });
+    });
+    setShowImport(false);
+    // Auto-save after import
+    setTimeout(() => { hook.saveJSSMarks(); }, 300);
+  }, [hook]);
+
 
   const handleViewProfile = (studentId: number) => {
     router.push(`/dashboard/students/${studentId}`);
@@ -841,6 +865,13 @@ export default function CBCMarksPage() {
                     <Icon size={12} />{label}
                   </button>
                 ))}
+                {/* Import Excel button */}
+                <button onClick={() => setShowImport(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-black rounded-lg transition-all cursor-pointer hover:scale-105"
+                  style={{ background: 'linear-gradient(135deg,#059669,#10b981)', color: '#fff', boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}>
+                  <FiUpload size={12} /> Import Excel
+                </button>
+
                 {hook.students.length > 0 && (
                   <div className="ml-auto flex items-center gap-1.5 flex-wrap">
                     {RUBRIC_CFG.map(r => {
@@ -1179,6 +1210,17 @@ export default function CBCMarksPage() {
           />
         </div>
       )}
+
+      {/* ── Excel Import Modal ── */}
+      <CBCImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        students={hook.jssStudents || hook.students || []}
+        learningAreas={hook.jssLearningAreas || []}
+        onImportDone={handleImportDone}
+        gradeName={hook.selJSSGrade ? `Grade ${hook.selJSSGrade}` : ''}
+        termName={hook.termName || ''}
+      />
     </div>
   );
 }
