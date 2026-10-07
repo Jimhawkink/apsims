@@ -1,14 +1,14 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getEducationSystem, getStudentsForSubject, computeCompetencySummary, computeWeightedSummary, RubricLevel } from '@/lib/cbc-utils';
 import toast from 'react-hot-toast';
 
-// ΓöÇΓöÇΓöÇ Mode ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Mode ────────────────────────────────────────────────────────────────────
 export type MarksMode = 'CBC_Senior' | 'JSS';
 
-// ΓöÇΓöÇΓöÇ JSS Learning Areas (KICD official) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── JSS Learning Areas (KICD official) ──────────────────────────────────────
 export const JSS_LEARNING_AREAS = [
   { id: 'ENG', code: 'ENG', name: 'English',                color: '#2563EB', bg: '#DBEAFE' },
   { id: 'KSW', code: 'KSW', name: 'Kiswahili',              color: '#059669', bg: '#D1FAE5' },
@@ -28,7 +28,7 @@ export type JSSLACode = typeof JSS_LEARNING_AREAS[number]['code'];
 // JSS multi-LA marks: studentId -> laCode -> { score: string, level: RubricLevel|null }
 export type JSSMarksMap = Record<string, Record<string, { score: string; level: RubricLevel | null }>>;
 
-// ΓöÇΓöÇΓöÇ Score ΓåÆ rubric ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Score → rubric ───────────────────────────────────────────────────────────
 export function scoreToLevel(score: string): RubricLevel | null {
   if (score === '' || score === null || score === undefined) return null;
   const n = parseInt(score, 10);
@@ -40,10 +40,10 @@ export function scoreToLevel(score: string): RubricLevel | null {
 }
 
 export function useUltraCBCMarks() {
-  // ΓöÇΓöÇ Mode ΓöÇΓöÇ
+  // ── Mode ──
   const [mode, setMode] = useState<MarksMode>('CBC_Senior');
 
-  // ΓöÇΓöÇ Reference data ΓöÇΓöÇ
+  // ── Reference data ──
   const [forms, setForms] = useState<any[]>([]);
   const [allForms, setAllForms] = useState<any[]>([]);
   const [streams, setStreams] = useState<any[]>([]);
@@ -58,7 +58,7 @@ export function useUltraCBCMarks() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // ΓöÇΓöÇ Filter selections ΓöÇΓöÇ
+  // ── Filter selections ──
   const [selForm, setSelFormRaw] = useState('');
   const [selStream, setSelStreamRaw] = useState('');
   const [selSubject, setSelSubject] = useState('');
@@ -68,46 +68,46 @@ export function useUltraCBCMarks() {
   const [searchQuery, setSearchQuery] = useState('');
   const [rubricFilter, setRubricFilter] = useState('');
 
-  // ΓöÇΓöÇ JSS specific ΓöÇΓöÇ
+  // ── JSS specific ──
   const [selJSSGrade, setSelJSSGrade] = useState(''); // '7', '8', '9'
   const [selJSSLA, setSelJSSLA] = useState('all');    // 'all' | laCode
   const [jssMarks, setJssMarks] = useState<JSSMarksMap>({});
   const [jssSavedMarks, setJssSavedMarks] = useState<JSSMarksMap>({});
   const [jssDirty, setJssDirty] = useState(false);
 
-  // ΓöÇΓöÇ CBC Senior mark entry state ΓöÇΓöÇ
+  // ── CBC Senior mark entry state ──
   const [markLevels, setMarkLevels] = useState<Record<number, RubricLevel | null>>({});
   const [markScores, setMarkScores] = useState<Record<number, string>>({});
   const [markNotes, setMarkNotes] = useState<Record<number, string>>({});
 
-  // ΓöÇΓöÇ Live refs so save always reads current data (not stale closures) ΓöÇΓöÇ
+  // ── Live refs so save always reads current data (not stale closures) ──
   const markLevelsRef = useRef<Record<number, RubricLevel | null>>({});
   const markScoresRef = useRef<Record<number, string>>({});
   const markNotesRef  = useRef<Record<number, string>>({});
   const enrolledStudentsRef = useRef<any[]>([]);
 
-  // ΓöÇΓöÇ Bulk mode ΓöÇΓöÇ
+  // ── Bulk mode ──
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
-  // ΓöÇΓöÇ Confirm dialog ΓöÇΓöÇ
+  // ── Confirm dialog ──
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingSave, setPendingSave] = useState<(() => Promise<void>) | null>(null);
 
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerSaveRef = useRef<(force: boolean) => Promise<void>>(() => Promise.resolve());
 
-  // ΓöÇΓöÇ Derived: JSS learning areas (prefer DB, fallback to constants) ΓöÇΓöÇ
+  // ── Derived: JSS learning areas (prefer DB, fallback to constants) ──
   const jssLearningAreas = useMemo(() => {
     if (dbLearningAreas.length > 0) return dbLearningAreas;
     return JSS_LEARNING_AREAS.map(la => ({ ...la, id: la.code, maxMark: 100 }));
   }, [dbLearningAreas]);
 
-  // ΓöÇΓöÇ Initial data fetch ΓöÇΓöÇ
+  // ── Initial data fetch ──
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      // Core tables ΓÇö always exist
+      // Core tables — always exist
       const [formsRes, streamsRes, subjectsRes, termsRes] = await Promise.all([
         supabase.from('school_forms').select('*').order('form_level'),
         supabase.from('school_streams').select('*').order('stream_name'),
@@ -129,7 +129,7 @@ export function useUltraCBCMarks() {
       console.error('fetchAll core error:', err);
     }
 
-    // Optional tables ΓÇö may not exist yet, never crash if missing
+    // Optional tables — may not exist yet, never crash if missing
     try {
       const { data } = await supabase.from('cbc_student_subjects').select('*');
       setStudentSubjects(data || []);
@@ -162,12 +162,12 @@ export function useUltraCBCMarks() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // ΓöÇΓöÇ Derived: forms for JSS mode ΓöÇΓöÇ
+  // ── Derived: forms for JSS mode ──
   const jssForms = useMemo(() =>
     allForms.filter(f => f.form_level >= 7 && f.form_level <= 9)
   , [allForms]);
 
-  // ΓöÇΓöÇ When mode changes, reset selections ΓöÇΓöÇ
+  // ── When mode changes, reset selections ──
   useEffect(() => {
     setSelFormRaw('');
     setSelStreamRaw('');
@@ -182,7 +182,7 @@ export function useUltraCBCMarks() {
     setSelJSSGrade('');
   }, [mode]);
 
-  // ΓöÇΓöÇ Fetch students when form/stream changes ΓöÇΓöÇ
+  // ── Fetch students when form/stream changes ──
   useEffect(() => {
     if (!selForm) { setStudents([]); return; }
     const load = async () => {
@@ -194,7 +194,7 @@ export function useUltraCBCMarks() {
     load();
   }, [selForm, selStream]);
 
-  // ΓöÇΓöÇ JSS: when grade changes ΓåÆ find matching form(s) ΓöÇΓöÇ
+  // ── JSS: when grade changes → find matching form(s) ──
   useEffect(() => {
     if (!selJSSGrade || mode !== 'JSS') return;
     const match = jssForms.find(f => String(f.form_level) === selJSSGrade);
@@ -205,7 +205,7 @@ export function useUltraCBCMarks() {
     }
   }, [selJSSGrade, jssForms, mode]);
 
-  // ΓöÇΓöÇ JSS: load existing marks from jss_marks table ΓöÇΓöÇ
+  // ── JSS: load existing marks from jss_marks table ──
   useEffect(() => {
     if (mode !== 'JSS' || !selForm || !selTerm || students.length === 0) {
       setJssMarks({});
@@ -230,7 +230,7 @@ export function useUltraCBCMarks() {
       const loaded: JSSMarksMap = {};
       (data || []).forEach((m: any) => {
         const sid = String(m.student_id);
-        // Use code as key ΓÇö works even if learning_area_id type changes
+        // Use code as key — works even if learning_area_id type changes
         const laKey = m.learning_area_code || String(m.learning_area_id);
         if (!loaded[sid]) loaded[sid] = {};
         loaded[sid][laKey] = {
@@ -246,7 +246,7 @@ export function useUltraCBCMarks() {
     load();
   }, [mode, selForm, selTerm, students, terms]);
 
-  // ΓöÇΓöÇ CBC Senior: Fetch assessments when filters change ΓöÇΓöÇ
+  // ── CBC Senior: Fetch assessments when filters change ──
   useEffect(() => {
     if (mode !== 'CBC_Senior') return;
     if (!selForm || !selTerm || !selSubject) {
@@ -263,7 +263,7 @@ export function useUltraCBCMarks() {
     let cancelled = false;
 
     const load = async () => {
-      // Only query cbc_assessments ΓÇö the ONLY CBC marks table that exists in DB
+      // Only query cbc_assessments — the ONLY CBC marks table that exists in DB
       const { data: asmtData, error } = await supabase
         .from('cbc_assessments')
         .select('id, student_id, subject_id, term_id, assessment_type, task_name, rubric_level, raw_score, notes, assessed_at')
@@ -300,7 +300,7 @@ export function useUltraCBCMarks() {
     return () => { cancelled = true; };
   }, [mode, selForm, selTerm, selSubject, students, selAssessmentType, taskName]);
 
-  // ΓöÇΓöÇ Fetch previous term assessments (CBC Senior) ΓöÇΓöÇ
+  // ── Fetch previous term assessments (CBC Senior) ──
   useEffect(() => {
     if (mode !== 'CBC_Senior' || !selTerm || !selSubject) { setPrevTermAssessments([]); return; }
     const currentTermIdx = terms.findIndex(t => String(t.id) === selTerm);
@@ -316,19 +316,19 @@ export function useUltraCBCMarks() {
     load();
   }, [mode, selTerm, selSubject, terms]);
 
-  // ΓöÇΓöÇ CBC Senior: Enrolled students ΓöÇΓöÇ
+  // ── CBC Senior: Enrolled students ──
   const enrolledStudentIds = selSubject ? getStudentsForSubject(Number(selSubject), studentSubjects) : [];
   const enrolledStudents = enrolledStudentIds.length > 0
     ? students.filter(s => enrolledStudentIds.includes(s.id))
     : students;
 
-  // ΓöÇΓöÇ Keep live refs in sync (always current, never stale in save fn) ΓöÇΓöÇ
+  // ── Keep live refs in sync (always current, never stale in save fn) ──
   markLevelsRef.current = markLevels;
   markScoresRef.current = markScores;
   markNotesRef.current  = markNotes;
   enrolledStudentsRef.current = enrolledStudents;
 
-  // ΓöÇΓöÇ CBC Senior: Available subjects ΓöÇΓöÇ
+  // ── CBC Senior: Available subjects ──
   // If cbc_student_subjects is empty (enrollment not configured yet),
   // fall back to showing ALL active subjects so the dropdown is never empty.
   const availableSubjectIds = new Set(
@@ -338,7 +338,7 @@ export function useUltraCBCMarks() {
     ? subjects.filter(s => availableSubjectIds.has(s.id))
     : subjects; // fallback: show all subjects when no enrollment data exists
 
-  // ΓöÇΓöÇ CBC Senior: Previous term levels ΓöÇΓöÇ
+  // ── CBC Senior: Previous term levels ──
   const prevTermLevels = useMemo(() => {
     const map: Record<number, RubricLevel | null> = {};
     enrolledStudents.forEach(s => {
@@ -348,7 +348,7 @@ export function useUltraCBCMarks() {
     return map;
   }, [enrolledStudents, prevTermAssessments]);
 
-  // ΓöÇΓöÇ CBC Senior: Formative averages ΓöÇΓöÇ
+  // ── CBC Senior: Formative averages ──
   const formativeAvgLevels = useMemo(() => {
     const map: Record<number, RubricLevel | null> = {};
     enrolledStudents.forEach(s => {
@@ -363,7 +363,7 @@ export function useUltraCBCMarks() {
     return map;
   }, [enrolledStudents, assessments]);
 
-  // ΓöÇΓöÇ CBC Senior: Filtered students ΓöÇΓöÇ
+  // ── CBC Senior: Filtered students ──
   const filteredStudents = useMemo(() => {
     return enrolledStudents.filter(s => {
       const fullName = `${s.first_name} ${s.last_name}`.toLowerCase();
@@ -378,7 +378,7 @@ export function useUltraCBCMarks() {
     });
   }, [enrolledStudents, searchQuery, rubricFilter, markLevels]);
 
-  // ΓöÇΓöÇ JSS: Filtered students ΓöÇΓöÇ
+  // ── JSS: Filtered students ──
   const jssFilteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students;
     const q = searchQuery.toLowerCase();
@@ -388,7 +388,7 @@ export function useUltraCBCMarks() {
     );
   }, [students, searchQuery]);
 
-  // ΓöÇΓöÇ Analytics counts ΓöÇΓöÇ
+  // ── Analytics counts ──
   const analyticsCounts = useMemo(() => {
     const counts: Record<string, number> = { EE: 0, ME: 0, AE: 0, BE: 0, NA: 0 };
     if (mode === 'CBC_Senior') {
@@ -431,14 +431,14 @@ export function useUltraCBCMarks() {
     }).map(s => `${s.first_name} ${s.last_name}`);
   }, [mode, enrolledStudents, markLevels, students, jssMarks]);
 
-  // ΓöÇΓöÇ Auto-note helper ΓöÇΓöÇ
+  // ── Auto-note helper ──
   const getAutoNote = useCallback((level: RubricLevel | null): string => {
     if (!level || !rubricConfig || rubricConfig.length === 0) return '';
     const cfg = rubricConfig.find((r: any) => r.level_code === level);
     return cfg?.level_label || '';
   }, [rubricConfig]);
 
-  // ΓöÇΓöÇ CBC Senior Handlers ΓöÇΓöÇ
+  // ── CBC Senior Handlers ──
   const handleScoreChange = useCallback((studentId: number, value: string) => {
     setMarkScores(prev => ({ ...prev, [studentId]: value }));
     const lvl = scoreToLevel(value);
@@ -504,7 +504,7 @@ export function useUltraCBCMarks() {
     setSelected(new Set());
   }, []);
 
-  // ΓöÇΓöÇ JSS mark setter ΓöÇΓöÇ
+  // ── JSS mark setter ──
   const setJSSMark = useCallback((studentId: number, laCode: string, rawValue: string) => {
     const sid = String(studentId);
     let score = rawValue;
@@ -522,7 +522,7 @@ export function useUltraCBCMarks() {
     setJssDirty(true);
   }, []);
 
-  // ΓöÇΓöÇ JSS Save ΓöÇΓöÇ
+  // ── JSS Save ──
   const saveJSSMarks = async () => {
     if (!selForm || !selTerm || students.length === 0) return;
     setSaving(true);
@@ -566,7 +566,7 @@ export function useUltraCBCMarks() {
         if (e2) throw e2;
       }
 
-      toast.success(`Γ£à Saved ${upsertRows.length} marks for ${students.length} students!`);
+      toast.success(`✅ Saved ${upsertRows.length} marks for ${students.length} students!`);
       setJssSavedMarks(structuredClone(jssMarks));
       setJssDirty(false);
     } catch (e: any) {
@@ -576,18 +576,18 @@ export function useUltraCBCMarks() {
     }
   };
 
-  // ΓöÇΓöÇ CBC Senior Save ΓöÇΓöÇ
-  // force=false  ΓåÆ called by auto-save timer (silent, no confirm dialog)
-  // force=true   ΓåÆ called by "Save All" button (shows confirm for existing Summative)
+  // ── CBC Senior Save ──
+  // force=false  → called by auto-save timer (silent, no confirm dialog)
+  // force=true   → called by "Save All" button (shows confirm for existing Summative)
   const triggerSave = async (force: boolean) => {
-    if (!selSubject || !selTerm || !selAssessmentType) return; // silent ΓÇö filters not ready yet
+    if (!selSubject || !selTerm || !selAssessmentType) return; // silent — filters not ready yet
 
     const currentStudents = enrolledStudentsRef.current;
     const currentLevels   = markLevelsRef.current;
     const currentScores   = markScoresRef.current;
     const currentNotes    = markNotesRef.current;
 
-    if (currentStudents.length === 0) return; // silent ΓÇö students not loaded yet
+    if (currentStudents.length === 0) return; // silent — students not loaded yet
 
     const studentsWithMarks = currentStudents.filter(s => currentLevels[s.id]);
     if (studentsWithMarks.length === 0) {
@@ -602,7 +602,7 @@ export function useUltraCBCMarks() {
         // Step 1: verify table exists
         const { error: tableCheck } = await supabase.from('cbc_assessments').select('id').limit(1);
         if (tableCheck && tableCheck.code === '42P01') {
-          toast.error('Γ¥î Table missing! Run the CBC migration SQL in Supabase first.', { duration: 6000 });
+          toast.error('❌ Table missing! Run the CBC migration SQL in Supabase first.', { duration: 6000 });
           setSaving(false);
           return;
         }
@@ -688,9 +688,9 @@ export function useUltraCBCMarks() {
         }
 
         if (force) {
-          toast.success(`Γ£à Saved ${rows.length} student marks!`);
+          toast.success(`✅ Saved ${rows.length} student marks!`);
         } else {
-          toast.success('≡ƒÆ╛ Auto-saved', { duration: 1500 });
+          toast.success('💾 Auto-saved', { duration: 1500 });
         }
       } catch (err: any) {
         toast.error('Save error: ' + (err?.message || String(err)), { duration: 6000 });
@@ -741,7 +741,7 @@ export function useUltraCBCMarks() {
   };
 
 
-  // ΓöÇΓöÇ Export CSV ΓöÇΓöÇ
+  // ── Export CSV ──
   const exportCSV = () => {
     if (mode === 'JSS') {
       const termName = terms.find(t => String(t.id) === selTerm)?.term_name || '';

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -17,7 +17,7 @@ import CBCImportModal from '@/components/cbc/CBCImportModal';
 import { useMemo, useState, useCallback } from 'react';
 
 
-// ΓöÇΓöÇΓöÇ Rubric config (KICD) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Rubric config (KICD) ─────────────────────────────────────────────────────
 const RUBRIC_CFG = [
   { code: 'EE', label: 'Exceeds Expectation',   min: 80, max: 100, color: '#059669', bg: '#D1FAE5', border: '#6EE7B7' },
   { code: 'ME', label: 'Meets Expectation',      min: 60, max: 79,  color: '#2563EB', bg: '#DBEAFE', border: '#93C5FD' },
@@ -31,7 +31,7 @@ function getRubric(score: string) {
   return RUBRIC_CFG.find(r => n >= r.min && n <= r.max) || RUBRIC_CFG[3];
 }
 
-// ΓöÇΓöÇΓöÇ Static trend data ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Static trend data ────────────────────────────────────────────────────────
 const TREND_DATA = [
   { label: 'F1', value: 40, color: '#1D9E75' },
   { label: 'F2', value: 65, color: '#378ADD' },
@@ -41,7 +41,7 @@ const TREND_DATA = [
   { label: 'S2', value: 60, color: '#378ADD' },
 ];
 
-// ΓöÇΓöÇΓöÇ JSS Analytics Panel ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── JSS Analytics Panel ──────────────────────────────────────────────────────
 function JSSAnalyticsSection({ students, jssMarks, jssLearningAreas, selJSSLA }: any) {
   const laList = selJSSLA === 'all' ? jssLearningAreas : jssLearningAreas.filter((la: any) => la.code === selJSSLA);
 
@@ -100,7 +100,7 @@ function JSSAnalyticsSection({ students, jssMarks, jssLearningAreas, selJSSLA }:
 
       {/* Per LA averages */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-        <h3 className="font-bold text-gray-800 mb-4">≡ƒôè Per Learning Area ΓÇö Class Average</h3>
+        <h3 className="font-bold text-gray-800 mb-4">📊 Per Learning Area — Class Average</h3>
         <div className="space-y-2.5">
           {laList.map((la: any) => {
             const scores = students
@@ -136,7 +136,7 @@ function JSSAnalyticsSection({ students, jssMarks, jssLearningAreas, selJSSLA }:
       {/* BE Alert */}
       {students.some((s: any) => Object.values(jssMarks[String(s.id)] || {}).some((v: any) => v.level === 'BE')) && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
-          <h3 className="font-bold text-red-700 mb-3 flex items-center gap-2"><FiAlertCircle /> Students Below Expectation ΓÇö Need Intervention</h3>
+          <h3 className="font-bold text-red-700 mb-3 flex items-center gap-2"><FiAlertCircle /> Students Below Expectation — Need Intervention</h3>
           <div className="space-y-2">
             {students.filter((s: any) => Object.values(jssMarks[String(s.id)] || {}).some((v: any) => v.level === 'BE')).map((s: any) => {
               const sid = String(s.id);
@@ -159,7 +159,7 @@ function JSSAnalyticsSection({ students, jssMarks, jssLearningAreas, selJSSLA }:
   );
 }
 
-// ΓöÇΓöÇΓöÇ JSS Marks Grid ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── JSS Marks Grid ───────────────────────────────────────────────────────────
 function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMark, jssDirty, saveJSSMarks, saving, searchQuery, setSearchQuery }: any) {
   const visibleLAs = selJSSLA === 'all' ? jssLearningAreas : jssLearningAreas.filter((la: any) => la.code === selJSSLA);
   const filtered = useMemo(() => {
@@ -188,7 +188,7 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
         <div className="flex items-center gap-2">
           <FiUsers size={14} className="text-gray-400" />
           <span className="text-sm font-bold text-gray-700">{filtered.length} students</span>
-          {jssDirty && <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg animate-pulse">ΓùÅ Unsaved changes</span>}
+          {jssDirty && <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg animate-pulse">● Unsaved changes</span>}
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -201,7 +201,7 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-lg disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg,#6C63FF,#00D9A6)' }}>
               {saving ? <FiRefreshCw size={12} className="animate-spin" /> : <FiSave size={12} />}
-              {saving ? 'SavingΓÇª' : 'Save All'}
+              {saving ? 'Saving…' : 'Save All'}
             </button>
           )}
         </div>
@@ -248,7 +248,7 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
                       </div>
                       <div>
                         <p className="text-xs font-bold text-gray-800 leading-tight">{student.last_name}, {student.first_name}</p>
-                        <p className="text-[10px] text-gray-400">{student.admission_no || student.admission_number || 'ΓÇö'}</p>
+                        <p className="text-[10px] text-gray-400">{student.admission_no || student.admission_number || '—'}</p>
                       </div>
                       <span className="ml-auto text-[9px] text-gray-400 flex-shrink-0">{enteredCount}/{visibleLAs.length}</span>
                     </div>
@@ -265,7 +265,7 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
                             type="number" min={0} max={100}
                             value={entry.score}
                             onChange={e => setJSSMark(student.id, la.code, e.target.value)}
-                            placeholder="0ΓÇô100"
+                            placeholder="0–100"
                             data-cell={`${idx}-${la.code}`}
                             onKeyDown={e => {
                               if (e.key === 'Enter') {
@@ -286,7 +286,7 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
                               {rubric.code}
                             </span>
                           ) : (
-                            <span className="text-[10px] text-gray-300 font-medium">ΓÇö</span>
+                            <span className="text-[10px] text-gray-300 font-medium">—</span>
                           )}
                         </div>
                       </td>
@@ -300,7 +300,7 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
                         <span className="text-sm font-black" style={{ color: avgRubric.color }}>{avg}%</span>
                         <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md text-white" style={{ background: avgRubric.color }}>{avgRubric.code}</span>
                       </div>
-                    ) : <span className="text-gray-300 text-xs">ΓÇö</span>}
+                    ) : <span className="text-gray-300 text-xs">—</span>}
                   </td>
                 </tr>
               );
@@ -316,7 +316,7 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
             className="flex items-center gap-2 px-5 py-3 font-bold text-white rounded-2xl shadow-2xl text-sm transition disabled:opacity-70"
             style={{ background: 'linear-gradient(135deg,#6C63FF,#00D9A6)' }}>
             {saving ? <FiRefreshCw size={16} className="animate-spin" /> : <FiSave size={16} />}
-            {saving ? 'SavingΓÇª' : 'Save All Marks'}
+            {saving ? 'Saving…' : 'Save All Marks'}
           </button>
         </div>
       )}
@@ -324,7 +324,7 @@ function JSSMarksGrid({ students, jssMarks, jssLearningAreas, selJSSLA, setJSSMa
   );
 }
 
-// ΓöÇΓöÇΓöÇ CBC Senior Sidebar ΓÇö Collapsible + Paginated ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── CBC Senior Sidebar — Collapsible + Paginated ────────────────────────────
 const SUBJECTS_PER_PAGE = 8;
 
 function SeniorSidebar({ hook }: { hook: any }) {
@@ -360,7 +360,7 @@ function SeniorSidebar({ hook }: { hook: any }) {
     <div className="w-[210px] flex-shrink-0 bg-white border-r border-gray-200 flex flex-col overflow-y-auto">
       <div className="py-4 px-3 flex flex-col gap-0.5">
 
-        {/* ΓöÇΓöÇ Top nav ΓöÇΓöÇ */}
+        {/* ── Top nav ── */}
         <div className={`flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 cursor-default`}>
           <FiEdit3 size={14} /> Mark Entry
         </div>
@@ -372,7 +372,7 @@ function SeniorSidebar({ hook }: { hook: any }) {
           </span>
         </div>
 
-        {/* ΓöÇΓöÇ Subjects (collapsible + paginated) ΓöÇΓöÇ */}
+        {/* ── Subjects (collapsible + paginated) ── */}
         <SectionHeader label="Subjects" skey="subjects" />
         {!collapsed['subjects'] && (
           <>
@@ -443,7 +443,7 @@ function SeniorSidebar({ hook }: { hook: any }) {
           </>
         )}
 
-        {/* ΓöÇΓöÇ Assessments (collapsible) ΓöÇΓöÇ */}
+        {/* ── Assessments (collapsible) ── */}
         <SectionHeader label="Assessments" skey="assessments" />
         {!collapsed['assessments'] && (
           <div className="space-y-0.5">
@@ -471,7 +471,7 @@ function SeniorSidebar({ hook }: { hook: any }) {
           </div>
         )}
 
-        {/* ΓöÇΓöÇ Tools (collapsible) ΓöÇΓöÇ */}
+        {/* ── Tools (collapsible) ── */}
         <SectionHeader label="Tools" skey="tools" />
         {!collapsed['tools'] && (
           <div className="space-y-0.5">
@@ -490,7 +490,7 @@ function SeniorSidebar({ hook }: { hook: any }) {
           </div>
         )}
 
-        {/* ΓöÇΓöÇ Completion mini-bar ΓöÇΓöÇ */}
+        {/* ── Completion mini-bar ── */}
         {hook.totalStudents > 0 && (
           <div className="mt-3 p-3 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
             <div className="flex justify-between text-[10px] font-bold text-indigo-600 mb-1.5">
@@ -509,9 +509,9 @@ function SeniorSidebar({ hook }: { hook: any }) {
   );
 }
 
-// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+// ═════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
-// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+// ═════════════════════════════════════════════════════════════════════════════
 export default function CBCMarksPage() {
   const hook = useUltraCBCMarks();
   const router = useRouter();
@@ -522,7 +522,7 @@ export default function CBCMarksPage() {
   const [showImport, setShowImport] = useState(false);
   const STUDENTS_PER_PAGE = 15;
 
-  // Handle bulk import from Excel ΓÇö works for both Senior and JSS
+  // Handle bulk import from Excel — works for both Senior and JSS
   const handleImportDone = useCallback((results: Record<string, Record<string, { score: string; level: string }>>) => {
     const seniorMode = hook.mode === 'CBC_Senior';
 
@@ -537,7 +537,7 @@ export default function CBCMarksPage() {
       // Force-save all at once after all state updates are queued
       setTimeout(() => { hook.triggerSave(true); }, 500);
     } else {
-      // JSS: set each student ├ù learning-area mark
+      // JSS: set each student × learning-area mark
       Object.entries(results).forEach(([studentId, laMap]) => {
         Object.entries(laMap).forEach(([laCode, { score }]) => {
           hook.setJSSMark(Number(studentId), laCode, score);
@@ -570,7 +570,7 @@ export default function CBCMarksPage() {
         <div className="text-center">
           <div className="w-12 h-12 border-gray-200 border-t-indigo-500 rounded-full animate-spin mx-auto mb-3"
             style={{ borderWidth: 3, borderStyle: 'solid' }} />
-          <p className="text-gray-400 text-sm font-medium">Loading Ultra CBC Assessment SystemΓÇª</p>
+          <p className="text-gray-400 text-sm font-medium">Loading Ultra CBC Assessment System…</p>
         </div>
       </div>
     );
@@ -582,21 +582,21 @@ export default function CBCMarksPage() {
   return (
     <div className="animate-fade-in min-h-screen bg-gray-50">
 
-      {/* ΓöÇΓöÇ Rubric Guide Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+      {/* ── Rubric Guide Modal ─────────────────────────────────────────────── */}
       {showRubricGuide && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowRubricGuide(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
             <h3 className="font-black text-gray-800 text-lg mb-1">KICD CBC Rubric Scale</h3>
-            <p className="text-xs text-gray-500 mb-5">Enter marks 0ΓÇô100. The system automatically assigns the competency level.</p>
+            <p className="text-xs text-gray-500 mb-5">Enter marks 0–100. The system automatically assigns the competency level.</p>
             <div className="space-y-3">
               {RUBRIC_CFG.map(r => (
                 <div key={r.code} className="flex items-center gap-4 p-3 rounded-xl border" style={{ background: r.bg, borderColor: r.border }}>
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-sm text-white flex-shrink-0" style={{ background: r.color }}>{r.code}</div>
                   <div className="flex-1">
                     <p className="font-bold text-sm" style={{ color: r.color }}>{r.label}</p>
-                    <p className="text-xs text-gray-500">Marks: {r.min}ΓÇô{r.max} out of 100</p>
+                    <p className="text-xs text-gray-500">Marks: {r.min}–{r.max} out of 100</p>
                   </div>
-                  <p className="text-2xl font-black flex-shrink-0" style={{ color: r.color }}>{r.min}ΓÇô{r.max}</p>
+                  <p className="text-2xl font-black flex-shrink-0" style={{ color: r.color }}>{r.min}–{r.max}</p>
                 </div>
               ))}
             </div>
@@ -609,9 +609,9 @@ export default function CBCMarksPage() {
         </div>
       )}
 
-      {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+      {/* ══════════════════════════════════════════════════════════════════════
           ULTRA-PREMIUM HERO COMMAND CENTRE
-      ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+      ══════════════════════════════════════════════════════════════════════ */}
       <div className="relative overflow-hidden sticky top-0 z-40 shadow-2xl" style={{ background: 'linear-gradient(135deg,#1e3a5f 0%,#1d4ed8 55%,#4f46e5 100%)' }}>
         {/* Dot mesh */}
         <div className="absolute inset-0 opacity-100" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px,rgba(255,255,255,0.1) 1px,transparent 0)', backgroundSize: '20px 20px' }} />
@@ -635,13 +635,13 @@ export default function CBCMarksPage() {
                   </span>
                   {(isSenior ? hook.saving : hook.saving) && (
                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black text-white" style={{ background: 'rgba(16,185,129,0.3)' }}>
-                      <FiRefreshCw size={9} className="animate-spin" /> SavingΓÇª
+                      <FiRefreshCw size={9} className="animate-spin" /> Saving…
                     </span>
                   )}
                 </div>
                 <div className="hidden sm:flex items-center gap-1 text-[11px] mt-0.5" style={{ color: 'rgba(199,210,254,0.75)' }}>
-                  <span>Dashboard</span><span className="opacity-40">ΓÇ║</span>
-                  <span>Exams</span><span className="opacity-40">ΓÇ║</span>
+                  <span>Dashboard</span><span className="opacity-40">›</span>
+                  <span>Exams</span><span className="opacity-40">›</span>
                   <span style={{ color: '#bfdbfe', fontWeight: 600 }}>CBC Mark Entry</span>
                 </div>
               </div>
@@ -653,12 +653,12 @@ export default function CBCMarksPage() {
                 <button onClick={() => hook.setMode('CBC_Senior')}
                   className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer"
                   style={isSenior ? { background: '#fff', color: '#1d4ed8', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' } : { color: 'rgba(199,210,254,0.7)' }}>
-                  <FiLayers size={11} /> Senior Gr 10ΓÇô12
+                  <FiLayers size={11} /> Senior Gr 10–12
                 </button>
                 <button onClick={() => hook.setMode('JSS')}
                   className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer"
                   style={isJSS ? { background: '#fff', color: '#7c3aed', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' } : { color: 'rgba(199,210,254,0.7)' }}>
-                  <FiGrid size={11} /> JSS Gr 7ΓÇô9
+                  <FiGrid size={11} /> JSS Gr 7–9
                 </button>
               </div>
             </div>
@@ -679,7 +679,7 @@ export default function CBCMarksPage() {
                 <button onClick={() => hook.triggerSave(false)} disabled={hook.saving}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-60 cursor-pointer hover:scale-105"
                   style={{ background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
-                  {hook.saving ? <><FiCheck size={12} /> SavingΓÇª</> : <><FiSave size={12} /> Save All</>}
+                  {hook.saving ? <><FiCheck size={12} /> Saving…</> : <><FiSave size={12} /> Save All</>}
                 </button>
               )}
               {isJSS && hook.jssDirty && (
@@ -687,7 +687,7 @@ export default function CBCMarksPage() {
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-60 cursor-pointer hover:scale-105"
                   style={{ background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
                   {hook.saving ? <FiRefreshCw size={12} className="animate-spin" /> : <FiSave size={12} />}
-                  {hook.saving ? 'SavingΓÇª' : 'Save All'}
+                  {hook.saving ? 'Saving…' : 'Save All'}
                 </button>
               )}
             </div>
@@ -697,14 +697,14 @@ export default function CBCMarksPage() {
           <div className="px-5 pb-3">
             <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
               {[
-                { label: 'Total Students', value: hook.totalStudents || 0, icon: '≡ƒæ¿ΓÇì≡ƒÄô', color: '#93c5fd' },
-                { label: 'Assessed', value: hook.assessedCount || 0, icon: 'Γ£Å∩╕Å', color: '#6ee7b7' },
-                { label: 'Completion', value: `${hook.completionPct || 0}%`, icon: hook.completionPct === 100 ? '≡ƒÄë' : '≡ƒôï', color: hook.completionPct === 100 ? '#6ee7b7' : '#fcd34d' },
-                { label: 'EE ΓÇö Exceeds', value: (hook.analyticsCounts as any)?.EE || 0, icon: '≡ƒÅå', color: '#6ee7b7' },
-                { label: 'ME ΓÇö Meets', value: (hook.analyticsCounts as any)?.ME || 0, icon: 'Γ£à', color: '#93c5fd' },
-                { label: 'AE ΓÇö Approaches', value: (hook.analyticsCounts as any)?.AE || 0, icon: 'ΓÜá∩╕Å', color: '#fcd34d' },
-                { label: 'BE ΓÇö Below', value: (hook.analyticsCounts as any)?.BE || 0, icon: '≡ƒö┤', color: '#fca5a5' },
-                { label: 'Not Assessed', value: (hook.analyticsCounts as any)?.NA || (hook.totalStudents - hook.assessedCount) || 0, icon: 'Γùï', color: '#94a3b8' },
+                { label: 'Total Students', value: hook.totalStudents || 0, icon: '👨‍🎓', color: '#93c5fd' },
+                { label: 'Assessed', value: hook.assessedCount || 0, icon: '✏️', color: '#6ee7b7' },
+                { label: 'Completion', value: `${hook.completionPct || 0}%`, icon: hook.completionPct === 100 ? '🎉' : '📋', color: hook.completionPct === 100 ? '#6ee7b7' : '#fcd34d' },
+                { label: 'EE — Exceeds', value: (hook.analyticsCounts as any)?.EE || 0, icon: '🏆', color: '#6ee7b7' },
+                { label: 'ME — Meets', value: (hook.analyticsCounts as any)?.ME || 0, icon: '✅', color: '#93c5fd' },
+                { label: 'AE — Approaches', value: (hook.analyticsCounts as any)?.AE || 0, icon: '⚠️', color: '#fcd34d' },
+                { label: 'BE — Below', value: (hook.analyticsCounts as any)?.BE || 0, icon: '🔴', color: '#fca5a5' },
+                { label: 'Not Assessed', value: (hook.analyticsCounts as any)?.NA || (hook.totalStudents - hook.assessedCount) || 0, icon: '○', color: '#94a3b8' },
               ].map(k => (
                 <div key={k.label} className="rounded-xl px-3 py-2 group hover:scale-105 transition-all duration-200"
                   style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -723,7 +723,7 @@ export default function CBCMarksPage() {
                 <div key={r.code} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold"
                   style={{ background: r.bg + '25', border: `1px solid ${r.border}50`, color: '#fff' }}>
                   <span className="w-5 h-5 rounded flex items-center justify-center text-white font-black text-[9px]" style={{ background: r.color }}>{r.code}</span>
-                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>{r.label} ({r.min}ΓÇô{r.max}%)</span>
+                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>{r.label} ({r.min}–{r.max}%)</span>
                 </div>
               ))}
               {isSenior && (
@@ -760,9 +760,9 @@ export default function CBCMarksPage() {
         </div>
       </div>
 
-      {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+      {/* ══════════════════════════════════════════════════════════════════════
           JSS MODE
-      ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+      ══════════════════════════════════════════════════════════════════════ */}
       {isJSS && (
         <div className="flex" style={{ minHeight: 'calc(100vh - 57px)' }}>
 
@@ -791,7 +791,7 @@ export default function CBCMarksPage() {
               className="w-full border border-gray-200 rounded-xl px-2 py-2 text-xs bg-white focus:ring-2 focus:ring-purple-300 outline-none font-medium cursor-pointer">
               <option value="">Select Term</option>
               {hook.terms.map((t: any) => (
-                <option key={t.id} value={t.id}>{t.term_name} {t.year}{t.is_current ? ' ΓùÅ' : ''}</option>
+                <option key={t.id} value={t.id}>{t.term_name} {t.year}{t.is_current ? ' ●' : ''}</option>
               ))}
             </select>
 
@@ -852,11 +852,11 @@ export default function CBCMarksPage() {
                     style={{ background: 'linear-gradient(135deg,#6C63FF,#00D9A6)' }}>JSS</div>
                   <div>
                     <h2 className="text-base font-black text-gray-800">
-                      {hook.selJSSGrade ? `Grade ${hook.selJSSGrade}` : 'JSS'} ΓÇö CBC Mark Entry
+                      {hook.selJSSGrade ? `Grade ${hook.selJSSGrade}` : 'JSS'} — CBC Mark Entry
                     </h2>
                     <p className="text-xs text-gray-400">
-                      KICD CBC Competency ┬╖ Marks 0ΓÇô100, rubric auto-assigns
-                      {hook.selJSSLA !== 'all' && ` ┬╖ ${hook.jssLearningAreas.find((la: any) => la.code === hook.selJSSLA)?.name || ''}`}
+                      KICD CBC Competency · Marks 0–100, rubric auto-assigns
+                      {hook.selJSSLA !== 'all' && ` · ${hook.jssLearningAreas.find((la: any) => la.code === hook.selJSSLA)?.name || ''}`}
                     </p>
                   </div>
                 </div>
@@ -866,7 +866,7 @@ export default function CBCMarksPage() {
                     <div key={r.code} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border"
                       style={{ background: r.bg, borderColor: r.border, color: r.color }}>
                       <span className="font-black">{r.code}</span>
-                      <span className="hidden sm:inline font-medium text-gray-500">{r.min}ΓÇô{r.max}%</span>
+                      <span className="hidden sm:inline font-medium text-gray-500">{r.min}–{r.max}%</span>
                     </div>
                   ))}
                 </div>
@@ -924,10 +924,10 @@ export default function CBCMarksPage() {
                 </p>
                 <div className="grid grid-cols-2 gap-3 max-w-xs">
                   {[
-                    { icon: '≡ƒÅå', label: 'EE ΓÇö Exceeds Expectation', sub: '80ΓÇô100%' },
-                    { icon: 'Γ£à', label: 'ME ΓÇö Meets Expectation', sub: '60ΓÇô79%' },
-                    { icon: 'ΓÜá∩╕Å', label: 'AE ΓÇö Approaches Expectation', sub: '40ΓÇô59%' },
-                    { icon: '≡ƒö┤', label: 'BE ΓÇö Below Expectation', sub: '0ΓÇô39%' },
+                    { icon: '🏆', label: 'EE — Exceeds Expectation', sub: '80–100%' },
+                    { icon: '✅', label: 'ME — Meets Expectation', sub: '60–79%' },
+                    { icon: '⚠️', label: 'AE — Approaches Expectation', sub: '40–59%' },
+                    { icon: '🔴', label: 'BE — Below Expectation', sub: '0–39%' },
                   ].map(f => (
                     <div key={f.label} className="px-3 py-2.5 rounded-2xl text-center" style={{ background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(29,78,216,0.06)' }}>
                       <span className="text-xl">{f.icon}</span>
@@ -966,13 +966,13 @@ export default function CBCMarksPage() {
         </div>
       )}
 
-      {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
-          CBC SENIOR MODE ΓÇö 100% ORIGINAL PRESERVED
-      ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          CBC SENIOR MODE — 100% ORIGINAL PRESERVED
+      ══════════════════════════════════════════════════════════════════════ */}
       {isSenior && (
         <div className="flex" style={{ minHeight: 'calc(100vh - 57px)' }}>
 
-          {/* Left Sidebar ΓÇö Collapsible + Paginated */}
+          {/* Left Sidebar — Collapsible + Paginated */}
           {sidebarOpen && <SeniorSidebar hook={hook} />}
 
           {/* Sidebar collapse toggle tab */}
@@ -992,7 +992,7 @@ export default function CBCMarksPage() {
                 <div>
                   <div className="text-lg font-semibold text-gray-800 flex items-center gap-2.5">
                     <FiClipboard size={20} className="text-indigo-500" />
-                    CBC Mark Entry ΓÇö {hook.subjectName || 'Select Subject'}
+                    CBC Mark Entry — {hook.subjectName || 'Select Subject'}
                     <span className="text-[10px] py-0.5 px-2 rounded border border-gray-200 bg-gray-50 text-gray-500 font-medium ml-1">
                       {hook.selAssessmentType} Assessment
                     </span>
@@ -1064,14 +1064,14 @@ export default function CBCMarksPage() {
                 <div className="text-center py-16">
                   <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl"
                     style={{ background: 'linear-gradient(135deg,#1d4ed8,#4f46e5)' }}>
-                    <span className="text-3xl">≡ƒô¥</span>
+                    <span className="text-3xl">📝</span>
                   </div>
                   <p className="font-black text-xl mb-2" style={{ color: '#1e3a5f' }}>Select Filters to Begin</p>
                   <p className="text-sm text-gray-400 max-w-xs mx-auto mb-6">
                     Choose Form, Subject, Term &amp; Assessment Type{hook.selAssessmentType === 'Formative' ? ', and Task Name' : ''} to load the CBC marks sheet.
                   </p>
                   <div className="flex flex-wrap gap-2 justify-center">
-                    {['≡ƒÅ½ Form / Class','≡ƒôÜ Subject','≡ƒôà Term','≡ƒôï Assessment Type', ...(hook.selAssessmentType === 'Formative' ? ['Γ£Å∩╕Å Task Name'] : [])].map(f => (
+                    {['🏫 Form / Class','📚 Subject','📅 Term','📋 Assessment Type', ...(hook.selAssessmentType === 'Formative' ? ['✏️ Task Name'] : [])].map(f => (
                       <span key={f} className="px-3 py-1.5 rounded-full text-xs font-bold"
                         style={{ background: '#fff', border: '1px solid #e2e8f0', color: '#1d4ed8', boxShadow: '0 2px 6px rgba(29,78,216,0.08)' }}>{f}</span>
                     ))}
@@ -1081,7 +1081,7 @@ export default function CBCMarksPage() {
             ) : hook.filteredStudents.length === 0 ? (
               <div className="flex-1 flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#f8faff,#eff6ff)' }}>
                 <div className="text-center py-20">
-                  <span className="text-5xl block mb-4">≡ƒæÑ</span>
+                  <span className="text-5xl block mb-4">👥</span>
                   <p className="font-semibold">No students found</p>
                   <p className="text-xs mt-1">Try adjusting your filters or search query</p>
                 </div>
@@ -1115,7 +1115,7 @@ export default function CBCMarksPage() {
                           key={student.id}
                           student={{
                             id: student.id,
-                            admNo: student.admission_no || student.admission_number || 'ΓÇö',
+                            admNo: student.admission_no || student.admission_number || '—',
                             firstName: student.first_name,
                             lastName: student.last_name,
                             gender: student.gender || '',
@@ -1143,7 +1143,7 @@ export default function CBCMarksPage() {
                   </tbody>
                 </table>
 
-                {/* ΓöÇΓöÇ Premium Pagination Bar ΓöÇΓöÇ */}
+                {/* ── Premium Pagination Bar ── */}
                 {hook.filteredStudents.length > STUDENTS_PER_PAGE && (() => {
                   const totalPages = Math.ceil(hook.filteredStudents.length / STUDENTS_PER_PAGE);
                   const start = studentPage * STUDENTS_PER_PAGE + 1;
@@ -1153,7 +1153,7 @@ export default function CBCMarksPage() {
                       {/* Left: info */}
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 font-medium">
-                          Showing <span className="font-bold text-gray-700">{start}ΓÇô{end}</span> of <span className="font-bold text-gray-700">{hook.filteredStudents.length}</span> students
+                          Showing <span className="font-bold text-gray-700">{start}–{end}</span> of <span className="font-bold text-gray-700">{hook.filteredStudents.length}</span> students
                         </span>
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold border border-indigo-100">
                           Page {studentPage + 1} / {totalPages}
@@ -1168,11 +1168,11 @@ export default function CBCMarksPage() {
                           <FiChevronLeft size={13} /> Prev
                         </button>
 
-                        {/* Page pills ΓÇö show max 7, with ellipsis */}
+                        {/* Page pills — show max 7, with ellipsis */}
                         {Array.from({ length: totalPages }).map((_, i) => {
                           const showPill = i === 0 || i === totalPages - 1 || Math.abs(i - studentPage) <= 2;
                           const showEllipsis = !showPill && (i === 1 || i === totalPages - 2);
-                          if (showEllipsis) return <span key={i} className="text-gray-400 text-xs px-1">ΓÇª</span>;
+                          if (showEllipsis) return <span key={i} className="text-gray-400 text-xs px-1">…</span>;
                           if (!showPill) return null;
                           return (
                             <button key={i} onClick={() => setStudentPage(i)}
@@ -1233,7 +1233,7 @@ export default function CBCMarksPage() {
         </div>
       )}
 
-      {/* ΓöÇΓöÇ Excel Import Modal ΓöÇΓöÇ */}
+      {/* ── Excel Import Modal ── */}
       <CBCImportModal
         open={showImport}
         onClose={() => setShowImport(false)}

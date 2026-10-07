@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { FiUpload, FiDownload, FiX, FiCheckCircle, FiAlertCircle, FiZap, FiFileText, FiRefreshCw } from 'react-icons/fi';
@@ -47,7 +47,7 @@ export default function CBCImportModal({
   streams.forEach(s => { streamMap[String(s.id)] = s.stream_name || s.name || ''; });
   const activeStream = selStream ? (streamMap[selStream] || 'All Streams') : 'All Streams';
 
-  // ΓöÇΓöÇΓöÇ Download template (pure xlsx ΓÇö works in browser) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ─── Download template (pure xlsx — works in browser) ─────────────────────
   const downloadTemplate = useCallback(() => {
     const filteredStudents = selStream
       ? students.filter(s => String(s.stream_id) === selStream)
@@ -59,8 +59,8 @@ export default function CBCImportModal({
 
     // Info block rows (7 rows before the header)
     const INFO_ROWS: any[][] = [
-      ['APSIMS ΓÇö CBC Senior School Mark Entry', '', '', '', '', '', ...learningAreas.map(() => ''), ''],
-      ['Competency-Based Curriculum (CBC) ΓÇö Kenya Ministry of Education', '', '', '', '', '', ...learningAreas.map(() => ''), ''],
+      ['APSIMS — CBC Senior School Mark Entry', '', '', '', '', '', ...learningAreas.map(() => ''), ''],
+      ['Competency-Based Curriculum (CBC) — Kenya Ministry of Education', '', '', '', '', '', ...learningAreas.map(() => ''), ''],
       [`Grade / Class: ${gradeName || ''}`, '', '', `Stream: ${activeStream}`, '', '', `Subject: ${subject}`, ...learningAreas.slice(1).map(() => ''), ''],
       [`Term: ${termName || ''}`, '', '', `Assessment: ${selAssessmentType}`, '', '', `Generated: ${dateStr}`, ...learningAreas.slice(1).map(() => ''), ''],
       ['RUBRIC SCALE:', 'EE = 80-100%', 'ME = 60-79%', 'AE = 40-59%', 'BE = 0-39%', '', `Total Students: ${filteredStudents.length}`, ...learningAreas.slice(1).map(() => ''), ''],
@@ -142,7 +142,7 @@ export default function CBCImportModal({
 
     // Instructions sheet
     const infoRows: any[][] = [
-      ['APSIMS CBC Marks Import ΓÇö Instructions'],
+      ['APSIMS CBC Marks Import — Instructions'],
       [''],
       ['STEP 1', 'Download this template', 'Pre-filled with all your students'],
       ['STEP 2', 'Fill in the mark columns', 'Enter whole numbers 0-100 only'],
@@ -177,7 +177,7 @@ export default function CBCImportModal({
     XLSX.writeFile(wb, safe(`CBC_Marks_${gradeName || 'Grade'}_${activeStream}_${subject}_${termName || 'Term'}.xlsx`));
   }, [students, learningAreas, selStream, gradeName, termName, subjectName, selAssessmentType, activeStream, streamMap]);
 
-  // ΓöÇΓöÇΓöÇ Parse uploaded file ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ─── Parse uploaded file ───────────────────────────────────────────────────
   const handleFile = useCallback((file: File) => {
     setError('');
     setFileName(file.name);
@@ -242,7 +242,7 @@ export default function CBCImportModal({
     reader.readAsArrayBuffer(file);
   }, [students, learningAreas, streamMap]);
 
-  // ΓöÇΓöÇΓöÇ Run import ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ─── Run import ────────────────────────────────────────────────────────────
   const runImport = useCallback(async () => {
     const validRows = parsedRows.filter(r => r.studentId && !r.errors.length && Object.keys(r.marks).length > 0);
     if (!validRows.length) { setError('No valid rows to import.'); return; }
@@ -306,7 +306,7 @@ export default function CBCImportModal({
             <div>
               <h2 className="text-lg font-black text-white tracking-tight">Import CBC Marks from Excel</h2>
               <p className="text-[11px] mt-0.5" style={{ color: 'rgba(199,210,254,0.8)' }}>
-                {gradeName} ┬╖ {activeStream} ┬╖ {subjectName || 'All Learning Areas'} ┬╖ {termName} ┬╖ {selAssessmentType}
+                {gradeName} · {activeStream} · {subjectName || 'All Learning Areas'} · {termName} · {selAssessmentType}
               </p>
             </div>
           </div>
@@ -320,10 +320,10 @@ export default function CBCImportModal({
           <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Rubric:</span>
           {RUBRIC_CFG.map(r => (
             <span key={r.code} className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background: r.bg, color: r.color, border: `1px solid ${r.border}` }}>
-              {r.code} {r.min}ΓÇô{r.max}%
+              {r.code} {r.min}–{r.max}%
             </span>
           ))}
-          <span className="ml-auto text-[10px] text-gray-400">{students.length} students ┬╖ {learningAreas.length} subject{learningAreas.length !== 1 ? 's' : ''}</span>
+          <span className="ml-auto text-[10px] text-gray-400">{students.length} students · {learningAreas.length} subject{learningAreas.length !== 1 ? 's' : ''}</span>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -337,8 +337,8 @@ export default function CBCImportModal({
                     <FiDownload size={20} className="text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-black text-gray-800">Step 1 ΓÇö Download Premium Template</p>
-                    <p className="text-xs text-gray-500 mt-1">Pre-filled with <strong>{students.length} students</strong> ┬╖ Stream: <strong>{activeStream}</strong> ┬╖ Grade: <strong>{gradeName}</strong> ┬╖ Term: <strong>{termName}</strong></p>
+                    <p className="font-black text-gray-800">Step 1 — Download Premium Template</p>
+                    <p className="text-xs text-gray-500 mt-1">Pre-filled with <strong>{students.length} students</strong> · Stream: <strong>{activeStream}</strong> · Grade: <strong>{gradeName}</strong> · Term: <strong>{termName}</strong></p>
                     <ul className="text-[11px] text-gray-400 mt-2 space-y-0.5 list-disc list-inside">
                       <li>Auto-rubric formula column (EE/ME/AE/BE shows live in Excel)</li>
                       <li>Class average formula row at bottom</li>
@@ -363,7 +363,7 @@ export default function CBCImportModal({
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg" style={{ background: 'linear-gradient(135deg,#059669,#10b981)' }}>
                   <FiUpload size={28} className="text-white" />
                 </div>
-                <p className="font-black text-gray-800 text-lg mb-1">Step 2 ΓÇö Upload Filled Excel</p>
+                <p className="font-black text-gray-800 text-lg mb-1">Step 2 — Upload Filled Excel</p>
                 <p className="text-sm text-gray-400 mb-4">Drag & drop the filled template here, or click to browse</p>
                 <span className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black text-white" style={{ background: 'linear-gradient(135deg,#059669,#10b981)', boxShadow: '0 4px 12px rgba(5,150,105,0.35)' }}>
                   <FiFileText size={14} /> Browse File
@@ -380,8 +380,8 @@ export default function CBCImportModal({
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-sm font-black text-gray-700 flex items-center gap-1.5"><FiFileText className="text-blue-500" size={14} />{fileName}</span>
-                  <span className="text-xs font-black px-2.5 py-1 rounded-full" style={{ background: '#D1FAE5', color: '#059669' }}>Γ£ô {validCount} ready</span>
-                  {errorCount > 0 && <span className="text-xs font-black px-2.5 py-1 rounded-full" style={{ background: '#FEE2E2', color: '#DC2626' }}>Γ£ò {errorCount} errors</span>}
+                  <span className="text-xs font-black px-2.5 py-1 rounded-full" style={{ background: '#D1FAE5', color: '#059669' }}>✓ {validCount} ready</span>
+                  {errorCount > 0 && <span className="text-xs font-black px-2.5 py-1 rounded-full" style={{ background: '#FEE2E2', color: '#DC2626' }}>✕ {errorCount} errors</span>}
                 </div>
                 <button onClick={() => { setPhase('idle'); setFileName(''); setParsedRows([]); setError(''); }} className="text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1 cursor-pointer"><FiX size={12} /> Change file</button>
               </div>
@@ -410,7 +410,7 @@ export default function CBCImportModal({
                             <p className="font-bold text-gray-800 leading-tight">{row.studentName}</p>
                             <p className="text-[10px] text-gray-400">{row.admNo}</p>
                           </td>
-                          <td className="px-2 py-2 text-[10px] text-gray-500">{row.stream || 'ΓÇö'}</td>
+                          <td className="px-2 py-2 text-[10px] text-gray-500">{row.stream || '—'}</td>
                           {learningAreas.slice(0, 6).map((la: any) => {
                             const score = row.marks[la.code];
                             const rubric = score !== undefined ? getRubric(score) : null;
@@ -421,14 +421,14 @@ export default function CBCImportModal({
                                     <span className="text-xs font-bold" style={{ color: rubric.color }}>{score}</span>
                                     <span className="text-[9px] font-black px-1 rounded" style={{ background: rubric.bg, color: rubric.color }}>{rubric.code}</span>
                                   </div>
-                                ) : <span className="text-gray-200">ΓÇö</span>}
+                                ) : <span className="text-gray-200">—</span>}
                               </td>
                             );
                           })}
                           <td className="px-2 py-2 text-center">
                             {row.errors.length > 0
-                              ? <span className="text-[10px] font-black text-red-500" title={row.errors.join(', ')}>ΓÜá Error</span>
-                              : <span className="text-[10px] font-black text-green-600">Γ£ô OK</span>}
+                              ? <span className="text-[10px] font-black text-red-500" title={row.errors.join(', ')}>⚠ Error</span>
+                              : <span className="text-[10px] font-black text-green-600">✓ OK</span>}
                           </td>
                         </tr>
                       ))}
@@ -474,7 +474,7 @@ export default function CBCImportModal({
                         </div>
                       )}
                     </div>
-                    {step.status === 'done' && <span className="text-sm font-black text-green-500">Γ£ô</span>}
+                    {step.status === 'done' && <span className="text-sm font-black text-green-500">✓</span>}
                   </div>
                 ))}
               </div>
@@ -487,7 +487,7 @@ export default function CBCImportModal({
                       <div key={r.code} className="text-center p-3 rounded-xl border" style={{ background: r.bg, borderColor: r.border }}>
                         <p className="text-2xl font-black" style={{ color: r.color }}>{rubricStats[r.code as keyof typeof rubricStats]}</p>
                         <p className="text-[10px] font-black mt-0.5" style={{ color: r.color }}>{r.code}</p>
-                        <p className="text-[9px] text-gray-400">{r.min}ΓÇô{r.max}%</p>
+                        <p className="text-[9px] text-gray-400">{r.min}–{r.max}%</p>
                       </div>
                     ))}
                   </div>
@@ -498,7 +498,7 @@ export default function CBCImportModal({
                 <div className="flex justify-end">
                   <button onClick={onClose} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black text-white cursor-pointer hover:scale-105 transition"
                     style={{ background: 'linear-gradient(135deg,#059669,#10b981)', boxShadow: '0 4px 16px rgba(5,150,105,0.35)' }}>
-                    <FiCheckCircle size={14} /> Done ΓÇö Marks Loaded into Grid
+                    <FiCheckCircle size={14} /> Done — Marks Loaded into Grid
                   </button>
                 </div>
               )}
