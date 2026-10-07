@@ -210,7 +210,7 @@ Route (app)                                             Size     First Load JS
 Γö£ Γùï /dashboard/exams/broadsheet                         19.1 kB         159 kB
 Γö£ Γùï /dashboard/exams/cbc-analytics                      6.91 kB         216 kB
 Γö£ Γùï /dashboard/exams/cbc-formative                      12.5 kB         159 kB
-Γö£ Γùï /dashboard/exams/cbc-marks                          20.1 kB         317 kB
+Γö£ Γùï /dashboard/exams/cbc-marks                          20 kB           317 kB
 Γö£ Γùï /dashboard/exams/cbc-marks/competency               4.73 kB         151 kB
 Γö£ Γùï /dashboard/exams/cbc-marks/history                  5.22 kB         152 kB
 Γö£ Γùï /dashboard/exams/cbc-marks/rubric-config            9.72 kB         156 kB

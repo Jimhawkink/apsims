@@ -523,27 +523,32 @@ export default function CBCMarksPage() {
   const STUDENTS_PER_PAGE = 15;
 
   // Handle bulk import from Excel — works for both Senior and JSS
-  // isSenior is declared below after the loading check (const isSenior = hook.mode === 'CBC_Senior')
   const handleImportDone = useCallback((results: Record<string, Record<string, { score: string; level: string }>>) => {
     const seniorMode = hook.mode === 'CBC_Senior';
+
     if (seniorMode) {
+      // Senior: set each student score via handleScoreChange (updates state + triggers auto-save timer)
       Object.entries(results).forEach(([studentId, laMap]) => {
         const firstScore = Object.values(laMap)[0]?.score;
-        if (firstScore !== undefined) hook.onScoreChange(Number(studentId), firstScore);
+        if (firstScore !== undefined) {
+          hook.handleScoreChange(Number(studentId), firstScore);
+        }
       });
+      // Force-save all at once after all state updates are queued
+      setTimeout(() => { hook.triggerSave(true); }, 500);
     } else {
+      // JSS: set each student × learning-area mark
       Object.entries(results).forEach(([studentId, laMap]) => {
         Object.entries(laMap).forEach(([laCode, { score }]) => {
           hook.setJSSMark(Number(studentId), laCode, score);
         });
       });
+      // Save JSS marks after state updates
+      setTimeout(() => { hook.saveJSSMarks(); }, 500);
     }
     setShowImport(false);
-    setTimeout(() => {
-      if (seniorMode) hook.saveAll?.();
-      else hook.saveJSSMarks();
-    }, 300);
   }, [hook]);
+
 
 
 
