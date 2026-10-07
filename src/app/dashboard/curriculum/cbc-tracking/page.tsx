@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
@@ -11,14 +11,13 @@ import {
 } from 'react-icons/fi';
 import { HiOutlineAcademicCap, HiOutlineSparkles, HiOutlineChartBar } from 'react-icons/hi2';
 
-// ─── CBC Senior School Data: Grade 10–12 ────────────────────────────────────
+// ΓöÇΓöÇΓöÇ CBC Senior School Data: Grade 10ΓÇô12 ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const CBC_SENIOR_DATA = {
   pathways: {
     STEM: {
       label: 'Science, Technology, Engineering & Mathematics',
-      icon: '🔬',
-
+      icon: '≡ƒö¼',
       color: '#0ea5e9',
       gradient: 'from-sky-500 to-blue-600',
       bg: '#f0f9ff',
@@ -26,7 +25,7 @@ const CBC_SENIOR_DATA = {
     },
     ARTS: {
       label: 'Arts & Sports Science',
-      icon: '🎨',
+      icon: '≡ƒÄ¿',
       color: '#d946ef',
       gradient: 'from-fuchsia-500 to-purple-600',
       bg: '#fdf4ff',
@@ -34,7 +33,7 @@ const CBC_SENIOR_DATA = {
     },
     SOCIAL: {
       label: 'Social Sciences',
-      icon: '🌍',
+      icon: '≡ƒîì',
       color: '#f59e0b',
       gradient: 'from-amber-500 to-orange-600',
       bg: '#fffbeb',
@@ -42,7 +41,7 @@ const CBC_SENIOR_DATA = {
     },
     CORE: {
       label: 'Compulsory Core',
-      icon: '📚',
+      icon: '≡ƒôÜ',
       color: '#10b981',
       gradient: 'from-emerald-500 to-teal-600',
       bg: '#f0fdf4',
@@ -50,7 +49,7 @@ const CBC_SENIOR_DATA = {
     },
   },
   subjects: [
-    // ── CORE COMPULSORY ─────────────────────────────────────────────────────
+    // ΓöÇΓöÇ CORE COMPULSORY ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     {
       id: 'ENG', code: 'ENG', pathway: 'CORE', name: 'English',
       grades: [10, 11, 12], lessons_per_week: 4, compulsory: true,
@@ -166,7 +165,7 @@ const CBC_SENIOR_DATA = {
         },
       ]
     },
-    // ── STEM PATHWAY ──────────────────────────────────────────────────────────
+    // ΓöÇΓöÇ STEM PATHWAY ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     {
       id: 'MATH', code: 'MATH', pathway: 'STEM', name: 'Mathematics',
       grades: [10, 11, 12], lessons_per_week: 5, compulsory: false,
@@ -358,7 +357,7 @@ const CBC_SENIOR_DATA = {
         },
       ]
     },
-    // ── SOCIAL SCIENCES PATHWAY ────────────────────────────────────────────
+    // ΓöÇΓöÇ SOCIAL SCIENCES PATHWAY ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     {
       id: 'HIST', code: 'HIST', pathway: 'SOCIAL', name: 'History & Citizenship',
       grades: [10, 11, 12], lessons_per_week: 4, compulsory: false,
@@ -462,7 +461,7 @@ const CBC_SENIOR_DATA = {
         },
       ]
     },
-    // ── ARTS & SPORTS SCIENCE PATHWAY ─────────────────────────────────────
+    // ΓöÇΓöÇ ARTS & SPORTS SCIENCE PATHWAY ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     {
       id: 'ART', code: 'ART', pathway: 'ARTS', name: 'Visual Arts',
       grades: [10, 11, 12], lessons_per_week: 4, compulsory: false,
@@ -557,7 +556,7 @@ const CBC_SENIOR_DATA = {
         },
       ]
     },
-    // ── TECHNICAL VOCATIONAL PATHWAY ─────────────────────────────────────
+    // ΓöÇΓöÇ TECHNICAL VOCATIONAL PATHWAY ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     {
       id: 'BUILD', code: 'BUILD', pathway: 'STEM', name: 'Building & Construction',
       grades: [10, 11, 12], lessons_per_week: 5, compulsory: false,
@@ -622,7 +621,7 @@ const CBC_SENIOR_DATA = {
   ],
 };
 
-// ─── Rubric ──────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Rubric ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const RUBRIC = {
   EE: { label: 'Exceeding Expectations', short: 'Excellent', color: '#059669', bg: 'rgba(5,150,105,0.12)', border: '#6ee7b7', glow: '#10b98155' },
@@ -633,12 +632,12 @@ const RUBRIC = {
 const RUBRIC_KEYS = ['EE', 'ME', 'AE', 'BE'] as const;
 type RubricKey = typeof RUBRIC_KEYS[number];
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 type ViewMode = 'matrix' | 'cards' | 'analytics';
 type AssessType = 'formative' | 'summative' | 'project' | 'observation' | 'practical';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const getSubjectById = (id: string) => CBC_SENIOR_DATA.subjects.find(s => s.id === id);
 const getPathway = (p: string) => CBC_SENIOR_DATA.pathways[p as keyof typeof CBC_SENIOR_DATA.pathways];
@@ -666,7 +665,7 @@ function computeProgress(ratings: Record<string, string>, students: any[], subje
   return { total, filled, eeCount, meCount, aeCount, beCount, pct: total ? Math.round((filled / total) * 100) : 0 };
 }
 
-// ─── DB Row Types ────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ DB Row Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 interface CbcAssessmentRow {
   student_id: number;
@@ -687,7 +686,7 @@ interface SchoolTerm {
   [key: string]: unknown;
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Main Component ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export default function CBCSeniorTrackingPage() {
   const [loading, setLoading] = useState(true);
@@ -710,7 +709,7 @@ export default function CBCSeniorTrackingPage() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [activeTab, setActiveTab] = useState<'entry' | 'overview' | 'reports'>('entry');
 
-  // ── Fetch ────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Fetch ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [s, te, f] = await Promise.all([
@@ -728,7 +727,7 @@ export default function CBCSeniorTrackingPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // ── Load existing tracker assessments (school_cbc_assessments) ────────────
+  // ΓöÇΓöÇ Load existing tracker assessments (school_cbc_assessments) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     if (!selSubjectId || !selTerm) return;
     const load = async () => {
@@ -750,7 +749,48 @@ export default function CBCSeniorTrackingPage() {
     load();
   }, [selSubjectId, selTerm, assessType]);
 
-  // ── Auto-fill LO ratings from CBC Marks Entry (cbc_assessments) ───────────
+
+  // ΓöÇΓöÇ Derived data ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  const selectedSubject = useMemo(() => getSubjectById(selSubjectId), [selSubjectId]);
+
+  const filteredSubjects = useMemo(() => CBC_SENIOR_DATA.subjects.filter(s => {
+    const gradeMatch = s.grades.includes(selGrade);
+    const pathwayMatch = !selPathway || s.pathway === selPathway;
+    return gradeMatch && pathwayMatch;
+  }), [selGrade, selPathway]);
+
+  const filteredStudents = useMemo(() => {
+    // Find all form_ids that match the selected grade level using the forms table
+    const matchingFormIds = forms
+      .filter(f => f.form_level === selGrade)
+      .map(f => f.id);
+
+    // Map tracker subject pathway codes ΓåÆ actual pathway_preference values in DB
+    const PATHWAY_TO_PREF: Record<string, string> = {
+      STEM:   'STEM',
+      ARTS:   'Arts & Sports Science',
+      SOCIAL: 'Social Sciences',
+      TVET:   'Technical & Vocational',
+    };
+    // Selected subject's pathway code (CORE, STEM, ARTS, SOCIAL, TVET)
+    const subjectPathwayCode = selectedSubject?.pathway || '';
+    const isCore = !subjectPathwayCode || subjectPathwayCode === 'CORE';
+    const requiredPref = isCore ? null : PATHWAY_TO_PREF[subjectPathwayCode] || null;
+
+    let list = students.filter(s => {
+      const gradeMatch = matchingFormIds.includes(s.form_id);
+      const classMatch = !selClass || String(s.form_id) === selClass;
+      const searchMatch = !searchQuery ||
+        `${s.first_name} ${s.last_name} ${s.admission_number} ${s.admission_no || ''}`
+          .toLowerCase().includes(searchQuery.toLowerCase());
+      // Pathway match: CORE ΓåÆ all students; pathway subject ΓåÆ only that pathway students
+      const pathwayMatch = isCore || !requiredPref || s.pathway_preference === requiredPref;
+      return gradeMatch && classMatch && searchMatch && pathwayMatch;
+    });
+    return list;
+  }, [students, forms, selGrade, selClass, searchQuery, selectedSubject]);
+
+  // ΓöÇΓöÇ Auto-fill LO ratings from CBC Marks Entry (cbc_assessments) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   // Per KICD: the summative score feeds the strand-level rubric as a baseline.
   // Teacher can override individual LOs. This runs silently when subject changes.
   const autoFillFromMarks = useCallback(async (silent = true) => {
@@ -787,7 +827,7 @@ export default function CBCSeniorTrackingPage() {
         return;
       }
 
-      // Step 3: build studentId → rubric_level map
+      // Step 3: build studentId ΓåÆ rubric_level map
       const markMap: Record<string, string> = {};
       marks.forEach((m: any) => {
         if (m.rubric_level) markMap[String(m.student_id)] = m.rubric_level;
@@ -799,7 +839,7 @@ export default function CBCSeniorTrackingPage() {
       }
 
       // Step 4: for each student with a mark, fill ALL LO rating keys
-      // Manual (existing) ratings take priority — auto-fill only fills empty LOs
+      // Manual (existing) ratings take priority ΓÇö auto-fill only fills empty LOs
       const autoRatings: Record<string, string> = {};
       filteredStudents.forEach((student: any) => {
         const level = markMap[String(student.id)];
@@ -820,52 +860,13 @@ export default function CBCSeniorTrackingPage() {
 
       if (!silent) {
         const studentCount = Object.keys(markMap).length;
-        toast.success(`✅ Auto-filled ${filled} learning outcomes for ${studentCount} students from term marks!`);
+        toast.success(`Γ£à Auto-filled ${filled} learning outcomes for ${studentCount} students from term marks!`);
       }
     } catch (err: any) {
       if (!silent) toast.error('Auto-fill failed: ' + err.message);
     }
   }, [selSubjectId, selTerm, filteredStudents]);
 
-  // ── Derived data ─────────────────────────────────────────────────────────
-  const selectedSubject = useMemo(() => getSubjectById(selSubjectId), [selSubjectId]);
-
-  const filteredSubjects = useMemo(() => CBC_SENIOR_DATA.subjects.filter(s => {
-    const gradeMatch = s.grades.includes(selGrade);
-    const pathwayMatch = !selPathway || s.pathway === selPathway;
-    return gradeMatch && pathwayMatch;
-  }), [selGrade, selPathway]);
-
-  const filteredStudents = useMemo(() => {
-    // Find all form_ids that match the selected grade level using the forms table
-    const matchingFormIds = forms
-      .filter(f => f.form_level === selGrade)
-      .map(f => f.id);
-
-    // Map tracker subject pathway codes → actual pathway_preference values in DB
-    const PATHWAY_TO_PREF: Record<string, string> = {
-      STEM:   'STEM',
-      ARTS:   'Arts & Sports Science',
-      SOCIAL: 'Social Sciences',
-      TVET:   'Technical & Vocational',
-    };
-    // Selected subject's pathway code (CORE, STEM, ARTS, SOCIAL, TVET)
-    const subjectPathwayCode = selectedSubject?.pathway || '';
-    const isCore = !subjectPathwayCode || subjectPathwayCode === 'CORE';
-    const requiredPref = isCore ? null : PATHWAY_TO_PREF[subjectPathwayCode] || null;
-
-    let list = students.filter(s => {
-      const gradeMatch = matchingFormIds.includes(s.form_id);
-      const classMatch = !selClass || String(s.form_id) === selClass;
-      const searchMatch = !searchQuery ||
-        `${s.first_name} ${s.last_name} ${s.admission_number} ${s.admission_no || ''}`
-          .toLowerCase().includes(searchQuery.toLowerCase());
-      // Pathway match: CORE → all students; pathway subject → only that pathway students
-      const pathwayMatch = isCore || !requiredPref || s.pathway_preference === requiredPref;
-      return gradeMatch && classMatch && searchMatch && pathwayMatch;
-    });
-    return list;
-  }, [students, forms, selGrade, selClass, searchQuery, selectedSubject]);
 
 
 
@@ -874,7 +875,7 @@ export default function CBCSeniorTrackingPage() {
     return computeProgress(ratings, filteredStudents, selectedSubject);
   }, [ratings, filteredStudents, selectedSubject]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Actions ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const setRating = (key: string, level: RubricKey | '') => {
     setRatings(prev => ({ ...prev, [key]: level }));
   };
@@ -921,7 +922,7 @@ export default function CBCSeniorTrackingPage() {
       saved = batch.length;
     }
 
-    toast.success(`✅ ${saved} assessments saved successfully!`);
+    toast.success(`Γ£à ${saved} assessments saved successfully!`);
     setSaving(false);
   };
 
@@ -941,17 +942,17 @@ export default function CBCSeniorTrackingPage() {
 
   const collapseAll = () => setExpandedStrands(new Set());
 
-  // ─── Render ────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇ Render ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
       <div className="relative w-16 h-16">
         <div className="absolute inset-0 rounded-2xl animate-pulse" style={{ background: 'linear-gradient(135deg,#0ea5e9,#6366f1)' }} />
-        <div className="absolute inset-0 flex items-center justify-center text-2xl">🎓</div>
+        <div className="absolute inset-0 flex items-center justify-center text-2xl">≡ƒÄô</div>
       </div>
       <div className="text-center">
         <p className="text-base font-bold text-gray-800">Loading CBC Senior School Tracker</p>
-        <p className="text-xs text-gray-400 mt-1">Kenya Grade 10 · 11 · 12 Competency Assessment</p>
+        <p className="text-xs text-gray-400 mt-1">Kenya Grade 10 ┬╖ 11 ┬╖ 12 Competency Assessment</p>
       </div>
     </div>
   );
@@ -980,18 +981,18 @@ export default function CBCSeniorTrackingPage() {
 
       <div className="max-w-[1600px] mx-auto px-4 py-5 space-y-5">
 
-        {/* ── HEADER ──────────────────────────────────────────────────────── */}
+        {/* ΓöÇΓöÇ HEADER ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black text-white shadow-lg" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6,#d946ef)' }}>
-              🎓
+              ≡ƒÄô
             </div>
             <div>
               <h1 className="text-2xl font-black text-gray-900 leading-tight" style={{ letterSpacing: '-0.04em' }}>
                 CBC Senior School Tracker
               </h1>
               <p className="text-xs font-semibold text-gray-400 mt-0.5">
-                Kenya Competency-Based Curriculum · Grades 10 · 11 · 12 · Rubric Assessment System
+                Kenya Competency-Based Curriculum ┬╖ Grades 10 ┬╖ 11 ┬╖ 12 ┬╖ Rubric Assessment System
               </p>
             </div>
           </div>
@@ -1022,16 +1023,16 @@ export default function CBCSeniorTrackingPage() {
           </div>
         </div>
 
-        {/* ── TABS ─────────────────────────────────────────────────────────── */}
+        {/* ΓöÇΓöÇ TABS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <div className="flex gap-1 p-1.5 bg-white rounded-2xl border border-gray-100 shadow-sm w-fit">
-          {([['entry', '📝 Assessment Entry'], ['overview', '📊 Class Overview'], ['reports', '📋 Reports']] as const).map(([key, label]) => (
+          {([['entry', '≡ƒô¥ Assessment Entry'], ['overview', '≡ƒôè Class Overview'], ['reports', '≡ƒôï Reports']] as const).map(([key, label]) => (
             <button key={key} onClick={() => setActiveTab(key as any)} className={`tab-btn px-5 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === key ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 hover:text-gray-700'}`}>
               {label}
             </button>
           ))}
         </div>
 
-        {/* ── GRADE SELECTOR ───────────────────────────────────────────────── */}
+        {/* ΓöÇΓöÇ GRADE SELECTOR ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center flex-wrap gap-4">
             <div>
@@ -1103,7 +1104,7 @@ export default function CBCSeniorTrackingPage() {
         </div>
 
         <div className="grid grid-cols-12 gap-5">
-          {/* ── SUBJECT PANEL ─────────────────────────────────────────────── */}
+          {/* ΓöÇΓöÇ SUBJECT PANEL ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
           <div className="col-span-12 lg:col-span-3">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden sticky top-5">
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
@@ -1137,7 +1138,7 @@ export default function CBCSeniorTrackingPage() {
                               </div>
                               <div className="min-w-0">
                                 <p className={`text-xs font-bold truncate ${isSelected ? 'text-indigo-700' : 'text-gray-800'}`}>{subject.name}</p>
-                                <p className="text-[9px] text-gray-400">{subject.lessons_per_week} lessons/wk · {subject.strands.length} strands</p>
+                                <p className="text-[9px] text-gray-400">{subject.lessons_per_week} lessons/wk ┬╖ {subject.strands.length} strands</p>
                               </div>
                               {subject.compulsory && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" title="Compulsory" />}
                             </div>
@@ -1151,7 +1152,7 @@ export default function CBCSeniorTrackingPage() {
             </div>
           </div>
 
-          {/* ── MAIN CONTENT ────────────────────────────────────────────────── */}
+          {/* ΓöÇΓöÇ MAIN CONTENT ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
           <div className="col-span-12 lg:col-span-9 space-y-4">
 
             {/* Subject header + progress */}
@@ -1171,7 +1172,7 @@ export default function CBCSeniorTrackingPage() {
                           <span className="text-[10px] font-black px-2 py-0.5 rounded-full text-white" style={{ background: pw.color }}>{selectedSubject.pathway}</span>
                           {selectedSubject.compulsory && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">COMPULSORY</span>}
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5">{selectedSubject.strands.length} strands · {totalOutcomes} learning outcomes · {selectedSubject.lessons_per_week} lessons/week · Grade {selGrade}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{selectedSubject.strands.length} strands ┬╖ {totalOutcomes} learning outcomes ┬╖ {selectedSubject.lessons_per_week} lessons/week ┬╖ Grade {selGrade}</p>
                       </div>
                       {progress && (
                         <div className="flex items-center gap-4">
@@ -1203,7 +1204,7 @@ export default function CBCSeniorTrackingPage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative flex-1 min-w-[200px]">
                   <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
-                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search student name or admission no…" className="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 placeholder-gray-400 focus:outline-none focus:border-indigo-400 shadow-sm" />
+                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search student name or admission noΓÇª" className="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 placeholder-gray-400 focus:outline-none focus:border-indigo-400 shadow-sm" />
                 </div>
                 <div className="flex gap-1 p-1 bg-white border border-gray-100 rounded-xl shadow-sm">
                   {([['matrix', <FiGrid key="m" size={13} />], ['cards', <FiList key="c" size={13} />], ['analytics', <FiBarChart2 key="a" size={13} />]] as const).map(([mode, icon]) => (
@@ -1216,7 +1217,7 @@ export default function CBCSeniorTrackingPage() {
               </div>
             )}
 
-            {/* ── ASSESSMENT MATRIX ─────────────────────────────────────────── */}
+            {/* ΓöÇΓöÇ ASSESSMENT MATRIX ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
             {selectedSubject && viewMode === 'matrix' && filteredStudents.length > 0 && (
               <div className="space-y-4 animate-slide-in">
                 {selectedSubject.strands.map((strand, sIdx) => (
@@ -1226,7 +1227,7 @@ export default function CBCSeniorTrackingPage() {
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black text-white" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>{sIdx + 1}</div>
                       <div className="flex-1">
                         <p className="text-sm font-black text-gray-800">{strand.name}</p>
-                        <p className="text-[10px] text-gray-400 font-semibold">{strand.code} · {strand.sub_strands.length} sub-strands</p>
+                        <p className="text-[10px] text-gray-400 font-semibold">{strand.code} ┬╖ {strand.sub_strands.length} sub-strands</p>
                       </div>
                       {expandedStrands.has(strand.id) ? <FiChevronDown size={15} className="text-gray-400" /> : <FiChevronRight size={15} className="text-gray-400" />}
                     </div>
@@ -1249,7 +1250,7 @@ export default function CBCSeniorTrackingPage() {
                                   {ss.outcomes.map((oc, oIdx) => (
                                     <th key={oIdx} className="text-center px-2 py-2.5 text-[10px] font-black uppercase tracking-wider text-gray-500" style={{ minWidth: 100, borderBottom: '1.5px solid #e2e8f0' }}>
                                       <span className="block text-indigo-500 font-black">LO{oIdx + 1}</span>
-                                      <span className="block text-gray-400 font-normal normal-case mt-0.5 leading-tight" style={{ maxWidth: 110, margin: 'auto', fontSize: 9 }}>{oc.slice(0, 50)}{oc.length > 50 ? '…' : ''}</span>
+                                      <span className="block text-gray-400 font-normal normal-case mt-0.5 leading-tight" style={{ maxWidth: 110, margin: 'auto', fontSize: 9 }}>{oc.slice(0, 50)}{oc.length > 50 ? 'ΓÇª' : ''}</span>
                                     </th>
                                   ))}
                                 </tr>
@@ -1286,7 +1287,7 @@ export default function CBCSeniorTrackingPage() {
                                                     color: isActive ? r.color : '#cbd5e1',
                                                     borderColor: isActive ? r.border : '#e2e8f0',
                                                   } as React.CSSProperties}
-                                                  title={`${level} – ${r.label}`}>
+                                                  title={`${level} ΓÇô ${r.label}`}>
                                                   {level}
                                                 </button>
                                               );
@@ -1308,7 +1309,7 @@ export default function CBCSeniorTrackingPage() {
               </div>
             )}
 
-            {/* ── CARDS VIEW ───────────────────────────────────────────────── */}
+            {/* ΓöÇΓöÇ CARDS VIEW ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
             {selectedSubject && viewMode === 'cards' && (
               <div className="space-y-3 animate-slide-in">
                 {filteredStudents.map((student, stIdx) => {
@@ -1327,7 +1328,7 @@ export default function CBCSeniorTrackingPage() {
                         </div>
                         <div className="flex-1">
                           <p className="font-black text-gray-900 text-sm">{student.last_name}, {student.first_name}</p>
-                          <p className="text-[10px] text-gray-400 font-semibold">{student.admission_number} · Grade {selGrade}</p>
+                          <p className="text-[10px] text-gray-400 font-semibold">{student.admission_number} ┬╖ Grade {selGrade}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-black text-gray-900">{pct}%</p>
@@ -1362,7 +1363,7 @@ export default function CBCSeniorTrackingPage() {
                                     borderColor: r ? RUBRIC[r].border : '#e2e8f0',
                                   }}
                                   title={`${ss.name} - LO${oIdx + 1}`}>
-                                  {r || '–'}
+                                  {r || 'ΓÇô'}
                                 </button>
                               );
                             }))}
@@ -1375,11 +1376,11 @@ export default function CBCSeniorTrackingPage() {
               </div>
             )}
 
-            {/* ── ANALYTICS VIEW ───────────────────────────────────────────── */}
+            {/* ΓöÇΓöÇ ANALYTICS VIEW ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
             {selectedSubject && viewMode === 'analytics' && (
               <div className="animate-slide-in space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {([['EE', '🌟', 'Exceeding'], ['ME', '✅', 'Meeting'], ['AE', '📈', 'Approaching'], ['BE', '⚠️', 'Below']] as const).map(([k, icon, label]) => {
+                  {([['EE', '≡ƒîƒ', 'Exceeding'], ['ME', 'Γ£à', 'Meeting'], ['AE', '≡ƒôê', 'Approaching'], ['BE', 'ΓÜá∩╕Å', 'Below']] as const).map(([k, icon, label]) => {
                     const count = k === 'EE' ? progress?.eeCount : k === 'ME' ? progress?.meCount : k === 'AE' ? progress?.aeCount : progress?.beCount;
                     const total = (progress?.filled || 1);
                     const pct = Math.round(((count || 0) / total) * 100);
@@ -1390,7 +1391,7 @@ export default function CBCSeniorTrackingPage() {
                           <span className="text-sm font-black" style={{ color: RUBRIC[k].color }}>{k}</span>
                         </div>
                         <p className="text-2xl font-black text-gray-900">{count || 0}</p>
-                        <p className="text-[10px] text-gray-400 font-semibold mt-0.5">{label} · {pct}%</p>
+                        <p className="text-[10px] text-gray-400 font-semibold mt-0.5">{label} ┬╖ {pct}%</p>
                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-2">
                           <div className="progress-bar h-full rounded-full" style={{ width: `${pct}%`, background: RUBRIC[k].color }} />
                         </div>
@@ -1479,10 +1480,10 @@ export default function CBCSeniorTrackingPage() {
               </div>
             )}
 
-            {/* ── EMPTY STATE ─────────────────────────────────────────────── */}
+            {/* ΓöÇΓöÇ EMPTY STATE ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
             {!selectedSubject && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-                <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-4" style={{ background: 'linear-gradient(135deg,#eef2ff,#f5f3ff)' }}>🎓</div>
+                <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-4" style={{ background: 'linear-gradient(135deg,#eef2ff,#f5f3ff)' }}>≡ƒÄô</div>
                 <h3 className="text-xl font-black text-gray-800" style={{ letterSpacing: '-0.03em' }}>CBC Senior School Assessment</h3>
                 <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">Select a subject from the panel to begin entering rubric-based competency ratings for Grade {selGrade} learners.</p>
                 <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-lg mx-auto">
@@ -1505,7 +1506,7 @@ export default function CBCSeniorTrackingPage() {
 
             {selectedSubject && filteredStudents.length === 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
-                <span className="text-4xl block mb-3">👩‍🎓</span>
+                <span className="text-4xl block mb-3">≡ƒæ⌐ΓÇì≡ƒÄô</span>
                 <p className="text-sm font-bold text-gray-600">No learners found for Grade {selGrade}</p>
                 <p className="text-xs text-gray-400 mt-1">Check your class filter or enroll students in Grade {selGrade}</p>
               </div>
@@ -1513,7 +1514,7 @@ export default function CBCSeniorTrackingPage() {
           </div>
         </div>
 
-        {/* ── RUBRIC LEGEND ─────────────────────────────────────────────────── */}
+        {/* ΓöÇΓöÇ RUBRIC LEGEND ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center gap-3 flex-wrap">
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">CBC Rubric Scale:</p>
@@ -1525,7 +1526,7 @@ export default function CBCSeniorTrackingPage() {
             ))}
             <div className="ml-auto flex items-center gap-1.5 text-[10px] font-bold text-gray-400">
               <FiInfo size={12} />
-              Click any rating button to toggle · Click twice to clear
+              Click any rating button to toggle ┬╖ Click twice to clear
             </div>
           </div>
         </div>
