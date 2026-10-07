@@ -727,7 +727,7 @@ export default function CBCSeniorTrackingPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // ── Load existing assessments ────────────────────────────────────────────
+  // ── Load existing tracker assessments (school_cbc_assessments) ────────────
   useEffect(() => {
     if (!selSubjectId || !selTerm) return;
     const load = async () => {
@@ -748,6 +748,92 @@ export default function CBCSeniorTrackingPage() {
     };
     load();
   }, [selSubjectId, selTerm, assessType]);
+
+  // ── Auto-fill LO ratings from CBC Marks Entry (cbc_assessments) ───────────
+  // Per KICD: the summative score feeds the strand-level rubric as a baseline.
+  // Teacher can override individual LOs. This runs silently when subject changes.
+  const autoFillFromMarks = useCallback(async (silent = true) => {
+    const subject = getSubjectById(selSubjectId);
+    if (!subject || !selTerm || filteredStudents.length === 0) {
+      if (!silent) toast.error('Select a grade, subject and term first');
+      return;
+    }
+    try {
+      // Step 1: find the numeric subject_id from school_subjects by name match
+      const { data: subRows, error: subErr } = await supabase
+        .from('school_subjects')
+        .select('id, subject_name')
+        .ilike('subject_name', `%${subject.name.split('/')[0].trim()}%`)
+        .limit(5);
+
+      if (subErr || !subRows || subRows.length === 0) {
+        if (!silent) toast.error(`Subject "${subject.name}" not found in school subjects`);
+        return;
+      }
+      const subjectIds = subRows.map((s: any) => s.id);
+      const studentIds = filteredStudents.map((s: any) => s.id);
+
+      // Step 2: fetch summative marks from cbc_assessments
+      const { data: marks, error: markErr } = await supabase
+        .from('cbc_assessments')
+        .select('student_id, rubric_level, raw_score, assessment_type')
+        .in('subject_id', subjectIds)
+        .eq('term_id', Number(selTerm))
+        .in('student_id', studentIds);
+
+      if (markErr || !marks || marks.length === 0) {
+        if (!silent) toast.error('No marks found in CBC Marks Entry for this subject & term. Enter marks first at /exams/cbc-marks');
+        return;
+      }
+
+      // Step 3: build studentId → rubric_level map
+      const markMap: Record<string, string> = {};
+      marks.forEach((m: any) => {
+        if (m.rubric_level) markMap[String(m.student_id)] = m.rubric_level;
+      });
+
+      if (Object.keys(markMap).length === 0) {
+        if (!silent) toast.error('Marks found but no rubric levels assigned yet');
+        return;
+      }
+
+      // Step 4: for each student with a mark, fill ALL LO rating keys
+      // Manual (existing) ratings take priority — auto-fill only fills empty LOs
+      const autoRatings: Record<string, string> = {};
+      filteredStudents.forEach((student: any) => {
+        const level = markMap[String(student.id)];
+        if (!level) return;
+        subject.strands.forEach((strand: any) => {
+          strand.sub_strands.forEach((ss: any) => {
+            (ss.outcomes || ss.learning_outcomes || []).forEach((_lo: any, oIdx: number) => {
+              const key = `${student.id}-${subject.id}-${strand.id}-${ss.id}-${oIdx}`;
+              autoRatings[key] = level; // will be overridden by existing manual ratings below
+            });
+          });
+        });
+      });
+
+      const filled = Object.keys(autoRatings).length;
+      // Merge: existing manual ratings override auto-fill
+      setRatings(prev => ({ ...autoRatings, ...prev }));
+
+      if (!silent) {
+        const studentCount = Object.keys(markMap).length;
+        toast.success(`✅ Auto-filled ${filled} learning outcomes for ${studentCount} students from term marks!`);
+      }
+    } catch (err: any) {
+      if (!silent) toast.error('Auto-fill failed: ' + err.message);
+    }
+  }, [selSubjectId, selTerm, filteredStudents]);
+
+  // Auto-run silently whenever subject/term changes (after existing ratings load)
+  useEffect(() => {
+    if (!selSubjectId || !selTerm || filteredStudents.length === 0) return;
+    const timer = setTimeout(() => autoFillFromMarks(true), 800);
+    return () => clearTimeout(timer);
+  }, [selSubjectId, selTerm, filteredStudents, autoFillFromMarks]);
+
+
 
   // ── Derived data ─────────────────────────────────────────────────────────
   const selectedSubject = useMemo(() => getSubjectById(selSubjectId), [selSubjectId]);
@@ -926,6 +1012,16 @@ export default function CBCSeniorTrackingPage() {
             </button>
             <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-500 bg-white hover:border-sky-300 hover:text-sky-600 transition">
               <FiPrinter size={13} /> Print Report
+            </button>
+            {/* Auto-fill from CBC Marks Entry */}
+            <button
+              onClick={() => autoFillFromMarks(false)}
+              disabled={!selSubjectId || !selTerm}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black text-white shadow transition-all hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: 'linear-gradient(135deg,#0891b2,#0ea5e9)' }}
+              title="Auto-populate all strand/LO ratings from the summative marks entered in CBC Marks Entry"
+            >
+              <FiZap size={13} /> Auto-fill from Term Marks
             </button>
             <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black text-white shadow-lg hover:shadow-xl transition-all" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
               {saving ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <FiSave size={14} />}
