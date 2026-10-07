@@ -1238,6 +1238,10 @@ export default function CBCMarksPage() {
             ? [{ code: hook.selSubject || 'SUBJ', name: hook.subjectName || 'Subject' }]
             : (hook.jssLearningAreas || [])
         }
+        streams={hook.streams || []}
+        selStream={isSenior ? (hook.selStream || '') : ''}
+        selAssessmentType={isSenior ? (hook.selAssessmentType || 'Summative') : 'Formative'}
+        subjectName={isSenior ? (hook.subjectName || '') : ''}
         onImportDone={handleImportDone}
         gradeName={
           isSenior
