@@ -901,23 +901,15 @@ export default function CBCSeniorTrackingPage() {
 
   const handleSave = async () => {
     if (!selTerm || !selSubjectId) { toast.error('Select term and subject'); return; }
+    if (filteredStudents.length === 0) { toast.error('No students loaded — select a grade/class first'); return; }
     setSaving(true);
-    let saved = 0, updated = 0, errors = 0;
 
-    const upserts: any[] = [];
-    Object.entries(ratings).forEach(([key, level]) => {
-      if (!level || !key.startsWith(`${filteredStudents[0]?.id}`)) {
-        // Build upsert for all rated cells
-      }
-    });
-
-    // Batch save all ratings
+    // Build batch: every rated key for students in current view
     const batch: CbcAssessmentRow[] = [];
     for (const [ratingKey, level] of Object.entries(ratings)) {
       if (!level) continue;
-      const parts = ratingKey.split('-');
-      const studentId = parts[0];
-      if (!filteredStudents.find(s => String(s.id) === studentId)) continue;
+      const studentId = ratingKey.split('-')[0];
+      if (!filteredStudents.find((s: any) => String(s.id) === studentId)) continue;
       batch.push({
         student_id: Number(studentId),
         subject_code: selSubjectId,
@@ -931,17 +923,32 @@ export default function CBCSeniorTrackingPage() {
       });
     }
 
-    if (batch.length > 0) {
-      // Cast via unknown to bypass Supabase's `never` row type for untyped tables
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sbClient = supabase as any;
-      const { error } = await sbClient.from('school_cbc_assessments')
-        .upsert(batch, { onConflict: 'rating_key,term_id,assessment_type' });
-      if (error) { toast.error('Save failed: ' + error.message); setSaving(false); return; }
-      saved = batch.length;
+    if (batch.length === 0) { toast.error('Nothing to save — enter some ratings first'); setSaving(false); return; }
+
+    const sbClient = supabase as any;
+    // Try upsert first (works if unique constraint exists on rating_key+term_id+assessment_type)
+    const { error } = await sbClient
+      .from('school_cbc_assessments')
+      .upsert(batch, { onConflict: 'rating_key,term_id,assessment_type' });
+
+    if (error) {
+      // Fallback: delete existing rows for this subject+term+type+students, then insert fresh
+      const studentIds = [...new Set(batch.map(r => r.student_id))];
+      await sbClient.from('school_cbc_assessments')
+        .delete()
+        .eq('subject_code', selSubjectId)
+        .eq('term_id', Number(selTerm))
+        .eq('assessment_type', assessType)
+        .in('student_id', studentIds);
+      const { error: insErr } = await sbClient.from('school_cbc_assessments').insert(batch);
+      if (insErr) {
+        toast.error('Save failed: ' + insErr.message);
+        setSaving(false);
+        return;
+      }
     }
 
-    toast.success(`✅ ${saved} assessments saved successfully!`);
+    toast.success(`✅ ${batch.length} assessments saved!`);
     setSaving(false);
   };
 
@@ -1218,8 +1225,8 @@ export default function CBCSeniorTrackingPage() {
               </div>
             )}
 
-            {/* Student search + view controls */}
-            {selectedSubject && (
+            {/* Student search + view controls — only on Entry tab */}
+            {selectedSubject && activeTab === 'entry' && (
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative flex-1 min-w-[200px]">
                   <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
@@ -1237,7 +1244,7 @@ export default function CBCSeniorTrackingPage() {
             )}
 
             {/* ── ASSESSMENT MATRIX ─────────────────────────────────────────── */}
-            {selectedSubject && viewMode === 'matrix' && filteredStudents.length > 0 && (
+            {selectedSubject && activeTab === 'entry' && viewMode === 'matrix' && filteredStudents.length > 0 && (
               <div className="space-y-4 animate-slide-in">
                 {selectedSubject.strands.map((strand, sIdx) => (
                   <div key={strand.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -1329,7 +1336,7 @@ export default function CBCSeniorTrackingPage() {
             )}
 
             {/* ── CARDS VIEW ───────────────────────────────────────────────── */}
-            {selectedSubject && viewMode === 'cards' && (
+            {selectedSubject && activeTab === 'entry' && viewMode === 'cards' && (
               <div className="space-y-3 animate-slide-in">
                 {filteredStudents.map((student, stIdx) => {
                   const studentRatings = Object.entries(ratings).filter(([k]) => k.startsWith(`${student.id}-${selectedSubject.id}`));
@@ -1396,7 +1403,7 @@ export default function CBCSeniorTrackingPage() {
             )}
 
             {/* ── ANALYTICS VIEW ───────────────────────────────────────────── */}
-            {selectedSubject && viewMode === 'analytics' && (
+            {selectedSubject && activeTab === 'entry' && viewMode === 'analytics' && (
               <div className="animate-slide-in space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {([['EE', '🌟', 'Exceeding'], ['ME', '✅', 'Meeting'], ['AE', '📈', 'Approaching'], ['BE', '⚠️', 'Below']] as const).map(([k, icon, label]) => {
@@ -1494,6 +1501,357 @@ export default function CBCSeniorTrackingPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+
+            {/* ── CLASS OVERVIEW TAB ────────────────────────────────────────── */}
+            {activeTab === 'overview' && selectedSubject && (
+              <div className="animate-slide-in space-y-5">
+                {/* Header stats row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {(['EE','ME','AE','BE'] as RubricKey[]).map(k => {
+                    const cnt = k==='EE'?progress?.eeCount:k==='ME'?progress?.meCount:k==='AE'?progress?.aeCount:progress?.beCount;
+                    const pct = Math.round(((cnt||0)/Math.max(progress?.filled||1,1))*100);
+                    return (
+                      <div key={k} className="stat-card rounded-2xl p-4 border-2 shadow-sm" style={{ background: RUBRIC[k].bg, borderColor: RUBRIC[k].border }}>
+                        <p className="text-3xl font-black" style={{ color: RUBRIC[k].color, fontFamily:"'Nunito',sans-serif" }}>{cnt||0}</p>
+                        <p className="text-xs font-black mt-1" style={{ color: RUBRIC[k].color }}>{k} — {RUBRIC[k].short}</p>
+                        <div className="h-1.5 bg-white/60 rounded-full overflow-hidden mt-2">
+                          <div className="progress-bar h-full rounded-full" style={{ width:`${pct}%`, background: RUBRIC[k].color }} />
+                        </div>
+                        <p className="text-[10px] font-bold mt-1 opacity-70" style={{ color: RUBRIC[k].color }}>{pct}% of rated</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Per-student rubric summary grid */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="px-5 py-3 flex items-center gap-3 border-b border-gray-100" style={{ background:'linear-gradient(135deg,#1e3a5f,#1d4ed8,#4f46e5)' }}>
+                    <FiUsers size={15} className="text-blue-200" />
+                    <span className="text-white font-black text-sm" style={{ fontFamily:"'Nunito',sans-serif" }}>Class Overview — {selectedSubject.name} · Grade {selGrade}</span>
+                    <span className="ml-auto text-blue-300 text-[11px] font-bold">{filteredStudents.length} learners · {selectedSubject.strands.length} strands</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize:11, fontFamily:"'Nunito',sans-serif" }}>
+                      <thead>
+                        <tr style={{ background:'#f8fafc' }}>
+                          <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-wider text-gray-500 sticky left-0 z-10 bg-[#f8fafc]" style={{ minWidth:180, borderBottom:'2px solid #e2e8f0' }}>Learner</th>
+                          {selectedSubject.strands.map(s => (
+                            <th key={s.id} className="text-center px-3 py-3 text-[10px] font-black uppercase tracking-wider text-indigo-600" style={{ minWidth:120, borderBottom:'2px solid #e2e8f0', borderLeft:'1px solid #e2e8f0' }} colSpan={1}>
+                              {s.name.split(' ')[0]}
+                            </th>
+                          ))}
+                          <th className="text-center px-3 py-3 text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50" style={{ minWidth:100, borderBottom:'2px solid #e2e8f0', borderLeft:'2px solid #a7f3d0' }}>Overall</th>
+                          <th className="text-center px-3 py-3 text-[10px] font-black uppercase tracking-wider text-gray-500" style={{ minWidth:80, borderBottom:'2px solid #e2e8f0' }}>Done%</th>
+                        </tr>
+                        <tr style={{ background:'#f1f5f9' }}>
+                          <td className="px-4 py-1 text-[9px] font-bold text-gray-400 sticky left-0 bg-[#f1f5f9]">Admission No.</td>
+                          {selectedSubject.strands.map(s => (
+                            <td key={s.id} className="text-center px-2 py-1 text-[9px] text-gray-400 font-semibold" style={{ borderLeft:'1px solid #e2e8f0' }}>
+                              {s.sub_strands.length} sub-strands · {s.sub_strands.reduce((a,ss)=>a+ss.outcomes.length,0)} LOs
+                            </td>
+                          ))}
+                          <td className="bg-emerald-50" style={{ borderLeft:'2px solid #a7f3d0' }} />
+                          <td />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredStudents.map((student, si) => {
+                          // Compute per-strand dominant level
+                          const strandLevels = selectedSubject.strands.map(strand => {
+                            const lvls = strand.sub_strands.flatMap(ss =>
+                              ss.outcomes.map((_,i) => ratings[`${student.id}-${selectedSubject.id}-${strand.id}-${ss.id}-${i}`])
+                            ).filter(Boolean) as RubricKey[];
+                            if (!lvls.length) return null;
+                            const cnt: any = { EE:0, ME:0, AE:0, BE:0 };
+                            lvls.forEach(l => cnt[l]++);
+                            const score = (cnt.EE*4+cnt.ME*3+cnt.AE*2+cnt.BE*1)/lvls.length;
+                            return score>=3.5?'EE':score>=2.5?'ME':score>=1.5?'AE':'BE' as RubricKey;
+                          });
+                          // Overall
+                          const allLvls = selectedSubject.strands.flatMap(strand =>
+                            strand.sub_strands.flatMap(ss =>
+                              ss.outcomes.map((_,i) => ratings[`${student.id}-${selectedSubject.id}-${strand.id}-${ss.id}-${i}`])
+                            )
+                          ).filter(Boolean) as RubricKey[];
+                          const totalLOs = selectedSubject.strands.reduce((a,s)=>a+s.sub_strands.reduce((b,ss)=>b+ss.outcomes.length,0),0);
+                          const pct = totalLOs ? Math.round((allLvls.length/totalLOs)*100) : 0;
+                          const oScore = allLvls.length ? (allLvls.reduce((a,l)=>a+(l==='EE'?4:l==='ME'?3:l==='AE'?2:1),0)/allLvls.length) : 0;
+                          const overall = oScore>=3.5?'EE':oScore>=2.5?'ME':oScore>=1.5?'AE':allLvls.length?'BE':null;
+                          return (
+                            <tr key={student.id} style={{ background: si%2===0?'white':'#fafbff', borderBottom:'1px solid #f1f5f9' }}>
+                              <td className="px-4 py-2.5 sticky left-0 z-10" style={{ background: si%2===0?'white':'#fafbff', borderBottom:'1px solid #f1f5f9' }}>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-black text-white flex-shrink-0"
+                                    style={{ background:`linear-gradient(135deg,hsl(${(si*47)%360},70%,55%),hsl(${(si*47+30)%360},70%,45%))` }}>
+                                    {student.first_name?.[0]}{student.last_name?.[0]}
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-black text-gray-800">{student.last_name}, {student.first_name}</p>
+                                    <p className="text-[9px] text-gray-400">{student.admission_number||student.admission_no}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              {strandLevels.map((lvl, si2) => (
+                                <td key={si2} className="text-center px-3 py-2.5" style={{ borderLeft:'1px solid #f1f5f9' }}>
+                                  {lvl ? (
+                                    <span className="inline-flex items-center justify-center w-10 h-7 rounded-lg text-[11px] font-black"
+                                      style={{ background: RUBRIC[lvl as RubricKey].bg, color: RUBRIC[lvl as RubricKey].color, border:`1.5px solid ${RUBRIC[lvl as RubricKey].border}` }}>
+                                      {lvl}
+                                    </span>
+                                  ) : <span className="text-gray-200 text-xs">—</span>}
+                                </td>
+                              ))}
+                              <td className="text-center px-3 py-2.5 bg-emerald-50/50" style={{ borderLeft:'2px solid #a7f3d0' }}>
+                                {overall ? (
+                                  <span className="inline-flex items-center justify-center w-12 h-7 rounded-lg text-[11px] font-black"
+                                    style={{ background: RUBRIC[overall as RubricKey].bg, color: RUBRIC[overall as RubricKey].color, border:`2px solid ${RUBRIC[overall as RubricKey].border}` }}>
+                                    {overall}
+                                  </span>
+                                ) : <span className="text-gray-200 text-xs">—</span>}
+                              </td>
+                              <td className="text-center px-3 py-2.5">
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className="text-xs font-black text-gray-700">{pct}%</span>
+                                  <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full" style={{ width:`${pct}%`, background: pct>=80?'#059669':pct>=50?'#2563eb':'#d97706' }} />
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Strand legend */}
+                  <div className="px-5 py-3 border-t border-gray-100 flex flex-wrap gap-3" style={{ background:'#f8fafc' }}>
+                    {selectedSubject.strands.map(s => (
+                      <div key={s.id} className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500">
+                        <div className="w-3 h-3 rounded-sm bg-indigo-400" />
+                        {s.name}
+                      </div>
+                    ))}
+                    <span className="ml-auto text-[10px] font-bold text-gray-400">Levels show dominant rubric per strand</span>
+                  </div>
+                </div>
+
+                {/* Strand breakdown cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {selectedSubject.strands.map(strand => {
+                    let ee=0,me=0,ae=0,be=0,filled=0,total=0;
+                    filteredStudents.forEach(st => {
+                      strand.sub_strands.forEach(ss => {
+                        ss.outcomes.forEach((_,i) => {
+                          total++;
+                          const r = ratings[`${st.id}-${selectedSubject.id}-${strand.id}-${ss.id}-${i}`] as RubricKey;
+                          if(r){filled++;if(r==='EE')ee++;else if(r==='ME')me++;else if(r==='AE')ae++;else be++;}
+                        });
+                      });
+                    });
+                    const spct = total ? Math.round((filled/total)*100) : 0;
+                    return (
+                      <div key={strand.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black text-white" style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+                            {strand.code?.split('-')[1]||strand.id.split('-')[1]}
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-gray-800" style={{ fontFamily:"'Nunito',sans-serif" }}>{strand.name}</p>
+                            <p className="text-[10px] text-gray-400">{strand.sub_strands.length} sub-strands · {spct}% assessed</p>
+                          </div>
+                        </div>
+                        <div className="flex h-3 rounded-lg overflow-hidden gap-0.5 mb-2">
+                          {(['EE','ME','AE','BE'] as RubricKey[]).map(k => {
+                            const c = k==='EE'?ee:k==='ME'?me:k==='AE'?ae:be;
+                            const w = filled ? Math.round((c/filled)*100) : 0;
+                            return w>0 ? <div key={k} className="h-full flex items-center justify-center text-[8px] font-black text-white" style={{ width:`${w}%`, background:RUBRIC[k].color }} title={`${k}:${c}`}>{w>10?k:''}</div> : null;
+                          })}
+                          {filled<total && <div className="h-full bg-gray-100 flex-1 rounded-r-lg" />}
+                        </div>
+                        <div className="grid grid-cols-4 gap-1">
+                          {(['EE','ME','AE','BE'] as RubricKey[]).map(k => {
+                            const c = k==='EE'?ee:k==='ME'?me:k==='AE'?ae:be;
+                            return (
+                              <div key={k} className="text-center p-1.5 rounded-lg" style={{ background:RUBRIC[k].bg }}>
+                                <p className="text-sm font-black" style={{ color:RUBRIC[k].color }}>{c}</p>
+                                <p className="text-[9px] font-bold" style={{ color:RUBRIC[k].color }}>{k}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── REPORTS TAB ───────────────────────────────────────────────── */}
+            {activeTab === 'reports' && selectedSubject && (
+              <div className="animate-slide-in space-y-5">
+                {/* Report toolbar */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3 flex-wrap">
+                  <FiPrinter size={16} className="text-indigo-500" />
+                  <span className="text-sm font-black text-gray-700" style={{ fontFamily:"'Nunito',sans-serif" }}>CBC Assessment Report</span>
+                  <span className="text-xs text-gray-400">Term {terms.find(t=>String(t.id)===selTerm)?.term_name||selTerm} · Grade {selGrade} · {selectedSubject.name}</span>
+                  <div className="ml-auto flex gap-2">
+                    <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white shadow transition-all hover:scale-105"
+                      style={{ background:'linear-gradient(135deg,#1e3a5f,#1d4ed8)' }}>
+                      <FiPrinter size={12} /> Print Report
+                    </button>
+                    <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition">
+                      <FiDownload size={12} /> Export PDF
+                    </button>
+                  </div>
+                </div>
+
+                {/* Printable report */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" id="cbc-report-print">
+                  {/* Report header */}
+                  <div className="p-6 text-center border-b border-gray-100" style={{ background:'linear-gradient(135deg,#1e3a5f,#1d4ed8,#4f46e5)' }}>
+                    <p className="text-white font-black text-xl tracking-wide" style={{ fontFamily:"'Nunito',sans-serif", letterSpacing:'0.04em' }}>
+                      CBC COMPETENCY ASSESSMENT REPORT
+                    </p>
+                    <p className="text-blue-200 text-sm font-bold mt-1">Kenya Competency-Based Curriculum — Senior School</p>
+                    <div className="flex justify-center gap-8 mt-4">
+                      {[
+                        ['Subject', selectedSubject.name],
+                        ['Grade', `Grade ${selGrade}`],
+                        ['Term', terms.find(t=>String(t.id)===selTerm)?.term_name||`Term ${selTerm}`],
+                        ['Type', assessType.charAt(0).toUpperCase()+assessType.slice(1)],
+                        ['Learners', String(filteredStudents.length)],
+                      ].map(([label, value]) => (
+                        <div key={label} className="text-center">
+                          <p className="text-blue-300 text-[10px] font-black uppercase tracking-wider">{label}</p>
+                          <p className="text-white font-black text-sm mt-0.5">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Summary stats */}
+                  <div className="grid grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
+                    {(['EE','ME','AE','BE'] as RubricKey[]).map(k => {
+                      const cnt = k==='EE'?progress?.eeCount:k==='ME'?progress?.meCount:k==='AE'?progress?.aeCount:progress?.beCount;
+                      const pct = Math.round(((cnt||0)/Math.max(progress?.filled||1,1))*100);
+                      return (
+                        <div key={k} className="p-4 text-center" style={{ background:RUBRIC[k].bg }}>
+                          <p className="text-2xl font-black" style={{ color:RUBRIC[k].color, fontFamily:"'Nunito',sans-serif" }}>{cnt||0}</p>
+                          <p className="text-xs font-black mt-0.5" style={{ color:RUBRIC[k].color }}>{k} — {RUBRIC[k].short}</p>
+                          <p className="text-[10px] font-bold mt-1 opacity-70" style={{ color:RUBRIC[k].color }}>{pct}% of rated LOs</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Per-student detailed report table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize:11, fontFamily:"'Nunito',sans-serif" }}>
+                      <thead>
+                        <tr style={{ background:'#f8fafc' }}>
+                          <th className="text-left px-4 py-3 text-[10px] font-black uppercase text-gray-500 sticky left-0 bg-[#f8fafc]" style={{ minWidth:200, borderBottom:'2px solid #e2e8f0' }}>Learner</th>
+                          {selectedSubject.strands.flatMap(strand =>
+                            strand.sub_strands.flatMap(ss =>
+                              ss.outcomes.map((_, i) => ({ strand, ss, i }))
+                            )
+                          ).map(({strand, ss, i}, colIdx) => (
+                            <th key={colIdx} className="text-center px-1 py-3" style={{ minWidth:44, borderBottom:'2px solid #e2e8f0', borderLeft:'1px solid #e2e8f0' }}>
+                              <span className="block text-[8px] font-black text-indigo-400">{ss.id}</span>
+                              <span className="block text-[9px] font-black text-gray-600">LO{i+1}</span>
+                            </th>
+                          ))}
+                          <th className="text-center px-3 py-3 text-[10px] font-black text-emerald-700 bg-emerald-50" style={{ minWidth:80, borderBottom:'2px solid #e2e8f0', borderLeft:'2px solid #a7f3d0' }}>Overall</th>
+                          <th className="text-center px-3 py-3 text-[10px] font-black text-gray-500" style={{ minWidth:60, borderBottom:'2px solid #e2e8f0' }}>Done</th>
+                        </tr>
+                        {/* Sub-strand header row */}
+                        <tr style={{ background:'#f1f5f9' }}>
+                          <td className="px-4 py-1.5 text-[9px] font-bold text-gray-500 sticky left-0 bg-[#f1f5f9]" colSpan={1}>
+                            {filteredStudents.length} learners
+                          </td>
+                          {selectedSubject.strands.flatMap(strand =>
+                            strand.sub_strands.flatMap(ss =>
+                              ss.outcomes.map((oc, i) => ({ ss, oc, i }))
+                            )
+                          ).map(({ss, oc, i}, colIdx) => (
+                            <td key={colIdx} className="text-center px-0.5 py-1" style={{ borderLeft:'1px solid #e2e8f0' }}>
+                              <span className="block text-[7px] text-gray-400 leading-tight" title={oc} style={{ maxWidth:44, margin:'auto', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                {oc.slice(0,18)}{oc.length>18?'…':''}
+                              </span>
+                            </td>
+                          ))}
+                          <td className="bg-emerald-50" style={{ borderLeft:'2px solid #a7f3d0' }} />
+                          <td />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredStudents.map((student, si) => {
+                          const allRatings = selectedSubject.strands.flatMap(strand =>
+                            strand.sub_strands.flatMap(ss =>
+                              ss.outcomes.map((_,i) => ratings[`${student.id}-${selectedSubject.id}-${strand.id}-${ss.id}-${i}`])
+                            )
+                          );
+                          const rated = allRatings.filter(Boolean) as RubricKey[];
+                          const pct = allRatings.length ? Math.round((rated.length/allRatings.length)*100) : 0;
+                          const oScore = rated.length ? rated.reduce((a,l)=>a+(l==='EE'?4:l==='ME'?3:l==='AE'?2:1),0)/rated.length : 0;
+                          const overall = oScore>=3.5?'EE':oScore>=2.5?'ME':oScore>=1.5?'AE':rated.length?'BE':null;
+                          return (
+                            <tr key={student.id} style={{ background: si%2===0?'white':'#fafbff', borderBottom:'1px solid #f1f5f9' }}>
+                              <td className="px-4 py-2 sticky left-0 z-10" style={{ background: si%2===0?'white':'#fafbff', borderBottom:'1px solid #f1f5f9' }}>
+                                <p className="text-xs font-black text-gray-800">{si+1}. {student.last_name}, {student.first_name}</p>
+                                <p className="text-[9px] text-gray-400">{student.admission_number||student.admission_no}</p>
+                              </td>
+                              {selectedSubject.strands.flatMap(strand =>
+                                strand.sub_strands.flatMap(ss =>
+                                  ss.outcomes.map((_,i) => {
+                                    const key = `${student.id}-${selectedSubject.id}-${strand.id}-${ss.id}-${i}`;
+                                    const r = ratings[key] as RubricKey;
+                                    return { key, r };
+                                  })
+                                )
+                              ).map(({key, r}, colIdx) => (
+                                <td key={colIdx} className="text-center px-0.5 py-2" style={{ borderLeft:'1px solid #f1f5f9' }}>
+                                  {r ? (
+                                    <span className="inline-flex items-center justify-center w-8 h-6 rounded-md text-[9px] font-black"
+                                      style={{ background:RUBRIC[r].bg, color:RUBRIC[r].color }}>
+                                      {r}
+                                    </span>
+                                  ) : <span className="text-gray-200 text-[9px]">—</span>}
+                                </td>
+                              ))}
+                              <td className="text-center px-2 py-2 bg-emerald-50/50" style={{ borderLeft:'2px solid #a7f3d0' }}>
+                                {overall ? (
+                                  <span className="inline-flex items-center justify-center w-10 h-6 rounded-lg text-[10px] font-black"
+                                    style={{ background:RUBRIC[overall as RubricKey].bg, color:RUBRIC[overall as RubricKey].color, border:`1.5px solid ${RUBRIC[overall as RubricKey].border}` }}>
+                                    {overall}
+                                  </span>
+                                ) : <span className="text-gray-200 text-[9px]">—</span>}
+                              </td>
+                              <td className="text-center px-2 py-2">
+                                <span className="text-[10px] font-black" style={{ color: pct>=80?'#059669':pct>=50?'#2563eb':'#d97706' }}>{pct}%</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Report footer */}
+                  <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3" style={{ background:'#f8fafc' }}>
+                    <div className="flex gap-4">
+                      {(['EE','ME','AE','BE'] as RubricKey[]).map(k => (
+                        <div key={k} className="flex items-center gap-1.5">
+                          <span className="w-6 h-4 rounded text-[8px] font-black flex items-center justify-center" style={{ background:RUBRIC[k].bg, color:RUBRIC[k].color }}>{k}</span>
+                          <span className="text-[10px] text-gray-500 font-semibold">{RUBRIC[k].label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-semibold">Kenya CBC Senior School · KICD Rubric Assessment · {new Date().toLocaleDateString('en-KE', {day:'2-digit',month:'long',year:'numeric'})}</p>
                   </div>
                 </div>
               </div>
