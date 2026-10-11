@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getKICDStrandsForSubject } from './cbc-curriculum-strands';
 
 // ════════════════════════════════════════════════════════════
 // SCHEMES OF WORK — Ultra Complete Supabase API
@@ -15,6 +16,8 @@ export interface SchemeOfWork {
     teacher_id?: number | null;
     curriculum_type: 'CBC' | '8-4-4';
     strand_id?: number | null;
+    strand?: string | null;
+    sub_strand?: string | null;
     sub_strand_id?: number | null;
     topic_id?: number | null;
     total_lessons?: number;
@@ -169,8 +172,8 @@ export async function getSchemesOfWork(filters?: {
             form_name:       form?.form_name      || '',
             term_name:       term?.term_name      || '',
             teacher_name:    teacher ? `${teacher.first_name} ${teacher.last_name}` : null,
-            strand_name:     strand?.strand_name  || null,
-            sub_strand_name: subStr?.sub_strand_name || null,
+            strand_name:     s.strand || strand?.strand_name  || null,
+            sub_strand_name: s.sub_strand || subStr?.sub_strand_name || null,
             topic_name:      null, // topic lookup removed (table may not exist)
         };
     }) as SchemeOfWork[];
@@ -206,8 +209,8 @@ export async function getSchemeById(id: number) {
         form_name:       form?.form_name       || '',
         term_name:       term?.term_name       || '',
         teacher_name:    teacher ? `${teacher.first_name} ${teacher.last_name}` : null,
-        strand_name:     strand?.strand_name   || null,
-        sub_strand_name: subStr?.sub_strand_name || null,
+        strand_name:     data.strand || strand?.strand_name   || null,
+        sub_strand_name: data.sub_strand || subStr?.sub_strand_name || null,
         topic_name:      null,
     } as SchemeOfWork;
 }
@@ -494,16 +497,49 @@ export async function getTeachers() {
     return data;
 }
 
-export async function getStrands(learningAreaId?: number) {
+export async function getStrands(
+    subjectIdOrLearningAreaId?: number | string,
+    subjectName?: string,
+    _formId?: number
+) {
+    let sName = (subjectName || '').trim();
+    if (!sName && subjectIdOrLearningAreaId && typeof subjectIdOrLearningAreaId === 'number') {
+        const { data: subj } = await supabase.from('school_subjects').select('subject_name').eq('id', subjectIdOrLearningAreaId).maybeSingle();
+        if (subj?.subject_name) sName = subj.subject_name.trim();
+    }
+
+    // 1. Return official KICD strands for this specific subject
+    if (sName) {
+        const kicdStrands = getKICDStrandsForSubject(sName);
+        if (kicdStrands && kicdStrands.length > 0) {
+            return kicdStrands.map(s => ({
+                id: s.id,
+                strand_name: s.strand_name,
+                code: s.code,
+                sub_strands: s.sub_strands
+            }));
+        }
+    }
+
+    // 2. Fallback to database strands if learningAreaId was provided
     let query = supabase
         .from('school_cbc_strands')
         .select('*')
         .eq('is_active', true)
         .order('sort_order');
-    if (learningAreaId) query = query.eq('learning_area_id', learningAreaId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
+    if (typeof subjectIdOrLearningAreaId === 'number' && subjectIdOrLearningAreaId > 0) {
+        query = query.eq('learning_area_id', subjectIdOrLearningAreaId);
+    }
+    const { data } = await query;
+    if (data && data.length > 0) return data;
+
+    // 3. Default fallback to Agriculture strands
+    return getKICDStrandsForSubject('agriculture').map(s => ({
+        id: s.id,
+        strand_name: s.strand_name,
+        code: s.code,
+        sub_strands: s.sub_strands
+    }));
 }
 
 export async function getSubStrands(strandId?: number) {
@@ -563,7 +599,7 @@ export async function autoGenerateScheme(params: {
     curriculumType: 'CBC' | '8-4-4';
     teacherId?: number;
     createdBy?: string;
-    strandId?: number;
+    strandId?: number | string;
     weeksCount?: number;
     lessonsPerWeek?: number;
 }) {
@@ -585,7 +621,7 @@ export async function autoGenerateScheme(params: {
         year: termYear,
         teacher_id: teacherId || null,
         curriculum_type: curriculumType,
-        strand_id: strandId || null,
+        strand_id: typeof strandId === 'number' ? strandId : null,
         sub_strand_id: null,
         topic_id: null,
         total_lessons: weeksCount * lessonsPerWeek,
@@ -596,54 +632,41 @@ export async function autoGenerateScheme(params: {
 
     // 2. Get syllabus content based on curriculum type
     let contentItems: any[] = [];
-    let firstStrandId: number | null = strandId || null;
+    let firstStrandId: number | null = typeof strandId === 'number' ? strandId : null;
+    let targetStrandName: string | null = null;
     let firstTopicId: number | null = null;
 
-    // Subject name to learning area name mapping (subject_name -> learning_area_name)
-    const subjectToArea: Record<string, string> = {
-        'Mathematics': 'Mathematics', 'English': 'English', 'Kiswahili': 'Kiswahili',
-        'Integrated Science': 'Integrated Science', 'Social Studies': 'Social Studies',
-        'Health Education': 'Health Education', 'Pre-Technical Studies': 'Pre-Technical Studies',
-        'Creative Arts & Sports': 'Creative Arts & Sports', 'Religious Education': 'Religious Education',
-        'Life Skills Education': 'Life Skills Education',
-        'Agriculture': 'Pre-Technical Studies', 'Home Science': 'Pre-Technical Studies',
-        'Physics': 'Integrated Science', 'Chemistry': 'Integrated Science', 'Biology': 'Integrated Science',
-        'History & Government': 'Social Studies', 'Geography': 'Social Studies',
-        'Business Studies': 'Pre-Technical Studies', 'Computer Studies': 'Pre-Technical Studies',
-        'Art & Design': 'Creative Arts & Sports', 'Music': 'Creative Arts & Sports',
-        'Physical Education': 'Creative Arts & Sports',
-        'Christian Religious Education': 'Religious Education', 'Islamic Religious Education': 'Religious Education',
-        'Hindu Religious Education': 'Religious Education',
-    };
-
     if (curriculumType === 'CBC') {
-        // Smart mapping: find learning area matching subject
         const { data: subj } = await supabase.from('school_subjects').select('subject_name').eq('id', subjectId).single();
         const subjectName = subj?.subject_name || '';
-        const areaName = subjectToArea[subjectName] || subjectName;
+        const kicdStrands = getKICDStrandsForSubject(subjectName);
 
-        const { data: la } = await supabase
-            .from('school_cbc_learning_areas')
-            .select('id')
-            .ilike('area_name', `%${areaName}%`)
-            .maybeSingle();
-
-        if (la || strandId) {
-            const strandFilter = strandId ? [strandId] :
-                la ? (await supabase.from('school_cbc_strands').select('id, strand_name').eq('learning_area_id', la.id).order('sort_order')).data?.map(s => s.id) || [] : [];
-
-            // Store first strand id for the scheme header
-            if (!firstStrandId && strandFilter.length > 0) firstStrandId = strandFilter[0];
-
-            if (strandFilter.length > 0) {
-                const { data: ss } = await supabase
-                    .from('school_cbc_sub_strands')
-                    .select('*')
-                    .in('strand_id', strandFilter)
-                    .eq('is_active', true)
-                    .order('sort_order');
-                contentItems = ss || [];
+        let targetStrands = kicdStrands;
+        if (strandId && strandId !== '0' && strandId !== 0) {
+            const matched = kicdStrands.find(s => String(s.id) === String(strandId) || s.strand_name.toLowerCase() === String(strandId).toLowerCase());
+            if (matched) {
+                targetStrands = [matched];
+                targetStrandName = matched.strand_name;
             }
+        }
+
+        if (!targetStrandName && targetStrands.length > 0) {
+            targetStrandName = targetStrands.length === 1 ? targetStrands[0].strand_name : `${targetStrands[0].strand_name}`;
+        }
+
+        contentItems = targetStrands.flatMap(st =>
+            st.sub_strands.map(ss => ({
+                id: ss.id,
+                strand_id: st.id,
+                strand_name: st.strand_name,
+                sub_strand_name: ss.sub_strand_name,
+                learning_outcomes: ss.outcomes,
+                key_inquiry_questions: ss.inquiry_questions,
+            }))
+        );
+
+        if (targetStrands.length > 0 && typeof targetStrands[0].id === 'number') {
+            firstStrandId = targetStrands[0].id;
         }
     } else {
         // 8-4-4: Get topics for this subject and form (table may not exist)
@@ -660,9 +683,10 @@ export async function autoGenerateScheme(params: {
     }
 
     // 2b. Update scheme header with strand/topic if found
-    if (firstStrandId || firstTopicId) {
+    if (targetStrandName || firstStrandId || firstTopicId) {
         await supabase.from('school_schemes_of_work').update({
             strand_id: firstStrandId,
+            strand: targetStrandName,
             topic_id: firstTopicId,
         }).eq('id', scheme.id!);
     }
@@ -983,11 +1007,15 @@ export async function autoGenerateScheme(params: {
             const lIdx = (l - 1);
             const idx = (lessonNum - 1); // unique global index — no repeats
 
-            // Rich varied content per lesson (unique across all weeks)
+            // Rich varied content per lesson (uses real KICD outcomes and inquiries if available)
             const outcomeTpl = OUTCOME_TEMPLATES[0];
             const inquiryTpl = INQUIRY_TEMPLATES[0];
-            const outcomes = outcomeTpl(title, lessonNum, lIdx).map(o => `By the end of the lesson, the learner should be able to ${o}`);
-            const inquiries = inquiryTpl(title, lessonNum, lIdx);
+            const outcomes = (weekItem?.learning_outcomes && weekItem.learning_outcomes.length > 0)
+                ? weekItem.learning_outcomes.map((o: string) => o.startsWith('By the end') ? o : `By the end of the lesson, the learner should be able to ${o.charAt(0).toLowerCase() + o.slice(1)}`)
+                : outcomeTpl(title, lessonNum, lIdx).map(o => `By the end of the lesson, the learner should be able to ${o}`);
+            const inquiries = (weekItem?.key_inquiry_questions && weekItem.key_inquiry_questions.length > 0)
+                ? weekItem.key_inquiry_questions
+                : inquiryTpl(title, lessonNum, lIdx);
             const activities = ACTIVITY_POOL[idx % ACTIVITY_POOL.length];
             const resources = RESOURCE_POOL[idx % RESOURCE_POOL.length];
             const assessments = ASSESS_POOL[idx % ASSESS_POOL.length];

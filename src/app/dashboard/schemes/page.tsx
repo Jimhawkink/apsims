@@ -179,17 +179,54 @@ import { FiArrowLeft, FiZap } from 'react-icons/fi';
 import { getTeachers, getStrands, getTopics, autoGenerateScheme } from '@/lib/schemes';
 
 function SchemeCreate({ subjects, forms, terms, onBack, onCreated }: { subjects: any[]; forms: any[]; terms: any[]; onBack: () => void; onCreated: (id: number) => void }) {
-    const [form, setForm] = useState({ subject_id: 0, form_id: 0, term_id: 0, teacher_id: 0, curriculum_type: 'CBC' as 'CBC'|'8-4-4', strand_id: 0, weeksCount: 14, lessonsPerWeek: 3 });
+    const [form, setForm] = useState({ subject_id: 0, form_id: 0, term_id: 0, teacher_id: 0, curriculum_type: 'CBC' as 'CBC'|'8-4-4', strand_id: 0 as any, weeksCount: 14, lessonsPerWeek: 3 });
     const [teachers, setTeachers] = useState<any[]>([]);
     const [strands, setStrands] = useState<any[]>([]);
+    const [loadingStrands, setLoadingStrands] = useState(false);
     const [generating, setGenerating] = useState(false);
 
     useEffect(() => { getTeachers().then(setTeachers).catch(() => {}); }, []);
 
+    const loadStrandsForSelection = async (sid: number, fid: number, currType: 'CBC' | '8-4-4') => {
+        if (!sid) {
+            setStrands([]);
+            return;
+        }
+        setLoadingStrands(true);
+        try {
+            const subj = subjects.find(s => s.id === sid);
+            if (currType === 'CBC') {
+                const s = await getStrands(sid, subj?.subject_name, fid);
+                setStrands(s || []);
+            } else {
+                const t = await getTopics(sid, fid || undefined);
+                setStrands(t || []);
+            }
+        } catch (err) {
+            console.error('Error fetching strands:', err);
+            setStrands([]);
+        } finally {
+            setLoadingStrands(false);
+        }
+    };
+
     const handleSubjectChange = async (sid: number) => {
         setForm(f => ({ ...f, subject_id: sid, strand_id: 0 }));
-        if (form.curriculum_type === 'CBC') { const s = await getStrands(); setStrands(s); }
-        else { const t = await getTopics(sid, form.form_id||undefined); setStrands(t); }
+        await loadStrandsForSelection(sid, form.form_id, form.curriculum_type);
+    };
+
+    const handleFormChange = async (fid: number) => {
+        setForm(f => ({ ...f, form_id: fid, strand_id: 0 }));
+        if (form.subject_id) {
+            await loadStrandsForSelection(form.subject_id, fid, form.curriculum_type);
+        }
+    };
+
+    const handleCurriculumChange = async (curr: 'CBC' | '8-4-4') => {
+        setForm(f => ({ ...f, curriculum_type: curr, strand_id: 0 }));
+        if (form.subject_id) {
+            await loadStrandsForSelection(form.subject_id, form.form_id, curr);
+        }
     };
 
     const handleGenerate = async () => {
@@ -203,11 +240,13 @@ function SchemeCreate({ subjects, forms, terms, onBack, onCreated }: { subjects:
                 createdBy: user.full_name || user.username, strandId: form.strand_id||undefined,
                 weeksCount: form.weeksCount, lessonsPerWeek: form.lessonsPerWeek,
             });
-            toast.success('⚡ Scheme auto-generated!');
+            toast.success('⚡ Scheme auto-generated with KICD standards!');
             onCreated(scheme.id!);
         } catch (err: any) { toast.error(err.message || 'Generation failed'); }
         setGenerating(false);
     };
+
+    const selectedSubjectName = subjects.find(s => s.id === form.subject_id)?.subject_name;
 
     return (
         <div className="animate-fadeIn space-y-5 max-w-3xl mx-auto">
@@ -217,46 +256,102 @@ function SchemeCreate({ subjects, forms, terms, onBack, onCreated }: { subjects:
             </div>
             <div className="bg-white rounded-2xl border-2 border-gray-100 p-6 space-y-5">
                 <div className="grid grid-cols-2 gap-4">
-                    <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Curriculum</label>
-                        <select value={form.curriculum_type} onChange={e => setForm(f => ({ ...f, curriculum_type: e.target.value as any, strand_id: 0 }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold">
-                            <option value="CBC">🇰🇪 CBC (Competency Based)</option><option value="8-4-4">📖 8-4-4 (Legacy)</option>
-                        </select></div>
-                    <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Subject</label>
-                        <select value={form.subject_id} onChange={e => handleSubjectChange(Number(e.target.value))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm">
-                            <option value={0}>Select Subject</option>{subjects.map(s => <option key={s.id} value={s.id}>{s.subject_name}</option>)}
-                        </select></div>
-                    <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Form</label>
-                        <select value={form.form_id} onChange={e => setForm(f => ({ ...f, form_id: Number(e.target.value) }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm">
-                            <option value={0}>Select Form</option>{forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}
-                        </select></div>
-                    <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Term</label>
-                        <select value={form.term_id} onChange={e => setForm(f => ({ ...f, term_id: Number(e.target.value) }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm">
-                            <option value={0}>Select Term</option>{terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year}</option>)}
-                        </select></div>
-                    <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Teacher</label>
+                    <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Curriculum</label>
+                        <select value={form.curriculum_type} onChange={e => handleCurriculumChange(e.target.value as any)} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold">
+                            <option value="CBC">🇰🇪 CBC (Competency Based)</option>
+                            <option value="8-4-4">📖 8-4-4 (Legacy)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Subject</label>
+                        <select value={form.subject_id} onChange={e => handleSubjectChange(Number(e.target.value))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold">
+                            <option value={0}>Select Subject</option>
+                            {subjects.map(s => <option key={s.id} value={s.id}>{s.subject_name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Form / Grade</label>
+                        <select value={form.form_id} onChange={e => handleFormChange(Number(e.target.value))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold">
+                            <option value={0}>Select Form / Grade</option>
+                            {forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Term</label>
+                        <select value={form.term_id} onChange={e => setForm(f => ({ ...f, term_id: Number(e.target.value) }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold">
+                            <option value={0}>Select Term</option>
+                            {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Teacher</label>
                         <select value={form.teacher_id} onChange={e => setForm(f => ({ ...f, teacher_id: Number(e.target.value) }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm">
-                            <option value={0}>Select Teacher</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
-                        </select></div>
+                            <option value={0}>Select Teacher</option>
+                            {teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
+                        </select>
+                    </div>
+
                     {form.curriculum_type === 'CBC' ? (
-                        <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Strand</label>
-                            <select value={form.strand_id} onChange={e => setForm(f => ({ ...f, strand_id: Number(e.target.value) }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm">
-                                <option value={0}>All Strands</option>{strands.map(s => <option key={s.id} value={s.id}>{s.strand_name}</option>)}
-                            </select></div>
+                        <div>
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Strand</label>
+                                {loadingStrands && <span className="text-[10px] text-blue-500 animate-pulse font-bold">Loading strands…</span>}
+                            </div>
+                            <select
+                                value={form.strand_id}
+                                onChange={e => setForm(f => ({ ...f, strand_id: e.target.value === '0' ? 0 : e.target.value }))}
+                                className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
+                                disabled={!form.subject_id || loadingStrands}
+                            >
+                                <option value={0}>
+                                    {!form.subject_id ? 'Select Subject First' : strands.length > 0 ? `All Strands (${strands.length} Strands — Full Syllabus)` : 'All Strands'}
+                                </option>
+                                {strands.map(s => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.code ? `[${s.code}] ` : ''}{s.strand_name}
+                                    </option>
+                                ))}
+                            </select>
+                            {strands.length > 0 && form.subject_id > 0 && (
+                                <p className="text-[10px] text-emerald-600 font-semibold mt-1">
+                                    ✓ {strands.length} KICD strands available for {selectedSubjectName}
+                                </p>
+                            )}
+                        </div>
                     ) : (
-                        <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Topic</label>
-                            <select value={form.strand_id} onChange={e => setForm(f => ({ ...f, strand_id: Number(e.target.value) }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm">
-                                <option value={0}>All Topics</option>{strands.map(t => <option key={t.id} value={t.id}>{t.topic_name}</option>)}
-                            </select></div>
+                        <div>
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Topic</label>
+                                {loadingStrands && <span className="text-[10px] text-blue-500 animate-pulse font-bold">Loading topics…</span>}
+                            </div>
+                            <select
+                                value={form.strand_id}
+                                onChange={e => setForm(f => ({ ...f, strand_id: Number(e.target.value) }))}
+                                className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
+                                disabled={!form.subject_id || loadingStrands}
+                            >
+                                <option value={0}>{!form.subject_id ? 'Select Subject First' : 'All Topics'}</option>
+                                {strands.map(t => (
+                                    <option key={t.id} value={t.id}>{t.topic_name}</option>
+                                ))}
+                            </select>
+                        </div>
                     )}
-                    <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Weeks</label>
-                        <input type="number" value={form.weeksCount} onChange={e => setForm(f => ({ ...f, weeksCount: Number(e.target.value) }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm" min={1} max={20} /></div>
-                    <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Lessons/Week</label>
-                        <input type="number" value={form.lessonsPerWeek} onChange={e => setForm(f => ({ ...f, lessonsPerWeek: Number(e.target.value) }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm" min={1} max={10} /></div>
+
+                    <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Weeks</label>
+                        <input type="number" value={form.weeksCount} onChange={e => setForm(f => ({ ...f, weeksCount: Number(e.target.value) }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold" min={1} max={20} />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Lessons/Week</label>
+                        <input type="number" value={form.lessonsPerWeek} onChange={e => setForm(f => ({ ...f, lessonsPerWeek: Number(e.target.value) }))} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold" min={1} max={10} />
+                    </div>
                 </div>
                 <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                    <button onClick={handleGenerate} disabled={generating} className="flex-1 btn-primary flex items-center justify-center gap-2 py-3">
+                    <button onClick={handleGenerate} disabled={generating || loadingStrands} className="flex-1 btn-primary flex items-center justify-center gap-2 py-3">
                         {generating ? <div className="spinner" style={{ width: 16, height: 16 }} /> : <FiZap size={16} />}
-                        {generating ? 'Generating…' : '⚡ Auto-Generate Scheme'}
+                        {generating ? 'Generating Scheme of Work…' : '⚡ Auto-Generate Scheme'}
                     </button>
                     <button onClick={onBack} className="px-6 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-500 hover:bg-gray-50">Cancel</button>
                 </div>
