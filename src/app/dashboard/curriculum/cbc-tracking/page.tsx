@@ -674,8 +674,6 @@ interface CbcAssessmentRow {
   assessment_type: string;
   rubric_level: string;
   rating_key: string;
-  assessed_by: string;
-  grade_level: number;
   updated_at: string;
 }
 
@@ -917,8 +915,6 @@ export default function CBCSeniorTrackingPage() {
         assessment_type: assessType,
         rubric_level: level,
         rating_key: ratingKey,
-        assessed_by: 'teacher',
-        grade_level: selGrade,
         updated_at: new Date().toISOString(),
       });
     }
@@ -984,9 +980,9 @@ export default function CBCSeniorTrackingPage() {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg,#f0f9ff 0%,#faf5ff 50%,#fff7ed 100%)', fontFamily: "'Nunito', 'Segoe UI', sans-serif" }}>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg,#f0f9ff 0%,#faf5ff 50%,#fff7ed 100%)', fontFamily: "'Outfit', 'Nunito', sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Nunito:wght@400;600;700;800;900&display=swap');
         .grade-pill { transition: all 0.2s cubic-bezier(.4,0,.2,1); }
         .grade-pill:hover { transform: translateY(-1px); }
         .rubric-btn { transition: all 0.15s ease; }
