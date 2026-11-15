@@ -16,6 +16,9 @@ import {
     FiTrendingUp, FiTrendingDown, FiBarChart2, FiChevronRight,
     FiActivity, FiShield, FiCpu, FiCheckCircle, FiAlertCircle,
     FiAward, FiBook, FiCalendar, FiTarget, FiZap, FiChevronDown,
+    FiSearch, FiWifi, FiBell, FiSettings, FiUser, FiPlus,
+    FiPrinter, FiDownload, FiShare2, FiMaximize, FiPower, FiSun, FiMoon,
+    FiCreditCard
 } from 'react-icons/fi';
 import UltraCardsSection from './components/UltraCards';
 import FeeAnalyticsSection from './components/FeeAnalyticsSection';
@@ -366,17 +369,38 @@ export default function DashboardPage() {
         </div>
     );
 
+    const [showNewActionMenu, setShowNewActionMenu] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ontime' | 'overdue'>('all');
+    const [currentPage, setCurrentPage] = useState(1);
+
+    const handlePrint = () => {
+        if (typeof window !== 'undefined') window.print();
+    };
+    const handleFullscreen = () => {
+        if (typeof document !== 'undefined') {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+    };
+    const handleShare = () => {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+            navigator.share({ title: 'APSIMS Ultra Dashboard', url: window.location.href }).catch(() => {});
+        } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            navigator.clipboard.writeText(window.location.href);
+            alert('Dashboard link copied to clipboard!');
+        }
+    };
+
     const totalExpected = stats.feesCollected + stats.feesDue;
     const collRate = totalExpected > 0 ? Math.min(100, Math.round((totalFees / totalExpected) * 100)) : 78;
-    const now = new Date();
-    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
-    const dayNum = now.getDate();
-    const monthYear = now.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
     return (
-        <div className="space-y-3.5 -m-4 lg:-m-6 p-4 lg:p-6 bg-[#f0f4f9] min-h-screen text-slate-800 ultra-animate">
+        <div className="space-y-3.5 -m-4 lg:-m-6 p-4 lg:p-6 bg-[#edf2f9] min-h-screen text-slate-800 ultra-animate">
             {/* ── Role banners ── */}
-            {userRole.toLowerCase() === 'auditor' && (
+            {userRole?.toLowerCase?.() === 'auditor' && (
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50">
                     <span>🔍</span>
                     <p className="text-xs font-bold text-amber-800 flex-1">Auditor Read-Only Access — write operations are restricted.</p>
@@ -390,350 +414,365 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* ── Tab Navigation Bar ── */}
-            <div className="flex items-center justify-between pb-0.5">
-                <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            {/* ════════════════════════════════════════════════════════════════
+                1. TOP HEADER BAR (Exact Match to UI Kit Image)
+            ════════════════════════════════════════════════════════════════ */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/80 backdrop-blur-md p-2.5 px-4 rounded-2xl border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+                {/* Search Bar Pill */}
+                <div
+                    onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))}
+                    className="flex items-center gap-2.5 bg-slate-50/90 hover:bg-white hover:border-blue-300 border border-slate-200/80 rounded-full px-4 py-2 w-full sm:w-80 cursor-pointer shadow-inner transition-all duration-200"
+                >
+                    <FiSearch className="text-slate-400" size={15} />
+                    <span className="text-xs text-slate-400 select-none flex-1">Search students, staff, reports...</span>
+                    <span className="text-[10px] text-slate-400 font-mono bg-white px-2 py-0.5 rounded-full border border-slate-200 shadow-xs">Ctrl + K</span>
+                </div>
+
+                {/* Right Actions & User Profile */}
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                    {/* Wifi Indicator */}
+                    <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shadow-xs" title="Online & Connected">
+                        <FiWifi size={15} />
+                    </div>
+
+                    {/* Notification Bell */}
+                    <Link href="/dashboard/notifications" className="relative w-9 h-9 rounded-full bg-white border border-slate-200/80 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors" title="Notifications">
+                        <FiBell size={15} />
+                        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow-xs">
+                            3
+                        </span>
+                    </Link>
+
+                    {/* Settings */}
+                    <Link href="/dashboard/settings" className="w-9 h-9 rounded-full bg-white border border-slate-200/80 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors" title="Settings">
+                        <FiSettings size={15} />
+                    </Link>
+
+                    {/* Divider */}
+                    <div className="h-5 w-[1px] bg-slate-200 mx-0.5" />
+
+                    {/* User Profile Pill */}
+                    <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-full pl-1.5 pr-3 py-1 shadow-xs cursor-pointer hover:border-blue-300 transition-all">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-[11px] font-black flex items-center justify-center shadow-xs">
+                            {userName?.charAt(0)?.toUpperCase() || 'A'}
+                        </div>
+                        <span className="text-xs font-bold text-slate-700 hidden md:inline">{userName || 'Admin'}</span>
+                        <FiChevronDown size={12} className="text-slate-400" />
+                    </div>
+
+                    {/* + New Action Dropdown */}
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => setShowNewActionMenu(!showNewActionMenu)}
+                            className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
+                        >
+                            <FiPlus size={14} />
+                            <span>New Action</span>
+                            <FiChevronDown size={12} className={`transition-transform duration-200 ${showNewActionMenu ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {showNewActionMenu && (
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 py-1.5">Quick Shortcuts</p>
+                                <Link href="/dashboard/fees/collect" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                    <span className="text-base">💳</span> Collect Fee Payment
+                                </Link>
+                                <Link href="/dashboard/students/admissions" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                    <span className="text-base">👤</span> Register New Student
+                                </Link>
+                                <Link href="/dashboard/exams/marks" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                    <span className="text-base">📝</span> Enter Exam Marks
+                                </Link>
+                                <Link href="/dashboard/expenses" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                    <span className="text-base">💸</span> Add School Expense
+                                </Link>
+                                <Link href="/dashboard/fees/bulk-reminders" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                    <span className="text-base">📱</span> Broadcast Bulk SMS
+                                </Link>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* ════════════════════════════════════════════════════════════════
+                SUB-PAGES / TABS NAVIGATION (Full Functional Preservation)
+            ════════════════════════════════════════════════════════════════ */}
+            <div className="flex items-center justify-between pb-0.5 overflow-x-auto scrollbar-hide">
+                <div className="flex items-center gap-1.5">
+                    {[
+                        { key: 'overview', label: 'Overview Hub', icon: '🏠' },
+                        { key: 'finance', label: 'Fees & Finance', icon: '💰' },
+                        { key: 'academics', label: 'Academics & Grading', icon: '📚' },
+                        { key: 'staff', label: 'Staff & HR', icon: '👨‍🏫' },
+                        { key: 'stores', label: 'Stores & Inventory', icon: '📦' },
+                        { key: 'portals', label: 'Portal Users', icon: '🔑' },
+                    ].map((tab: any) => {
+                        const isActive = activeTab === tab.key;
+                        return (
+                            <button
+                                key={tab.key}
+                                type="button"
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 whitespace-nowrap shadow-xs ${
+                                    isActive
+                                        ? 'bg-blue-600 text-white shadow-blue-500/20'
+                                        : 'bg-white/80 text-slate-600 hover:bg-white hover:text-blue-600 border border-slate-200/60'
+                                }`}
+                            >
+                                <span>{tab.icon}</span>
+                                <span>{tab.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
                 <button
                     onClick={() => setRefreshKey(k => k + 1)}
-                    className="p-1.5 px-3 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all"
-                    title="Refresh Data"
+                    className="p-1.5 px-3 rounded-full bg-white/80 border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all ml-2 flex-shrink-0"
+                    title="Sync with Live Database"
                 >
                     <FiRefreshCw size={12} className={loading ? 'animate-spin' : ''} />
                     <span>Sync</span>
                 </button>
             </div>
 
-            {/* Sub-panels for other tabs */}
+            {/* Sub-panels for other dedicated tabs */}
             {activeTab === 'finance' && <FinancePanel />}
             {activeTab === 'academics' && <AcademicsPanel />}
             {activeTab === 'staff' && <StaffPanel />}
             {activeTab === 'stores' && <StoresPanel />}
             {activeTab === 'portals' && <PortalsPanel />}
 
-            {/* ════════════════════════════════════════════════════════
-                MASTERPIECE OVERVIEW (EXACT COPY OF SCREENSHOT)
-            ════════════════════════════════════════════════════════ */}
+            {/* ════════════════════════════════════════════════════════════════
+                EXACT REPLICA: OVERVIEW HUB (Modern UI Kit)
+            ════════════════════════════════════════════════════════════════ */}
             {activeTab === 'overview' && (
                 <div className="space-y-3.5">
-                    {/* ── 1. HERO BANNER ── */}
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0a2f70] via-[#1048a0] to-[#1e6bd6] shadow-md border border-blue-900/30 min-h-[115px] flex items-center px-5 py-4">
-                        {/* Campus Building Background on the Right */}
-                        <div className="absolute right-0 top-0 bottom-0 w-[55%] lg:w-[62%] pointer-events-none overflow-hidden">
-                            <img
-                                src="/login-bg.png"
-                                alt="Campus Courtyard"
-                                className="w-full h-full object-cover object-center filter brightness-[1.02] contrast-[1.05]"
-                            />
-                            {/* Soft royal gradient overlay fading building smoothly into blue on the left */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-[#0a2f70] via-[#0a2f70]/75 to-transparent" />
-                            <div className="absolute inset-0 bg-blue-950/20 mix-blend-multiply" />
-                        </div>
-
-                        {/* Content on Left */}
-                        <div className="relative z-10 flex items-center gap-4 lg:gap-6 max-w-2xl">
-                            {/* Calendar Frosted Glass Box */}
-                            <div className="flex-shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-2 text-center text-white shadow-inner min-w-[84px]">
-                                <p className="text-[10px] font-black uppercase tracking-wider text-blue-200/90 leading-tight">
-                                    {dayName}
-                                </p>
-                                <p className="text-3xl font-black text-white leading-tight my-0.5">
-                                    {dayNum}
-                                </p>
-                                <p className="text-[11px] font-bold text-blue-100/90 leading-tight">
-                                    {monthYear}
-                                </p>
+                    {/* ── ROW 1: 4 GLOWING GLASSMORPHIC STAT CARDS ── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                        {/* Card 1: Total Students */}
+                        <div className="bg-gradient-to-b from-white via-white to-blue-50/20 rounded-2xl p-4 border border-blue-100/60 shadow-[0_4px_16px_rgba(37,99,235,0.06)] hover:shadow-lg transition-all flex flex-col justify-between relative overflow-hidden group">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-600 to-sky-400 text-white flex items-center justify-center shadow-[0_4px_14px_rgba(37,99,235,0.35)]">
+                                    <FiUsers size={20} />
+                                </div>
+                                <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+                                    ▲ 12%
+                                </span>
                             </div>
-
-                            {/* Greeting & Subtitle */}
                             <div>
-                                <h1 className="text-xl lg:text-2xl font-black text-white tracking-tight leading-snug flex items-center gap-2">
-                                    {greeting}, {userName || 'JIMHAWKINS KORIR'}! <span className="animate-pulse">👋</span>
-                                </h1>
-                                <p className="text-xs lg:text-[13px] text-blue-100/85 font-medium mt-1">
-                                    Have a productive day ahead!
+                                <p className="text-3xl font-black text-slate-900 leading-none">
+                                    {fmtN(students.length || 127)}
+                                </p>
+                                <p className="text-xs font-semibold text-slate-500 mt-1">
+                                    Total Students
                                 </p>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* ── 2. ROW 2: (4 STAT CARDS + QUICK ACTIONS) | TOP PERFORMING STUDENTS ── */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-                        {/* Left 9 cols (approx 75%) */}
-                        <div className="lg:col-span-9 flex flex-col gap-3.5">
-                            {/* 4 Stat Cards */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                {/* Card 1: Total Students */}
-                                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden group">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg">
-                                            <FiUsers size={18} />
-                                        </div>
-                                        <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                                            ▲ 12%
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-black text-slate-900 leading-none">
-                                            {fmtN(students.length || 127)}
-                                        </p>
-                                        <p className="text-[11px] font-semibold text-slate-500 mt-1">
-                                            Total Students
-                                        </p>
-                                    </div>
-                                    {/* Sparkline in light blue */}
-                                    <div className="mt-2 -mb-1">
-                                        <svg viewBox="0 0 100 24" className="w-full h-6 overflow-visible">
-                                            <defs>
-                                                <linearGradient id="blueSpark" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
-                                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                                                </linearGradient>
-                                            </defs>
-                                            <polygon points="0,24 0,16 20,18 40,12 60,15 80,8 100,6 100,24" fill="url(#blueSpark)" />
-                                            <polyline points="0,16 20,18 40,12 60,15 80,8 100,6" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                {/* Card 2: Total Enrolled */}
-                                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden group">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-lg">
-                                            <FiAward size={18} />
-                                        </div>
-                                        <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                                            ▲ 8%
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-black text-slate-900 leading-none">
-                                            {fmtN(active.length || 126)}
-                                        </p>
-                                        <p className="text-[11px] font-semibold text-slate-500 mt-1">
-                                            Total Enrolled
-                                        </p>
-                                    </div>
-                                    {/* Sparkline in purple */}
-                                    <div className="mt-2 -mb-1">
-                                        <svg viewBox="0 0 100 24" className="w-full h-6 overflow-visible">
-                                            <defs>
-                                                <linearGradient id="purpleSpark" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.25" />
-                                                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
-                                                </linearGradient>
-                                            </defs>
-                                            <polygon points="0,24 0,18 20,15 40,17 60,11 80,13 100,5 100,24" fill="url(#purpleSpark)" />
-                                            <polyline points="0,18 20,15 40,17 60,11 80,13 100,5" fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                {/* Card 3: Expected Fees */}
-                                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden group">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">
-                                            <FiDollarSign size={18} />
-                                        </div>
-                                        <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                                            ▲ 15%
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-black text-slate-900 leading-none truncate">
-                                            {totalFees > 0 ? fmtShort(totalFees) : 'Ksh 461,000'}
-                                        </p>
-                                        <p className="text-[11px] font-semibold text-slate-500 mt-1">
-                                            Expected Fees
-                                        </p>
-                                    </div>
-                                    {/* Sparkline in emerald green */}
-                                    <div className="mt-2 -mb-1">
-                                        <svg viewBox="0 0 100 24" className="w-full h-6 overflow-visible">
-                                            <defs>
-                                                <linearGradient id="greenSpark" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
-                                                    <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-                                                </linearGradient>
-                                            </defs>
-                                            <polygon points="0,24 0,19 20,17 40,13 60,14 80,7 100,4 100,24" fill="url(#greenSpark)" />
-                                            <polyline points="0,19 20,17 40,13 60,14 80,7 100,4" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                {/* Card 4: Pending Issues */}
-                                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden group">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg">
-                                            <FiAlertTriangle size={18} />
-                                        </div>
-                                        <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">
-                                            ▼ 0%
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-black text-slate-900 leading-none">
-                                            {pendingIssues || 2}
-                                        </p>
-                                        <p className="text-[11px] font-semibold text-slate-500 mt-1">
-                                            Pending Issues
-                                        </p>
-                                    </div>
-                                    {/* Sparkline in amber */}
-                                    <div className="mt-2 -mb-1">
-                                        <svg viewBox="0 0 100 24" className="w-full h-6 overflow-visible">
-                                            <defs>
-                                                <linearGradient id="amberSpark" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.25" />
-                                                    <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
-                                                </linearGradient>
-                                            </defs>
-                                            <polygon points="0,24 0,12 20,14 40,10 60,16 80,11 100,15 100,24" fill="url(#amberSpark)" />
-                                            <polyline points="0,12 20,14 40,10 60,16 80,11 100,15" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Quick Actions (10 Pills) */}
-                            <div className="bg-white rounded-2xl p-3.5 px-4 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-                                <div className="flex items-center justify-between mb-2.5">
-                                    <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
-                                        <FiZap className="text-blue-600" size={14} />
-                                        <span>Quick Actions</span>
-                                    </div>
-                                    <Link href="/dashboard/fees" className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                                        View All <FiChevronRight size={12} />
-                                    </Link>
-                                </div>
-                                <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
-                                    {[
-                                        { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', bg: 'bg-blue-50/70', color: 'text-blue-600' },
-                                        { label: 'Add Student', href: '/dashboard/students/admissions', icon: '👤', bg: 'bg-blue-50/70', color: 'text-blue-600' },
-                                        { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', bg: 'bg-emerald-50/70', color: 'text-emerald-600' },
-                                        { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', bg: 'bg-amber-50/70', color: 'text-amber-600' },
-                                        { label: 'Bulk SMS', href: '/dashboard/fees/bulk-reminders', icon: '✉️', bg: 'bg-blue-50/70', color: 'text-blue-600' },
-                                        { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', bg: 'bg-cyan-50/70', color: 'text-cyan-600' },
-                                        { label: 'Add Expense', href: '/dashboard/expenses', icon: '👛', bg: 'bg-amber-50/70', color: 'text-amber-600' },
-                                        { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👥', bg: 'bg-blue-50/70', color: 'text-blue-600' },
-                                        { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: '📄', bg: 'bg-emerald-50/70', color: 'text-emerald-600' },
-                                        { label: 'More Tools', href: '/dashboard/settings', icon: '⊞', bg: 'bg-slate-50', color: 'text-slate-600' },
-                                    ].map((act, i) => (
-                                        <Link
-                                            key={i}
-                                            href={act.href}
-                                            className={`flex flex-col items-center justify-center p-2 rounded-xl ${act.bg} hover:shadow-sm hover:scale-[1.04] transition-all duration-200 text-center gap-1 border border-slate-100/60`}
-                                        >
-                                            <span className="text-lg leading-none">{act.icon}</span>
-                                            <span className="text-[10px] font-bold text-slate-700 leading-tight whitespace-nowrap">
-                                                {act.label}
-                                            </span>
-                                        </Link>
-                                    ))}
-                                </div>
+                            {/* Glowing Wave Sparkline */}
+                            <div className="mt-3 -mb-1">
+                                <svg viewBox="0 0 100 28" className="w-full h-7 overflow-visible">
+                                    <defs>
+                                        <linearGradient id="waveBlue" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
+                                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M 0,28 L 0,18 C 20,24 35,10 50,16 C 65,22 80,8 100,6 L 100,28 Z" fill="url(#waveBlue)" />
+                                    <path d="M 0,18 C 20,24 35,10 50,16 C 65,22 80,8 100,6" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" />
+                                </svg>
                             </div>
                         </div>
 
-                        {/* Right 3 cols (approx 25%) - Top Performing Students */}
-                        <div className="lg:col-span-3">
-                            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] h-full flex flex-col justify-between">
-                                <div>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
-                                            <FiUsers className="text-blue-600" size={14} />
-                                            <span>Top Performing Students</span>
-                                        </div>
-                                        <Link href="/dashboard/exams/merit-list" className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
-                                            View All <FiChevronRight size={11} />
-                                        </Link>
-                                    </div>
-                                    <div className="space-y-2.5">
-                                        {(() => {
-                                            const defaultTop = [
-                                                { name: 'Mercy N. Kiplagat', form: 'Grade 10', avg: 98.5, initials: 'MK' },
-                                                { name: 'Ochieng Auma', form: 'Grade 10', avg: 97.8, initials: 'OA' },
-                                                { name: 'James Siambi', form: 'Grade 9', avg: 96.9, initials: 'JS' },
-                                                { name: 'Everly Wangari', form: 'Grade 8', avg: 95.6, initials: 'EW' },
-                                                { name: 'David Muthui', form: 'Grade 7', avg: 94.8, initials: 'DM' },
-                                            ];
-                                            const list = (topStudents.length >= 3 ? topStudents : defaultTop).slice(0, 5);
-                                            return list.map((st: any, i: number) => {
-                                                const inits = st.initials || (st.name || '').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || 'ST';
-                                                return (
-                                                    <div key={i} className="flex items-center justify-between gap-2 py-0.5">
-                                                        <div className="flex items-center gap-2.5 min-w-0">
-                                                            <span className="text-[11px] font-bold text-slate-400 w-3 text-center">{i + 1}</span>
-                                                            <div className="w-7 h-7 rounded-full bg-[#1e70eb] text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 shadow-sm">
-                                                                {inits}
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs font-bold text-slate-800 truncate leading-tight">{st.name}</p>
-                                                                <p className="text-[10px] text-slate-400 leading-tight">{st.form}</p>
-                                                            </div>
-                                                        </div>
-                                                        <span className="flex-shrink-0 text-[11px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                                                            {st.avg}%
-                                                        </span>
-                                                    </div>
-                                                );
-                                            });
-                                        })()}
-                                    </div>
+                        {/* Card 2: Total Enrolled */}
+                        <div className="bg-gradient-to-b from-white via-white to-purple-50/20 rounded-2xl p-4 border border-purple-100/60 shadow-[0_4px_16px_rgba(147,51,234,0.06)] hover:shadow-lg transition-all flex flex-col justify-between relative overflow-hidden group">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-600 to-fuchsia-400 text-white flex items-center justify-center shadow-[0_4px_14px_rgba(147,51,234,0.35)]">
+                                    <FiAward size={20} />
                                 </div>
+                                <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+                                    ▲ 8%
+                                </span>
+                            </div>
+                            <div>
+                                <p className="text-3xl font-black text-slate-900 leading-none">
+                                    {fmtN(active.length || 126)}
+                                </p>
+                                <p className="text-xs font-semibold text-slate-500 mt-1">
+                                    Total Enrolled
+                                </p>
+                            </div>
+                            {/* Glowing Wave Sparkline */}
+                            <div className="mt-3 -mb-1">
+                                <svg viewBox="0 0 100 28" className="w-full h-7 overflow-visible">
+                                    <defs>
+                                        <linearGradient id="wavePurple" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.35" />
+                                            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M 0,28 L 0,20 C 25,24 40,12 60,18 C 75,22 85,10 100,5 L 100,28 Z" fill="url(#wavePurple)" />
+                                    <path d="M 0,20 C 25,24 40,12 60,18 C 75,22 85,10 100,5" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        {/* Card 3: Expected Fees */}
+                        <div className="bg-gradient-to-b from-white via-white to-emerald-50/20 rounded-2xl p-4 border border-emerald-100/60 shadow-[0_4px_16px_rgba(16,185,129,0.06)] hover:shadow-lg transition-all flex flex-col justify-between relative overflow-hidden group">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 text-white flex items-center justify-center shadow-[0_4px_14px_rgba(16,185,129,0.35)]">
+                                    <FiCreditCard size={20} />
+                                </div>
+                                <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+                                    ▲ 15%
+                                </span>
+                            </div>
+                            <div>
+                                <p className="text-3xl font-black text-slate-900 leading-none truncate">
+                                    {totalFees > 0 ? fmtShort(totalFees) : 'Ksh 461,000'}
+                                </p>
+                                <p className="text-xs font-semibold text-slate-500 mt-1">
+                                    Expected Fees
+                                </p>
+                            </div>
+                            {/* Glowing Wave Sparkline */}
+                            <div className="mt-3 -mb-1">
+                                <svg viewBox="0 0 100 28" className="w-full h-7 overflow-visible">
+                                    <defs>
+                                        <linearGradient id="waveGreen" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
+                                            <stop offset="100%" stopColor="#10b981" stopOpacity="0.02" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M 0,28 L 0,19 C 20,22 35,14 55,17 C 75,20 85,8 100,4 L 100,28 Z" fill="url(#waveGreen)" />
+                                    <path d="M 0,19 C 20,22 35,14 55,17 C 75,20 85,8 100,4" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        {/* Card 4: Pending Issues */}
+                        <div className="bg-gradient-to-b from-white via-white to-amber-50/20 rounded-2xl p-4 border border-amber-100/60 shadow-[0_4px_16px_rgba(245,158,11,0.06)] hover:shadow-lg transition-all flex flex-col justify-between relative overflow-hidden group">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500 to-orange-400 text-white flex items-center justify-center shadow-[0_4px_14px_rgba(245,158,11,0.35)]">
+                                    <FiAlertTriangle size={20} />
+                                </div>
+                                <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-red-50 text-red-600">
+                                    ▼ 0%
+                                </span>
+                            </div>
+                            <div>
+                                <p className="text-3xl font-black text-slate-900 leading-none">
+                                    {pendingIssues || 2}
+                                </p>
+                                <p className="text-xs font-semibold text-slate-500 mt-1">
+                                    Pending Issues
+                                </p>
+                            </div>
+                            {/* Glowing Wave Sparkline */}
+                            <div className="mt-3 -mb-1">
+                                <svg viewBox="0 0 100 28" className="w-full h-7 overflow-visible">
+                                    <defs>
+                                        <linearGradient id="waveAmber" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.35" />
+                                            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.02" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M 0,28 L 0,15 C 20,13 40,20 60,14 C 75,9 85,16 100,12 L 100,28 Z" fill="url(#waveAmber)" />
+                                    <path d="M 0,15 C 20,13 40,20 60,14 C 75,9 85,16 100,12" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
+                                </svg>
                             </div>
                         </div>
                     </div>
 
-                    {/* ── 3. ROW 3: FEE ANALYTICS & CLASS INTELLIGENCE + PERFORMANCE OVERVIEW ── */}
+                    {/* ── ROW 2: 10 QUICK ACTIONS (Glassmorphic Tiles) ── */}
+                    <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
+                                <FiZap className="text-blue-600" size={15} />
+                                <span>Quick Actions</span>
+                            </div>
+                            <Link href="/dashboard/settings" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                                More Tools →
+                            </Link>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2.5">
+                            {[
+                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', bg: 'bg-blue-50/70 hover:bg-blue-100/70', color: 'text-blue-600' },
+                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '👤', bg: 'bg-blue-50/70 hover:bg-blue-100/70', color: 'text-blue-600' },
+                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', bg: 'bg-emerald-50/70 hover:bg-emerald-100/70', color: 'text-emerald-600' },
+                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', bg: 'bg-amber-50/70 hover:bg-amber-100/70', color: 'text-amber-600' },
+                                { label: 'Bulk SMS', href: '/dashboard/fees/bulk-reminders', icon: '✉️', bg: 'bg-blue-50/70 hover:bg-blue-100/70', color: 'text-blue-600' },
+                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', bg: 'bg-cyan-50/70 hover:bg-cyan-100/70', color: 'text-cyan-600' },
+                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '👛', bg: 'bg-orange-50/70 hover:bg-orange-100/70', color: 'text-orange-600' },
+                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👥', bg: 'bg-blue-50/70 hover:bg-blue-100/70', color: 'text-blue-600' },
+                                { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: '📄', bg: 'bg-emerald-50/70 hover:bg-emerald-100/70', color: 'text-emerald-600' },
+                                { label: 'More Tools', href: '/dashboard/settings', icon: '⊞', bg: 'bg-purple-50/70 hover:bg-purple-100/70', color: 'text-purple-600' },
+                            ].map((act, i) => (
+                                <Link
+                                    key={i}
+                                    href={act.href}
+                                    className={`flex flex-col items-center justify-center p-3 rounded-2xl ${act.bg} hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 text-center gap-1.5 border border-slate-100 shadow-xs group`}
+                                >
+                                    <span className="text-xl group-hover:scale-110 transition-transform">{act.icon}</span>
+                                    <span className="text-[11px] font-bold text-slate-700 leading-tight whitespace-nowrap">
+                                        {act.label}
+                                    </span>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ── ROW 3: TWO BIG MIDDLE CARDS (50% / 50%) ── */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-                        {/* Left: Fee Analytics & Class Intelligence */}
-                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+                        {/* Left Card: Fee Analytics & Class Intelligence */}
+                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
                                     <FiBarChart2 className="text-blue-600" size={15} />
                                     <span>Fee Analytics & Class Intelligence</span>
                                 </div>
                                 <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-full">
-                                    <button className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-[#1754b5] text-white shadow-sm">
+                                    <button className="px-3 py-1 text-[10px] font-bold rounded-full bg-blue-600 text-white shadow-xs">
                                         This Term
                                     </button>
-                                    <button className="px-2 py-0.5 text-[10px] font-medium rounded-full text-slate-500 hover:text-slate-800">
+                                    <button className="px-2.5 py-1 text-[10px] font-medium rounded-full text-slate-500 hover:text-slate-800">
                                         This Year
                                     </button>
-                                    <button className="px-2 py-0.5 text-[10px] font-medium rounded-full text-slate-500 hover:text-slate-800">
+                                    <button className="px-2.5 py-1 text-[10px] font-medium rounded-full text-slate-500 hover:text-slate-800">
                                         All Terms
                                     </button>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                                {/* Donut & Legend (5 cols) */}
-                                <div className="sm:col-span-5 flex items-center gap-3">
-                                    {/* SVG Donut */}
-                                    <div className="relative w-24 h-24 flex-shrink-0">
-                                        <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
-                                            {/* Background ring */}
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3.5" />
-                                            {/* Collected (Blue) 78% */}
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#2563eb" strokeWidth="3.5" strokeDasharray="70 100" strokeLinecap="round" />
-                                            {/* Outstanding (Purple) */}
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#8b5cf6" strokeWidth="3.5" strokeDasharray="20 100" strokeDashoffset="-70" strokeLinecap="round" />
-                                            {/* Expected (Green) */}
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#10b981" strokeWidth="3.5" strokeDasharray="10 100" strokeDashoffset="-90" strokeLinecap="round" />
+                                {/* Left Sub-col: Donut & Legend */}
+                                <div className="sm:col-span-5 flex items-center gap-3.5">
+                                    {/* Multi-color Donut Ring */}
+                                    <div className="relative w-28 h-28 flex-shrink-0">
+                                        <svg viewBox="0 0 36 36" className="w-28 h-28 -rotate-90">
+                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3.8" />
+                                            {/* Collected Blue 78% */}
+                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#2563eb" strokeWidth="3.8" strokeDasharray="70 100" strokeLinecap="round" />
+                                            {/* Outstanding Purple */}
+                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#8b5cf6" strokeWidth="3.8" strokeDasharray="18 100" strokeDashoffset="-70" strokeLinecap="round" />
+                                            {/* Expected Emerald */}
+                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#10b981" strokeWidth="3.8" strokeDasharray="12 100" strokeDashoffset="-88" strokeLinecap="round" />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                            <span className="text-lg font-black text-slate-900 leading-none">
+                                            <span className="text-xl font-black text-slate-900 leading-none">
                                                 {collRate > 0 ? `${collRate}%` : '78%'}
                                             </span>
-                                            <span className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 leading-tight">
+                                            <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5 leading-tight">
                                                 Collection<br />Rate
                                             </span>
                                         </div>
                                     </div>
 
-                                    {/* Legend */}
+                                    {/* Legend Details */}
                                     <div className="space-y-1.5 flex-1 min-w-0">
-                                        <div className="flex items-center justify-between text-[11px]">
+                                        <div className="flex items-center justify-between text-xs">
                                             <span className="flex items-center gap-1.5 text-slate-500">
                                                 <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
                                                 Collected
@@ -742,7 +781,7 @@ export default function DashboardPage() {
                                                 {totalFees > 0 ? fmtShort(totalFees) : 'Ksh 461,000'}
                                             </span>
                                         </div>
-                                        <div className="flex items-center justify-between text-[11px]">
+                                        <div className="flex items-center justify-between text-xs">
                                             <span className="flex items-center gap-1.5 text-slate-500">
                                                 <span className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
                                                 Outstanding
@@ -751,7 +790,7 @@ export default function DashboardPage() {
                                                 {stats.feesDue > 0 ? fmtShort(stats.feesDue) : 'Ksh 131,000'}
                                             </span>
                                         </div>
-                                        <div className="flex items-center justify-between text-[11px]">
+                                        <div className="flex items-center justify-between text-xs">
                                             <span className="flex items-center gap-1.5 text-slate-500">
                                                 <span className="w-2 h-2 rounded-full bg-[#10b981]" />
                                                 Expected
@@ -763,42 +802,35 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
 
-                                {/* Line Chart Area (7 cols) */}
+                                {/* Right Sub-col: Area Line Chart */}
                                 <div className="sm:col-span-7 flex flex-col justify-end relative pt-2">
-                                    {/* Tooltip badge */}
                                     <div className="self-end -mb-1 mr-4">
-                                        <span className="bg-[#0f172a] text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-sm">
+                                        <span className="bg-[#0f172a] text-white text-[9px] font-bold px-2.5 py-0.5 rounded-md shadow-xs">
                                             Ksh 461,000 This Month
                                         </span>
                                     </div>
-                                    <div className="h-28 w-full">
+                                    <div className="h-32 w-full">
                                         <svg viewBox="0 0 240 85" className="w-full h-full overflow-visible">
                                             <defs>
-                                                <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
-                                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                                                <linearGradient id="areaFillV3" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
+                                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.01" />
                                                 </linearGradient>
                                             </defs>
-                                            {/* Grid lines */}
                                             <line x1="28" y1="12" x2="235" y2="12" stroke="#f1f5f9" strokeWidth="1" />
                                             <line x1="28" y1="36" x2="235" y2="36" stroke="#f1f5f9" strokeWidth="1" />
                                             <line x1="28" y1="60" x2="235" y2="60" stroke="#f1f5f9" strokeWidth="1" />
-                                            {/* Y-axis labels */}
                                             <text x="22" y="15" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">600K</text>
                                             <text x="22" y="39" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">400K</text>
                                             <text x="22" y="63" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">200K</text>
                                             <text x="22" y="80" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">0K</text>
-                                            {/* Area Polygon */}
-                                            <polygon points="35,80 35,50 80,45 130,52 180,38 230,16 230,80" fill="url(#areaFill)" />
-                                            {/* Spline Line */}
+                                            <polygon points="35,80 35,50 80,45 130,52 180,38 230,16 230,80" fill="url(#areaFillV3)" />
                                             <polyline points="35,50 80,45 130,52 180,38 230,16" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                            {/* Vertex Dots */}
                                             <circle cx="35" cy="50" r="3" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />
                                             <circle cx="80" cy="45" r="3" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />
                                             <circle cx="130" cy="52" r="3" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />
                                             <circle cx="180" cy="38" r="3" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />
                                             <circle cx="230" cy="16" r="3.5" fill="#2563eb" stroke="#fff" strokeWidth="2" />
-                                            {/* X-axis labels */}
                                             <text x="35" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Jul</text>
                                             <text x="80" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Aug</text>
                                             <text x="130" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Sep</text>
@@ -810,14 +842,14 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        {/* Right: Performance Overview */}
-                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+                        {/* Right Card: Performance Overview */}
+                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
                                     <FiAward className="text-amber-500" size={15} />
                                     <span>Performance Overview</span>
                                 </div>
-                                <span className="text-[10px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 flex items-center gap-1">
+                                <span className="text-[10px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 flex items-center gap-1">
                                     This Term <FiChevronDown size={11} />
                                 </span>
                             </div>
@@ -826,68 +858,68 @@ export default function DashboardPage() {
                             <div className="grid grid-cols-4 gap-2 pt-1 pb-1">
                                 {/* Gauge 1: Attendance */}
                                 <div className="flex flex-col items-center">
-                                    <div className="relative w-16 h-16 sm:w-18 sm:h-18">
+                                    <div className="relative w-18 h-18 sm:w-20 sm:h-20">
                                         <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
                                             <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3" />
                                             <circle cx="18" cy="18" r="14.5" fill="none" stroke="#2563eb" strokeWidth="3" strokeDasharray="96 100" strokeLinecap="round" />
                                         </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center font-black text-sm text-slate-900">
+                                        <div className="absolute inset-0 flex items-center justify-center font-black text-base text-slate-900">
                                             {attRate > 0 ? `${attRate}%` : '96%'}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-slate-600">
-                                        <FiUsers size={11} className="text-blue-600" />
+                                    <div className="flex items-center gap-1 mt-2 text-[11px] font-bold text-slate-600">
+                                        <FiUsers size={12} className="text-blue-600" />
                                         <span>Attendance</span>
                                     </div>
                                 </div>
 
                                 {/* Gauge 2: Pass Rate */}
                                 <div className="flex flex-col items-center">
-                                    <div className="relative w-16 h-16 sm:w-18 sm:h-18">
+                                    <div className="relative w-18 h-18 sm:w-20 sm:h-20">
                                         <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
                                             <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3" />
                                             <circle cx="18" cy="18" r="14.5" fill="none" stroke="#0d9488" strokeWidth="3" strokeDasharray="92 100" strokeLinecap="round" />
                                         </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center font-black text-sm text-slate-900">
+                                        <div className="absolute inset-0 flex items-center justify-center font-black text-base text-slate-900">
                                             92%
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-slate-600">
-                                        <FiCheckCircle size={11} className="text-teal-600" />
+                                    <div className="flex items-center gap-1 mt-2 text-[11px] font-bold text-slate-600">
+                                        <FiCheckCircle size={12} className="text-teal-600" />
                                         <span>Pass Rate</span>
                                     </div>
                                 </div>
 
                                 {/* Gauge 3: Class Progress */}
                                 <div className="flex flex-col items-center">
-                                    <div className="relative w-16 h-16 sm:w-18 sm:h-18">
+                                    <div className="relative w-18 h-18 sm:w-20 sm:h-20">
                                         <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
                                             <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3" />
                                             <circle cx="18" cy="18" r="14.5" fill="none" stroke="#8b5cf6" strokeWidth="3" strokeDasharray="94 100" strokeLinecap="round" />
                                         </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center font-black text-sm text-slate-900">
+                                        <div className="absolute inset-0 flex items-center justify-center font-black text-base text-slate-900">
                                             94%
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-slate-600">
-                                        <FiBarChart2 size={11} className="text-purple-600" />
+                                    <div className="flex items-center gap-1 mt-2 text-[11px] font-bold text-slate-600">
+                                        <FiBarChart2 size={12} className="text-purple-600" />
                                         <span>Class Progress</span>
                                     </div>
                                 </div>
 
                                 {/* Gauge 4: Discipline */}
                                 <div className="flex flex-col items-center">
-                                    <div className="relative w-16 h-16 sm:w-18 sm:h-18">
+                                    <div className="relative w-18 h-18 sm:w-20 sm:h-20">
                                         <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
                                             <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3" />
                                             <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f59e0b" strokeWidth="3" strokeDasharray="100 100" strokeLinecap="round" />
                                         </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center font-black text-sm text-slate-900">
+                                        <div className="absolute inset-0 flex items-center justify-center font-black text-base text-slate-900">
                                             100%
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-slate-600">
-                                        <FiShield size={11} className="text-amber-500" />
+                                    <div className="flex items-center gap-1 mt-2 text-[11px] font-bold text-slate-600">
+                                        <FiShield size={12} className="text-amber-500" />
                                         <span>Discipline</span>
                                     </div>
                                 </div>
@@ -895,30 +927,31 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* ── 4. ROW 4: RECENT ACTIVITY | UPCOMING EVENTS | FEE COLLECTION TREND ── */}
+                    {/* ── ROW 4: THREE BOTTOM CARDS (33% / 33% / 33%) ── */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
                         {/* Col 1: Recent Activity */}
-                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-2.5">
+                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
                                     <FiActivity className="text-blue-600" size={14} />
                                     <span>Recent Activity</span>
                                 </div>
-                                <Link href="/dashboard/fees/payments" className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
+                                <Link href="/dashboard/fees/payments" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
                                     View All <FiChevronRight size={11} />
                                 </Link>
                             </div>
-                            <div className="space-y-2.5">
+                            <div className="space-y-3">
                                 {[
-                                    { dot: 'bg-amber-400', text: 'New student registered — Mary Wanjiru', time: '2 min ago' },
+                                    { dot: 'bg-blue-500', text: 'New student registered', time: '2 min ago' },
                                     { dot: 'bg-emerald-500', text: 'Fees payment received (Ksh 25,000)', time: '5 min ago' },
-                                    { dot: 'bg-orange-500', text: 'Report card generated — Grade 10', time: '12 min ago' },
-                                    { dot: 'bg-indigo-600', text: 'New staff added — Mr. David Ochieng', time: '18 min ago' },
+                                    { dot: 'bg-amber-400', text: 'Report card generated', time: '12 min ago' },
+                                    { dot: 'bg-purple-600', text: 'New staff added', time: '18 min ago' },
+                                    { dot: 'bg-blue-600', text: 'Attendance updated', time: '25 min ago' },
                                 ].map((act, i) => (
                                     <div key={i} className="flex items-center justify-between text-xs py-0.5">
-                                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
                                             <span className={`w-2 h-2 rounded-full ${act.dot} flex-shrink-0`} />
-                                            <span className="text-[11px] font-medium text-slate-700 truncate">{act.text}</span>
+                                            <span className="text-[11px] font-semibold text-slate-700 truncate">{act.text}</span>
                                         </div>
                                         <span className="text-[10px] text-slate-400 whitespace-nowrap">{act.time}</span>
                                     </div>
@@ -927,25 +960,25 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Col 2: Upcoming Events */}
-                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-2.5">
+                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
                                     <FiCalendar className="text-blue-600" size={14} />
                                     <span>Upcoming Events</span>
                                 </div>
-                                <Link href="/dashboard/timetable" className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
+                                <Link href="/dashboard/timetable" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
                                     View All <FiChevronRight size={11} />
                                 </Link>
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-2.5">
                                 {[
-                                    { day: '18', month: 'Nov', bg: 'bg-[#1e70eb]', title: 'Parent Meeting', time: '8:00 AM – 11:00 AM' },
-                                    { day: '20', month: 'Nov', bg: 'bg-[#06b6d4]', title: 'Term 3 Exams', time: '8:00 AM – 5:00 PM' },
-                                    { day: '25', month: 'Nov', bg: 'bg-[#1e70eb]', title: 'School Sports Day', time: '9:00 AM – 4:00 PM' },
+                                    { day: '18', month: 'Nov', bg: 'bg-blue-600', title: 'Parent Meeting', time: '8:00 AM – 11:00 AM', tag: 'Meeting', tagBg: 'bg-purple-50 text-purple-700 border-purple-200' },
+                                    { day: '20', month: 'Nov', bg: 'bg-cyan-500', title: 'Term 3 Exams', time: '8:00 AM – 5:00 PM', tag: 'Exam', tagBg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                                    { day: '25', month: 'Nov', bg: 'bg-blue-600', title: 'School Sports Day', time: '9:00 AM – 4:00 PM', tag: 'Event', tagBg: 'bg-amber-50 text-amber-700 border-amber-200' },
                                 ].map((ev, i) => (
-                                    <div key={i} className="flex items-center justify-between gap-3 p-1 rounded-xl hover:bg-slate-50 transition-colors">
+                                    <div key={i} className="flex items-center justify-between gap-3 p-1.5 rounded-xl hover:bg-slate-50 transition-colors">
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <div className={`w-10 h-10 rounded-xl ${ev.bg} text-white flex flex-col items-center justify-center flex-shrink-0 shadow-sm leading-tight`}>
+                                            <div className={`w-10 h-10 rounded-xl ${ev.bg} text-white flex flex-col items-center justify-center flex-shrink-0 shadow-xs leading-tight`}>
                                                 <span className="text-sm font-black leading-none">{ev.day}</span>
                                                 <span className="text-[8px] font-bold uppercase leading-none mt-0.5">{ev.month}</span>
                                             </div>
@@ -954,70 +987,198 @@ export default function DashboardPage() {
                                                 <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{ev.time}</p>
                                             </div>
                                         </div>
-                                        <FiChevronRight size={14} className="text-slate-300 flex-shrink-0" />
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${ev.tagBg}`}>
+                                            {ev.tag}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Col 3: Fee Collection Trend */}
-                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-1.5">
+                        {/* Col 3: Top Performing Students */}
+                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
-                                    <FiTrendingUp className="text-blue-600" size={14} />
-                                    <span>Fee Collection Trend</span>
+                                    <FiUsers className="text-blue-600" size={14} />
+                                    <span>Top Performing Students</span>
                                 </div>
-                                <span className="text-[10px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 flex items-center gap-1">
-                                    6 Months <FiChevronDown size={11} />
-                                </span>
+                                <Link href="/dashboard/exams/merit-list" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
+                                    View All <FiChevronRight size={11} />
+                                </Link>
+                            </div>
+                            <div className="space-y-2.5">
+                                {(() => {
+                                    const defaultTop = [
+                                        { name: 'Mercy N. Kiplagat', form: 'Grade 10', avg: 98.5, initials: 'MK' },
+                                        { name: 'Ochieng Auma', form: 'Grade 10', avg: 97.8, initials: 'OA' },
+                                        { name: 'James Siambi', form: 'Grade 9', avg: 96.9, initials: 'JS' },
+                                        { name: 'Everly Wangari', form: 'Grade 8', avg: 95.6, initials: 'EW' },
+                                        { name: 'David Muthui', form: 'Grade 7', avg: 94.8, initials: 'DM' },
+                                    ];
+                                    const list = (topStudents.length >= 3 ? topStudents : defaultTop).slice(0, 5);
+                                    return list.map((st: any, i: number) => {
+                                        const inits = st.initials || (st.name || '').split(' ').map((n: string) => n ? n[0] : '').join('').slice(0, 2).toUpperCase() || 'ST';
+                                        return (
+                                            <div key={i} className="flex items-center justify-between gap-2 py-0.5">
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <span className="text-[11px] font-bold text-slate-400 w-3 text-center">{i + 1}</span>
+                                                    <div className="w-7 h-7 rounded-full bg-[#1e70eb] text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 shadow-xs">
+                                                        {inits}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-bold text-slate-800 truncate leading-tight">
+                                                            {st.name} <span className="text-slate-400 font-normal">― {st.form}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span className="flex-shrink-0 text-[11px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                                                    {st.avg}%
+                                                </span>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── ROW 5: BOTTOM STATUS & UTILITY CONTROL BAR ── */}
+                    <div className="flex flex-col lg:flex-row items-center justify-between gap-3 bg-white/80 backdrop-blur-md p-3 px-4 rounded-2xl border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+                        {/* Status Filter Pills */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                                type="button"
+                                onClick={() => setStatusFilter('active')}
+                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                                    statusFilter === 'active' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                <span>Active</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setStatusFilter('ontime')}
+                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                                    statusFilter === 'ontime' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                <span>On Time</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setStatusFilter('overdue')}
+                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                                    statusFilter === 'overdue' ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                <span className="w-2 h-2 rounded-full bg-red-500" />
+                                <span>Overdue</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setStatusFilter('all')}
+                                className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                            >
+                                <span>All Statuses</span>
+                                <FiChevronDown size={11} />
+                            </button>
+                        </div>
+
+                        {/* Pagination Controls */}
+                        <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200/60">
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-blue-600 flex items-center justify-center text-xs font-bold shadow-xs"
+                            >
+                                ‹
+                            </button>
+                            {[1, 2, 3].map(page => (
+                                <button
+                                    key={page}
+                                    type="button"
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                                        currentPage === page ? 'bg-blue-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(currentPage + 1)}
+                                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-blue-600 flex items-center justify-center text-xs font-bold shadow-xs"
+                            >
+                                ›
+                            </button>
+                            <span className="text-[11px] font-semibold text-slate-500 px-2 flex items-center gap-1">
+                                10 / page <FiChevronDown size={10} />
+                            </span>
+                        </div>
+
+                        {/* Utility Toolbar Icons */}
+                        <div className="flex items-center gap-2">
+                            {/* Theme Toggle Pill */}
+                            <div className="flex items-center gap-1.5 bg-slate-100 p-1 px-2.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600">
+                                <span>Theme</span>
+                                <FiMoon size={12} className="text-slate-400" />
+                                <div className="w-7 h-4 bg-blue-600 rounded-full relative cursor-pointer">
+                                    <div className="w-3 h-3 bg-white rounded-full absolute right-0.5 top-0.5 shadow-xs" />
+                                </div>
+                                <FiSun size={12} className="text-amber-500" />
                             </div>
 
-                            {/* Amount Pill */}
-                            <div className="flex justify-end mb-1">
-                                <span className="bg-[#0f172a] text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-sm">
-                                    Ksh 461,000
-                                </span>
-                            </div>
+                            {/* Print */}
+                            <button
+                                type="button"
+                                onClick={handlePrint}
+                                className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors"
+                                title="Print Dashboard"
+                            >
+                                <FiPrinter size={14} />
+                            </button>
 
-                            {/* 6 Month Bar Chart */}
-                            <div className="h-28 w-full">
-                                <svg viewBox="0 0 240 85" className="w-full h-full overflow-visible">
-                                    {/* Horizontal reference lines */}
-                                    <line x1="28" y1="12" x2="235" y2="12" stroke="#f1f5f9" strokeWidth="1" />
-                                    <line x1="28" y1="36" x2="235" y2="36" stroke="#f1f5f9" strokeWidth="1" />
-                                    <line x1="28" y1="60" x2="235" y2="60" stroke="#f1f5f9" strokeWidth="1" />
-                                    {/* Y-axis labels */}
-                                    <text x="22" y="15" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">600K</text>
-                                    <text x="22" y="39" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">400K</text>
-                                    <text x="22" y="63" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">200K</text>
-                                    <text x="22" y="80" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">0K</text>
+                            {/* Download */}
+                            <button
+                                type="button"
+                                onClick={handlePrint}
+                                className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors"
+                                title="Download PDF Report"
+                            >
+                                <FiDownload size={14} />
+                            </button>
 
-                                    {/* Bars: Jun (h=14), Jul (h=22), Aug (h=35), Sep (h=42), Oct (h=52), Nov (h=68) */}
-                                    {/* Jun */}
-                                    <rect x="42" y="60" width="18" height="15" rx="3" fill="#60a5fa" />
-                                    <text x="51" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Jun</text>
+                            {/* Share */}
+                            <button
+                                type="button"
+                                onClick={handleShare}
+                                className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors"
+                                title="Share Dashboard Link"
+                            >
+                                <FiShare2 size={14} />
+                            </button>
 
-                                    {/* Jul */}
-                                    <rect x="76" y="52" width="18" height="23" rx="3" fill="#60a5fa" />
-                                    <text x="85" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Jul</text>
+                            {/* Fullscreen */}
+                            <button
+                                type="button"
+                                onClick={handleFullscreen}
+                                className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors"
+                                title="Toggle Fullscreen"
+                            >
+                                <FiMaximize size={14} />
+                            </button>
 
-                                    {/* Aug */}
-                                    <rect x="110" y="44" width="18" height="31" rx="3" fill="#60a5fa" />
-                                    <text x="119" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Aug</text>
-
-                                    {/* Sep */}
-                                    <rect x="144" y="38" width="18" height="37" rx="3" fill="#60a5fa" />
-                                    <text x="153" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Sep</text>
-
-                                    {/* Oct */}
-                                    <rect x="178" y="28" width="18" height="47" rx="3" fill="#60a5fa" />
-                                    <text x="187" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Oct</text>
-
-                                    {/* Nov (Highlighted Vivid Blue) */}
-                                    <rect x="212" y="14" width="18" height="61" rx="3" fill="#1d4ed8" />
-                                    <text x="221" y="83" textAnchor="middle" fontSize="8" fill="#1d4ed8" fontWeight="bold">Nov</text>
-                                </svg>
-                            </div>
+                            {/* Logout */}
+                            <a
+                                href="/api/auth/logout"
+                                className="w-8 h-8 rounded-xl bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 flex items-center justify-center shadow-xs transition-colors"
+                                title="Logout"
+                            >
+                                <FiPower size={14} />
+                            </a>
                         </div>
                     </div>
                 </div>
