@@ -801,7 +801,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SchoolModeProvider userSection={userSection}>
         <ThemeProvider>
         <LayoutThemeExtras>
-        <div className="min-h-screen bg-[#f0f2f5] flex font-sans text-gray-800">
+        <div className="min-h-screen bg-[#edf2f9] flex text-slate-800" style={{ fontFamily: "'Inter', 'Outfit', system-ui, -apple-system, sans-serif" }}>
             <CommandPalette />
             <QuickActionsButton />
             {pageLoading && (
@@ -1013,156 +1013,162 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* ── Offline banner + premium sync overlay ── */}
                 {SyncUI}
 
-                {/* Top Bar — Modern School Management UI Kit */}
-                <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/70 px-4 lg:px-6 h-16 flex items-center justify-between transition-all">
-                    {/* Left: Mobile Menu + Pill Search Bar */}
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors">
-                            <LucideMenu size={20} strokeWidth={2.2} />
-                        </button>
-                        <div
-                            className="hidden sm:flex items-center gap-2.5 bg-slate-50/90 hover:bg-white hover:border-blue-400 border border-slate-200/80 rounded-full px-4 py-2 w-72 md:w-80 cursor-pointer shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] transition-all duration-200 group"
-                            onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))}
-                            title="Search (Ctrl+K)"
-                        >
-                            <LucideSearch className="text-slate-400 group-hover:text-blue-500 transition-colors" size={15} strokeWidth={2.2} />
-                            <span className="text-xs text-slate-400 select-none flex-1 font-medium">Search students, staff, reports...</span>
-                            <span className="text-[10px] text-slate-400 font-mono bg-white px-2 py-0.5 rounded-full border border-slate-200 shadow-xs font-semibold">Ctrl + K</span>
-                        </div>
-                    </div>
-
-                    {/* Right: WiFi, Bell, Settings, Divider, User Pill, + New Action */}
-                    <div className="flex items-center gap-2">
-                        {/* WiFi status indicator */}
-                        <div
-                            className={`w-9 h-9 rounded-full flex items-center justify-center border shadow-xs transition-colors ${
-                                isOffline
-                                    ? 'bg-amber-50 text-amber-600 border-amber-200'
-                                    : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'
-                            }`}
-                            title={isOffline ? 'Offline' : 'Online & Connected'}
-                        >
-                            {isOffline ? <LucideWifiOff size={16} strokeWidth={2.2} /> : <LucideWifi size={16} strokeWidth={2.2} />}
+                {/* ── Top Floating Glass Island Header (Exact Match to Premium UI Kit) ── */}
+                <div className="sticky top-2 z-30 px-4 lg:px-6 pt-3 pb-1">
+                    <header className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-2xl px-4 lg:px-5 py-2.5 flex items-center justify-between transition-all">
+                        {/* Left: Mobile Menu + Soft Ice-Blue Pill Search Bar */}
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setMobileMenuOpen(true)}
+                                className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                            >
+                                <LucideMenu size={20} strokeWidth={2.2} />
+                            </button>
+                            <div
+                                className="hidden sm:flex items-center gap-3 bg-[#f0f5fc] hover:bg-white hover:border-blue-400 border border-[#e2ecf8] rounded-full px-4 py-2 w-72 sm:w-80 md:w-96 cursor-pointer shadow-[inset_0_1px_3px_rgba(0,30,80,0.04)] transition-all duration-200 group"
+                                onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))}
+                                title="Search (Ctrl+K)"
+                            >
+                                <LucideSearch className="text-[#8a9bb5] group-hover:text-blue-500 transition-colors" size={16} strokeWidth={2.4} />
+                                <span className="text-xs text-[#7a8da8] group-hover:text-slate-600 select-none flex-1 font-medium">Search students, staff, reports...</span>
+                                <span className="text-[10px] text-slate-500 font-mono font-bold bg-white px-2.5 py-0.5 rounded-full border border-slate-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">Ctrl + K</span>
+                            </div>
                         </div>
 
-                        {/* Notification Bell */}
-                        <Link
-                            href="/dashboard/notifications"
-                            className="relative w-9 h-9 rounded-full bg-white border border-slate-200/80 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors"
-                            title="Notifications"
-                        >
-                            <LucideBell size={16} strokeWidth={2.2} />
-                            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-black flex items-center justify-center shadow-xs">
-                                3
-                            </span>
-                        </Link>
+                        {/* Right Controls: Glowing Wifi, Bell (3), Settings, Divider, User Pill, + New Action */}
+                        <div className="flex items-center gap-2.5">
+                            {/* Glowing Mint Wifi Orb */}
+                            <div
+                                className={`w-10 h-10 rounded-full flex items-center justify-center border shadow-[0_2px_8px_rgba(16,185,129,0.15)] transition-all hover:scale-105 ${
+                                    isOffline
+                                        ? 'bg-amber-50 text-amber-600 border-amber-200'
+                                        : 'bg-[#e8faf3] text-[#10b981] border-[#c6f6e5]'
+                                }`}
+                                title={isOffline ? 'Offline' : 'Online & Connected'}
+                            >
+                                {isOffline ? <LucideWifiOff size={17} strokeWidth={2.4} /> : <LucideWifi size={17} strokeWidth={2.4} />}
+                            </div>
 
-                        {/* Settings */}
-                        <Link
-                            href="/dashboard/settings"
-                            className="w-9 h-9 rounded-full bg-white border border-slate-200/80 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors"
-                            title="Settings"
-                        >
-                            <LucideSettings size={16} strokeWidth={2.2} />
-                        </Link>
+                            {/* White Glossy Notification Bell */}
+                            <Link
+                                href="/dashboard/notifications"
+                                className="relative w-10 h-10 rounded-full bg-white border border-slate-200/80 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:scale-105 transition-all"
+                                title="Notifications"
+                            >
+                                <LucideBell size={17} strokeWidth={2.2} />
+                                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-gradient-to-tr from-rose-500 to-red-500 text-white rounded-full text-[9px] font-black flex items-center justify-center shadow-[0_2px_6px_rgba(239,68,68,0.4)]">
+                                    3
+                                </span>
+                            </Link>
 
-                        {/* Divider */}
-                        <div className="h-5 w-[1px] bg-slate-200 mx-1" />
+                            {/* White Glossy Settings Button */}
+                            <Link
+                                href="/dashboard/settings"
+                                className="w-10 h-10 rounded-full bg-white border border-slate-200/80 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:scale-105 transition-all"
+                                title="Settings"
+                            >
+                                <LucideSettings size={17} strokeWidth={2.2} />
+                            </Link>
 
-                        {/* User Profile Pill with Dropdown */}
-                        {user && (
-                            <div className="relative group">
-                                <button
-                                    className="flex items-center gap-2 bg-white border border-slate-200/90 rounded-full pl-1.5 pr-3 py-1 shadow-xs cursor-pointer hover:border-blue-300 transition-all"
-                                    title={`${user.full_name} — ${user.role}`}
-                                >
-                                    <div
-                                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs flex-shrink-0"
-                                        style={{ background: 'linear-gradient(135deg,#2563eb 0%,#4f46e5 100%)' }}
+                            {/* Clean Vertical Divider */}
+                            <div className="h-6 w-[1.5px] bg-slate-200/80 mx-1" />
+
+                            {/* Premium User Profile Pill */}
+                            {user && (
+                                <div className="relative group">
+                                    <button
+                                        className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-full pl-1.5 pr-3.5 py-1.5 shadow-[0_2px_10px_rgba(0,0,0,0.04)] hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                                        title={`${user.full_name} — ${user.role}`}
                                     >
-                                        {user.full_name?.charAt(0)?.toUpperCase() || 'A'}
+                                        <div
+                                            className="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-[0_2px_8px_rgba(37,99,235,0.35)] flex-shrink-0"
+                                            style={{ background: 'linear-gradient(135deg,#2563eb 0%,#1e40af 100%)' }}
+                                        >
+                                            <LucideUser size={15} strokeWidth={2.5} />
+                                        </div>
+                                        <div className="hidden md:block text-left leading-tight">
+                                            <p className="text-[12px] font-black text-slate-800 tracking-tight leading-none uppercase">{user.full_name}</p>
+                                            <p className="text-[10px] text-slate-400 font-semibold capitalize leading-none mt-1">{user.role || 'Admin'}</p>
+                                        </div>
+                                        <LucideChevronDown size={14} strokeWidth={2.4} className="text-slate-400 hidden md:block" />
+                                    </button>
+
+                                    {/* Dropdown Menu */}
+                                    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 overflow-hidden">
+                                        <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-black text-base shadow-sm">
+                                                    <LucideUser size={18} strokeWidth={2.5} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="font-bold text-sm truncate">{user.full_name}</p>
+                                                    <p className="text-blue-100 text-xs truncate">@{user.username}</p>
+                                                    <span className="inline-block mt-0.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 bg-white/20 rounded-full">{user.role}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="p-2 space-y-0.5">
+                                            <Link href="/dashboard/settings" className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-xs font-semibold">
+                                                <LucideUser size={14} strokeWidth={2} /> My Profile
+                                            </Link>
+                                            <Link href="/dashboard/settings" className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-xs font-semibold">
+                                                <LucideKey size={14} strokeWidth={2} /> Change Password
+                                            </Link>
+                                            <Link href="/dashboard/audit" className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-xs font-semibold">
+                                                <LucideShield size={14} strokeWidth={2} /> Audit Log
+                                            </Link>
+                                            <hr className="my-1 border-slate-100" />
+                                            <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 transition-colors text-xs font-bold">
+                                                <LucideLogOut size={14} strokeWidth={2} /> Sign Out
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="hidden md:block text-left leading-tight">
-                                        <p className="text-xs font-bold text-slate-800 leading-none">{user.full_name}</p>
-                                        <p className="text-[10px] text-slate-400 capitalize leading-none mt-0.5">{user.role}</p>
-                                    </div>
-                                    <LucideChevronDown size={13} strokeWidth={2.2} className="text-slate-400 hidden md:block" />
+                                </div>
+                            )}
+
+                            {/* Royal Electric Blue Glowing + New Action Button */}
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNewActionMenu(!showNewActionMenu)}
+                                    className="flex items-center gap-2 text-white font-bold text-xs px-5 py-2.5 rounded-2xl shadow-[0_6px_20px_rgba(29,99,237,0.35)] hover:shadow-[0_8px_25px_rgba(29,99,237,0.45)] hover:scale-[1.02] active:scale-95 transition-all duration-200"
+                                    style={{ background: 'linear-gradient(135deg, #1d63ed 0%, #1e40af 100%)' }}
+                                >
+                                    <LucidePlus size={16} strokeWidth={2.8} />
+                                    <span className="font-bold tracking-wide">New Action</span>
+                                    <LucideChevronDown size={14} strokeWidth={2.4} className={`transition-transform duration-200 ${showNewActionMenu ? 'rotate-180' : ''}`} />
                                 </button>
 
                                 {/* Dropdown Menu */}
-                                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 overflow-hidden">
-                                    <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-black text-base">
-                                                {user.full_name?.charAt(0)?.toUpperCase() || 'A'}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="font-bold text-sm truncate">{user.full_name}</p>
-                                                <p className="text-blue-100 text-xs truncate">@{user.username}</p>
-                                                <span className="inline-block mt-0.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 bg-white/20 rounded-full">{user.role}</span>
-                                            </div>
-                                        </div>
+                                {showNewActionMenu && (
+                                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 py-1.5">Quick Shortcuts</p>
+                                        <Link href="/dashboard/fees/collect" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                            <LucideCreditCard size={15} strokeWidth={2} className="text-emerald-600" /> Collect Fee Payment
+                                        </Link>
+                                        <Link href="/dashboard/students/admissions" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                            <LucideUserPlus size={15} strokeWidth={2} className="text-blue-600" /> Register New Student
+                                        </Link>
+                                        <Link href="/dashboard/exams/marks" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                            <LucideFileText size={15} strokeWidth={2} className="text-amber-600" /> Enter Exam Marks
+                                        </Link>
+                                        <Link href="/dashboard/expenses" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                            <LucideDollarSign size={15} strokeWidth={2} className="text-red-500" /> Add School Expense
+                                        </Link>
+                                        <Link href="/dashboard/fees/bulk-reminders" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                            <LucideMessageSquare size={15} strokeWidth={2} className="text-purple-600" /> Broadcast Bulk SMS
+                                        </Link>
                                     </div>
-                                    <div className="p-2 space-y-0.5">
-                                        <Link href="/dashboard/settings" className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-xs font-semibold">
-                                            <LucideUser size={14} strokeWidth={2} /> My Profile
-                                        </Link>
-                                        <Link href="/dashboard/settings" className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-xs font-semibold">
-                                            <LucideKey size={14} strokeWidth={2} /> Change Password
-                                        </Link>
-                                        <Link href="/dashboard/audit" className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-xs font-semibold">
-                                            <LucideShield size={14} strokeWidth={2} /> Audit Log
-                                        </Link>
-                                        <hr className="my-1 border-slate-100" />
-                                        <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 transition-colors text-xs font-bold">
-                                            <LucideLogOut size={14} strokeWidth={2} /> Sign Out
-                                        </button>
-                                    </div>
-                                </div>
+                                )}
                             </div>
-                        )}
-
-                        {/* + New Action Dropdown Button */}
-                        <div className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setShowNewActionMenu(!showNewActionMenu)}
-                                className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
-                            >
-                                <LucidePlus size={15} strokeWidth={2.5} />
-                                <span>New Action</span>
-                                <LucideChevronDown size={13} strokeWidth={2.2} className={`transition-transform duration-200 ${showNewActionMenu ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            {/* Dropdown Menu */}
-                            {showNewActionMenu && (
-                                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 py-1.5">Quick Shortcuts</p>
-                                    <Link href="/dashboard/fees/collect" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                        <LucideCreditCard size={15} strokeWidth={2} className="text-emerald-600" /> Collect Fee Payment
-                                    </Link>
-                                    <Link href="/dashboard/students/admissions" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                        <LucideUserPlus size={15} strokeWidth={2} className="text-blue-600" /> Register New Student
-                                    </Link>
-                                    <Link href="/dashboard/exams/marks" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                        <LucideFileText size={15} strokeWidth={2} className="text-amber-600" /> Enter Exam Marks
-                                    </Link>
-                                    <Link href="/dashboard/expenses" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                        <LucideDollarSign size={15} strokeWidth={2} className="text-red-500" /> Add School Expense
-                                    </Link>
-                                    <Link href="/dashboard/fees/bulk-reminders" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                        <LucideMessageSquare size={15} strokeWidth={2} className="text-purple-600" /> Broadcast Bulk SMS
-                                    </Link>
-                                </div>
-                            )}
                         </div>
-                    </div>
-                </header>
+                    </header>
+                </div>
 
                 {/* 🔴 LIVE: Supabase Realtime — fee payments, attendance, discipline */}
-                    <RealtimeProvider />
+                <RealtimeProvider />
                 {/* Page Content */}
-                <div className="p-4 lg:p-6 flex-1 overflow-x-hidden">
+                <div className="px-4 lg:px-6 pb-6 flex-1 overflow-x-hidden">
                     {children}
                 </div>
             </main>
