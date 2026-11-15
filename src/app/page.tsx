@@ -6,38 +6,113 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { usePageIcon } from '@/lib/usePageIcon';
 
-// School Book/Graduation SVG Logo
-function SchoolLogo({ className = 'w-16 h-16' }: { className?: string }) {
+/* ─── Golden Laurel School Crest (Matches Image 2) ─── */
+function SchoolCrest({ logoUrl, className = 'w-16 h-16' }: { logoUrl?: string | null; className?: string }) {
+    if (logoUrl) {
+        return (
+            <div className={`relative rounded-2xl overflow-hidden border-2 border-amber-400/80 shadow-lg shadow-purple-950/40 ${className}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt="School Logo" className="w-full h-full object-cover" />
+            </div>
+        );
+    }
     return (
-        <svg className={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* Outer circle */}
-            <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="2.5" opacity="0.2"/>
-            <circle cx="50" cy="50" r="42" fill="currentColor" opacity="0.1"/>
-            {/* Graduation cap */}
-            <polygon points="50,25 20,40 50,55 80,40" fill="currentColor"/>
-            <rect x="47" y="42" width="6" height="20" rx="1" fill="currentColor" opacity="0.8"/>
-            <rect x="35" y="60" width="30" height="4" rx="2" fill="currentColor" opacity="0.6"/>
-            {/* Tassel */}
-            <line x1="20" y1="40" x2="20" y2="55" stroke="currentColor" strokeWidth="2.5" opacity="0.7"/>
-            <circle cx="20" cy="57" r="3" fill="currentColor" opacity="0.7"/>
+        <svg className={className} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="crestGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#fef08a" />
+                    <stop offset="50%" stopColor="#f59e0b" />
+                    <stop offset="100%" stopColor="#b45309" />
+                </linearGradient>
+                <linearGradient id="crestPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#7c3aed" />
+                    <stop offset="50%" stopColor="#581c87" />
+                    <stop offset="100%" stopColor="#3b0764" />
+                </linearGradient>
+                <filter id="crestGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#000" floodOpacity="0.4" />
+                </filter>
+            </defs>
+
+            {/* Left Laurel Wreath */}
+            <g fill="url(#crestGold)" filter="url(#crestGlow)">
+                <path d="M26 42c-3-8-4-16-1-22 3 5 4 12 1 22z" />
+                <path d="M20 54c-5-7-7-15-4-21 4 5 6 12 4 21z" />
+                <path d="M18 68c-6-6-9-14-6-20 4 4 8 10 6 20z" />
+                <path d="M20 82c-6-4-10-11-8-17 5 3 10 7 8 17z" />
+                <path d="M26 94c-5-3-9-8-8-14 5 2 10 5 8 14z" />
+                <path d="M35 102c-4-2-7-6-7-11 4 1 9 3 7 11z" />
+                {/* Wreath branch stem */}
+                <path d="M22 36c-7 20-6 44 14 66" stroke="url(#crestGold)" strokeWidth="3" strokeLinecap="round" fill="none" />
+            </g>
+
+            {/* Right Laurel Wreath */}
+            <g fill="url(#crestGold)" filter="url(#crestGlow)">
+                <path d="M94 42c3-8 4-16 1-22-3 5-4 12-1 22z" />
+                <path d="M100 54c5-7 7-15 4-21-4 5-6 12-4 21z" />
+                <path d="M102 68c6-6 9-14 6-20-4 4-8 10-6 20z" />
+                <path d="M100 82c6-4 10-11 8-17-5 3-10 7-8 17z" />
+                <path d="M94 94c5-3 9-8 8-14-5 2-10 5-8 14z" />
+                <path d="M85 102c4-2 7-6 7-11-4 1-9 3-7 11z" />
+                {/* Wreath branch stem */}
+                <path d="M98 36c7 20 6 44-14 66" stroke="url(#crestGold)" strokeWidth="3" strokeLinecap="round" fill="none" />
+            </g>
+
+            {/* Central Shield */}
+            <g filter="url(#crestGlow)">
+                {/* Outer Gold Border */}
+                <path d="M60 16L86 28v32c0 20-11 34-26 40-15-6-26-20-26-40V28L60 16z" fill="url(#crestGold)" />
+                {/* Inner Purple Shield */}
+                <path d="M60 20L82 30v30c0 17-9 29-22 35-13-6-22-18-22-35V30L60 20z" fill="url(#crestPurple)" />
+            </g>
+
+            {/* Shield Interior: Open Book and Graduation Cap */}
+            <g fill="#ffffff">
+                {/* Cap */}
+                <polygon points="60,33 46,40 60,47 74,40" />
+                <polygon points="58,47 54,49 54,54 60,56 66,54 66,49 62,47" opacity="0.9" />
+                {/* Tassel */}
+                <line x1="46" y1="40" x2="43" y2="47" stroke="#fef08a" strokeWidth="1.5" />
+                <circle cx="43" cy="48" r="1.5" fill="#fef08a" />
+                {/* Open Book */}
+                <path d="M60 56c-4-2-9-3-15-2v15c6-1 11 0 15 2 4-2 9-3 15-2V54c-6-1-11 0-15 2z" opacity="0.95" />
+                <path d="M60 56v15" stroke="url(#crestGold)" strokeWidth="1.5" />
+            </g>
+
+            {/* Golden Ribbon Banner Below */}
+            <g filter="url(#crestGlow)">
+                <path d="M30 96l10-4h40l10 4-4 8H34l-4-8z" fill="url(#crestGold)" />
+                <polygon points="30,96 34,104 22,106 27,99 22,93" fill="#b45309" />
+                <polygon points="90,96 86,104 98,106 93,99 98,93" fill="#b45309" />
+                <line x1="38" y1="100" x2="82" y2="100" stroke="#78350f" strokeWidth="1.5" strokeDasharray="2 2" />
+            </g>
         </svg>
     );
 }
 
-// Floating book/pencil animation elements
-function FloatingElements() {
+/* ─── 3D Circular Emblem for the Login Card ─── */
+function CardEmblem() {
     return (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            {/* Book shapes */}
-            <div className="absolute top-[15%] left-[10%] w-8 h-6 bg-indigo-400/10 rounded-sm rotate-12 animate-float1"></div>
-            <div className="absolute top-[30%] right-[15%] w-10 h-7 bg-violet-400/10 rounded-sm -rotate-12 animate-float2"></div>
-            <div className="absolute top-[60%] left-[20%] w-6 h-4 bg-purple-400/10 rounded-sm rotate-30 animate-float3"></div>
-            <div className="absolute bottom-[20%] right-[25%] w-9 h-6 bg-indigo-300/10 rounded-sm -rotate-45 animate-float1"></div>
-            <div className="absolute top-[45%] left-[70%] w-7 h-5 bg-blue-400/10 rounded-sm rotate-60 animate-float2"></div>
-            {/* Star shapes */}
-            <div className="absolute top-[20%] right-[30%] text-indigo-500/8 text-3xl font-bold animate-float3">✦</div>
-            <div className="absolute bottom-[30%] left-[15%] text-violet-500/8 text-4xl font-bold animate-float1">✦</div>
-            <div className="absolute top-[70%] right-[10%] text-purple-500/8 text-2xl font-bold animate-float2">✦</div>
+        <div className="relative w-20 h-20 rounded-full p-[3px] bg-gradient-to-tr from-amber-600 via-amber-300 to-yellow-100 shadow-[0_10px_30px_rgba(124,58,237,0.45)]">
+            <div className="w-full h-full rounded-full p-[2px] bg-amber-500/80">
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-950 via-purple-900 to-violet-950 flex items-center justify-center shadow-inner relative overflow-hidden">
+                    {/* Glossy sheen reflection */}
+                    <div className="absolute -top-3 -left-3 w-14 h-14 bg-white/20 rounded-full blur-sm pointer-events-none"></div>
+
+                    {/* Graduation Cap & Open Book Graphic */}
+                    <svg className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]" viewBox="0 0 64 64" fill="currentColor">
+                        {/* Mortarboard */}
+                        <polygon points="32,14 10,24 32,34 54,24" fill="#ffffff" />
+                        <polygon points="28,34 23,37 23,43 32,47 41,43 41,37 36,34" fill="#e0e7ff" />
+                        {/* Tassel */}
+                        <path d="M10 24v13" stroke="#fef08a" strokeWidth="2.5" strokeLinecap="round" />
+                        <circle cx="10" cy="38" r="2" fill="#fef08a" />
+                        {/* Open Book */}
+                        <path d="M32 44c-5-3-12-4-20-3v12c8-1 15 0 20 3 5-3 12-4 20-3V41c-8-1-15 0-20 3z" fill="#ffffff" opacity="0.95" />
+                        <line x1="32" y1="44" x2="32" y2="56" stroke="#fbbf24" strokeWidth="2" />
+                    </svg>
+                </div>
+            </div>
         </div>
     );
 }
@@ -45,21 +120,19 @@ function FloatingElements() {
 export default function LoginPage() {
     const router = useRouter();
     usePageIcon();
-    // Set login-specific title and favicon
-    useEffect(() => {
-        document.title = 'APSIMS - Login';
-        const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
-        if (link) link.href = '/favicon.svg';
-    }, []);
+
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [currentTime, setCurrentTime] = useState('');
-    const [currentDate, setCurrentDate] = useState('');
-    const [schoolName, setSchoolName] = useState('Alpha School');
+    const [schoolName, setSchoolName] = useState('SUNSHINE ACADEMY');
+    const [schoolMotto, setSchoolMotto] = useState('');
+    const [schoolLogoUrl, setSchoolLogoUrl] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
+
+    // Forgot password state
     const [showForgot, setShowForgot] = useState(false);
     const [forgotStep, setForgotStep] = useState<'request' | 'verify' | 'reset'>('request');
     const [forgotUsername, setForgotUsername] = useState('');
@@ -74,32 +147,39 @@ export default function LoginPage() {
 
     useEffect(() => {
         setMounted(true);
-        const updateDateTime = () => {
-            const now = new Date();
-            setCurrentTime(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
-            setCurrentDate(now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
-        };
-        updateDateTime();
-        const interval = setInterval(updateDateTime, 1000);
 
-        // Load school name from settings
-        const loadSchoolName = async () => {
+        // Load saved remember me username
+        try {
+            const saved = localStorage.getItem('apsims_remember_user');
+            if (saved) {
+                setUsername(saved);
+                setRememberMe(true);
+            }
+        } catch {
+            // Ignore
+        }
+
+        // Load school details from Supabase (school_name, motto, logo_url)
+        const loadSchoolDetails = async () => {
             try {
                 const { data } = await supabase
                     .from('school_details')
-                    .select('school_name')
+                    .select('school_name, motto, logo_url')
                     .limit(1)
                     .single();
                 if (data?.school_name) {
                     setSchoolName(data.school_name);
+                    document.title = `${data.school_name} - Login`;
+                } else {
+                    document.title = 'APSIMS - Login';
                 }
+                if (data?.motto) setSchoolMotto(data.motto);
+                if (data?.logo_url) setSchoolLogoUrl(data.logo_url);
             } catch {
-                // Use default
+                document.title = 'APSIMS - Login';
             }
         };
-        loadSchoolName();
-
-        return () => clearInterval(interval);
+        loadSchoolDetails();
     }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -128,15 +208,33 @@ export default function LoginPage() {
                 return;
             }
 
-            // Store user data in localStorage for UI (session is in httpOnly cookie)
+            // Handle Remember Me
+            try {
+                if (rememberMe) {
+                    localStorage.setItem('apsims_remember_user', username.trim());
+                } else {
+                    localStorage.removeItem('apsims_remember_user');
+                }
+            } catch {
+                // Ignore storage error
+            }
+
+            // Store user data in localStorage for UI
             if (typeof window !== 'undefined') localStorage.setItem('school_user', JSON.stringify(data.user));
-            const roleLabels: Record<string, string> = { admin: '🔑 Admin', principal: '🎓 Principal', bursar: '💰 Bursar', accountant: '📊 Accountant', receptionist: '📋 Receptionist', teacher: '👨‍🏫 Teacher' };
+            const roleLabels: Record<string, string> = {
+                admin: '🔑 Admin',
+                principal: '🎓 Principal',
+                bursar: '💰 Bursar',
+                accountant: '📊 Accountant',
+                receptionist: '📋 Receptionist',
+                teacher: '👨‍🏫 Teacher',
+            };
             toast.success(`Welcome, ${data.user.full_name}! (${roleLabels[data.user.role] || data.user.role})`);
 
-            // Smart redirect — send user to their first allowed page
+            // Smart redirect
             const perms: Record<string, boolean> = data.user.permissions || {};
             const role = (data.user.role || '').toLowerCase();
-            const isAdminRole = ['admin','principal','super-admin','superadmin','super_admin'].includes(role);
+            const isAdminRole = ['admin', 'principal', 'super-admin', 'superadmin', 'super_admin'].includes(role);
             if (isAdminRole || perms['dashboard'] === true) {
                 router.push('/dashboard');
             } else if (perms['stores'] === true) {
@@ -157,12 +255,10 @@ export default function LoginPage() {
                 router.push('/dashboard');
             }
         } catch {
-            setError('Login failed. Please try again.');
+            setError('Login failed. Please check your network and try again.');
         }
         setIsLoading(false);
     };
-
-    if (!mounted) return null;
 
     const handleForgotRequest = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -192,8 +288,6 @@ export default function LoginPage() {
     const handleForgotVerify = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!forgotCode.trim()) { toast.error('Enter the reset code'); return; }
-        // In production, verify the code against the token server-side
-        // For now, having the token is sufficient — the code is for SMS-based verification
         setForgotStep('reset');
     };
 
@@ -229,129 +323,115 @@ export default function LoginPage() {
         setForgotToken(''); setForgotUserId(null); setForgotDevCode(''); setForgotHint('');
     };
 
+    if (!mounted) return null;
+
     return (
-        <div className="min-h-screen flex relative overflow-hidden">
-            {/* Left Panel - Dark School Branding */}
-            <div className="hidden lg:flex lg:w-[45%] bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white flex-col justify-between p-10 relative overflow-hidden">
-                {/* Decorative elements */}
-                <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl"></div>
-                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl"></div>
-                    <div className="absolute top-1/3 left-1/4 w-48 h-48 bg-purple-400/5 rounded-full blur-2xl animate-pulse"></div>
-                    {/* Grid pattern */}
-                    <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-                    {/* Subtle pattern overlay */}
-                    <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }}></div>
-                </div>
+        <div className="min-h-screen w-full relative overflow-x-hidden bg-[#0d1224] text-slate-100 flex flex-col justify-between select-none">
+            {/* Google Fonts: Caveat & Dancing Script for the exact cursive golden motto */}
+            <style jsx global>{`
+                @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Dancing+Script:wght@700&display=swap');
 
-                <FloatingElements />
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    15%, 45%, 75% { transform: translateX(-5px); }
+                    30%, 60%, 90% { transform: translateX(5px); }
+                }
+                .animate-shake {
+                    animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+                }
+            `}</style>
 
-                {/* Top - Logo & Branding */}
-                <div className="relative z-10">
-                    <div className="flex items-center gap-4 mb-8">
-                        <div className="w-14 h-14 bg-gradient-to-br from-indigo-400 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 relative">
-                            {/* Graduation Cap Icon */}
-                            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold tracking-tight">{schoolName}</h2>
-                            <p className="text-indigo-400/70 text-xs font-medium tracking-wider uppercase">School Management System</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Middle - Feature Highlights */}
-                <div className="relative z-10 space-y-6">
-                    <h1 className="text-3xl font-bold leading-tight">
-                        Smart School<br />
-                        <span className="bg-gradient-to-r from-indigo-400 to-violet-300 bg-clip-text text-transparent">Management System</span>
-                    </h1>
-                    <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-                        Complete student enrollment, fee management, exam processing, staff payroll, and comprehensive academic reporting — all in one platform.
-                    </p>
-
-                    <div className="space-y-4 pt-4">
-                        {[
-                            { emoji: '👨‍🎓', text: 'Student registration & enrollment tracking' },
-                            { emoji: '💰', text: 'Fee structures, payments & balance statements' },
-                            { emoji: '📝', text: 'Exam entry, grading & broadsheet generation' },
-                            { emoji: '👨‍🏫', text: 'Staff management — TSC, BOM & subordinate' },
-                            { emoji: '📊', text: 'Financial reporting, payroll & expense tracking' },
-                        ].map((feature, i) => (
-                            <div key={i} className="flex items-center gap-3 text-sm text-slate-300">
-                                <span className="text-lg flex-shrink-0">{feature.emoji}</span>
-                                <span>{feature.text}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Bottom - Date/Time & Credits */}
-                <div className="relative z-10 space-y-4">
-                    <div className="flex items-center gap-3 text-sm text-slate-500">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/></svg>
-                        <span>{currentTime}</span>
-                        <span className="w-1 h-1 rounded-full bg-slate-600"></span>
-                        <span>{currentDate}</span>
-                    </div>
-                    <div className="border-t border-slate-800 pt-4">
-                        <p className="text-slate-500 text-xs">Powered by <span className="text-indigo-400 font-semibold">Hawkinsoft Solutions</span></p>
-                        <p className="text-slate-600 text-[10px] mt-1">Developed by Jimhawkins Korir • 0720316175</p>
-                    </div>
-                </div>
+            {/* Background Master Graphic (Matches Image 2 exactly) */}
+            <div
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0"
+                style={{ backgroundImage: `url('/login-bg-master.jpg')` }}
+            >
+                {/* Subtle atmospheric vignette */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-indigo-950/20"></div>
+                {/* Soft right-side blur mask to guarantee 100% clean backdrop for HTML inputs across any aspect ratio */}
+                <div className="absolute inset-y-0 right-0 w-full lg:w-[48%] bg-indigo-950/15 backdrop-blur-[2px]"></div>
             </div>
 
-            {/* Right Panel - Login Form */}
-            <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 via-indigo-50/20 to-violet-50/30 p-6 relative">
-                {/* Subtle background */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                    <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-100/40 rounded-full blur-3xl"></div>
-                    <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-violet-100/30 rounded-full blur-3xl"></div>
-                    <div className="absolute top-1/2 right-1/4 w-40 h-40 bg-purple-100/20 rounded-full blur-3xl"></div>
+            {/* Main Content Layout */}
+            <div className="relative z-10 w-full flex-1 flex flex-col justify-between p-4 sm:p-6 lg:p-10 min-h-screen max-w-[1920px] mx-auto">
+
+                {/* Top Section */}
+                <div className="w-full flex items-start justify-between">
+                    {/* Top-Left School Branding (Dynamic from Database) */}
+                    <div className="flex items-start gap-3 sm:gap-4 group">
+                        <SchoolCrest logoUrl={schoolLogoUrl} className="w-14 h-14 sm:w-20 sm:h-20 flex-shrink-0 drop-shadow-xl" />
+                        <div className="pt-1">
+                            <h1 className="text-xl sm:text-3xl lg:text-4xl font-black text-white tracking-wide uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] leading-none">
+                                {schoolName}
+                            </h1>
+                            <p className="text-cyan-300 text-[10px] sm:text-xs lg:text-sm font-bold tracking-[0.22em] uppercase drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] mt-1.5">
+                                SCHOOL MANAGEMENT SYSTEM
+                            </p>
+                            {/* Cursive Golden Motto */}
+                            <div
+                                className="mt-2 text-amber-300 text-lg sm:text-2xl lg:text-3xl font-bold italic tracking-wide drop-shadow-[0_3px_8px_rgba(0,0,0,0.75)]"
+                                style={{ fontFamily: "'Caveat', 'Dancing Script', cursive" }}
+                            >
+                                {schoolMotto ? (
+                                    <span>{schoolMotto}</span>
+                                ) : (
+                                    <div className="leading-tight">
+                                        <span>Learning Today...</span>
+                                        <span className="block ml-6 sm:ml-8">Leading Tomorrow!</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Main Login Form */}
-                <div className="relative z-10 w-full max-w-md">
-                    {/* Mobile-only header */}
-                    <div className="lg:hidden text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-400 to-violet-600 rounded-2xl shadow-lg shadow-indigo-500/30 mb-4 text-white">
-                            <svg className="w-11 h-11" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/>
-                            </svg>
-                        </div>
-                        <h1 className="text-2xl font-bold text-gray-800">{schoolName}</h1>
-                        <p className="text-gray-500 text-sm mt-1">School Management System</p>
-                    </div>
-
-                    {/* Login Card */}
-                    <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
-                        {/* School header bar */}
-                        <div className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-600 px-8 py-5 flex items-center gap-4">
-                            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/>
-                                </svg>
-                            </div>
-                            <div>
-                                <h2 className="text-white font-bold text-lg">APSIMS Login</h2>
-                                <p className="text-indigo-200 text-xs">Secure access to your school system</p>
-                            </div>
+                {/* Center / Body Section: Floating Login Card */}
+                <div className="w-full flex items-center justify-center lg:justify-end my-8 lg:my-0 lg:pr-12 xl:pr-20">
+                    <div className="w-full max-w-[430px] relative">
+                        {/* 3D Circular Floating Emblem on Top of Card */}
+                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20">
+                            <CardEmblem />
                         </div>
 
-                        <div className="p-8">
-                            {/* Welcome text */}
-                            <div className="mb-6">
-                                <h3 className="text-xl font-bold text-gray-900">Welcome back 👋</h3>
-                                <p className="text-gray-500 text-sm mt-1">Sign in to manage your school</p>
+                        {/* Glassmorphic Login Card */}
+                        <div className="relative rounded-[36px] bg-white/94 sm:bg-white/92 backdrop-blur-2xl border-2 border-white/80 shadow-[0_25px_60px_-15px_rgba(79,70,229,0.38),0_0_40px_rgba(168,85,247,0.22)] p-7 sm:p-9 pt-12 text-slate-800 overflow-hidden">
+                            {/* Purple wave ribbon glow at top of card */}
+                            <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-purple-600/35 via-indigo-600/10 to-transparent rounded-t-[36px] pointer-events-none"></div>
+
+                            {/* Card Header */}
+                            <div className="text-center relative z-10">
+                                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-1.5">
+                                    <span>Welcome Back!</span>
+                                    <span className="inline-block transform hover:rotate-12 transition-transform">👋</span>
+                                </h2>
+                                <div className="flex items-center justify-center gap-3 mt-2 mb-6">
+                                    <div className="h-[1px] flex-1 max-w-[50px] bg-gradient-to-r from-transparent to-purple-300"></div>
+                                    <p className="text-xs sm:text-sm font-semibold text-slate-500">Sign in to access your school system</p>
+                                    <div className="h-[1px] flex-1 max-w-[50px] bg-gradient-to-l from-transparent to-purple-300"></div>
+                                </div>
                             </div>
 
-                            <form onSubmit={handleLogin} className="space-y-5">
-                                {/* Username */}
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-semibold text-gray-700">Username</label>
-                                    <div className="relative">
+                            {/* Form */}
+                            <form onSubmit={handleLogin} className="space-y-4 relative z-10">
+                                {/* Error Alert */}
+                                {error && (
+                                    <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs font-bold animate-shake">
+                                        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                        <span>{error}</span>
+                                    </div>
+                                )}
+
+                                {/* Username Pill Input */}
+                                <div className="space-y-1">
+                                    <div className="relative flex items-center bg-white rounded-full border-2 border-purple-200/90 hover:border-purple-300 focus-within:border-purple-600 focus-within:ring-4 focus-within:ring-purple-500/15 transition-all shadow-sm px-4 py-3 sm:py-3.5">
+                                        <div className="text-purple-600 mr-3 flex-shrink-0">
+                                            {/* Solid Royal Purple User Silhouette Icon */}
+                                            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 9a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
                                         <input
                                             id="username-input"
                                             type="text"
@@ -360,18 +440,20 @@ export default function LoginPage() {
                                             placeholder="Enter your username"
                                             autoFocus
                                             autoComplete="username"
-                                            className="w-full px-4 py-3.5 pl-12 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm"
+                                            className="w-full bg-transparent text-slate-800 placeholder-slate-400 font-semibold text-sm outline-none"
                                         />
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg>
-                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Password */}
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-semibold text-gray-700">Password</label>
-                                    <div className="relative">
+                                {/* Password Pill Input */}
+                                <div className="space-y-1">
+                                    <div className="relative flex items-center bg-white rounded-full border-2 border-purple-200/90 hover:border-purple-300 focus-within:border-purple-600 focus-within:ring-4 focus-within:ring-purple-500/15 transition-all shadow-sm px-4 py-3 sm:py-3.5">
+                                        <div className="text-purple-600 mr-3 flex-shrink-0">
+                                            {/* Solid Royal Purple Lock Icon */}
+                                            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
                                         <input
                                             id="password-input"
                                             type={showPassword ? 'text' : 'password'}
@@ -379,47 +461,56 @@ export default function LoginPage() {
                                             onChange={(e) => setPassword(e.target.value)}
                                             placeholder="Enter your password"
                                             autoComplete="current-password"
-                                            className="w-full px-4 py-3.5 pl-12 pr-12 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm"
+                                            className="w-full bg-transparent text-slate-800 placeholder-slate-400 font-semibold text-sm outline-none pr-8"
                                         />
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/></svg>
-                                        </div>
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                            tabIndex={-1}
+                                            className="absolute right-4 text-slate-400 hover:text-purple-700 transition-colors p-1"
+                                            title={showPassword ? 'Hide password' : 'Show password'}
                                         >
                                             {showPassword ? (
-                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd"/><path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z"/></svg>
+                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                                                    <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                                                </svg>
                                             ) : (
-                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/></svg>
+                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                                    <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                                </svg>
                                             )}
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Error */}
-                                {error && (
-                                    <div className="flex items-center gap-3 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm animate-shake">
-                                        <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/></svg>
-                                        <span className="font-medium">{error}</span>
-                                    </div>
-                                )}
-
-                                {/* Forgot password link */}
-                                <div className="flex justify-end">
-                                    <button type="button" onClick={() => setShowForgot(true)}
-                                        className="text-sm text-indigo-600 font-semibold hover:text-indigo-800 transition-colors">
+                                {/* Options Row: Remember Me & Forgot Password */}
+                                <div className="flex items-center justify-between text-xs sm:text-sm pt-1 px-1">
+                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={rememberMe}
+                                            onChange={(e) => setRememberMe(e.target.checked)}
+                                            className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 accent-purple-600 cursor-pointer"
+                                        />
+                                        <span className="font-semibold text-slate-800">Remember me</span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowForgot(true)}
+                                        className="font-bold text-indigo-700 hover:text-purple-700 transition-colors"
+                                    >
                                         Forgot password?
                                     </button>
                                 </div>
 
-                                {/* Login Button */}
+                                {/* 3D Glossy Pill Submit Button */}
                                 <button
                                     id="login-button"
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full py-4 bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-600 hover:from-indigo-600 hover:via-indigo-700 hover:to-violet-700 text-white text-base font-bold rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
+                                    className="w-full mt-3 py-3.5 sm:py-4 rounded-full bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 hover:from-purple-800 hover:via-indigo-700 hover:to-purple-900 text-white font-black text-base sm:text-lg shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_12px_28px_-5px_rgba(124,58,237,0.55)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_16px_36px_-5px_rgba(124,58,237,0.65)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2.5"
                                 >
                                     {isLoading ? (
                                         <>
@@ -428,54 +519,129 @@ export default function LoginPage() {
                                         </>
                                     ) : (
                                         <>
-                                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                                                <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/>
+                                            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
                                             </svg>
-                                            <span>Sign In to APSIMS</span>
+                                            <span>Sign In</span>
                                         </>
                                     )}
                                 </button>
                             </form>
 
-                            {/* Security Badge */}
-                            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>
-                                <span>Secure School Management System</span>
+                            {/* Card Security Badge */}
+                            <div className="mt-7 flex items-center justify-center gap-3 text-xs font-bold text-slate-700">
+                                <div className="h-[1px] w-12 bg-slate-200"></div>
+                                <div className="flex items-center gap-1.5">
+                                    <svg className="w-4 h-4 text-purple-700 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>Secure & Encrypted</span>
+                                </div>
+                                <div className="h-[1px] w-12 bg-slate-200"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Section: 4 Interactive Feature Badges (Matches Image 2) */}
+                <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+                    {/* 4 Feature Badges in Glassmorphic Bar */}
+                    <div className="flex items-center flex-wrap gap-2 sm:gap-4 px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl bg-slate-950/50 backdrop-blur-md border border-white/15 shadow-2xl">
+                        {/* 1. Manage Students */}
+                        <div className="flex items-center gap-2.5 py-1 px-1.5">
+                            <svg className="w-5 h-5 text-amber-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z" />
+                            </svg>
+                            <div className="text-[11px] sm:text-xs font-bold text-white leading-tight">
+                                <div>Manage</div>
+                                <div>Students</div>
+                            </div>
+                        </div>
+
+                        <div className="h-7 w-[1px] bg-white/20 hidden sm:block"></div>
+
+                        {/* 2. Track Performance */}
+                        <div className="flex items-center gap-2.5 py-1 px-1.5">
+                            <svg className="w-5 h-5 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                            </svg>
+                            <div className="text-[11px] sm:text-xs font-bold text-white leading-tight">
+                                <div>Track</div>
+                                <div>Performance</div>
+                            </div>
+                        </div>
+
+                        <div className="h-7 w-[1px] bg-white/20 hidden sm:block"></div>
+
+                        {/* 3. Monitor Progress */}
+                        <div className="flex items-center gap-2.5 py-1 px-1.5">
+                            <svg className="w-5 h-5 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
+                            </svg>
+                            <div className="text-[11px] sm:text-xs font-bold text-white leading-tight">
+                                <div>Monitor</div>
+                                <div>Progress</div>
+                            </div>
+                        </div>
+
+                        <div className="h-7 w-[1px] bg-white/20 hidden sm:block"></div>
+
+                        {/* 4. Secure & Reliable */}
+                        <div className="flex items-center gap-2.5 py-1 px-1.5">
+                            <svg className="w-5 h-5 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <div className="text-[11px] sm:text-xs font-bold text-white leading-tight">
+                                <div>Secure &</div>
+                                <div>Reliable</div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="mt-6 text-center lg:hidden">
-                        <p className="text-gray-500 text-xs">Powered by <span className="font-semibold text-indigo-600">Hawkinsoft Solutions</span></p>
-                        <p className="text-gray-400 text-[10px] mt-1">Developed by Jimhawkins Korir • 0720316175</p>
+                    {/* Subtitle / Powered by Footer */}
+                    <div className="text-right text-[11px] text-white/70 drop-shadow hidden lg:block">
+                        <p>© {new Date().getFullYear()} APSIMS • Powered by <span className="text-cyan-300 font-bold">Hawkinsoft Solutions</span></p>
                     </div>
-                    <p className="text-center text-gray-300 text-xs mt-4">© 2026 APSIMS — Alpha Plus School Information Management System • v1.0</p>
                 </div>
             </div>
 
             {/* Forgot Password Modal — 3-Step Self-Service Reset */}
             {showForgot && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
-                    onClick={closeForgot}>
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
-                        onClick={e => e.stopPropagation()}>
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4"
+                    onClick={closeForgot}
+                >
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden text-slate-800 border border-purple-100"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         {/* Header */}
-                        <div className="bg-gradient-to-r from-indigo-500 to-violet-600 px-6 py-5 text-center relative">
-                            <button onClick={closeForgot} className="absolute top-3 right-3 text-white/70 hover:text-white text-xl font-bold">&times;</button>
-                            <div className="inline-flex items-center justify-center w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl mb-3">
-                                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/></svg>
+                        <div className="bg-gradient-to-r from-purple-700 via-indigo-600 to-blue-600 px-6 py-5 text-center relative text-white">
+                            <button
+                                onClick={closeForgot}
+                                className="absolute top-3 right-3 text-white/80 hover:text-white text-2xl font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
+                            >
+                                &times;
+                            </button>
+                            <div className="inline-flex items-center justify-center w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl mb-3">
+                                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                </svg>
                             </div>
-                            <h3 className="text-white font-bold text-lg">
+                            <h3 className="font-extrabold text-lg">
                                 {forgotStep === 'request' ? 'Forgot Password' : forgotStep === 'verify' ? 'Verify Code' : 'Set New Password'}
                             </h3>
                             {/* Step indicators */}
                             <div className="flex items-center justify-center gap-2 mt-3">
-                                {[1,2,3].map(step => (
-                                    <div key={step} className={`h-1.5 rounded-full transition-all ${
-                                        (forgotStep === 'request' ? 1 : forgotStep === 'verify' ? 2 : 3) >= step
-                                            ? 'w-8 bg-white' : 'w-4 bg-white/30'
-                                    }`} />
+                                {[1, 2, 3].map((step) => (
+                                    <div
+                                        key={step}
+                                        className={`h-1.5 rounded-full transition-all ${
+                                            (forgotStep === 'request' ? 1 : forgotStep === 'verify' ? 2 : 3) >= step
+                                                ? 'w-8 bg-white shadow-sm'
+                                                : 'w-4 bg-white/30'
+                                        }`}
+                                    />
                                 ))}
                             </div>
                         </div>
@@ -484,15 +650,23 @@ export default function LoginPage() {
                             {/* Step 1: Request reset */}
                             {forgotStep === 'request' && (
                                 <form onSubmit={handleForgotRequest} className="space-y-4">
-                                    <p className="text-gray-600 text-sm">Enter your username and we'll send a reset code to your registered phone/email.</p>
+                                    <p className="text-slate-600 text-sm">Enter your username and we&apos;ll send a verification reset code to your registered phone or email.</p>
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
-                                        <input type="text" value={forgotUsername} onChange={e => setForgotUsername(e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                                            placeholder="Enter your username" autoFocus />
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Username</label>
+                                        <input
+                                            type="text"
+                                            value={forgotUsername}
+                                            onChange={(e) => setForgotUsername(e.target.value)}
+                                            className="w-full px-4 py-3 border-2 border-purple-200 rounded-full focus:ring-4 focus:ring-purple-200 focus:border-purple-600 outline-none transition-all font-medium text-sm"
+                                            placeholder="Enter your username"
+                                            autoFocus
+                                        />
                                     </div>
-                                    <button type="submit" disabled={forgotLoading}
-                                        className="w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold rounded-xl hover:shadow-lg transition-all disabled:opacity-50">
+                                    <button
+                                        type="submit"
+                                        disabled={forgotLoading}
+                                        className="w-full py-3.5 bg-gradient-to-r from-purple-700 via-indigo-600 to-blue-600 text-white font-extrabold rounded-full hover:shadow-lg shadow-purple-600/30 transition-all disabled:opacity-50"
+                                    >
                                         {forgotLoading ? 'Sending...' : 'Send Reset Code'}
                                     </button>
                                 </form>
@@ -501,24 +675,36 @@ export default function LoginPage() {
                             {/* Step 2: Verify code */}
                             {forgotStep === 'verify' && (
                                 <form onSubmit={handleForgotVerify} className="space-y-4">
-                                    <p className="text-gray-600 text-sm">{forgotHint}</p>
+                                    <p className="text-slate-600 text-sm">{forgotHint}</p>
                                     {forgotDevCode && (
-                                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
-                                            <span className="font-bold">Dev Mode Code:</span> {forgotDevCode}
+                                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs font-bold text-amber-800">
+                                            <span>Dev Mode Code: </span>
+                                            <span className="font-mono text-sm">{forgotDevCode}</span>
                                         </div>
                                     )}
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Reset Code</label>
-                                        <input type="text" value={forgotCode} onChange={e => setForgotCode(e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-center text-2xl tracking-[0.5em] font-bold"
-                                            placeholder="000000" maxLength={6} autoFocus />
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Reset Code</label>
+                                        <input
+                                            type="text"
+                                            value={forgotCode}
+                                            onChange={(e) => setForgotCode(e.target.value)}
+                                            className="w-full px-4 py-3 border-2 border-purple-200 rounded-full focus:ring-4 focus:ring-purple-200 focus:border-purple-600 outline-none transition-all text-center text-2xl tracking-[0.5em] font-black"
+                                            placeholder="000000"
+                                            maxLength={6}
+                                            autoFocus
+                                        />
                                     </div>
-                                    <button type="submit"
-                                        className="w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold rounded-xl hover:shadow-lg transition-all">
+                                    <button
+                                        type="submit"
+                                        className="w-full py-3.5 bg-gradient-to-r from-purple-700 via-indigo-600 to-blue-600 text-white font-extrabold rounded-full hover:shadow-lg shadow-purple-600/30 transition-all"
+                                    >
                                         Verify Code
                                     </button>
-                                    <button type="button" onClick={() => setForgotStep('request')}
-                                        className="w-full py-2 text-indigo-600 font-semibold text-sm hover:text-indigo-800">
+                                    <button
+                                        type="button"
+                                        onClick={() => setForgotStep('request')}
+                                        className="w-full py-2 text-purple-700 font-bold text-sm hover:underline"
+                                    >
                                         ← Back to request
                                     </button>
                                 </form>
@@ -527,31 +713,43 @@ export default function LoginPage() {
                             {/* Step 3: Set new password */}
                             {forgotStep === 'reset' && (
                                 <form onSubmit={handleForgotReset} className="space-y-4">
-                                    <p className="text-gray-600 text-sm">Code verified! Set your new password.</p>
+                                    <p className="text-slate-600 text-sm">Code verified! Set your new password.</p>
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
-                                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                                            placeholder="Min 6 characters" autoFocus />
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">New Password</label>
+                                        <input
+                                            type="password"
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            className="w-full px-4 py-3 border-2 border-purple-200 rounded-full focus:ring-4 focus:ring-purple-200 focus:border-purple-600 outline-none transition-all font-medium text-sm"
+                                            placeholder="Min 6 characters"
+                                            autoFocus
+                                        />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm Password</label>
-                                        <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                                            placeholder="Re-enter password" />
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Confirm Password</label>
+                                        <input
+                                            type="password"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            className="w-full px-4 py-3 border-2 border-purple-200 rounded-full focus:ring-4 focus:ring-purple-200 focus:border-purple-600 outline-none transition-all font-medium text-sm"
+                                            placeholder="Re-enter password"
+                                        />
                                         {confirmPassword && newPassword !== confirmPassword && (
-                                            <p className="text-red-500 text-xs mt-1">Passwords do not match</p>
+                                            <p className="text-red-500 text-xs font-bold mt-1">Passwords do not match</p>
                                         )}
                                     </div>
-                                    <button type="submit" disabled={forgotLoading}
-                                        className="w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold rounded-xl hover:shadow-lg transition-all disabled:opacity-50">
+                                    <button
+                                        type="submit"
+                                        disabled={forgotLoading}
+                                        className="w-full py-3.5 bg-gradient-to-r from-purple-700 via-indigo-600 to-blue-600 text-white font-extrabold rounded-full hover:shadow-lg shadow-purple-600/30 transition-all disabled:opacity-50"
+                                    >
                                         {forgotLoading ? 'Resetting...' : 'Reset Password'}
                                     </button>
                                 </form>
                             )}
 
-                            <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-                                <button onClick={closeForgot} className="text-sm text-gray-500 hover:text-gray-700">
+                            <div className="mt-4 pt-4 border-t border-slate-100 text-center">
+                                <button onClick={closeForgot} className="text-xs font-bold text-slate-500 hover:text-slate-800">
                                     ← Back to Login
                                 </button>
                             </div>
@@ -559,33 +757,6 @@ export default function LoginPage() {
                     </div>
                 </div>
             )}
-
-            {/* Animations */}
-            <style jsx>{`
-                @keyframes shake {
-                    0%, 100% { transform: translateX(0); }
-                    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-                    20%, 40%, 60%, 80% { transform: translateX(4px); }
-                }
-                .animate-shake {
-                    animation: shake 0.5s ease-in-out;
-                }
-                @keyframes float1 {
-                    0%, 100% { transform: translateY(0) rotate(12deg); opacity: 0.6; }
-                    50% { transform: translateY(-20px) rotate(18deg); opacity: 0.3; }
-                }
-                @keyframes float2 {
-                    0%, 100% { transform: translateY(0) rotate(-12deg); opacity: 0.5; }
-                    50% { transform: translateY(-15px) rotate(-8deg); opacity: 0.2; }
-                }
-                @keyframes float3 {
-                    0%, 100% { transform: translateY(0) rotate(30deg); opacity: 0.4; }
-                    50% { transform: translateY(-25px) rotate(35deg); opacity: 0.2; }
-                }
-                .animate-float1 { animation: float1 6s ease-in-out infinite; }
-                .animate-float2 { animation: float2 8s ease-in-out infinite; }
-                .animate-float3 { animation: float3 7s ease-in-out infinite; }
-            `}</style>
         </div>
     );
 }
