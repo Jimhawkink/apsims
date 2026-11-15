@@ -367,481 +367,565 @@ export default function DashboardPage() {
     );
 
     return (
-        <div style={{ background: 'linear-gradient(145deg, #0A1529 0%, #0E1F4A 100%)', margin: '-16px', padding: '16px', minHeight: '100vh' }} className="ultra-animate">
+        <div className="space-y-4 ultra-animate pb-8">
 
             {/* ── Role banners ── */}
             {userRole.toLowerCase() === 'auditor' && (
-                <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-amber-400 bg-amber-900/40 mb-3">
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50">
                     <span>🔍</span>
-                    <p className="text-xs font-bold text-amber-200 flex-1">Auditor Read-Only Access — write operations are restricted.</p>
-                    <span className="text-[9px] font-black px-2 py-0.5 bg-amber-500 text-white rounded-full">READ ONLY</span>
+                    <p className="text-xs font-bold text-amber-800 flex-1">Auditor Read-Only Access — write operations are restricted.</p>
+                    <span className="text-[9px] font-black px-2 py-0.5 bg-amber-200 text-amber-700 rounded-full">READ ONLY</span>
                 </div>
             )}
             {accessDenied && (
-                <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-red-400 bg-red-900/40 mb-3">
-                    <FiShield size={16} className="text-red-400" />
-                    <p className="text-xs font-bold text-red-200">Access Denied — you do not have permission to view that page.</p>
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-red-200 bg-red-50">
+                    <FiShield size={16} className="text-red-500" />
+                    <p className="text-xs font-bold text-red-800">Access Denied — you do not have permission to view that page.</p>
                 </div>
             )}
 
-            {/* ════════ HERO BANNER ════════ */}
-            <div style={{
-                background: 'linear-gradient(135deg, #0D2461 0%, #1a3a8a 50%, #0d4b8a 100%)',
-                borderRadius: 16,
-                marginBottom: 12,
-                position: 'relative',
-                overflow: 'hidden',
-                minHeight: 100,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 20,
-                padding: '14px 20px',
-            }}>
-                {/* School building background image */}
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    backgroundImage: 'url(/login-bg.png)',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center right',
-                    opacity: 0.22,
-                }} />
-                {/* Right fade overlay */}
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'linear-gradient(90deg, #0D2461 30%, transparent 80%)',
-                }} />
+            {/* ════════════════════════════════════════
+                SLIM BRIGHT HEADER (not heavy/dark)
+            ════════════════════════════════════════ */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Top accent line */}
+                <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #6366f1, #3b82f6, #06b6d4, #10b981)' }} />
+                <div className="px-5 py-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                                </span>
+                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Live</span>
+                                <span className="text-[10px] text-gray-300 mx-1">·</span>
+                                <span className="text-[10px] font-mono text-gray-400">{liveTime}</span>
+                                {currentTerm && (
+                                    <>
+                                        <span className="text-[10px] text-gray-300 mx-1">·</span>
+                                        <span className="text-[10px] font-bold text-indigo-500">{currentTerm.term_name} {currentYear}</span>
+                                    </>
+                                )}
+                            </div>
+                            <h1 className="text-lg font-black text-gray-900">
+                                {greeting}, <span className="text-indigo-600">{userName}</span>! 👋
+                            </h1>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                                {new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-black bg-gradient-to-r from-amber-400 to-orange-400 text-white">🇰🇪 #1 IN KENYA</span>
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setRefreshKey(k => k + 1)} className="p-2 rounded-xl bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 border border-gray-100 transition-all" title="Refresh">
+                                <FiRefreshCw size={14} />
+                            </button>
+                        </div>
+                    </div>
 
-                {/* Date box */}
-                <div style={{
-                    flexShrink: 0,
-                    background: 'rgba(255,255,255,0.12)',
-                    backdropFilter: 'blur(8px)',
-                    borderRadius: 12,
-                    padding: '10px 16px',
-                    textAlign: 'center',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    position: 'relative',
-                    minWidth: 72,
-                }}>
-                    <p style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 2 }}>
-                        {new Date().toLocaleDateString('en', { weekday: 'long' })}
-                    </p>
-                    <p style={{ fontSize: 32, fontWeight: 900, color: '#fff', lineHeight: 1 }}>
-                        {new Date().getDate()}
-                    </p>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
-                        {new Date().toLocaleDateString('en', { month: 'short', year: 'numeric' })}
-                    </p>
-                </div>
-
-                {/* Greeting center */}
-                <div style={{ flex: 1, position: 'relative' }}>
-                    <h1 style={{ fontSize: 20, fontWeight: 900, color: '#fff', marginBottom: 4 }}>
-                        {greeting}, <span style={{ color: '#60a5fa' }}>{userName}</span>! 👋
-                    </h1>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 8 }}>Have a productive day ahead!</p>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {currentTerm && (
-                            <span style={{ background: 'rgba(99,102,241,0.4)', border: '1px solid rgba(99,102,241,0.6)', borderRadius: 20, padding: '3px 10px', fontSize: 10, fontWeight: 700, color: '#c7d2fe' }}>
-                                📅 {currentTerm.term_name} {currentYear}
-                            </span>
+                    {/* Date filter pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-gray-50">
+                        <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Period:</span>
+                        {dateRangeOpts.map(opt => (
+                            <button key={opt.key} onClick={() => setDateRange(opt.key)}
+                                className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${dateRange === opt.key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600'}`}>
+                                {opt.label}
+                            </button>
+                        ))}
+                        {dateRange === 'custom' && (
+                            <div className="flex items-center gap-1.5 ml-1">
+                                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:border-indigo-400" />
+                                <span className="text-gray-400 text-[10px]">→</span>
+                                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:border-indigo-400" />
+                            </div>
                         )}
-                        <span style={{ background: 'rgba(16,185,129,0.3)', border: '1px solid rgba(16,185,129,0.5)', borderRadius: 20, padding: '3px 10px', fontSize: 10, fontWeight: 700, color: '#6ee7b7', fontFamily: 'monospace' }}>
-                            🕐 {liveTime}
-                        </span>
-                        <span style={{ background: 'rgba(245,158,11,0.3)', border: '1px solid rgba(245,158,11,0.5)', borderRadius: 20, padding: '3px 10px', fontSize: 10, fontWeight: 700, color: '#fcd34d' }}>
-                            🇰🇪 #1 IN KENYA
-                        </span>
                     </div>
                 </div>
-
-                {/* Refresh button */}
-                <button onClick={() => setRefreshKey(k => k + 1)}
-                    style={{ position: 'absolute', top: 12, right: 14, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', color: '#fff' }}
-                    title="Refresh">
-                    <FiRefreshCw size={13} />
-                </button>
             </div>
 
-            {/* ════════ MAIN 2-COLUMN GRID ════════ */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 272px', gap: 12 }}>
+            {/* ── Smart Alerts ── */}
+            {alerts.length > 0 && (
+                <div className="space-y-2">
+                    {alerts.map((a, i) => (
+                        <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-semibold ${a.level === 'error' ? 'bg-red-50 border-red-200 text-red-800' : a.level === 'warn' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+                            {a.level === 'error' ? <FiAlertCircle size={14} className="flex-shrink-0" /> : a.level === 'warn' ? <FiAlertTriangle size={14} className="flex-shrink-0" /> : <FiCheckCircle size={14} className="flex-shrink-0" />}
+                            <span className="flex-1">{a.msg}</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${a.level === 'error' ? 'bg-red-200 text-red-700' : a.level === 'warn' ? 'bg-amber-200 text-amber-700' : 'bg-blue-200 text-blue-700'}`}>
+                                {a.level === 'error' ? 'CRITICAL' : a.level === 'warn' ? 'WARNING' : 'INFO'}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
 
-                {/* ───── LEFT COLUMN ───── */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-
-                    {/* ── Tab Nav ── */}
-                    <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
-
-                    {/* ════════ OVERVIEW TAB ════════ */}
-                    {activeTab === 'overview' && (
-                        <>
-                            {/* ROW 1: 4 KPI stat cards */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-                                {[
-                                    { icon: '👥', label: 'Total Students', value: fmtN(students.length), badge: `+${newThisYear}`, badgeColor: '#10b981', badgeBg: 'rgba(16,185,129,0.15)', color: '#60a5fa', spark: [60,65,70,68,75,80,active.length % 30 + 70], href: '/dashboard/students' },
-                                    { icon: '🎓', label: 'Total Enrolled', value: fmtN(active.length), badge: `+8%`, badgeColor: '#10b981', badgeBg: 'rgba(16,185,129,0.15)', color: '#34d399', spark: [50,55,58,62,65,70,active.length % 20 + 60], href: '/dashboard/students' },
-                                    { icon: '💰', label: 'Fees Collected', value: fmtShort(totalFees), badge: `+15%`, badgeColor: '#10b981', badgeBg: 'rgba(16,185,129,0.15)', color: '#fbbf24', spark: [40,50,45,60,70,80,90], href: '/dashboard/fees' },
-                                    { icon: '⚠️', label: 'Pending Issues', value: String(pendingIssues), badge: pendingIssues > 0 ? `${pendingIssues}` : '0%', badgeColor: pendingIssues > 0 ? '#f87171' : '#10b981', badgeBg: pendingIssues > 0 ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)', color: '#fb923c', spark: [10,8,12,9,11,8,pendingIssues], href: '/dashboard/stores/ultra' },
-                                ].map((card, i) => {
-                                    const maxS = Math.max(...card.spark, 1);
-                                    const pts = card.spark.map((v, idx) => `${(idx / (card.spark.length - 1)) * 100},${40 - (v / maxS) * 36}`).join(' ');
-                                    return (
-                                        <Link key={i} href={card.href} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '14px 14px 10px', display: 'flex', flexDirection: 'column', gap: 4, textDecoration: 'none', transition: 'all 0.2s' }}
-                                            className="hover:bg-white/10">
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <span style={{ fontSize: 20 }}>{card.icon}</span>
-                                                <span style={{ background: card.badgeBg, color: card.badgeColor, borderRadius: 20, padding: '2px 8px', fontSize: 10, fontWeight: 800 }}>{card.badge}</span>
-                                            </div>
-                                            <p style={{ fontSize: 22, fontWeight: 900, color: card.color, lineHeight: 1 }}>{card.value}</p>
-                                            <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1 }}>{card.label}</p>
-                                            <svg viewBox="0 0 100 40" style={{ width: '100%', height: 28, marginTop: 4 }} preserveAspectRatio="none">
-                                                <polyline points={pts} fill="none" stroke={card.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
-                                            </svg>
-                                        </Link>
-                                    );
-                                })}
-                            </div>
-
-                            {/* ROW 2: Quick Actions */}
-                            <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 14px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                    <p style={{ fontSize: 11, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: 1 }}>⚡ Quick Actions</p>
-                                    <Link href="/dashboard/fees" style={{ fontSize: 11, color: '#60a5fa', fontWeight: 700, textDecoration: 'none' }}>View All →</Link>
+            {/* ══════════════════════════════════════════════════
+                🔴 LIVE KPI COMMAND STRIP — Real-Time Data
+            ══════════════════════════════════════════════════ */}
+            <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                {/* Top gradient bar */}
+                <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#dc2626,#f59e0b,#16a34a,#2563eb,#7c3aed)' }} />
+                <div className="bg-white px-4 py-3">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                        </span>
+                        <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Live Command Centre</span>
+                        <span className="text-[10px] text-gray-300">·</span>
+                        <span className="text-[10px] font-mono text-gray-400">{liveTime}</span>
+                        <span className="ml-auto text-[10px] text-gray-400 hidden sm:block">Auto-refreshes every 30s via Supabase Realtime</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                        {[
+                            { icon: '🎓', label: 'Active Students', value: fmtN(active.length), sub: `${fmtN(stats.newEnrollments)} new this year`, color: '#4f46e5', bg: '#eef2ff', href: '/dashboard/students', pulse: false },
+                            { icon: '💳', label: "Today's Fees", value: fmt(todayFeeTotal), sub: 'collected today live', color: '#059669', bg: '#ecfdf5', href: '/dashboard/fees', pulse: todayFeeTotal > 0 },
+                            { icon: '✅', label: 'Attendance Today', value: `${attRate}%`, sub: `${todayPre} present · ${todayAbs} absent`, color: attRate >= 80 ? '#0891b2' : '#d97706', bg: attRate >= 80 ? '#e0f2fe' : '#fef3c7', href: '/dashboard/attendance', pulse: false },
+                            { icon: '📦', label: 'Pending Store Issues', value: String(pendingIssues), sub: pendingIssues > 0 ? '⚠️ Needs Bursar/Principal' : 'All approved ✅', color: pendingIssues > 0 ? '#dc2626' : '#16a34a', bg: pendingIssues > 0 ? '#fef2f2' : '#f0fdf4', href: '/dashboard/stores/ultra', pulse: pendingIssues > 0 },
+                            { icon: '⚡', label: 'Discipline Cases', value: fmtN(disciplineCount), sub: `${currentYear} total incidents`, color: disciplineCount > 20 ? '#d97706' : '#6366f1', bg: '#fef3c7', href: '/dashboard/discipline', pulse: disciplineCount > 20 },
+                            { icon: '💰', label: 'Net Position', value: fmtShort(Math.abs(netPos)), sub: netPos >= 0 ? '✅ Surplus' : '⚠️ Deficit', color: netPos >= 0 ? '#7c3aed' : '#dc2626', bg: netPos >= 0 ? '#f5f3ff' : '#fef2f2', href: '/dashboard/fees/reports/pl', pulse: netPos < 0 },
+                        ].map((k, i) => (
+                            <Link key={i} href={k.href} className="rounded-xl p-3 border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all group relative overflow-hidden">
+                                <div className="absolute inset-0 opacity-40 group-hover:opacity-70 transition-opacity" style={{ background: k.bg }} />
+                                <div className="relative">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-lg">{k.icon}</span>
+                                        {k.pulse && <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: k.color }} /><span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: k.color }} /></span>}
+                                    </div>
+                                    <p className="text-xl font-black leading-none" style={{ color: k.color }}>{k.value}</p>
+                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-wide mt-1">{k.label}</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{k.sub}</p>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9,1fr)', gap: 8 }}>
-                                    {[
-                                        { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', color: '#1E6FD9', bg: 'rgba(30,111,217,0.2)' },
-                                        { label: 'Add Student', href: '/dashboard/students/admissions', icon: '👤', color: '#059669', bg: 'rgba(5,150,105,0.2)' },
-                                        { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', color: '#7C3AED', bg: 'rgba(124,58,237,0.2)' },
-                                        { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', color: '#D97706', bg: 'rgba(217,119,6,0.2)' },
-                                        { label: 'Bulk SMS', href: '/dashboard/fees/bulk-reminders', icon: '📱', color: '#DB2777', bg: 'rgba(219,39,119,0.2)' },
-                                        { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', color: '#0891B2', bg: 'rgba(8,145,178,0.2)' },
-                                        { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', color: '#DC2626', bg: 'rgba(220,38,38,0.2)' },
-                                        { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👔', color: '#7C3AED', bg: 'rgba(124,58,237,0.2)' },
-                                        { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: '📋', color: '#059669', bg: 'rgba(5,150,105,0.2)' },
-                                    ].map((a, i) => (
-                                        <Link key={i} href={a.href} style={{ background: a.bg, border: `1px solid ${a.color}30`, borderRadius: 10, padding: '8px 4px', textAlign: 'center', textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, transition: 'all 0.2s' }} className="hover:scale-105">
-                                            <span style={{ fontSize: 18 }}>{a.icon}</span>
-                                            <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', lineHeight: 1.2, textAlign: 'center' }}>{a.label}</span>
-                                        </Link>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* ══ SCHOOL HEALTH SCORE + TERM INFO ══ */}
+            {(() => {
+                const feeRate = stats.feesCollected > 0 ? Math.min(100, Math.round(stats.feesCollected / (stats.feesCollected + stats.feesDue + 1) * 100)) : 0;
+                const healthScore = Math.round((attRate * 0.35) + (feeRate * 0.40) + (formPerf.length > 0 ? Math.min(100, formPerf.reduce((s, f) => s + f.avg, 0) / formPerf.length) * 0.25 : 0));
+                const healthColor = healthScore >= 75 ? '#16a34a' : healthScore >= 50 ? '#d97706' : '#dc2626';
+                const healthLabel = healthScore >= 75 ? 'Excellent' : healthScore >= 50 ? 'Good' : 'Needs Attention';
+                return (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* School Health Score */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+                            <div className="relative w-16 h-16 flex-shrink-0">
+                                <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
+                                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" strokeWidth="3" />
+                                    <circle cx="18" cy="18" r="15.9" fill="none" stroke={healthColor} strokeWidth="3" strokeDasharray={`${healthScore} 100`} strokeLinecap="round" />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="text-sm font-black" style={{ color: healthColor }}>{healthScore}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs font-black text-gray-800">🏫 School Health Score</p>
+                                <p className="text-lg font-black mt-0.5" style={{ color: healthColor }}>{healthLabel}</p>
+                                <p className="text-[9px] text-gray-400 mt-1">Attendance · Fees · Academics</p>
+                            </div>
+                        </div>
+                        {/* Term info */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">📅 Current Term</p>
+                            <p className="text-base font-black text-gray-900">{currentTerm?.term_name || 'Term 1'} {currentYear}</p>
+                            {currentTerm?.end_date && (
+                                <p className="text-sm text-indigo-600 font-bold mt-1">
+                                    {Math.max(0, Math.ceil((new Date(currentTerm.end_date).getTime() - Date.now()) / 86400000))} days remaining
+                                </p>
+                            )}
+                            <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                {currentTerm?.start_date && currentTerm?.end_date && (() => {
+                                    const start = new Date(currentTerm.start_date).getTime();
+                                    const end = new Date(currentTerm.end_date).getTime();
+                                    const pctDone = Math.min(100, Math.round((Date.now() - start) / (end - start) * 100));
+                                    return <div className="h-1.5 rounded-full bg-indigo-500 transition-all" style={{ width: `${pctDone}%` }} />;
+                                })()}
+                            </div>
+                            <p className="text-[9px] text-gray-400 mt-1">Term progress</p>
+                        </div>
+                        {/* Live Activity Ticker */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                                <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" /></span>
+                                Live Activity Feed
+                            </p>
+                            {liveActivity.length === 0 ? (
+                                <p className="text-xs text-gray-400">No activity yet today</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {liveActivity.slice(0, 3).map((a, i) => (
+                                        <div key={i} className="flex items-start gap-2">
+                                            <span className="text-sm flex-shrink-0">{a.icon}</span>
+                                            <p className="text-[11px] text-gray-600 leading-tight">{a.text}</p>
+                                        </div>
                                     ))}
                                 </div>
-                            </div>
-
-                            {/* ROW 3: Fee Analytics + Performance Overview */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-
-                                {/* Fee Analytics */}
-                                <div style={{ background: '#fff', borderRadius: 14, padding: '14px 16px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                        <p style={{ fontSize: 12, fontWeight: 800, color: '#1e293b' }}>📊 Fee Analytics & Class Intelligence</p>
-                                        <div style={{ display: 'flex', gap: 4 }}>
-                                            {['This Term','This Year','All Terms'].map((t,i) => (
-                                                <button key={i} style={{ fontSize: 9, padding: '3px 8px', borderRadius: 20, border: 'none', background: i === 0 ? '#3b82f6' : '#f1f5f9', color: i === 0 ? '#fff' : '#64748b', fontWeight: 700, cursor: 'pointer' }}>{t}</button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 10 }}>
-                                        {/* SVG Doughnut */}
-                                        {(() => {
-                                            const collected = totalFees;
-                                            const outstanding = stats.feesDue;
-                                            const expected = collected + outstanding;
-                                            const colPct = expected > 0 ? Math.min(100, Math.round(collected / expected * 100)) : 78;
-                                            const circ = 2 * Math.PI * 30;
-                                            const dash = (colPct / 100) * circ;
-                                            const outDash = ((100 - colPct) / 100) * circ;
-                                            return (
-                                                <div style={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
-                                                    <svg viewBox="0 0 72 72" style={{ width: 100, height: 100, transform: 'rotate(-90deg)' }}>
-                                                        <circle cx="36" cy="36" r="30" fill="none" stroke="#f1f5f9" strokeWidth="10" />
-                                                        <circle cx="36" cy="36" r="30" fill="none" stroke="#3b82f6" strokeWidth="10"
-                                                            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
-                                                        <circle cx="36" cy="36" r="30" fill="none" stroke="#f59e0b" strokeWidth="10"
-                                                            strokeDasharray={`${outDash} ${circ}`} strokeLinecap="round"
-                                                            strokeDashoffset={-dash} />
-                                                    </svg>
-                                                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <span style={{ fontSize: 16, fontWeight: 900, color: '#1e293b' }}>{colPct}%</span>
-                                                        <span style={{ fontSize: 8, color: '#64748b', fontWeight: 600 }}>Collection</span>
-                                                        <span style={{ fontSize: 7, color: '#64748b' }}>Rate</span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-                                        {/* Legend */}
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                            {[
-                                                { dot: '#3b82f6', label: 'Collected', value: fmtShort(totalFees) },
-                                                { dot: '#f59e0b', label: 'Outstanding', value: fmtShort(stats.feesDue) },
-                                                { dot: '#10b981', label: 'Expected', value: fmtShort(totalFees + stats.feesDue) },
-                                            ].map((l,i) => (
-                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: l.dot, flexShrink: 0 }} />
-                                                    <span style={{ fontSize: 10, color: '#64748b', flex: 1 }}>{l.label}</span>
-                                                    <span style={{ fontSize: 10, fontWeight: 800, color: '#1e293b' }}>{l.value}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    {/* Mini line chart */}
-                                    {(() => {
-                                        const pts6 = monthlyFees.slice(-6);
-                                        const maxF = Math.max(...pts6.map(m => m.fees), 1);
-                                        const W = 200; const H = 55;
-                                        const polyPts = pts6.map((m, i) => `${(i / (pts6.length - 1 || 1)) * W},${H - (m.fees / maxF) * (H - 8) - 4}`).join(' ');
-                                        return (
-                                            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 55 }} preserveAspectRatio="none">
-                                                <defs>
-                                                    <linearGradient id="feeGrad" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                                                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                                                    </linearGradient>
-                                                </defs>
-                                                {pts6.length > 1 && <>
-                                                    <polyline points={polyPts} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                    {pts6.map((m,i) => {
-                                                        const x = (i / (pts6.length-1||1)) * W;
-                                                        const y = H - (m.fees/maxF)*(H-8) - 4;
-                                                        return <text key={i} x={x} y={H} textAnchor="middle" fontSize="8" fill="#94a3b8">{m.month}</text>;
-                                                    })}
-                                                </>}
-                                            </svg>
-                                        );
-                                    })()}
-                                </div>
-
-                                {/* Performance Overview */}
-                                <div style={{ background: '#fff', borderRadius: 14, padding: '14px 16px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                        <p style={{ fontSize: 12, fontWeight: 800, color: '#1e293b' }}>🏆 Performance Overview</p>
-                                        <span style={{ fontSize: 10, color: '#64748b', background: '#f1f5f9', padding: '3px 8px', borderRadius: 20, fontWeight: 600 }}>This Term</span>
-                                    </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, textAlign: 'center' }}>
-                                        {[
-                                            { label: 'Attendance', value: attRate > 0 ? attRate : 96, color: '#3b82f6', icon: '👥' },
-                                            { label: 'Pass Rate', value: formPerf.length > 0 ? Math.round(formPerf.filter(f => f.avg >= 50).length / formPerf.length * 100) || 92 : 92, color: '#10b981', icon: '✅' },
-                                            { label: 'Class Progress', value: formPerf.length > 0 ? Math.round(formPerf.reduce((s, f) => s + Math.min(100, f.avg), 0) / (formPerf.length || 1)) || 94 : 94, color: '#8b5cf6', icon: '📊' },
-                                            { label: 'Discipline', value: disciplineCount === 0 ? 100 : Math.max(0, 100 - disciplineCount * 2), color: '#f59e0b', icon: '🛡️' },
-                                        ].map((g, i) => {
-                                            const circ = 2 * Math.PI * 28;
-                                            const dash = (g.value / 100) * circ;
-                                            return (
-                                                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                                                    <div style={{ position: 'relative', width: 72, height: 72 }}>
-                                                        <svg viewBox="0 0 64 64" style={{ width: 72, height: 72, transform: 'rotate(-90deg)' }}>
-                                                            <circle cx="32" cy="32" r="28" fill="none" stroke="#f1f5f9" strokeWidth="6" />
-                                                            <circle cx="32" cy="32" r="28" fill="none" stroke={g.color} strokeWidth="6"
-                                                                strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
-                                                        </svg>
-                                                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <span style={{ fontSize: 14, fontWeight: 900, color: g.color }}>{g.value}%</span>
-                                                        </div>
-                                                    </div>
-                                                    <span style={{ fontSize: 9, color: '#64748b', fontWeight: 600 }}>{g.icon} {g.label}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* ROW 4: Recent Activity | Upcoming Events | Fee Collection Trend */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-
-                                {/* Recent Activity */}
-                                <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 14px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                        <p style={{ fontSize: 11, fontWeight: 800, color: '#fff' }}>📡 Recent Activity</p>
-                                        <Link href="/dashboard/fees" style={{ fontSize: 10, color: '#60a5fa', textDecoration: 'none', fontWeight: 700 }}>View All →</Link>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        {(liveActivity.length > 0 ? liveActivity : [
-                                            { icon: '🟢', text: 'New student registered — Mary Wanjiru', time: '2 min ago' },
-                                            { icon: '🟡', text: 'Fees payment received (Ksh 25,000)', time: '5 min ago' },
-                                            { icon: '🟠', text: 'Report card generated — Grade 10', time: '12 min ago' },
-                                            { icon: '🔵', text: 'New staff added — Mr. David Ochieng', time: '18 min ago' },
-                                        ]).slice(0, 4).map((a, i) => (
-                                            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                                <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>{a.icon}</span>
-                                                <div>
-                                                    <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4 }}>{a.text}</p>
-                                                    <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{a.time}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Upcoming Events */}
-                                <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 14px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                        <p style={{ fontSize: 11, fontWeight: 800, color: '#fff' }}>📅 Upcoming Events</p>
-                                        <Link href="/dashboard" style={{ fontSize: 10, color: '#60a5fa', textDecoration: 'none', fontWeight: 700 }}>View All →</Link>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        {[
-                                            { day: '18', month: 'Nov', title: 'Parent Meeting', time: '8:00 AM – 11:00 AM', color: '#3b82f6' },
-                                            { day: '20', month: 'Nov', title: 'Term 3 Exams', time: '8:00 AM – 5:00 PM', color: '#10b981' },
-                                            { day: '25', month: 'Nov', title: 'School Sports Day', time: '9:00 AM – 4:00 PM', color: '#f59e0b' },
-                                        ].map((ev, i) => (
-                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '8px 10px' }}>
-                                                <div style={{ background: ev.color, borderRadius: 8, padding: '4px 8px', textAlign: 'center', flexShrink: 0 }}>
-                                                    <p style={{ fontSize: 14, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{ev.day}</p>
-                                                    <p style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', fontWeight: 700 }}>{ev.month}</p>
-                                                </div>
-                                                <div style={{ flex: 1 }}>
-                                                    <p style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{ev.title}</p>
-                                                    <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)' }}>{ev.time}</p>
-                                                </div>
-                                                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>›</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Fee Collection Trend - bar chart */}
-                                <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 14px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                                        <p style={{ fontSize: 11, fontWeight: 800, color: '#fff' }}>📈 Fee Collection Trend</p>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <span style={{ fontSize: 9, background: 'rgba(59,130,246,0.3)', color: '#93c5fd', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>6 Months</span>
-                                        </div>
-                                    </div>
-                                    {(() => {
-                                        const pts6 = monthlyFees.slice(-6);
-                                        const maxF = Math.max(...pts6.map(m => m.fees), 1);
-                                        const latestVal = pts6[pts6.length - 1]?.fees || 0;
-                                        return (
-                                            <>
-                                                <p style={{ fontSize: 11, fontWeight: 800, color: '#60a5fa', marginBottom: 8 }}>{fmtShort(latestVal)}</p>
-                                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 70, marginBottom: 4 }}>
-                                                    {pts6.map((m, i) => {
-                                                        const h = Math.max(8, (m.fees / maxF) * 60);
-                                                        const isLast = i === pts6.length - 1;
-                                                        return (
-                                                            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                                                                <div style={{ width: '100%', height: h, borderRadius: '4px 4px 0 0', background: isLast ? '#3b82f6' : 'rgba(99,130,246,0.35)', transition: 'all 0.3s' }} />
-                                                                <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>{m.month}</span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: 'rgba(255,255,255,0.3)' }}>
-                                                    <span>0K</span>
-                                                    <span>{fmtShort(maxF / 2)}</span>
-                                                    <span>{fmtShort(maxF)}</span>
-                                                </div>
-                                            </>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {/* ── Other tabs ── */}
-                    {activeTab === 'finance' && <FinancePanel />}
-                    {activeTab === 'academics' && <AcademicsPanel />}
-                    {activeTab === 'staff' && <StaffPanel />}
-                    {activeTab === 'stores' && <StoresPanel />}
-                    {activeTab === 'portals' && <PortalsPanel />}
-
-                </div>
-
-                {/* ───── RIGHT COLUMN ───── */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-                    {/* Top Performing Students */}
-                    <div style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                            <p style={{ fontSize: 12, fontWeight: 800, color: '#1e293b' }}>🏆 Top Performing Students</p>
-                            <Link href="/dashboard/exams/merit-list" style={{ fontSize: 10, color: '#3b82f6', fontWeight: 700, textDecoration: 'none' }}>View All →</Link>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {(topStudents.length > 0 ? topStudents : [
-                                { name: '—', form: '—', avg: 0 },
-                                { name: '—', form: '—', avg: 0 },
-                                { name: '—', form: '—', avg: 0 },
-                                { name: '—', form: '—', avg: 0 },
-                                { name: '—', form: '—', avg: 0 },
-                            ]).slice(0, 5).map((s, i) => {
-                                const initials = s.name !== '—' ? s.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : '??';
-                                const avatarColors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899'];
-                                return (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <span style={{ fontSize: 11, fontWeight: 800, color: '#94a3b8', width: 14, textAlign: 'center' }}>{i + 1}</span>
-                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: avatarColors[i], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-                                            {initials}
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <p style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</p>
-                                            <p style={{ fontSize: 9, color: '#64748b' }}>{s.form}</p>
-                                        </div>
-                                        <span style={{ background: '#dcfce7', color: '#16a34a', borderRadius: 20, padding: '2px 8px', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>{s.avg}%</span>
-                                    </div>
-                                );
-                            })}
-                            {topStudents.length === 0 && (
-                                <p style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', paddingTop: 8 }}>No exam data yet</p>
                             )}
                         </div>
                     </div>
+                );
+            })()}
 
-                    {/* Live KPI strip on right */}
-                    <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-                            <p style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: 1 }}>Live Activity</p>
+            {/* ── Tab Nav ── */}
+            <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+            {/* ════════════════════════════════════════
+                OVERVIEW TAB
+            ════════════════════════════════════════ */}
+            {activeTab === 'overview' && (
+                <div className="space-y-4">
+
+                    {/* ── TOP 4 BRIGHT STAT CARDS (ENHANCED) ── */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <StatCard icon="🎓" label="Active Students" value={fmtN(active.length)} sub={`${maleCount} boys · ${femaleCount} girls`} color="#4f46e5" bg="#eef2ff" trend="up" trendLabel={`+${newThisYear} new`} href="/dashboard/students" />
+                        <StatCard icon="💰" label="Fees Collected" value={fmtShort(totalFees)} sub={`${fmt(payThisMonth)} this month`} color="#059669" bg="#ecfdf5" trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees" />
+                        <StatCard icon="✅" label="Attendance Rate" value={`${attRate}%`} sub={`${todayPre} present · ${todayAbs} absent`} color={attRate >= 80 ? '#0891b2' : '#d97706'} bg={attRate >= 80 ? '#e0f2fe' : '#fef3c7'} trend={attRate >= 80 ? 'up' : 'down'} trendLabel={`${todayAbs} absent`} href="/dashboard/attendance" />
+                        <StatCard icon="📊" label="Net Position" value={fmtShort(Math.abs(netPos))} sub={`Income ${fmtShort(totalIncome)}`} color={netPos >= 0 ? '#7c3aed' : '#dc2626'} bg={netPos >= 0 ? '#f5f3ff' : '#fef2f2'} trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees/reports/pl" />
+                    </div>
+
+                    {/* ── ULTRA QUICK ACTIONS (ENHANCED — 12 buttons with gradient borders) ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">⚡ Quick Actions</p>
+                            <span className="text-[9px] text-gray-400">12 shortcuts</span>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2">
                             {[
-                                { dot: '#10b981', label: `${fmtN(active.length)} Active Students`, sub: `${maleCount}M · ${femaleCount}F` },
-                                { dot: '#3b82f6', label: `${fmt(todayFeeTotal)} Today`, sub: 'fees collected' },
-                                { dot: '#f59e0b', label: `${attRate}% Attendance`, sub: `${todayPre} present` },
-                                { dot: pendingIssues > 0 ? '#ef4444' : '#10b981', label: `${pendingIssues} Pending Issues`, sub: 'store issuances' },
-                            ].map((item, i) => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: item.dot, flexShrink: 0 }} />
-                                    <div>
-                                        <p style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{item.label}</p>
-                                        <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{item.sub}</p>
-                                    </div>
-                                </div>
+                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', color: '#22c55e', bg: 'linear-gradient(135deg,#ecfdf5,#d1fae5)' },
+                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '🎓', color: '#6366f1', bg: 'linear-gradient(135deg,#eef2ff,#e0e7ff)' },
+                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', color: '#3b82f6', bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)' },
+                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', color: '#f59e0b', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                                { label: 'Send SMS', href: '/dashboard/fees/bulk-reminders', icon: '📱', color: '#8b5cf6', bg: 'linear-gradient(135deg,#f5f3ff,#ede9fe)' },
+                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', color: '#0891b2', bg: 'linear-gradient(135deg,#ecfeff,#e0f2fe)' },
+                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', color: '#ef4444', bg: 'linear-gradient(135deg,#fff1f2,#fee2e2)' },
+                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👔', color: '#7c3aed', bg: 'linear-gradient(135deg,#faf5ff,#f3e8ff)' },
+                                { label: 'Stores', href: '/dashboard/stores/ultra', icon: '📦', color: '#b45309', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                                { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: '📋', color: '#059669', bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)' },
+                                { label: 'Discipline', href: '/dashboard/discipline', icon: '🛡️', color: '#dc2626', bg: 'linear-gradient(135deg,#fff1f2,#fee2e2)' },
+                                { label: 'Notifications', href: '/dashboard/notifications', icon: '🔔', color: '#d97706', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                            ].map((a, i) => (
+                                <Link key={i} href={a.href}
+                                    className="rounded-xl p-2.5 text-center hover:shadow-md hover:scale-[1.05] transition-all border border-gray-100 group relative overflow-hidden"
+                                    style={{ background: a.bg }}>
+                                    <div className="text-xl mb-1">{a.icon}</div>
+                                    <p className="text-[9px] font-bold leading-tight" style={{ color: a.color }}>{a.label}</p>
+                                </Link>
                             ))}
                         </div>
                     </div>
 
-                    {/* Term info card */}
-                    <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 14px' }}>
-                        <p style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>📅 Current Term</p>
-                        <p style={{ fontSize: 14, fontWeight: 900, color: '#fff', marginBottom: 4 }}>{currentTerm?.term_name || 'Term 1'} {currentYear}</p>
-                        {currentTerm?.end_date && (
-                            <p style={{ fontSize: 11, color: '#60a5fa', fontWeight: 700, marginBottom: 8 }}>
-                                {Math.max(0, Math.ceil((new Date(currentTerm.end_date).getTime() - Date.now()) / 86400000))} days remaining
-                            </p>
-                        )}
-                        {currentTerm?.start_date && currentTerm?.end_date && (() => {
-                            const start = new Date(currentTerm.start_date).getTime();
-                            const end = new Date(currentTerm.end_date).getTime();
-                            const pctDone = Math.min(100, Math.round((Date.now() - start) / (end - start) * 100));
-                            return (
-                                <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, height: 6, overflow: 'hidden' }}>
-                                    <div style={{ width: `${pctDone}%`, height: '100%', background: 'linear-gradient(90deg,#3b82f6,#8b5cf6)', borderRadius: 10, transition: 'all 0.5s' }} />
+                    {/* ── FEE ANALYTICS (existing component) ── */}
+                    <FeeAnalyticsSection />
+
+                    {/* ── ULTRA KPI CARDS ── */}
+                    <UltraCardsSection stats={stats} currentYear={currentYear} fmt={fmt} />
+
+                    {/* ── SECONDARY METRICS ── */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                            { label: 'Gender M:F', value: `${maleCount}:${femaleCount}`, bar: pct(maleCount, active.length), color: '#3b82f6', bg: '#dbeafe', icon: '⚖️', sub: `${pct(maleCount, active.length)}% male` },
+                            { label: 'Month Fees', value: fmtShort(payThisMonth), bar: Math.min(100, pct(payThisMonth, totalFees || 1)), color: '#10b981', bg: '#d1fae5', icon: '📅', sub: 'of total collected' },
+                            { label: 'Today Absent', value: `${todayAbs}`, bar: pct(todayAbs, active.length || 1), color: '#ef4444', bg: '#fee2e2', icon: '⚠️', sub: `of ${active.length} active` },
+                            { label: 'Discipline Cases', value: fmtN(disciplineCount), bar: Math.min(100, disciplineCount * 5), color: '#f59e0b', bg: '#fef3c7', icon: '⚡', sub: `${currentYear} total` },
+                        ].map((m, i) => (
+                            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background: m.bg }}>{m.icon}</div>
                                 </div>
-                            );
-                        })()}
-                        <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>Term progress</p>
+                                <p className="text-xl font-black text-gray-900">{m.value}</p>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-wide mt-0.5">{m.label}</p>
+                                <p className="text-[9px] text-gray-400 mb-2">{m.sub}</p>
+                                <div className="bg-gray-100 rounded-full h-1.5">
+                                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${m.bar}%`, background: m.color }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* ── CHARTS ROW 1: Fees vs Expenses + Doughnut ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="📊 Fee Collections vs Expenses — 12 Months" sub="Monthly revenue vs costs" href="/dashboard/fees/analytics" linkLabel="Analytics" />
+                            <div className="flex items-center gap-4 mb-3 text-[10px]">
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-indigo-500 inline-block" />Fees</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-400 inline-block" />Expenses</span>
+                            </div>
+                            <div style={{ height: 220 }}>
+                                <Bar data={feeExpChart} options={{ ...cb, scales: { y: { beginAtZero: true, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${(v / 1000).toFixed(0)}K`, font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="📋 Today's Attendance" sub={new Date().toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' })} />
+                            <div style={{ height: 155 }}>
+                                {attendance.length > 0
+                                    ? <Doughnut data={attDonut} options={{ responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 10 }, padding: 8 } } } }} />
+                                    : <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2"><FiActivity size={26} /><p className="text-xs text-gray-400">No data today</p></div>}
+                            </div>
+                            <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+                                {[{ l: 'Present', v: todayPre, c: '#22c55e', b: '#f0fdf4' }, { l: 'Absent', v: todayAbs, c: '#ef4444', b: '#fef2f2' }, { l: 'Late', v: todayLat, c: '#f59e0b', b: '#fffbeb' }].map(a => (
+                                    <div key={a.l} className="rounded-xl py-2" style={{ background: a.b }}>
+                                        <p className="text-base font-black" style={{ color: a.c }}>{a.v}</p>
+                                        <p className="text-[9px] font-bold text-gray-500">{a.l}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── CHARTS ROW 2: Attendance Trend + Academic ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="📈 Weekly Attendance Trend" sub="Last 7 school days" href="/dashboard/attendance" linkLabel="Full Report" />
+                            <div style={{ height: 190 }}>
+                                <Line data={wAttChart} options={{ ...cb, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${v}%`, font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="🏆 Academic Performance by Form" sub="Average exam score per class" href="/dashboard/exams/analysis" linkLabel="Full Analysis" />
+                            <div style={{ height: 190 }}>
+                                {formPerf.some(f => f.avg > 0)
+                                    ? <Bar data={fPerfChart} options={{ ...cb, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                                    : <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2"><FiBook size={26} /><p className="text-xs text-gray-400">No exam marks yet</p></div>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── ENROLLMENT BY FORM (card grid) ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-50">
+                            <SH title="👥 Student Enrollment by Form / Grade" sub={`${active.length} active across ${forms.length} classes`} href="/dashboard/students" linkLabel="Manage" />
+                        </div>
+                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                            {forms.map(f => {
+                                const inForm = active.filter(s => s.form_id === f.id);
+                                const male = inForm.filter(s => s.gender === 'Male').length;
+                                const female = inForm.filter(s => s.gender === 'Female').length;
+                                const maxSt = Math.max(...forms.map(fm => active.filter(s => s.form_id === fm.id).length), 1);
+                                return (
+                                    <div key={f.id} className="rounded-xl p-3 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/20 transition-all">
+                                        <p className="text-xs font-black text-gray-700 truncate mb-1">{f.form_name}</p>
+                                        <p className="text-2xl font-black text-gray-900">{inForm.length}</p>
+                                        <div className="flex gap-2 mt-1 mb-2 text-[9px]">
+                                            <span className="text-blue-500 font-bold">♂ {male}</span>
+                                            <span className="text-pink-500 font-bold">♀ {female}</span>
+                                        </div>
+                                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden flex gap-0.5">
+                                            <div className="bg-blue-400 h-full" style={{ width: `${pct(male, maxSt)}%` }} />
+                                            <div className="bg-pink-400 h-full" style={{ width: `${pct(female, maxSt)}%` }} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* ── NET FINANCIAL POSITION STRIP ── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {[
+                            { label: 'Total Income', value: fmtShort(totalIncome), color: '#059669', bg: '#ecfdf5', icon: '📥', sub: `Fees + other income ${currentYear}` },
+                            { label: 'Total Expenses', value: fmtShort(approvedExp), color: '#dc2626', bg: '#fef2f2', icon: '📤', sub: `Approved expenses ${currentYear}` },
+                            { label: netPos >= 0 ? 'Net Surplus' : 'Net Deficit', value: fmtShort(Math.abs(netPos)), color: netPos >= 0 ? '#7c3aed' : '#dc2626', bg: netPos >= 0 ? '#f5f3ff' : '#fef2f2', icon: netPos >= 0 ? '✅' : '⚠️', sub: netPos >= 0 ? 'School is financially healthy' : 'Expenses exceed income' },
+                        ].map((m, i) => (
+                            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: m.bg }}>{m.icon}</div>
+                                <div>
+                                    <p className="text-xl font-black" style={{ color: m.color }}>{m.value}</p>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wide">{m.label}</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5">{m.sub}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* ── AI INSIGHTS + TOP STUDENTS ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <AIInsightsWidget />
+                        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-50">
+                                <SH title="🏆 Top Performing Students" sub="Based on exam marks" href="/dashboard/exams/merit-list" linkLabel="Merit List" />
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {topStudents.map((s, i) => (
+                                    <div key={i} className="px-5 py-3 flex items-center justify-between hover:bg-indigo-50/30 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white ${i === 0 ? 'bg-gradient-to-br from-amber-400 to-yellow-500' : i === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-500' : i === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                                                {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-800">{s.name}</p>
+                                                <p className="text-[10px] text-gray-400">{s.form}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`text-lg font-black ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-500'}`}>{s.avg}%</p>
+                                            <p className="text-[9px] text-gray-400">avg score</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {topStudents.length === 0 && <div className="py-10 text-center text-gray-400"><FiAward size={26} className="mx-auto mb-2 text-gray-200" /><p className="text-xs">No exam data yet</p></div>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── SUBJECT PERFORMANCE ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                        <SH title="📚 Subject Performance Ranking" sub="Average score per subject" href="/dashboard/exams/analysis" linkLabel="Full Analysis" />
+                        {subjectPerf.length === 0
+                            ? <div className="py-8 text-center text-gray-400"><FiBarChart2 size={26} className="mx-auto mb-2 text-gray-200" /><p className="text-xs">No exam marks yet</p></div>
+                            : <div className="space-y-2.5">
+                                {subjectPerf.slice(0, 8).map((s, i) => (
+                                    <div key={s.name} className="flex items-center gap-3">
+                                        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white flex-shrink-0 ${i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-orange-400' : 'bg-gray-200 text-gray-500'}`}>{i + 1}</span>
+                                        <span className="text-sm font-semibold text-gray-700 w-40 truncate flex-shrink-0">{s.name}</span>
+                                        <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                                            <div className="h-2 rounded-full transition-all" style={{ width: `${s.avg}%`, background: s.avg >= 70 ? '#22c55e' : s.avg >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                        </div>
+                                        <span className={`text-sm font-black w-10 text-right ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-500'}`}>{s.avg}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        }
+                    </div>
+
+                    {/* ── RECENT PAYMENTS + RECENT ENROLLMENTS ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-50">
+                                <SH title="💳 Recent Fee Payments" sub="Latest transactions" href="/dashboard/fees/payments" linkLabel="View All" />
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {recentPayments.map((p) => {
+                                    const st = students.find(s => s.id === p.student_id);
+                                    return (
+                                        <div key={p.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                                    <FiDollarSign size={13} className="text-emerald-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800">{st ? `${st.first_name} ${st.last_name}` : `Student #${p.student_id}`}</p>
+                                                    <p className="text-[10px] text-gray-400">{new Date(p.payment_date).toLocaleDateString('en-KE', { day: '2-digit', month: 'short' })} · {p.payment_method}</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-sm font-black text-emerald-600">{fmt(Number(p.amount))}</span>
+                                        </div>
+                                    );
+                                })}
+                                {recentPayments.length === 0 && <div className="py-8 text-center text-gray-400 text-xs">No payments recorded</div>}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-50">
+                                <SH title="🎓 Recent Enrollments" sub="Latest student admissions" href="/dashboard/students" linkLabel="View All" />
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {recentStudents.map((s) => {
+                                    const form = forms.find(f => f.id === s.form_id);
+                                    return (
+                                        <div key={s.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black text-white"
+                                                    style={{ background: s.gender === 'Male' ? 'linear-gradient(135deg,#3b82f6,#2563eb)' : 'linear-gradient(135deg,#ec4899,#db2777)' }}>
+                                                    {s.first_name?.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800">{s.first_name} {s.last_name}</p>
+                                                    <p className="text-[10px] text-gray-400">{s.admission_no || s.admission_number} · {form?.form_name || '—'}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`text-[9px] font-black px-2 py-1 rounded-full ${s.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{s.status}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── QUICK ACTIONS ── */}
+                    <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">⚡ Quick Actions</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                            {[
+                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', color: '#22c55e', bg: '#ecfdf5' },
+                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '➕', color: '#6366f1', bg: '#eef2ff' },
+                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', color: '#3b82f6', bg: '#dbeafe' },
+                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', color: '#f59e0b', bg: '#fef3c7' },
+                                { label: 'Bulk SMS', href: '/dashboard/fees/bulk-reminders', icon: '📱', color: '#8b5cf6', bg: '#ede9fe' },
+                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', color: '#ef4444', bg: '#fee2e2' },
+                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👨‍💼', color: '#7c3aed', bg: '#f5f3ff' },
+                            ].map((a, i) => (
+                                <Link key={i} href={a.href}
+                                    className="bg-white rounded-2xl p-3.5 text-center hover:shadow-md hover:scale-[1.04] transition-all border border-gray-100 group overflow-hidden relative"
+                                    style={{ borderTopWidth: 3, borderTopColor: a.color }}>
+                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg mx-auto mb-2" style={{ background: a.bg }}>{a.icon}</div>
+                                    <p className="text-[10px] font-bold text-gray-500 group-hover:text-gray-800 leading-tight transition-colors">{a.label}</p>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ── INTELLIGENCE COMMAND CENTER (bright card) ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                <FiCpu size={16} className="text-indigo-600" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-black text-gray-800 uppercase tracking-wide">APSIMS Intelligence Hub</p>
+                                <p className="text-[10px] text-gray-400">Advanced tools — Kenya's most powerful school system</p>
+                            </div>
+                            <div className="ml-auto flex items-center gap-1.5">
+                                <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" /></span>
+                                <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest">All Online</span>
+                            </div>
+                        </div>
+                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                            {[
+                                { label: '📊 P&L Report', href: '/dashboard/fees/reports/pl', desc: 'Full financial statement', color: '#059669', bg: '#ecfdf5' },
+                                { label: '📱 Bulk SMS', href: '/dashboard/fees/bulk-reminders', desc: 'Fee defaulter campaigns', color: '#7c3aed', bg: '#f5f3ff' },
+                                { label: '📈 Fee Analytics', href: '/dashboard/fees/analytics', desc: 'Revenue intelligence', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: '🎓 Merit List', href: '/dashboard/exams/merit-list', desc: 'Academic rankings', color: '#d97706', bg: '#fef3c7' },
+                                { label: '📋 Report Cards', href: '/dashboard/exams/report-cards', desc: 'Term progress reports', color: '#6366f1', bg: '#eef2ff' },
+                                { label: '🛡️ Exam Integrity', href: '/dashboard/exams/exam-integrity', desc: 'Anti-cheating system', color: '#dc2626', bg: '#fef2f2' },
+                                { label: '🤖 AI Insights', href: '/dashboard/exams/ai-insights', desc: 'AI performance chatbot', color: '#059669', bg: '#ecfdf5' },
+                                { label: '🏫 CBC Reports', href: '/dashboard/exams/cbc-reports', desc: 'KICD-aligned analytics', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: '✏️ JSS Marks', href: '/dashboard/jss/marks', desc: 'Grade 7-9 entry', color: '#7c3aed', bg: '#f5f3ff' },
+                                { label: '🏆 KPSEA', href: '/dashboard/exams/kpsea', desc: 'Grade 6 assessment', color: '#d97706', bg: '#fef3c7' },
+                                { label: '🎓 Senior School', href: '/dashboard/cbc/senior-school', desc: 'Grade 10-12 hub', color: '#6366f1', bg: '#eef2ff' },
+                                { label: '🔒 Audit Trail', href: '/dashboard/fees/audit', desc: 'Full transaction log', color: '#dc2626', bg: '#fef2f2' },
+                            ].map((m, i) => (
+                                <Link key={i} href={m.href}
+                                    className="rounded-xl p-3 border border-gray-100 hover:border-current hover:shadow-sm transition-all group"
+                                    style={{ borderLeftWidth: 3, borderLeftColor: m.color }}>
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm mb-2" style={{ background: m.bg }}>{m.label.split(' ')[0]}</div>
+                                    <p className="text-[11px] font-bold text-gray-700 leading-tight">{m.label.split(' ').slice(1).join(' ')}</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{m.desc}</p>
+                                </Link>
+                            ))}
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
+
+            {/* ── Other tabs ── */}
+            {activeTab === 'finance' && <FinancePanel />}
+            {activeTab === 'academics' && <AcademicsPanel />}
+            {activeTab === 'staff' && <StaffPanel />}
+            {activeTab === 'stores' && <StoresPanel />}
+            {activeTab === 'portals' && <PortalsPanel />}
 
             {/* Footer */}
-            <div style={{ textAlign: 'center', paddingTop: 12, marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase' }}>
+            <div className="text-center py-3 border-t border-gray-100">
+                <p className="text-[9px] text-gray-300 font-medium tracking-widest uppercase">
                     APSIMS Ultra v3.0 · 🇰🇪 No.1 School ERP in Kenya · © {currentYear}
                 </p>
             </div>
         </div>
     );
 }
+
