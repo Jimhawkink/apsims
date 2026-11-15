@@ -15,7 +15,7 @@ import {
     FiDollarSign, FiAlertTriangle, FiRefreshCw, FiUsers,
     FiTrendingUp, FiTrendingDown, FiBarChart2, FiChevronRight,
     FiActivity, FiShield, FiCpu, FiCheckCircle, FiAlertCircle,
-    FiAward, FiBook, FiCalendar, FiTarget, FiZap,
+    FiAward, FiBook, FiCalendar, FiTarget, FiZap, FiChevronDown,
 } from 'react-icons/fi';
 import UltraCardsSection from './components/UltraCards';
 import FeeAnalyticsSection from './components/FeeAnalyticsSection';
