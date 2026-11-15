@@ -32,6 +32,20 @@ import {
     LayoutGrid as LucideLayoutGrid,
     ArrowRight as LucideArrowRight,
 } from 'lucide-react';
+import {
+    HiCreditCard,
+    HiUserPlus,
+    HiCheckBadge,
+    HiDocumentText,
+    HiEnvelope,
+    HiChartBar,
+    HiWallet,
+    HiUserGroup,
+    HiDocumentCheck,
+    HiSquares2X2,
+    HiBolt,
+    HiArrowRight,
+} from 'react-icons/hi2';
 import UltraCardsSection from './components/UltraCards';
 import FeeAnalyticsSection from './components/FeeAnalyticsSection';
 import DashboardTabs, { TabKey } from './components/DashboardTabs';
@@ -721,6 +735,146 @@ export default function DashboardPage() {
                 </Link>
             </div>
 
+            {/* ══════════════════════════════════════════════════
+                ⚡ QUICK ACTIONS (Exact Reference Match to Screenshot)
+            ══════════════════════════════════════════════════ */}
+            <div className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-[22px] px-5 py-4">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3.5">
+                    <div className="flex items-center gap-2">
+                        <HiBolt size={18} className="text-blue-600" />
+                        <h2 className="text-sm font-black text-slate-800 tracking-tight">Quick Actions</h2>
+                    </div>
+                    <Link
+                        href="/dashboard/tools"
+                        className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group transition-colors"
+                    >
+                        <span>More Tools</span>
+                        <HiArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                    </Link>
+                </div>
+
+                {/* 10 Solid 3D Squircle Action Buttons */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-3">
+                    {[
+                        {
+                            label: 'Collect Fee',
+                            href: '/dashboard/fees/collect',
+                            icon: HiCreditCard,
+                            iconColor: '#1d63ed',
+                            bg: 'linear-gradient(180deg, #f0f7ff 0%, #e2efff 100%)',
+                            border: '#bfdbfe',
+                            shadow: 'rgba(37, 99, 235, 0.1)',
+                        },
+                        {
+                            label: 'Add Student',
+                            href: '/dashboard/students/admissions',
+                            icon: HiUserPlus,
+                            iconColor: '#2563eb',
+                            bg: 'linear-gradient(180deg, #f2f5ff 0%, #e5ebff 100%)',
+                            border: '#c7d2fe',
+                            shadow: 'rgba(79, 70, 229, 0.1)',
+                        },
+                        {
+                            label: 'Attendance',
+                            href: '/dashboard/attendance',
+                            icon: HiCheckBadge,
+                            iconColor: '#10b981',
+                            bg: 'linear-gradient(180deg, #f0fdf6 0%, #dcfce7 100%)',
+                            border: '#86efac',
+                            shadow: 'rgba(16, 185, 129, 0.1)',
+                        },
+                        {
+                            label: 'Enter Marks',
+                            href: '/dashboard/exams/marks',
+                            icon: HiDocumentText,
+                            iconColor: '#f59e0b',
+                            bg: 'linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%)',
+                            border: '#fed7aa',
+                            shadow: 'rgba(245, 158, 11, 0.1)',
+                        },
+                        {
+                            label: 'Bulk SMS',
+                            href: '/dashboard/fees/bulk-reminders',
+                            icon: HiEnvelope,
+                            iconColor: '#2563eb',
+                            bg: 'linear-gradient(180deg, #f0f7ff 0%, #e0f0fe 100%)',
+                            border: '#bae6fd',
+                            shadow: 'rgba(37, 99, 235, 0.1)',
+                        },
+                        {
+                            label: 'P&L Report',
+                            href: '/dashboard/fees/reports/pl',
+                            icon: HiChartBar,
+                            iconColor: '#0891b2',
+                            bg: 'linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%)',
+                            border: '#99f6e4',
+                            shadow: 'rgba(8, 145, 178, 0.1)',
+                        },
+                        {
+                            label: 'Add Expense',
+                            href: '/dashboard/expenses',
+                            icon: HiWallet,
+                            iconColor: '#ea580c',
+                            bg: 'linear-gradient(180deg, #fff7ed 0%, #fed7aa 100%)',
+                            border: '#fdba74',
+                            shadow: 'rgba(234, 88, 12, 0.1)',
+                        },
+                        {
+                            label: 'Payroll',
+                            href: '/dashboard/hr-payroll/payroll',
+                            icon: HiUserGroup,
+                            iconColor: '#2563eb',
+                            bg: 'linear-gradient(180deg, #f0f7ff 0%, #dbeafe 100%)',
+                            border: '#93c5fd',
+                            shadow: 'rgba(37, 99, 235, 0.1)',
+                        },
+                        {
+                            label: 'Report Cards',
+                            href: '/dashboard/exams/report-cards',
+                            icon: HiDocumentCheck,
+                            iconColor: '#059669',
+                            bg: 'linear-gradient(180deg, #f0fdf4 0%, #bbf7d0 100%)',
+                            border: '#86efac',
+                            shadow: 'rgba(5, 150, 105, 0.1)',
+                        },
+                        {
+                            label: 'More Tools',
+                            href: '/dashboard/tools',
+                            icon: HiSquares2X2,
+                            iconColor: '#7c3aed',
+                            bg: 'linear-gradient(180deg, #faf5ff 0%, #ede9fe 100%)',
+                            border: '#ddd6fe',
+                            shadow: 'rgba(124, 58, 237, 0.1)',
+                        },
+                    ].map((btn, i) => {
+                        const Icon = btn.icon;
+                        return (
+                            <Link
+                                key={i}
+                                href={btn.href}
+                                className="group/btn flex flex-col items-center justify-center p-3.5 rounded-[18px] transition-all duration-200 hover:-translate-y-1 hover:shadow-lg active:scale-95 cursor-pointer text-center relative overflow-hidden"
+                                style={{
+                                    background: btn.bg,
+                                    border: `1px solid ${btn.border}`,
+                                    boxShadow: `0 4px 14px 0 ${btn.shadow}, inset 0 1px 1px rgba(255, 255, 255, 0.9)`,
+                                }}
+                            >
+                                <div
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-1.5 transition-transform duration-200 group-hover/btn:scale-110"
+                                    style={{ color: btn.iconColor }}
+                                >
+                                    <Icon size={26} className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.12)]" />
+                                </div>
+                                <span className="text-[11px] font-black text-slate-700 leading-tight tracking-tight group-hover/btn:text-blue-600 transition-colors whitespace-nowrap">
+                                    {btn.label}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </div>
+
             {/* ══ SIZABLE COMPACT SCHOOL HEALTH, TERM & REALTIME CARDS ══ */}
             {(() => {
                 const feeRate = stats.feesCollected > 0 ? Math.min(100, Math.round(stats.feesCollected / (stats.feesCollected + stats.feesDue + 1) * 100)) : 0;
@@ -837,145 +991,7 @@ export default function DashboardPage() {
                         <StatCard icon="📊" label="Net Position" value={fmtShort(Math.abs(netPos))} sub={`Income ${fmtShort(totalIncome)}`} color={netPos >= 0 ? '#7c3aed' : '#dc2626'} bg={netPos >= 0 ? '#f5f3ff' : '#fef2f2'} trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees/reports/pl" />
                     </div>
 
-                    {/* ══════════════════════════════════════════════════
-                        ⚡ SUPER ULTRA QUICK ACTIONS (Exact Reference Match)
-                    ══════════════════════════════════════════════════ */}
-                    <div className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-[22px] px-5 py-4">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-3.5">
-                            <div className="flex items-center gap-2">
-                                <span className="w-5 h-5 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shadow-xs">⚡</span>
-                                <h2 className="text-sm font-black text-slate-800 tracking-tight">Quick Actions</h2>
-                            </div>
-                            <Link
-                                href="/dashboard/tools"
-                                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors group"
-                            >
-                                <span>More Tools</span>
-                                <LucideArrowRight size={13} strokeWidth={2.4} className="group-hover:translate-x-0.5 transition-transform" />
-                            </Link>
-                        </div>
 
-                        {/* 10 Ultra-Premium Action Buttons */}
-                        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2.5">
-                            {[
-                                {
-                                    label: 'Collect Fee',
-                                    href: '/dashboard/fees/collect',
-                                    icon: LucideCreditCard,
-                                    color: '#1d63ed',
-                                    bg: 'linear-gradient(180deg, rgba(239, 246, 255, 0.95) 0%, rgba(219, 234, 254, 0.6) 100%)',
-                                    border: 'rgba(191, 219, 254, 0.8)',
-                                    shadow: 'rgba(37, 99, 235, 0.12)',
-                                },
-                                {
-                                    label: 'Add Student',
-                                    href: '/dashboard/students/admissions',
-                                    icon: LucideUserPlus,
-                                    color: '#2563eb',
-                                    bg: 'linear-gradient(180deg, rgba(240, 245, 255, 0.95) 0%, rgba(224, 231, 255, 0.6) 100%)',
-                                    border: 'rgba(199, 210, 254, 0.8)',
-                                    shadow: 'rgba(79, 70, 229, 0.12)',
-                                },
-                                {
-                                    label: 'Attendance',
-                                    href: '/dashboard/attendance',
-                                    icon: LucideCheckCircle2,
-                                    color: '#10b981',
-                                    bg: 'linear-gradient(180deg, rgba(236, 253, 245, 0.95) 0%, rgba(209, 250, 229, 0.6) 100%)',
-                                    border: 'rgba(167, 243, 208, 0.8)',
-                                    shadow: 'rgba(16, 185, 129, 0.12)',
-                                },
-                                {
-                                    label: 'Enter Marks',
-                                    href: '/dashboard/exams/marks',
-                                    icon: LucideFileText,
-                                    color: '#f59e0b',
-                                    bg: 'linear-gradient(180deg, rgba(255, 241, 242, 0.95) 0%, rgba(254, 226, 226, 0.6) 100%)',
-                                    border: 'rgba(254, 202, 202, 0.8)',
-                                    shadow: 'rgba(244, 63, 94, 0.12)',
-                                },
-                                {
-                                    label: 'Bulk SMS',
-                                    href: '/dashboard/fees/bulk-reminders',
-                                    icon: LucideMail,
-                                    color: '#2563eb',
-                                    bg: 'linear-gradient(180deg, rgba(239, 246, 255, 0.95) 0%, rgba(219, 234, 254, 0.6) 100%)',
-                                    border: 'rgba(191, 219, 254, 0.8)',
-                                    shadow: 'rgba(37, 99, 235, 0.12)',
-                                },
-                                {
-                                    label: 'P&L Report',
-                                    href: '/dashboard/fees/reports/pl',
-                                    icon: LucideBarChart3,
-                                    color: '#0891b2',
-                                    bg: 'linear-gradient(180deg, rgba(240, 249, 255, 0.95) 0%, rgba(224, 242, 254, 0.6) 100%)',
-                                    border: 'rgba(186, 230, 253, 0.8)',
-                                    shadow: 'rgba(2, 132, 199, 0.12)',
-                                },
-                                {
-                                    label: 'Add Expense',
-                                    href: '/dashboard/expenses',
-                                    icon: LucideWallet,
-                                    color: '#ea580c',
-                                    bg: 'linear-gradient(180deg, rgba(255, 247, 237, 0.95) 0%, rgba(254, 237, 213, 0.6) 100%)',
-                                    border: 'rgba(254, 215, 170, 0.8)',
-                                    shadow: 'rgba(234, 88, 12, 0.12)',
-                                },
-                                {
-                                    label: 'Payroll',
-                                    href: '/dashboard/hr-payroll/payroll',
-                                    icon: LucideUsers,
-                                    color: '#2563eb',
-                                    bg: 'linear-gradient(180deg, rgba(239, 246, 255, 0.95) 0%, rgba(219, 234, 254, 0.6) 100%)',
-                                    border: 'rgba(191, 219, 254, 0.8)',
-                                    shadow: 'rgba(37, 99, 235, 0.12)',
-                                },
-                                {
-                                    label: 'Report Cards',
-                                    href: '/dashboard/exams/report-cards',
-                                    icon: LucideFileCheck,
-                                    color: '#059669',
-                                    bg: 'linear-gradient(180deg, rgba(240, 253, 244, 0.95) 0%, rgba(220, 252, 231, 0.6) 100%)',
-                                    border: 'rgba(187, 247, 208, 0.8)',
-                                    shadow: 'rgba(22, 163, 74, 0.12)',
-                                },
-                                {
-                                    label: 'More Tools',
-                                    href: '/dashboard/tools',
-                                    icon: LucideLayoutGrid,
-                                    color: '#7c3aed',
-                                    bg: 'linear-gradient(180deg, rgba(245, 243, 255, 0.95) 0%, rgba(237, 233, 254, 0.6) 100%)',
-                                    border: 'rgba(221, 214, 254, 0.8)',
-                                    shadow: 'rgba(124, 58, 237, 0.12)',
-                                },
-                            ].map((btn, i) => {
-                                const Icon = btn.icon;
-                                return (
-                                    <Link
-                                        key={i}
-                                        href={btn.href}
-                                        className="group/btn flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer text-center relative overflow-hidden"
-                                        style={{
-                                            background: btn.bg,
-                                            border: `1px solid ${btn.border}`,
-                                            boxShadow: `0 4px 12px ${btn.shadow}`,
-                                        }}
-                                    >
-                                        <div
-                                            className="w-10 h-10 rounded-xl flex items-center justify-center mb-1.5 transition-transform duration-200 group-hover/btn:scale-110"
-                                            style={{ color: btn.color }}
-                                        >
-                                            <Icon size={22} strokeWidth={2.4} />
-                                        </div>
-                                        <span className="text-[11px] font-black text-slate-700 leading-tight tracking-tight group-hover/btn:text-blue-600 transition-colors whitespace-nowrap">
-                                            {btn.label}
-                                        </span>
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </div>
 
                     {/* ── FEE ANALYTICS (existing component) ── */}
                     <FeeAnalyticsSection />
