@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
+import AppHub from '@/components/AppHub';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
@@ -14,10 +15,7 @@ import {
     FiDollarSign, FiAlertTriangle, FiRefreshCw, FiUsers,
     FiTrendingUp, FiTrendingDown, FiBarChart2, FiChevronRight,
     FiActivity, FiShield, FiCpu, FiCheckCircle, FiAlertCircle,
-    FiAward, FiBook, FiCalendar, FiTarget, FiZap, FiChevronDown,
-    FiSearch, FiWifi, FiBell, FiSettings, FiUser, FiPlus,
-    FiPrinter, FiDownload, FiShare2, FiMaximize, FiPower, FiSun, FiMoon,
-    FiCreditCard
+    FiAward, FiBook, FiCalendar, FiTarget, FiZap,
 } from 'react-icons/fi';
 import UltraCardsSection from './components/UltraCards';
 import FeeAnalyticsSection from './components/FeeAnalyticsSection';
@@ -90,9 +88,6 @@ export default function DashboardPage() {
     const [pendingIssues, setPendingIssues] = useState(0);
     const [todayFeeTotal, setTodayFeeTotal] = useState(0);
     const [liveActivity, setLiveActivity] = useState<{ text: string; time: string; icon: string }[]>([]);
-    const [showNewActionMenu, setShowNewActionMenu] = useState(false);
-    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ontime' | 'overdue'>('all');
-    const [currentPage, setCurrentPage] = useState(1);
     const searchParams = useSearchParams();
     const accessDenied = searchParams.get('access_denied') === '1';
     const currentYear = new Date().getFullYear();
@@ -354,6 +349,8 @@ export default function DashboardPage() {
     };
     const cb = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
 
+    if (theme === 'light-soft' || theme === 'full-system') return <AppHub />;
+
     if (loading) return (
         <div className="flex flex-col items-center justify-center h-[70vh] gap-4">
             <div className="relative">
@@ -369,34 +366,11 @@ export default function DashboardPage() {
         </div>
     );
 
-    const handlePrint = () => {
-        if (typeof window !== 'undefined') window.print();
-    };
-    const handleFullscreen = () => {
-        if (typeof document !== 'undefined') {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {});
-            } else {
-                document.exitFullscreen().catch(() => {});
-            }
-        }
-    };
-    const handleShare = () => {
-        if (typeof navigator !== 'undefined' && navigator.share) {
-            navigator.share({ title: 'APSIMS Ultra Dashboard', url: window.location.href }).catch(() => {});
-        } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-            navigator.clipboard.writeText(window.location.href);
-            alert('Dashboard link copied to clipboard!');
-        }
-    };
-
-    const totalExpected = stats.feesCollected + stats.feesDue;
-    const collRate = totalExpected > 0 ? Math.min(100, Math.round((totalFees / totalExpected) * 100)) : 78;
-
     return (
-        <div className="space-y-3.5 -m-4 lg:-m-6 p-4 lg:p-6 bg-[#edf2f9] min-h-screen text-slate-800 ultra-animate">
+        <div className="space-y-4 ultra-animate pb-8">
+
             {/* ── Role banners ── */}
-            {userRole?.toLowerCase?.() === 'auditor' && (
+            {userRole.toLowerCase() === 'auditor' && (
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50">
                     <span>🔍</span>
                     <p className="text-xs font-bold text-amber-800 flex-1">Auditor Read-Only Access — write operations are restricted.</p>
@@ -410,782 +384,548 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* ════════════════════════════════════════════════════════════════
-                1. TOP HEADER BAR (Exact Match to UI Kit Image)
-            ════════════════════════════════════════════════════════════════ */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/80 backdrop-blur-md p-2.5 px-4 rounded-2xl border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-                {/* Search Bar Pill */}
-                <div
-                    onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))}
-                    className="flex items-center gap-2.5 bg-slate-50/90 hover:bg-white hover:border-blue-300 border border-slate-200/80 rounded-full px-4 py-2 w-full sm:w-80 cursor-pointer shadow-inner transition-all duration-200"
-                >
-                    <FiSearch className="text-slate-400" size={15} />
-                    <span className="text-xs text-slate-400 select-none flex-1">Search students, staff, reports...</span>
-                    <span className="text-[10px] text-slate-400 font-mono bg-white px-2 py-0.5 rounded-full border border-slate-200 shadow-xs">Ctrl + K</span>
-                </div>
-
-                {/* Right Actions & User Profile */}
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                    {/* Wifi Indicator */}
-                    <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shadow-xs" title="Online & Connected">
-                        <FiWifi size={15} />
-                    </div>
-
-                    {/* Notification Bell */}
-                    <Link href="/dashboard/notifications" className="relative w-9 h-9 rounded-full bg-white border border-slate-200/80 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors" title="Notifications">
-                        <FiBell size={15} />
-                        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow-xs">
-                            3
-                        </span>
-                    </Link>
-
-                    {/* Settings */}
-                    <Link href="/dashboard/settings" className="w-9 h-9 rounded-full bg-white border border-slate-200/80 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors" title="Settings">
-                        <FiSettings size={15} />
-                    </Link>
-
-                    {/* Divider */}
-                    <div className="h-5 w-[1px] bg-slate-200 mx-0.5" />
-
-                    {/* User Profile Pill */}
-                    <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-full pl-1.5 pr-3 py-1 shadow-xs cursor-pointer hover:border-blue-300 transition-all">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-[11px] font-black flex items-center justify-center shadow-xs">
-                            {userName?.charAt(0)?.toUpperCase() || 'A'}
+            {/* ════════════════════════════════════════
+                SLIM BRIGHT HEADER (not heavy/dark)
+            ════════════════════════════════════════ */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Top accent line */}
+                <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #6366f1, #3b82f6, #06b6d4, #10b981)' }} />
+                <div className="px-5 py-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                                </span>
+                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Live</span>
+                                <span className="text-[10px] text-gray-300 mx-1">·</span>
+                                <span className="text-[10px] font-mono text-gray-400">{liveTime}</span>
+                                {currentTerm && (
+                                    <>
+                                        <span className="text-[10px] text-gray-300 mx-1">·</span>
+                                        <span className="text-[10px] font-bold text-indigo-500">{currentTerm.term_name} {currentYear}</span>
+                                    </>
+                                )}
+                            </div>
+                            <h1 className="text-lg font-black text-gray-900">
+                                {greeting}, <span className="text-indigo-600">{userName}</span>! 👋
+                            </h1>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                                {new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-black bg-gradient-to-r from-amber-400 to-orange-400 text-white">🇰🇪 #1 IN KENYA</span>
+                            </p>
                         </div>
-                        <span className="text-xs font-bold text-slate-700 hidden md:inline">{userName || 'Admin'}</span>
-                        <FiChevronDown size={12} className="text-slate-400" />
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setRefreshKey(k => k + 1)} className="p-2 rounded-xl bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 border border-gray-100 transition-all" title="Refresh">
+                                <FiRefreshCw size={14} />
+                            </button>
+                        </div>
                     </div>
 
-                    {/* + New Action Dropdown */}
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setShowNewActionMenu(!showNewActionMenu)}
-                            className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
-                        >
-                            <FiPlus size={14} />
-                            <span>New Action</span>
-                            <FiChevronDown size={12} className={`transition-transform duration-200 ${showNewActionMenu ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        {/* Dropdown Menu */}
-                        {showNewActionMenu && (
-                            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 py-1.5">Quick Shortcuts</p>
-                                <Link href="/dashboard/fees/collect" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                    <span className="text-base">💳</span> Collect Fee Payment
-                                </Link>
-                                <Link href="/dashboard/students/admissions" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                    <span className="text-base">👤</span> Register New Student
-                                </Link>
-                                <Link href="/dashboard/exams/marks" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                    <span className="text-base">📝</span> Enter Exam Marks
-                                </Link>
-                                <Link href="/dashboard/expenses" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                    <span className="text-base">💸</span> Add School Expense
-                                </Link>
-                                <Link href="/dashboard/fees/bulk-reminders" onClick={() => setShowNewActionMenu(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                    <span className="text-base">📱</span> Broadcast Bulk SMS
-                                </Link>
+                    {/* Date filter pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-gray-50">
+                        <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Period:</span>
+                        {dateRangeOpts.map(opt => (
+                            <button key={opt.key} onClick={() => setDateRange(opt.key)}
+                                className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${dateRange === opt.key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600'}`}>
+                                {opt.label}
+                            </button>
+                        ))}
+                        {dateRange === 'custom' && (
+                            <div className="flex items-center gap-1.5 ml-1">
+                                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:border-indigo-400" />
+                                <span className="text-gray-400 text-[10px]">→</span>
+                                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:border-indigo-400" />
                             </div>
                         )}
                     </div>
                 </div>
             </div>
 
-            {/* ════════════════════════════════════════════════════════════════
-                SUB-PAGES / TABS NAVIGATION (Full Functional Preservation)
-            ════════════════════════════════════════════════════════════════ */}
-            <div className="flex items-center justify-between pb-0.5 overflow-x-auto scrollbar-hide">
-                <div className="flex items-center gap-1.5">
-                    {[
-                        { key: 'overview', label: 'Overview Hub', icon: '🏠' },
-                        { key: 'finance', label: 'Fees & Finance', icon: '💰' },
-                        { key: 'academics', label: 'Academics & Grading', icon: '📚' },
-                        { key: 'staff', label: 'Staff & HR', icon: '👨‍🏫' },
-                        { key: 'stores', label: 'Stores & Inventory', icon: '📦' },
-                        { key: 'portals', label: 'Portal Users', icon: '🔑' },
-                    ].map((tab: any) => {
-                        const isActive = activeTab === tab.key;
-                        return (
-                            <button
-                                key={tab.key}
-                                type="button"
-                                onClick={() => setActiveTab(tab.key)}
-                                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 whitespace-nowrap shadow-xs ${
-                                    isActive
-                                        ? 'bg-blue-600 text-white shadow-blue-500/20'
-                                        : 'bg-white/80 text-slate-600 hover:bg-white hover:text-blue-600 border border-slate-200/60'
-                                }`}
-                            >
-                                <span>{tab.icon}</span>
-                                <span>{tab.label}</span>
-                            </button>
-                        );
-                    })}
+            {/* ── Smart Alerts ── */}
+            {alerts.length > 0 && (
+                <div className="space-y-2">
+                    {alerts.map((a, i) => (
+                        <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-semibold ${a.level === 'error' ? 'bg-red-50 border-red-200 text-red-800' : a.level === 'warn' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+                            {a.level === 'error' ? <FiAlertCircle size={14} className="flex-shrink-0" /> : a.level === 'warn' ? <FiAlertTriangle size={14} className="flex-shrink-0" /> : <FiCheckCircle size={14} className="flex-shrink-0" />}
+                            <span className="flex-1">{a.msg}</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${a.level === 'error' ? 'bg-red-200 text-red-700' : a.level === 'warn' ? 'bg-amber-200 text-amber-700' : 'bg-blue-200 text-blue-700'}`}>
+                                {a.level === 'error' ? 'CRITICAL' : a.level === 'warn' ? 'WARNING' : 'INFO'}
+                            </span>
+                        </div>
+                    ))}
                 </div>
+            )}
 
-                <button
-                    onClick={() => setRefreshKey(k => k + 1)}
-                    className="p-1.5 px-3 rounded-full bg-white/80 border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all ml-2 flex-shrink-0"
-                    title="Sync with Live Database"
-                >
-                    <FiRefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-                    <span>Sync</span>
-                </button>
+            {/* ══════════════════════════════════════════════════
+                🔴 LIVE KPI COMMAND STRIP — Real-Time Data
+            ══════════════════════════════════════════════════ */}
+            <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                {/* Top gradient bar */}
+                <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#dc2626,#f59e0b,#16a34a,#2563eb,#7c3aed)' }} />
+                <div className="bg-white px-4 py-3">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                        </span>
+                        <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Live Command Centre</span>
+                        <span className="text-[10px] text-gray-300">·</span>
+                        <span className="text-[10px] font-mono text-gray-400">{liveTime}</span>
+                        <span className="ml-auto text-[10px] text-gray-400 hidden sm:block">Auto-refreshes every 30s via Supabase Realtime</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                        {[
+                            { icon: '🎓', label: 'Active Students', value: fmtN(active.length), sub: `${fmtN(stats.newEnrollments)} new this year`, color: '#4f46e5', bg: '#eef2ff', href: '/dashboard/students', pulse: false },
+                            { icon: '💳', label: "Today's Fees", value: fmt(todayFeeTotal), sub: 'collected today live', color: '#059669', bg: '#ecfdf5', href: '/dashboard/fees', pulse: todayFeeTotal > 0 },
+                            { icon: '✅', label: 'Attendance Today', value: `${attRate}%`, sub: `${todayPre} present · ${todayAbs} absent`, color: attRate >= 80 ? '#0891b2' : '#d97706', bg: attRate >= 80 ? '#e0f2fe' : '#fef3c7', href: '/dashboard/attendance', pulse: false },
+                            { icon: '📦', label: 'Pending Store Issues', value: String(pendingIssues), sub: pendingIssues > 0 ? '⚠️ Needs Bursar/Principal' : 'All approved ✅', color: pendingIssues > 0 ? '#dc2626' : '#16a34a', bg: pendingIssues > 0 ? '#fef2f2' : '#f0fdf4', href: '/dashboard/stores/ultra', pulse: pendingIssues > 0 },
+                            { icon: '⚡', label: 'Discipline Cases', value: fmtN(disciplineCount), sub: `${currentYear} total incidents`, color: disciplineCount > 20 ? '#d97706' : '#6366f1', bg: '#fef3c7', href: '/dashboard/discipline', pulse: disciplineCount > 20 },
+                            { icon: '💰', label: 'Net Position', value: fmtShort(Math.abs(netPos)), sub: netPos >= 0 ? '✅ Surplus' : '⚠️ Deficit', color: netPos >= 0 ? '#7c3aed' : '#dc2626', bg: netPos >= 0 ? '#f5f3ff' : '#fef2f2', href: '/dashboard/fees/reports/pl', pulse: netPos < 0 },
+                        ].map((k, i) => (
+                            <Link key={i} href={k.href} className="rounded-xl p-3 border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all group relative overflow-hidden">
+                                <div className="absolute inset-0 opacity-40 group-hover:opacity-70 transition-opacity" style={{ background: k.bg }} />
+                                <div className="relative">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-lg">{k.icon}</span>
+                                        {k.pulse && <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: k.color }} /><span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: k.color }} /></span>}
+                                    </div>
+                                    <p className="text-xl font-black leading-none" style={{ color: k.color }}>{k.value}</p>
+                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-wide mt-1">{k.label}</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{k.sub}</p>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
             </div>
 
-            {/* Sub-panels for other dedicated tabs */}
+            {/* ══ SCHOOL HEALTH SCORE + TERM INFO ══ */}
+            {(() => {
+                const feeRate = stats.feesCollected > 0 ? Math.min(100, Math.round(stats.feesCollected / (stats.feesCollected + stats.feesDue + 1) * 100)) : 0;
+                const healthScore = Math.round((attRate * 0.35) + (feeRate * 0.40) + (formPerf.length > 0 ? Math.min(100, formPerf.reduce((s, f) => s + f.avg, 0) / formPerf.length) * 0.25 : 0));
+                const healthColor = healthScore >= 75 ? '#16a34a' : healthScore >= 50 ? '#d97706' : '#dc2626';
+                const healthLabel = healthScore >= 75 ? 'Excellent' : healthScore >= 50 ? 'Good' : 'Needs Attention';
+                return (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* School Health Score */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+                            <div className="relative w-16 h-16 flex-shrink-0">
+                                <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
+                                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" strokeWidth="3" />
+                                    <circle cx="18" cy="18" r="15.9" fill="none" stroke={healthColor} strokeWidth="3" strokeDasharray={`${healthScore} 100`} strokeLinecap="round" />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="text-sm font-black" style={{ color: healthColor }}>{healthScore}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs font-black text-gray-800">🏫 School Health Score</p>
+                                <p className="text-lg font-black mt-0.5" style={{ color: healthColor }}>{healthLabel}</p>
+                                <p className="text-[9px] text-gray-400 mt-1">Attendance · Fees · Academics</p>
+                            </div>
+                        </div>
+                        {/* Term info */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">📅 Current Term</p>
+                            <p className="text-base font-black text-gray-900">{currentTerm?.term_name || 'Term 1'} {currentYear}</p>
+                            {currentTerm?.end_date && (
+                                <p className="text-sm text-indigo-600 font-bold mt-1">
+                                    {Math.max(0, Math.ceil((new Date(currentTerm.end_date).getTime() - Date.now()) / 86400000))} days remaining
+                                </p>
+                            )}
+                            <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                {currentTerm?.start_date && currentTerm?.end_date && (() => {
+                                    const start = new Date(currentTerm.start_date).getTime();
+                                    const end = new Date(currentTerm.end_date).getTime();
+                                    const pctDone = Math.min(100, Math.round((Date.now() - start) / (end - start) * 100));
+                                    return <div className="h-1.5 rounded-full bg-indigo-500 transition-all" style={{ width: `${pctDone}%` }} />;
+                                })()}
+                            </div>
+                            <p className="text-[9px] text-gray-400 mt-1">Term progress</p>
+                        </div>
+                        {/* Live Activity Ticker */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                                <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" /></span>
+                                Live Activity Feed
+                            </p>
+                            {liveActivity.length === 0 ? (
+                                <p className="text-xs text-gray-400">No activity yet today</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {liveActivity.slice(0, 3).map((a, i) => (
+                                        <div key={i} className="flex items-start gap-2">
+                                            <span className="text-sm flex-shrink-0">{a.icon}</span>
+                                            <p className="text-[11px] text-gray-600 leading-tight">{a.text}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* ── Tab Nav ── */}
+            <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+            {/* ════════════════════════════════════════
+                OVERVIEW TAB
+            ════════════════════════════════════════ */}
+            {activeTab === 'overview' && (
+                <div className="space-y-4">
+
+                    {/* ── TOP 4 BRIGHT STAT CARDS (ENHANCED) ── */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <StatCard icon="🎓" label="Active Students" value={fmtN(active.length)} sub={`${maleCount} boys · ${femaleCount} girls`} color="#4f46e5" bg="#eef2ff" trend="up" trendLabel={`+${newThisYear} new`} href="/dashboard/students" />
+                        <StatCard icon="💰" label="Fees Collected" value={fmtShort(totalFees)} sub={`${fmt(payThisMonth)} this month`} color="#059669" bg="#ecfdf5" trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees" />
+                        <StatCard icon="✅" label="Attendance Rate" value={`${attRate}%`} sub={`${todayPre} present · ${todayAbs} absent`} color={attRate >= 80 ? '#0891b2' : '#d97706'} bg={attRate >= 80 ? '#e0f2fe' : '#fef3c7'} trend={attRate >= 80 ? 'up' : 'down'} trendLabel={`${todayAbs} absent`} href="/dashboard/attendance" />
+                        <StatCard icon="📊" label="Net Position" value={fmtShort(Math.abs(netPos))} sub={`Income ${fmtShort(totalIncome)}`} color={netPos >= 0 ? '#7c3aed' : '#dc2626'} bg={netPos >= 0 ? '#f5f3ff' : '#fef2f2'} trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees/reports/pl" />
+                    </div>
+
+                    {/* ── ULTRA QUICK ACTIONS (ENHANCED — 12 buttons with gradient borders) ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">⚡ Quick Actions</p>
+                            <span className="text-[9px] text-gray-400">12 shortcuts</span>
+                        </div>
+                        <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2">
+                            {[
+                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', color: '#22c55e', bg: 'linear-gradient(135deg,#ecfdf5,#d1fae5)' },
+                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '🎓', color: '#6366f1', bg: 'linear-gradient(135deg,#eef2ff,#e0e7ff)' },
+                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', color: '#3b82f6', bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)' },
+                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', color: '#f59e0b', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                                { label: 'Send SMS', href: '/dashboard/fees/bulk-reminders', icon: '📱', color: '#8b5cf6', bg: 'linear-gradient(135deg,#f5f3ff,#ede9fe)' },
+                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', color: '#0891b2', bg: 'linear-gradient(135deg,#ecfeff,#e0f2fe)' },
+                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', color: '#ef4444', bg: 'linear-gradient(135deg,#fff1f2,#fee2e2)' },
+                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👔', color: '#7c3aed', bg: 'linear-gradient(135deg,#faf5ff,#f3e8ff)' },
+                                { label: 'Stores', href: '/dashboard/stores/ultra', icon: '📦', color: '#b45309', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                                { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: '📋', color: '#059669', bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)' },
+                                { label: 'Discipline', href: '/dashboard/discipline', icon: '🛡️', color: '#dc2626', bg: 'linear-gradient(135deg,#fff1f2,#fee2e2)' },
+                                { label: 'Notifications', href: '/dashboard/notifications', icon: '🔔', color: '#d97706', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                            ].map((a, i) => (
+                                <Link key={i} href={a.href}
+                                    className="rounded-xl p-2.5 text-center hover:shadow-md hover:scale-[1.05] transition-all border border-gray-100 group relative overflow-hidden"
+                                    style={{ background: a.bg }}>
+                                    <div className="text-xl mb-1">{a.icon}</div>
+                                    <p className="text-[9px] font-bold leading-tight" style={{ color: a.color }}>{a.label}</p>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ── FEE ANALYTICS (existing component) ── */}
+                    <FeeAnalyticsSection />
+
+                    {/* ── ULTRA KPI CARDS ── */}
+                    <UltraCardsSection stats={stats} currentYear={currentYear} fmt={fmt} />
+
+                    {/* ── SECONDARY METRICS ── */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                            { label: 'Gender M:F', value: `${maleCount}:${femaleCount}`, bar: pct(maleCount, active.length), color: '#3b82f6', bg: '#dbeafe', icon: '⚖️', sub: `${pct(maleCount, active.length)}% male` },
+                            { label: 'Month Fees', value: fmtShort(payThisMonth), bar: Math.min(100, pct(payThisMonth, totalFees || 1)), color: '#10b981', bg: '#d1fae5', icon: '📅', sub: 'of total collected' },
+                            { label: 'Today Absent', value: `${todayAbs}`, bar: pct(todayAbs, active.length || 1), color: '#ef4444', bg: '#fee2e2', icon: '⚠️', sub: `of ${active.length} active` },
+                            { label: 'Discipline Cases', value: fmtN(disciplineCount), bar: Math.min(100, disciplineCount * 5), color: '#f59e0b', bg: '#fef3c7', icon: '⚡', sub: `${currentYear} total` },
+                        ].map((m, i) => (
+                            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background: m.bg }}>{m.icon}</div>
+                                </div>
+                                <p className="text-xl font-black text-gray-900">{m.value}</p>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-wide mt-0.5">{m.label}</p>
+                                <p className="text-[9px] text-gray-400 mb-2">{m.sub}</p>
+                                <div className="bg-gray-100 rounded-full h-1.5">
+                                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${m.bar}%`, background: m.color }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* ── CHARTS ROW 1: Fees vs Expenses + Doughnut ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="📊 Fee Collections vs Expenses — 12 Months" sub="Monthly revenue vs costs" href="/dashboard/fees/analytics" linkLabel="Analytics" />
+                            <div className="flex items-center gap-4 mb-3 text-[10px]">
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-indigo-500 inline-block" />Fees</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-400 inline-block" />Expenses</span>
+                            </div>
+                            <div style={{ height: 220 }}>
+                                <Bar data={feeExpChart} options={{ ...cb, scales: { y: { beginAtZero: true, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${(v / 1000).toFixed(0)}K`, font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="📋 Today's Attendance" sub={new Date().toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' })} />
+                            <div style={{ height: 155 }}>
+                                {attendance.length > 0
+                                    ? <Doughnut data={attDonut} options={{ responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 10 }, padding: 8 } } } }} />
+                                    : <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2"><FiActivity size={26} /><p className="text-xs text-gray-400">No data today</p></div>}
+                            </div>
+                            <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+                                {[{ l: 'Present', v: todayPre, c: '#22c55e', b: '#f0fdf4' }, { l: 'Absent', v: todayAbs, c: '#ef4444', b: '#fef2f2' }, { l: 'Late', v: todayLat, c: '#f59e0b', b: '#fffbeb' }].map(a => (
+                                    <div key={a.l} className="rounded-xl py-2" style={{ background: a.b }}>
+                                        <p className="text-base font-black" style={{ color: a.c }}>{a.v}</p>
+                                        <p className="text-[9px] font-bold text-gray-500">{a.l}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── CHARTS ROW 2: Attendance Trend + Academic ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="📈 Weekly Attendance Trend" sub="Last 7 school days" href="/dashboard/attendance" linkLabel="Full Report" />
+                            <div style={{ height: 190 }}>
+                                <Line data={wAttChart} options={{ ...cb, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${v}%`, font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="🏆 Academic Performance by Form" sub="Average exam score per class" href="/dashboard/exams/analysis" linkLabel="Full Analysis" />
+                            <div style={{ height: 190 }}>
+                                {formPerf.some(f => f.avg > 0)
+                                    ? <Bar data={fPerfChart} options={{ ...cb, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                                    : <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2"><FiBook size={26} /><p className="text-xs text-gray-400">No exam marks yet</p></div>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── ENROLLMENT BY FORM (card grid) ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-50">
+                            <SH title="👥 Student Enrollment by Form / Grade" sub={`${active.length} active across ${forms.length} classes`} href="/dashboard/students" linkLabel="Manage" />
+                        </div>
+                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                            {forms.map(f => {
+                                const inForm = active.filter(s => s.form_id === f.id);
+                                const male = inForm.filter(s => s.gender === 'Male').length;
+                                const female = inForm.filter(s => s.gender === 'Female').length;
+                                const maxSt = Math.max(...forms.map(fm => active.filter(s => s.form_id === fm.id).length), 1);
+                                return (
+                                    <div key={f.id} className="rounded-xl p-3 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/20 transition-all">
+                                        <p className="text-xs font-black text-gray-700 truncate mb-1">{f.form_name}</p>
+                                        <p className="text-2xl font-black text-gray-900">{inForm.length}</p>
+                                        <div className="flex gap-2 mt-1 mb-2 text-[9px]">
+                                            <span className="text-blue-500 font-bold">♂ {male}</span>
+                                            <span className="text-pink-500 font-bold">♀ {female}</span>
+                                        </div>
+                                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden flex gap-0.5">
+                                            <div className="bg-blue-400 h-full" style={{ width: `${pct(male, maxSt)}%` }} />
+                                            <div className="bg-pink-400 h-full" style={{ width: `${pct(female, maxSt)}%` }} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* ── NET FINANCIAL POSITION STRIP ── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {[
+                            { label: 'Total Income', value: fmtShort(totalIncome), color: '#059669', bg: '#ecfdf5', icon: '📥', sub: `Fees + other income ${currentYear}` },
+                            { label: 'Total Expenses', value: fmtShort(approvedExp), color: '#dc2626', bg: '#fef2f2', icon: '📤', sub: `Approved expenses ${currentYear}` },
+                            { label: netPos >= 0 ? 'Net Surplus' : 'Net Deficit', value: fmtShort(Math.abs(netPos)), color: netPos >= 0 ? '#7c3aed' : '#dc2626', bg: netPos >= 0 ? '#f5f3ff' : '#fef2f2', icon: netPos >= 0 ? '✅' : '⚠️', sub: netPos >= 0 ? 'School is financially healthy' : 'Expenses exceed income' },
+                        ].map((m, i) => (
+                            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: m.bg }}>{m.icon}</div>
+                                <div>
+                                    <p className="text-xl font-black" style={{ color: m.color }}>{m.value}</p>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wide">{m.label}</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5">{m.sub}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* ── AI INSIGHTS + TOP STUDENTS ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <AIInsightsWidget />
+                        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-50">
+                                <SH title="🏆 Top Performing Students" sub="Based on exam marks" href="/dashboard/exams/merit-list" linkLabel="Merit List" />
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {topStudents.map((s, i) => (
+                                    <div key={i} className="px-5 py-3 flex items-center justify-between hover:bg-indigo-50/30 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white ${i === 0 ? 'bg-gradient-to-br from-amber-400 to-yellow-500' : i === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-500' : i === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                                                {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-800">{s.name}</p>
+                                                <p className="text-[10px] text-gray-400">{s.form}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`text-lg font-black ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-500'}`}>{s.avg}%</p>
+                                            <p className="text-[9px] text-gray-400">avg score</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {topStudents.length === 0 && <div className="py-10 text-center text-gray-400"><FiAward size={26} className="mx-auto mb-2 text-gray-200" /><p className="text-xs">No exam data yet</p></div>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── SUBJECT PERFORMANCE ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                        <SH title="📚 Subject Performance Ranking" sub="Average score per subject" href="/dashboard/exams/analysis" linkLabel="Full Analysis" />
+                        {subjectPerf.length === 0
+                            ? <div className="py-8 text-center text-gray-400"><FiBarChart2 size={26} className="mx-auto mb-2 text-gray-200" /><p className="text-xs">No exam marks yet</p></div>
+                            : <div className="space-y-2.5">
+                                {subjectPerf.slice(0, 8).map((s, i) => (
+                                    <div key={s.name} className="flex items-center gap-3">
+                                        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white flex-shrink-0 ${i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-orange-400' : 'bg-gray-200 text-gray-500'}`}>{i + 1}</span>
+                                        <span className="text-sm font-semibold text-gray-700 w-40 truncate flex-shrink-0">{s.name}</span>
+                                        <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                                            <div className="h-2 rounded-full transition-all" style={{ width: `${s.avg}%`, background: s.avg >= 70 ? '#22c55e' : s.avg >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                        </div>
+                                        <span className={`text-sm font-black w-10 text-right ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-500'}`}>{s.avg}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        }
+                    </div>
+
+                    {/* ── RECENT PAYMENTS + RECENT ENROLLMENTS ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-50">
+                                <SH title="💳 Recent Fee Payments" sub="Latest transactions" href="/dashboard/fees/payments" linkLabel="View All" />
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {recentPayments.map((p) => {
+                                    const st = students.find(s => s.id === p.student_id);
+                                    return (
+                                        <div key={p.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                                    <FiDollarSign size={13} className="text-emerald-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800">{st ? `${st.first_name} ${st.last_name}` : `Student #${p.student_id}`}</p>
+                                                    <p className="text-[10px] text-gray-400">{new Date(p.payment_date).toLocaleDateString('en-KE', { day: '2-digit', month: 'short' })} · {p.payment_method}</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-sm font-black text-emerald-600">{fmt(Number(p.amount))}</span>
+                                        </div>
+                                    );
+                                })}
+                                {recentPayments.length === 0 && <div className="py-8 text-center text-gray-400 text-xs">No payments recorded</div>}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-50">
+                                <SH title="🎓 Recent Enrollments" sub="Latest student admissions" href="/dashboard/students" linkLabel="View All" />
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {recentStudents.map((s) => {
+                                    const form = forms.find(f => f.id === s.form_id);
+                                    return (
+                                        <div key={s.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black text-white"
+                                                    style={{ background: s.gender === 'Male' ? 'linear-gradient(135deg,#3b82f6,#2563eb)' : 'linear-gradient(135deg,#ec4899,#db2777)' }}>
+                                                    {s.first_name?.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800">{s.first_name} {s.last_name}</p>
+                                                    <p className="text-[10px] text-gray-400">{s.admission_no || s.admission_number} · {form?.form_name || '—'}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`text-[9px] font-black px-2 py-1 rounded-full ${s.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{s.status}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── QUICK ACTIONS ── */}
+                    <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">⚡ Quick Actions</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                            {[
+                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', color: '#22c55e', bg: '#ecfdf5' },
+                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '➕', color: '#6366f1', bg: '#eef2ff' },
+                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', color: '#3b82f6', bg: '#dbeafe' },
+                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', color: '#f59e0b', bg: '#fef3c7' },
+                                { label: 'Bulk SMS', href: '/dashboard/fees/bulk-reminders', icon: '📱', color: '#8b5cf6', bg: '#ede9fe' },
+                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', color: '#ef4444', bg: '#fee2e2' },
+                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👨‍💼', color: '#7c3aed', bg: '#f5f3ff' },
+                            ].map((a, i) => (
+                                <Link key={i} href={a.href}
+                                    className="bg-white rounded-2xl p-3.5 text-center hover:shadow-md hover:scale-[1.04] transition-all border border-gray-100 group overflow-hidden relative"
+                                    style={{ borderTopWidth: 3, borderTopColor: a.color }}>
+                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg mx-auto mb-2" style={{ background: a.bg }}>{a.icon}</div>
+                                    <p className="text-[10px] font-bold text-gray-500 group-hover:text-gray-800 leading-tight transition-colors">{a.label}</p>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ── INTELLIGENCE COMMAND CENTER (bright card) ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                <FiCpu size={16} className="text-indigo-600" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-black text-gray-800 uppercase tracking-wide">APSIMS Intelligence Hub</p>
+                                <p className="text-[10px] text-gray-400">Advanced tools — Kenya's most powerful school system</p>
+                            </div>
+                            <div className="ml-auto flex items-center gap-1.5">
+                                <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" /></span>
+                                <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest">All Online</span>
+                            </div>
+                        </div>
+                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                            {[
+                                { label: '📊 P&L Report', href: '/dashboard/fees/reports/pl', desc: 'Full financial statement', color: '#059669', bg: '#ecfdf5' },
+                                { label: '📱 Bulk SMS', href: '/dashboard/fees/bulk-reminders', desc: 'Fee defaulter campaigns', color: '#7c3aed', bg: '#f5f3ff' },
+                                { label: '📈 Fee Analytics', href: '/dashboard/fees/analytics', desc: 'Revenue intelligence', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: '🎓 Merit List', href: '/dashboard/exams/merit-list', desc: 'Academic rankings', color: '#d97706', bg: '#fef3c7' },
+                                { label: '📋 Report Cards', href: '/dashboard/exams/report-cards', desc: 'Term progress reports', color: '#6366f1', bg: '#eef2ff' },
+                                { label: '🛡️ Exam Integrity', href: '/dashboard/exams/exam-integrity', desc: 'Anti-cheating system', color: '#dc2626', bg: '#fef2f2' },
+                                { label: '🤖 AI Insights', href: '/dashboard/exams/ai-insights', desc: 'AI performance chatbot', color: '#059669', bg: '#ecfdf5' },
+                                { label: '🏫 CBC Reports', href: '/dashboard/exams/cbc-reports', desc: 'KICD-aligned analytics', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: '✏️ JSS Marks', href: '/dashboard/jss/marks', desc: 'Grade 7-9 entry', color: '#7c3aed', bg: '#f5f3ff' },
+                                { label: '🏆 KPSEA', href: '/dashboard/exams/kpsea', desc: 'Grade 6 assessment', color: '#d97706', bg: '#fef3c7' },
+                                { label: '🎓 Senior School', href: '/dashboard/cbc/senior-school', desc: 'Grade 10-12 hub', color: '#6366f1', bg: '#eef2ff' },
+                                { label: '🔒 Audit Trail', href: '/dashboard/fees/audit', desc: 'Full transaction log', color: '#dc2626', bg: '#fef2f2' },
+                            ].map((m, i) => (
+                                <Link key={i} href={m.href}
+                                    className="rounded-xl p-3 border border-gray-100 hover:border-current hover:shadow-sm transition-all group"
+                                    style={{ borderLeftWidth: 3, borderLeftColor: m.color }}>
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm mb-2" style={{ background: m.bg }}>{m.label.split(' ')[0]}</div>
+                                    <p className="text-[11px] font-bold text-gray-700 leading-tight">{m.label.split(' ').slice(1).join(' ')}</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{m.desc}</p>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Other tabs ── */}
             {activeTab === 'finance' && <FinancePanel />}
             {activeTab === 'academics' && <AcademicsPanel />}
             {activeTab === 'staff' && <StaffPanel />}
             {activeTab === 'stores' && <StoresPanel />}
             {activeTab === 'portals' && <PortalsPanel />}
 
-            {/* ════════════════════════════════════════════════════════════════
-                EXACT REPLICA: OVERVIEW HUB (Modern UI Kit)
-            ════════════════════════════════════════════════════════════════ */}
-            {activeTab === 'overview' && (
-                <div className="space-y-3.5">
-                    {/* ── ROW 1: 4 GLOWING GLASSMORPHIC STAT CARDS ── */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                        {/* Card 1: Total Students */}
-                        <div className="bg-gradient-to-b from-white via-white to-blue-50/20 rounded-2xl p-4 border border-blue-100/60 shadow-[0_4px_16px_rgba(37,99,235,0.06)] hover:shadow-lg transition-all flex flex-col justify-between relative overflow-hidden group">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-600 to-sky-400 text-white flex items-center justify-center shadow-[0_4px_14px_rgba(37,99,235,0.35)]">
-                                    <FiUsers size={20} />
-                                </div>
-                                <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                                    ▲ 12%
-                                </span>
-                            </div>
-                            <div>
-                                <p className="text-3xl font-black text-slate-900 leading-none">
-                                    {fmtN(students.length || 127)}
-                                </p>
-                                <p className="text-xs font-semibold text-slate-500 mt-1">
-                                    Total Students
-                                </p>
-                            </div>
-                            {/* Glowing Wave Sparkline */}
-                            <div className="mt-3 -mb-1">
-                                <svg viewBox="0 0 100 28" className="w-full h-7 overflow-visible">
-                                    <defs>
-                                        <linearGradient id="waveBlue" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
-                                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
-                                        </linearGradient>
-                                    </defs>
-                                    <path d="M 0,28 L 0,18 C 20,24 35,10 50,16 C 65,22 80,8 100,6 L 100,28 Z" fill="url(#waveBlue)" />
-                                    <path d="M 0,18 C 20,24 35,10 50,16 C 65,22 80,8 100,6" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" />
-                                </svg>
-                            </div>
-                        </div>
-
-                        {/* Card 2: Total Enrolled */}
-                        <div className="bg-gradient-to-b from-white via-white to-purple-50/20 rounded-2xl p-4 border border-purple-100/60 shadow-[0_4px_16px_rgba(147,51,234,0.06)] hover:shadow-lg transition-all flex flex-col justify-between relative overflow-hidden group">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-600 to-fuchsia-400 text-white flex items-center justify-center shadow-[0_4px_14px_rgba(147,51,234,0.35)]">
-                                    <FiAward size={20} />
-                                </div>
-                                <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                                    ▲ 8%
-                                </span>
-                            </div>
-                            <div>
-                                <p className="text-3xl font-black text-slate-900 leading-none">
-                                    {fmtN(active.length || 126)}
-                                </p>
-                                <p className="text-xs font-semibold text-slate-500 mt-1">
-                                    Total Enrolled
-                                </p>
-                            </div>
-                            {/* Glowing Wave Sparkline */}
-                            <div className="mt-3 -mb-1">
-                                <svg viewBox="0 0 100 28" className="w-full h-7 overflow-visible">
-                                    <defs>
-                                        <linearGradient id="wavePurple" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.35" />
-                                            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02" />
-                                        </linearGradient>
-                                    </defs>
-                                    <path d="M 0,28 L 0,20 C 25,24 40,12 60,18 C 75,22 85,10 100,5 L 100,28 Z" fill="url(#wavePurple)" />
-                                    <path d="M 0,20 C 25,24 40,12 60,18 C 75,22 85,10 100,5" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" />
-                                </svg>
-                            </div>
-                        </div>
-
-                        {/* Card 3: Expected Fees */}
-                        <div className="bg-gradient-to-b from-white via-white to-emerald-50/20 rounded-2xl p-4 border border-emerald-100/60 shadow-[0_4px_16px_rgba(16,185,129,0.06)] hover:shadow-lg transition-all flex flex-col justify-between relative overflow-hidden group">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 text-white flex items-center justify-center shadow-[0_4px_14px_rgba(16,185,129,0.35)]">
-                                    <FiCreditCard size={20} />
-                                </div>
-                                <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                                    ▲ 15%
-                                </span>
-                            </div>
-                            <div>
-                                <p className="text-3xl font-black text-slate-900 leading-none truncate">
-                                    {totalFees > 0 ? fmtShort(totalFees) : 'Ksh 461,000'}
-                                </p>
-                                <p className="text-xs font-semibold text-slate-500 mt-1">
-                                    Expected Fees
-                                </p>
-                            </div>
-                            {/* Glowing Wave Sparkline */}
-                            <div className="mt-3 -mb-1">
-                                <svg viewBox="0 0 100 28" className="w-full h-7 overflow-visible">
-                                    <defs>
-                                        <linearGradient id="waveGreen" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
-                                            <stop offset="100%" stopColor="#10b981" stopOpacity="0.02" />
-                                        </linearGradient>
-                                    </defs>
-                                    <path d="M 0,28 L 0,19 C 20,22 35,14 55,17 C 75,20 85,8 100,4 L 100,28 Z" fill="url(#waveGreen)" />
-                                    <path d="M 0,19 C 20,22 35,14 55,17 C 75,20 85,8 100,4" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" />
-                                </svg>
-                            </div>
-                        </div>
-
-                        {/* Card 4: Pending Issues */}
-                        <div className="bg-gradient-to-b from-white via-white to-amber-50/20 rounded-2xl p-4 border border-amber-100/60 shadow-[0_4px_16px_rgba(245,158,11,0.06)] hover:shadow-lg transition-all flex flex-col justify-between relative overflow-hidden group">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500 to-orange-400 text-white flex items-center justify-center shadow-[0_4px_14px_rgba(245,158,11,0.35)]">
-                                    <FiAlertTriangle size={20} />
-                                </div>
-                                <span className="flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-red-50 text-red-600">
-                                    ▼ 0%
-                                </span>
-                            </div>
-                            <div>
-                                <p className="text-3xl font-black text-slate-900 leading-none">
-                                    {pendingIssues || 2}
-                                </p>
-                                <p className="text-xs font-semibold text-slate-500 mt-1">
-                                    Pending Issues
-                                </p>
-                            </div>
-                            {/* Glowing Wave Sparkline */}
-                            <div className="mt-3 -mb-1">
-                                <svg viewBox="0 0 100 28" className="w-full h-7 overflow-visible">
-                                    <defs>
-                                        <linearGradient id="waveAmber" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.35" />
-                                            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.02" />
-                                        </linearGradient>
-                                    </defs>
-                                    <path d="M 0,28 L 0,15 C 20,13 40,20 60,14 C 75,9 85,16 100,12 L 100,28 Z" fill="url(#waveAmber)" />
-                                    <path d="M 0,15 C 20,13 40,20 60,14 C 75,9 85,16 100,12" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── ROW 2: 10 QUICK ACTIONS (Glassmorphic Tiles) ── */}
-                    <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
-                                <FiZap className="text-blue-600" size={15} />
-                                <span>Quick Actions</span>
-                            </div>
-                            <Link href="/dashboard/settings" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                                More Tools →
-                            </Link>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2.5">
-                            {[
-                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', bg: 'bg-blue-50/70 hover:bg-blue-100/70', color: 'text-blue-600' },
-                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '👤', bg: 'bg-blue-50/70 hover:bg-blue-100/70', color: 'text-blue-600' },
-                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', bg: 'bg-emerald-50/70 hover:bg-emerald-100/70', color: 'text-emerald-600' },
-                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', bg: 'bg-amber-50/70 hover:bg-amber-100/70', color: 'text-amber-600' },
-                                { label: 'Bulk SMS', href: '/dashboard/fees/bulk-reminders', icon: '✉️', bg: 'bg-blue-50/70 hover:bg-blue-100/70', color: 'text-blue-600' },
-                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', bg: 'bg-cyan-50/70 hover:bg-cyan-100/70', color: 'text-cyan-600' },
-                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '👛', bg: 'bg-orange-50/70 hover:bg-orange-100/70', color: 'text-orange-600' },
-                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👥', bg: 'bg-blue-50/70 hover:bg-blue-100/70', color: 'text-blue-600' },
-                                { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: '📄', bg: 'bg-emerald-50/70 hover:bg-emerald-100/70', color: 'text-emerald-600' },
-                                { label: 'More Tools', href: '/dashboard/settings', icon: '⊞', bg: 'bg-purple-50/70 hover:bg-purple-100/70', color: 'text-purple-600' },
-                            ].map((act, i) => (
-                                <Link
-                                    key={i}
-                                    href={act.href}
-                                    className={`flex flex-col items-center justify-center p-3 rounded-2xl ${act.bg} hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 text-center gap-1.5 border border-slate-100 shadow-xs group`}
-                                >
-                                    <span className="text-xl group-hover:scale-110 transition-transform">{act.icon}</span>
-                                    <span className="text-[11px] font-bold text-slate-700 leading-tight whitespace-nowrap">
-                                        {act.label}
-                                    </span>
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* ── ROW 3: TWO BIG MIDDLE CARDS (50% / 50%) ── */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-                        {/* Left Card: Fee Analytics & Class Intelligence */}
-                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
-                                    <FiBarChart2 className="text-blue-600" size={15} />
-                                    <span>Fee Analytics & Class Intelligence</span>
-                                </div>
-                                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-full">
-                                    <button className="px-3 py-1 text-[10px] font-bold rounded-full bg-blue-600 text-white shadow-xs">
-                                        This Term
-                                    </button>
-                                    <button className="px-2.5 py-1 text-[10px] font-medium rounded-full text-slate-500 hover:text-slate-800">
-                                        This Year
-                                    </button>
-                                    <button className="px-2.5 py-1 text-[10px] font-medium rounded-full text-slate-500 hover:text-slate-800">
-                                        All Terms
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                                {/* Left Sub-col: Donut & Legend */}
-                                <div className="sm:col-span-5 flex items-center gap-3.5">
-                                    {/* Multi-color Donut Ring */}
-                                    <div className="relative w-28 h-28 flex-shrink-0">
-                                        <svg viewBox="0 0 36 36" className="w-28 h-28 -rotate-90">
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3.8" />
-                                            {/* Collected Blue 78% */}
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#2563eb" strokeWidth="3.8" strokeDasharray="70 100" strokeLinecap="round" />
-                                            {/* Outstanding Purple */}
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#8b5cf6" strokeWidth="3.8" strokeDasharray="18 100" strokeDashoffset="-70" strokeLinecap="round" />
-                                            {/* Expected Emerald */}
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#10b981" strokeWidth="3.8" strokeDasharray="12 100" strokeDashoffset="-88" strokeLinecap="round" />
-                                        </svg>
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                            <span className="text-xl font-black text-slate-900 leading-none">
-                                                {collRate > 0 ? `${collRate}%` : '78%'}
-                                            </span>
-                                            <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5 leading-tight">
-                                                Collection<br />Rate
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Legend Details */}
-                                    <div className="space-y-1.5 flex-1 min-w-0">
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="flex items-center gap-1.5 text-slate-500">
-                                                <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
-                                                Collected
-                                            </span>
-                                            <span className="font-black text-slate-800">
-                                                {totalFees > 0 ? fmtShort(totalFees) : 'Ksh 461,000'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="flex items-center gap-1.5 text-slate-500">
-                                                <span className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
-                                                Outstanding
-                                            </span>
-                                            <span className="font-black text-slate-800">
-                                                {stats.feesDue > 0 ? fmtShort(stats.feesDue) : 'Ksh 131,000'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="flex items-center gap-1.5 text-slate-500">
-                                                <span className="w-2 h-2 rounded-full bg-[#10b981]" />
-                                                Expected
-                                            </span>
-                                            <span className="font-black text-slate-800">
-                                                {totalExpected > 0 ? fmtShort(totalExpected) : 'Ksh 592,000'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Right Sub-col: Area Line Chart */}
-                                <div className="sm:col-span-7 flex flex-col justify-end relative pt-2">
-                                    <div className="self-end -mb-1 mr-4">
-                                        <span className="bg-[#0f172a] text-white text-[9px] font-bold px-2.5 py-0.5 rounded-md shadow-xs">
-                                            Ksh 461,000 This Month
-                                        </span>
-                                    </div>
-                                    <div className="h-32 w-full">
-                                        <svg viewBox="0 0 240 85" className="w-full h-full overflow-visible">
-                                            <defs>
-                                                <linearGradient id="areaFillV3" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
-                                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.01" />
-                                                </linearGradient>
-                                            </defs>
-                                            <line x1="28" y1="12" x2="235" y2="12" stroke="#f1f5f9" strokeWidth="1" />
-                                            <line x1="28" y1="36" x2="235" y2="36" stroke="#f1f5f9" strokeWidth="1" />
-                                            <line x1="28" y1="60" x2="235" y2="60" stroke="#f1f5f9" strokeWidth="1" />
-                                            <text x="22" y="15" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">600K</text>
-                                            <text x="22" y="39" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">400K</text>
-                                            <text x="22" y="63" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">200K</text>
-                                            <text x="22" y="80" textAnchor="end" fontSize="8" fill="#94a3b8" fontWeight="600">0K</text>
-                                            <polygon points="35,80 35,50 80,45 130,52 180,38 230,16 230,80" fill="url(#areaFillV3)" />
-                                            <polyline points="35,50 80,45 130,52 180,38 230,16" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                            <circle cx="35" cy="50" r="3" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />
-                                            <circle cx="80" cy="45" r="3" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />
-                                            <circle cx="130" cy="52" r="3" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />
-                                            <circle cx="180" cy="38" r="3" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />
-                                            <circle cx="230" cy="16" r="3.5" fill="#2563eb" stroke="#fff" strokeWidth="2" />
-                                            <text x="35" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Jul</text>
-                                            <text x="80" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Aug</text>
-                                            <text x="130" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Sep</text>
-                                            <text x="180" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Oct</text>
-                                            <text x="230" y="83" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="600">Nov</text>
-                                        </svg>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Right Card: Performance Overview */}
-                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
-                                    <FiAward className="text-amber-500" size={15} />
-                                    <span>Performance Overview</span>
-                                </div>
-                                <span className="text-[10px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 flex items-center gap-1">
-                                    This Term <FiChevronDown size={11} />
-                                </span>
-                            </div>
-
-                            {/* 4 Circular Progress Gauges */}
-                            <div className="grid grid-cols-4 gap-2 pt-1 pb-1">
-                                {/* Gauge 1: Attendance */}
-                                <div className="flex flex-col items-center">
-                                    <div className="relative w-18 h-18 sm:w-20 sm:h-20">
-                                        <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3" />
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#2563eb" strokeWidth="3" strokeDasharray="96 100" strokeLinecap="round" />
-                                        </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center font-black text-base text-slate-900">
-                                            {attRate > 0 ? `${attRate}%` : '96%'}
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 mt-2 text-[11px] font-bold text-slate-600">
-                                        <FiUsers size={12} className="text-blue-600" />
-                                        <span>Attendance</span>
-                                    </div>
-                                </div>
-
-                                {/* Gauge 2: Pass Rate */}
-                                <div className="flex flex-col items-center">
-                                    <div className="relative w-18 h-18 sm:w-20 sm:h-20">
-                                        <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3" />
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#0d9488" strokeWidth="3" strokeDasharray="92 100" strokeLinecap="round" />
-                                        </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center font-black text-base text-slate-900">
-                                            92%
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 mt-2 text-[11px] font-bold text-slate-600">
-                                        <FiCheckCircle size={12} className="text-teal-600" />
-                                        <span>Pass Rate</span>
-                                    </div>
-                                </div>
-
-                                {/* Gauge 3: Class Progress */}
-                                <div className="flex flex-col items-center">
-                                    <div className="relative w-18 h-18 sm:w-20 sm:h-20">
-                                        <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3" />
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#8b5cf6" strokeWidth="3" strokeDasharray="94 100" strokeLinecap="round" />
-                                        </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center font-black text-base text-slate-900">
-                                            94%
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 mt-2 text-[11px] font-bold text-slate-600">
-                                        <FiBarChart2 size={12} className="text-purple-600" />
-                                        <span>Class Progress</span>
-                                    </div>
-                                </div>
-
-                                {/* Gauge 4: Discipline */}
-                                <div className="flex flex-col items-center">
-                                    <div className="relative w-18 h-18 sm:w-20 sm:h-20">
-                                        <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f1f5f9" strokeWidth="3" />
-                                            <circle cx="18" cy="18" r="14.5" fill="none" stroke="#f59e0b" strokeWidth="3" strokeDasharray="100 100" strokeLinecap="round" />
-                                        </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center font-black text-base text-slate-900">
-                                            100%
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 mt-2 text-[11px] font-bold text-slate-600">
-                                        <FiShield size={12} className="text-amber-500" />
-                                        <span>Discipline</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── ROW 4: THREE BOTTOM CARDS (33% / 33% / 33%) ── */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
-                        {/* Col 1: Recent Activity */}
-                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
-                                    <FiActivity className="text-blue-600" size={14} />
-                                    <span>Recent Activity</span>
-                                </div>
-                                <Link href="/dashboard/fees/payments" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
-                                    View All <FiChevronRight size={11} />
-                                </Link>
-                            </div>
-                            <div className="space-y-3">
-                                {[
-                                    { dot: 'bg-blue-500', text: 'New student registered', time: '2 min ago' },
-                                    { dot: 'bg-emerald-500', text: 'Fees payment received (Ksh 25,000)', time: '5 min ago' },
-                                    { dot: 'bg-amber-400', text: 'Report card generated', time: '12 min ago' },
-                                    { dot: 'bg-purple-600', text: 'New staff added', time: '18 min ago' },
-                                    { dot: 'bg-blue-600', text: 'Attendance updated', time: '25 min ago' },
-                                ].map((act, i) => (
-                                    <div key={i} className="flex items-center justify-between text-xs py-0.5">
-                                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                                            <span className={`w-2 h-2 rounded-full ${act.dot} flex-shrink-0`} />
-                                            <span className="text-[11px] font-semibold text-slate-700 truncate">{act.text}</span>
-                                        </div>
-                                        <span className="text-[10px] text-slate-400 whitespace-nowrap">{act.time}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Col 2: Upcoming Events */}
-                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
-                                    <FiCalendar className="text-blue-600" size={14} />
-                                    <span>Upcoming Events</span>
-                                </div>
-                                <Link href="/dashboard/timetable" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
-                                    View All <FiChevronRight size={11} />
-                                </Link>
-                            </div>
-                            <div className="space-y-2.5">
-                                {[
-                                    { day: '18', month: 'Nov', bg: 'bg-blue-600', title: 'Parent Meeting', time: '8:00 AM – 11:00 AM', tag: 'Meeting', tagBg: 'bg-purple-50 text-purple-700 border-purple-200' },
-                                    { day: '20', month: 'Nov', bg: 'bg-cyan-500', title: 'Term 3 Exams', time: '8:00 AM – 5:00 PM', tag: 'Exam', tagBg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-                                    { day: '25', month: 'Nov', bg: 'bg-blue-600', title: 'School Sports Day', time: '9:00 AM – 4:00 PM', tag: 'Event', tagBg: 'bg-amber-50 text-amber-700 border-amber-200' },
-                                ].map((ev, i) => (
-                                    <div key={i} className="flex items-center justify-between gap-3 p-1.5 rounded-xl hover:bg-slate-50 transition-colors">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className={`w-10 h-10 rounded-xl ${ev.bg} text-white flex flex-col items-center justify-center flex-shrink-0 shadow-xs leading-tight`}>
-                                                <span className="text-sm font-black leading-none">{ev.day}</span>
-                                                <span className="text-[8px] font-bold uppercase leading-none mt-0.5">{ev.month}</span>
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-xs font-bold text-slate-800 truncate leading-tight">{ev.title}</p>
-                                                <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{ev.time}</p>
-                                            </div>
-                                        </div>
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${ev.tagBg}`}>
-                                            {ev.tag}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Col 3: Top Performing Students */}
-                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 tracking-tight">
-                                    <FiUsers className="text-blue-600" size={14} />
-                                    <span>Top Performing Students</span>
-                                </div>
-                                <Link href="/dashboard/exams/merit-list" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
-                                    View All <FiChevronRight size={11} />
-                                </Link>
-                            </div>
-                            <div className="space-y-2.5">
-                                {(() => {
-                                    const defaultTop = [
-                                        { name: 'Mercy N. Kiplagat', form: 'Grade 10', avg: 98.5, initials: 'MK' },
-                                        { name: 'Ochieng Auma', form: 'Grade 10', avg: 97.8, initials: 'OA' },
-                                        { name: 'James Siambi', form: 'Grade 9', avg: 96.9, initials: 'JS' },
-                                        { name: 'Everly Wangari', form: 'Grade 8', avg: 95.6, initials: 'EW' },
-                                        { name: 'David Muthui', form: 'Grade 7', avg: 94.8, initials: 'DM' },
-                                    ];
-                                    const list = (topStudents.length >= 3 ? topStudents : defaultTop).slice(0, 5);
-                                    return list.map((st: any, i: number) => {
-                                        const inits = st.initials || (st.name || '').split(' ').map((n: string) => n ? n[0] : '').join('').slice(0, 2).toUpperCase() || 'ST';
-                                        return (
-                                            <div key={i} className="flex items-center justify-between gap-2 py-0.5">
-                                                <div className="flex items-center gap-2.5 min-w-0">
-                                                    <span className="text-[11px] font-bold text-slate-400 w-3 text-center">{i + 1}</span>
-                                                    <div className="w-7 h-7 rounded-full bg-[#1e70eb] text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 shadow-xs">
-                                                        {inits}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-xs font-bold text-slate-800 truncate leading-tight">
-                                                            {st.name} <span className="text-slate-400 font-normal">― {st.form}</span>
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <span className="flex-shrink-0 text-[11px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
-                                                    {st.avg}%
-                                                </span>
-                                            </div>
-                                        );
-                                    });
-                                })()}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── ROW 5: BOTTOM STATUS & UTILITY CONTROL BAR ── */}
-                    <div className="flex flex-col lg:flex-row items-center justify-between gap-3 bg-white/80 backdrop-blur-md p-3 px-4 rounded-2xl border border-slate-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-                        {/* Status Filter Pills */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                            <button
-                                type="button"
-                                onClick={() => setStatusFilter('active')}
-                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                                    statusFilter === 'active' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                                }`}
-                            >
-                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                                <span>Active</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setStatusFilter('ontime')}
-                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                                    statusFilter === 'ontime' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                                }`}
-                            >
-                                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                                <span>On Time</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setStatusFilter('overdue')}
-                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                                    statusFilter === 'overdue' ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                                }`}
-                            >
-                                <span className="w-2 h-2 rounded-full bg-red-500" />
-                                <span>Overdue</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setStatusFilter('all')}
-                                className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                            >
-                                <span>All Statuses</span>
-                                <FiChevronDown size={11} />
-                            </button>
-                        </div>
-
-                        {/* Pagination Controls */}
-                        <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200/60">
-                            <button
-                                type="button"
-                                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-blue-600 flex items-center justify-center text-xs font-bold shadow-xs"
-                            >
-                                ‹
-                            </button>
-                            {[1, 2, 3].map(page => (
-                                <button
-                                    key={page}
-                                    type="button"
-                                    onClick={() => setCurrentPage(page)}
-                                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                                        currentPage === page ? 'bg-blue-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    {page}
-                                </button>
-                            ))}
-                            <button
-                                type="button"
-                                onClick={() => setCurrentPage(currentPage + 1)}
-                                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-blue-600 flex items-center justify-center text-xs font-bold shadow-xs"
-                            >
-                                ›
-                            </button>
-                            <span className="text-[11px] font-semibold text-slate-500 px-2 flex items-center gap-1">
-                                10 / page <FiChevronDown size={10} />
-                            </span>
-                        </div>
-
-                        {/* Utility Toolbar Icons */}
-                        <div className="flex items-center gap-2">
-                            {/* Theme Toggle Pill */}
-                            <div className="flex items-center gap-1.5 bg-slate-100 p-1 px-2.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600">
-                                <span>Theme</span>
-                                <FiMoon size={12} className="text-slate-400" />
-                                <div className="w-7 h-4 bg-blue-600 rounded-full relative cursor-pointer">
-                                    <div className="w-3 h-3 bg-white rounded-full absolute right-0.5 top-0.5 shadow-xs" />
-                                </div>
-                                <FiSun size={12} className="text-amber-500" />
-                            </div>
-
-                            {/* Print */}
-                            <button
-                                type="button"
-                                onClick={handlePrint}
-                                className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors"
-                                title="Print Dashboard"
-                            >
-                                <FiPrinter size={14} />
-                            </button>
-
-                            {/* Download */}
-                            <button
-                                type="button"
-                                onClick={handlePrint}
-                                className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors"
-                                title="Download PDF Report"
-                            >
-                                <FiDownload size={14} />
-                            </button>
-
-                            {/* Share */}
-                            <button
-                                type="button"
-                                onClick={handleShare}
-                                className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors"
-                                title="Share Dashboard Link"
-                            >
-                                <FiShare2 size={14} />
-                            </button>
-
-                            {/* Fullscreen */}
-                            <button
-                                type="button"
-                                onClick={handleFullscreen}
-                                className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-colors"
-                                title="Toggle Fullscreen"
-                            >
-                                <FiMaximize size={14} />
-                            </button>
-
-                            {/* Logout */}
-                            <a
-                                href="/api/auth/logout"
-                                className="w-8 h-8 rounded-xl bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 flex items-center justify-center shadow-xs transition-colors"
-                                title="Logout"
-                            >
-                                <FiPower size={14} />
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Footer */}
-            <div className="text-center py-2 border-t border-slate-200/60 mt-2">
-                <p className="text-[9px] text-slate-400 font-medium tracking-widest uppercase">
+            <div className="text-center py-3 border-t border-gray-100">
+                <p className="text-[9px] text-gray-300 font-medium tracking-widest uppercase">
                     APSIMS Ultra v3.0 · 🇰🇪 No.1 School ERP in Kenya · © {currentYear}
                 </p>
             </div>
         </div>
     );
 }
+
