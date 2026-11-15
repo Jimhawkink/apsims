@@ -6,11 +6,11 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { usePageIcon } from '@/lib/usePageIcon';
 
-/* ─── Golden Laurel School Crest (Matches Image 2) ─── */
+/* ─── Golden Laurel School Crest (Matches Image) ─── */
 function SchoolCrest({ logoUrl, className = 'w-16 h-16' }: { logoUrl?: string | null; className?: string }) {
     if (logoUrl) {
         return (
-            <div className={`relative rounded-2xl overflow-hidden border-2 border-amber-400/80 shadow-lg shadow-purple-950/40 ${className}`}>
+            <div className={`relative rounded-2xl overflow-hidden border-2 border-amber-400/80 shadow-lg shadow-purple-950/40 bg-white/10 backdrop-blur-sm ${className}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={logoUrl} alt="School Logo" className="w-full h-full object-cover" />
             </div>
@@ -42,7 +42,6 @@ function SchoolCrest({ logoUrl, className = 'w-16 h-16' }: { logoUrl?: string | 
                 <path d="M20 82c-6-4-10-11-8-17 5 3 10 7 8 17z" />
                 <path d="M26 94c-5-3-9-8-8-14 5 2 10 5 8 14z" />
                 <path d="M35 102c-4-2-7-6-7-11 4 1 9 3 7 11z" />
-                {/* Wreath branch stem */}
                 <path d="M22 36c-7 20-6 44 14 66" stroke="url(#crestGold)" strokeWidth="3" strokeLinecap="round" fill="none" />
             </g>
 
@@ -54,27 +53,21 @@ function SchoolCrest({ logoUrl, className = 'w-16 h-16' }: { logoUrl?: string | 
                 <path d="M100 82c6-4 10-11 8-17-5 3-10 7-8 17z" />
                 <path d="M94 94c5-3 9-8 8-14-5 2-10 5-8 14z" />
                 <path d="M85 102c4-2 7-6 7-11-4 1-9 3-7 11z" />
-                {/* Wreath branch stem */}
                 <path d="M98 36c7 20 6 44-14 66" stroke="url(#crestGold)" strokeWidth="3" strokeLinecap="round" fill="none" />
             </g>
 
             {/* Central Shield */}
             <g filter="url(#crestGlow)">
-                {/* Outer Gold Border */}
                 <path d="M60 16L86 28v32c0 20-11 34-26 40-15-6-26-20-26-40V28L60 16z" fill="url(#crestGold)" />
-                {/* Inner Purple Shield */}
                 <path d="M60 20L82 30v30c0 17-9 29-22 35-13-6-22-18-22-35V30L60 20z" fill="url(#crestPurple)" />
             </g>
 
             {/* Shield Interior: Open Book and Graduation Cap */}
             <g fill="#ffffff">
-                {/* Cap */}
                 <polygon points="60,33 46,40 60,47 74,40" />
                 <polygon points="58,47 54,49 54,54 60,56 66,54 66,49 62,47" opacity="0.9" />
-                {/* Tassel */}
                 <line x1="46" y1="40" x2="43" y2="47" stroke="#fef08a" strokeWidth="1.5" />
                 <circle cx="43" cy="48" r="1.5" fill="#fef08a" />
-                {/* Open Book */}
                 <path d="M60 56c-4-2-9-3-15-2v15c6-1 11 0 15 2 4-2 9-3 15-2V54c-6-1-11 0-15 2z" opacity="0.95" />
                 <path d="M60 56v15" stroke="url(#crestGold)" strokeWidth="1.5" />
             </g>
@@ -96,18 +89,14 @@ function CardEmblem() {
         <div className="relative w-20 h-20 rounded-full p-[3px] bg-gradient-to-tr from-amber-600 via-amber-300 to-yellow-100 shadow-[0_10px_30px_rgba(124,58,237,0.45)]">
             <div className="w-full h-full rounded-full p-[2px] bg-amber-500/80">
                 <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-950 via-purple-900 to-violet-950 flex items-center justify-center shadow-inner relative overflow-hidden">
-                    {/* Glossy sheen reflection */}
                     <div className="absolute -top-3 -left-3 w-14 h-14 bg-white/20 rounded-full blur-sm pointer-events-none"></div>
 
                     {/* Graduation Cap & Open Book Graphic */}
                     <svg className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]" viewBox="0 0 64 64" fill="currentColor">
-                        {/* Mortarboard */}
                         <polygon points="32,14 10,24 32,34 54,24" fill="#ffffff" />
                         <polygon points="28,34 23,37 23,43 32,47 41,43 41,37 36,34" fill="#e0e7ff" />
-                        {/* Tassel */}
                         <path d="M10 24v13" stroke="#fef08a" strokeWidth="2.5" strokeLinecap="round" />
                         <circle cx="10" cy="38" r="2" fill="#fef08a" />
-                        {/* Open Book */}
                         <path d="M32 44c-5-3-12-4-20-3v12c8-1 15 0 20 3 5-3 12-4 20-3V41c-8-1-15 0-20 3z" fill="#ffffff" opacity="0.95" />
                         <line x1="32" y1="44" x2="32" y2="56" stroke="#fbbf24" strokeWidth="2" />
                     </svg>
@@ -127,7 +116,8 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [schoolName, setSchoolName] = useState('SUNSHINE ACADEMY');
+    // School data dynamically fetched from database (no hardcoding)
+    const [schoolName, setSchoolName] = useState('');
     const [schoolMotto, setSchoolMotto] = useState('');
     const [schoolLogoUrl, setSchoolLogoUrl] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
@@ -148,7 +138,7 @@ export default function LoginPage() {
     useEffect(() => {
         setMounted(true);
 
-        // Load saved remember me username
+        // Load saved username if remember me was active
         try {
             const saved = localStorage.getItem('apsims_remember_user');
             if (saved) {
@@ -159,23 +149,40 @@ export default function LoginPage() {
             // Ignore
         }
 
-        // Load school details from Supabase (school_name, motto, logo_url)
+        // Fetch school details dynamically from Supabase database (matching Settings)
         const loadSchoolDetails = async () => {
             try {
-                const { data } = await supabase
+                // 1. Fetch registered main school (matches dashboard/settings: ST. CATHERINE GIRL'S SCHOOL TEGAT)
+                let { data } = await supabase
                     .from('school_details')
                     .select('school_name, motto, logo_url')
+                    .neq('section', 'primary')
+                    .order('id', { ascending: true })
                     .limit(1)
-                    .single();
+                    .maybeSingle();
+
+                // 2. Fallback to any school record if section filter yields no result
+                if (!data?.school_name) {
+                    const fallback = await supabase
+                        .from('school_details')
+                        .select('school_name, motto, logo_url')
+                        .order('id', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+                    data = fallback.data;
+                }
+
                 if (data?.school_name) {
                     setSchoolName(data.school_name);
                     document.title = `${data.school_name} - Login`;
                 } else {
+                    setSchoolName('School Management System');
                     document.title = 'APSIMS - Login';
                 }
                 if (data?.motto) setSchoolMotto(data.motto);
                 if (data?.logo_url) setSchoolLogoUrl(data.logo_url);
             } catch {
+                setSchoolName('School Management System');
                 document.title = 'APSIMS - Login';
             }
         };
@@ -231,7 +238,7 @@ export default function LoginPage() {
             };
             toast.success(`Welcome, ${data.user.full_name}! (${roleLabels[data.user.role] || data.user.role})`);
 
-            // Smart redirect
+            // Smart role-based redirect
             const perms: Record<string, boolean> = data.user.permissions || {};
             const role = (data.user.role || '').toLowerCase();
             const isAdminRole = ['admin', 'principal', 'super-admin', 'superadmin', 'super_admin'].includes(role);
@@ -327,7 +334,7 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen w-full relative overflow-x-hidden bg-[#0d1224] text-slate-100 flex flex-col justify-between select-none">
-            {/* Google Fonts: Caveat & Dancing Script for the exact cursive golden motto */}
+            {/* Google Fonts: Caveat & Dancing Script for exact cursive golden motto */}
             <style jsx global>{`
                 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Dancing+Script:wght@700&display=swap');
 
@@ -341,15 +348,13 @@ export default function LoginPage() {
                 }
             `}</style>
 
-            {/* Background Master Graphic (Matches Image 2 exactly) */}
+            {/* Clean Vibrant Campus Courtyard Background Image */}
             <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0"
-                style={{ backgroundImage: `url('/login-bg-master.jpg')` }}
+                style={{ backgroundImage: `url('/login-bg.png')` }}
             >
-                {/* Subtle atmospheric vignette */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-indigo-950/20"></div>
-                {/* Soft right-side blur mask to guarantee 100% clean backdrop for HTML inputs across any aspect ratio */}
-                <div className="absolute inset-y-0 right-0 w-full lg:w-[48%] bg-indigo-950/15 backdrop-blur-[2px]"></div>
+                {/* Subtle depth lighting */}
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/20 via-transparent to-indigo-950/25"></div>
             </div>
 
             {/* Main Content Layout */}
@@ -357,19 +362,19 @@ export default function LoginPage() {
 
                 {/* Top Section */}
                 <div className="w-full flex items-start justify-between">
-                    {/* Top-Left School Branding (Dynamic from Database) */}
-                    <div className="flex items-start gap-3 sm:gap-4 group">
-                        <SchoolCrest logoUrl={schoolLogoUrl} className="w-14 h-14 sm:w-20 sm:h-20 flex-shrink-0 drop-shadow-xl" />
-                        <div className="pt-1">
-                            <h1 className="text-xl sm:text-3xl lg:text-4xl font-black text-white tracking-wide uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] leading-none">
+                    {/* Top-Left School Branding (Dynamic from Supabase Database) */}
+                    <div className="flex items-start gap-3.5 sm:gap-4.5 group">
+                        <SchoolCrest logoUrl={schoolLogoUrl} className="w-14 h-14 sm:w-20 sm:h-20 flex-shrink-0 drop-shadow-2xl" />
+                        <div className="pt-0.5">
+                            <h1 className="text-xl sm:text-3xl lg:text-4xl font-black text-white tracking-wide uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] leading-tight">
                                 {schoolName}
                             </h1>
-                            <p className="text-cyan-300 text-[10px] sm:text-xs lg:text-sm font-bold tracking-[0.22em] uppercase drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] mt-1.5">
+                            <p className="text-cyan-300 text-[10px] sm:text-xs lg:text-sm font-bold tracking-[0.22em] uppercase drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)] mt-1">
                                 SCHOOL MANAGEMENT SYSTEM
                             </p>
-                            {/* Cursive Golden Motto */}
+                            {/* Cursive Golden Motto from Database */}
                             <div
-                                className="mt-2 text-amber-300 text-lg sm:text-2xl lg:text-3xl font-bold italic tracking-wide drop-shadow-[0_3px_8px_rgba(0,0,0,0.75)]"
+                                className="mt-2 text-amber-300 text-lg sm:text-2xl lg:text-3xl font-bold italic tracking-wide drop-shadow-[0_3px_10px_rgba(0,0,0,0.85)]"
                                 style={{ fontFamily: "'Caveat', 'Dancing Script', cursive" }}
                             >
                                 {schoolMotto ? (
@@ -385,7 +390,7 @@ export default function LoginPage() {
                     </div>
                 </div>
 
-                {/* Center / Body Section: Floating Login Card */}
+                {/* Center / Body Section: Floating Frosted Glass Login Card */}
                 <div className="w-full flex items-center justify-center lg:justify-end my-8 lg:my-0 lg:pr-12 xl:pr-20">
                     <div className="w-full max-w-[430px] relative">
                         {/* 3D Circular Floating Emblem on Top of Card */}
@@ -394,7 +399,7 @@ export default function LoginPage() {
                         </div>
 
                         {/* Glassmorphic Login Card */}
-                        <div className="relative rounded-[36px] bg-white/94 sm:bg-white/92 backdrop-blur-2xl border-2 border-white/80 shadow-[0_25px_60px_-15px_rgba(79,70,229,0.38),0_0_40px_rgba(168,85,247,0.22)] p-7 sm:p-9 pt-12 text-slate-800 overflow-hidden">
+                        <div className="relative rounded-[36px] bg-white/92 sm:bg-white/88 backdrop-blur-2xl border-2 border-white/80 shadow-[0_25px_60px_-15px_rgba(79,70,229,0.38),0_0_40px_rgba(168,85,247,0.22)] p-7 sm:p-9 pt-12 text-slate-800 overflow-hidden">
                             {/* Purple wave ribbon glow at top of card */}
                             <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-purple-600/35 via-indigo-600/10 to-transparent rounded-t-[36px] pointer-events-none"></div>
 
@@ -528,81 +533,28 @@ export default function LoginPage() {
                                 </button>
                             </form>
 
-                            {/* Card Security Badge */}
-                            <div className="mt-7 flex items-center justify-center gap-3 text-xs font-bold text-slate-700">
-                                <div className="h-[1px] w-12 bg-slate-200"></div>
-                                <div className="flex items-center gap-1.5">
-                                    <svg className="w-4 h-4 text-purple-700 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                    </svg>
-                                    <span>Secure & Encrypted</span>
+                            {/* Card Security & Powered By Footer */}
+                            <div className="mt-6 flex flex-col items-center justify-center gap-2 text-xs font-bold text-slate-600">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-[1px] w-10 bg-slate-200"></div>
+                                    <div className="flex items-center gap-1.5 text-slate-700">
+                                        <svg className="w-4 h-4 text-purple-700 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                        <span>Secure & Encrypted</span>
+                                    </div>
+                                    <div className="h-[1px] w-10 bg-slate-200"></div>
                                 </div>
-                                <div className="h-[1px] w-12 bg-slate-200"></div>
+                                <p className="text-[10px] text-slate-400 font-medium">
+                                    © {new Date().getFullYear()} APSIMS • Powered by <span className="text-purple-700 font-bold">Hawkinsoft Solutions</span>
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Bottom Section: 4 Interactive Feature Badges (Matches Image 2) */}
-                <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
-                    {/* 4 Feature Badges in Glassmorphic Bar */}
-                    <div className="flex items-center flex-wrap gap-2 sm:gap-4 px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl bg-slate-950/50 backdrop-blur-md border border-white/15 shadow-2xl">
-                        {/* 1. Manage Students */}
-                        <div className="flex items-center gap-2.5 py-1 px-1.5">
-                            <svg className="w-5 h-5 text-amber-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z" />
-                            </svg>
-                            <div className="text-[11px] sm:text-xs font-bold text-white leading-tight">
-                                <div>Manage</div>
-                                <div>Students</div>
-                            </div>
-                        </div>
-
-                        <div className="h-7 w-[1px] bg-white/20 hidden sm:block"></div>
-
-                        {/* 2. Track Performance */}
-                        <div className="flex items-center gap-2.5 py-1 px-1.5">
-                            <svg className="w-5 h-5 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-                            </svg>
-                            <div className="text-[11px] sm:text-xs font-bold text-white leading-tight">
-                                <div>Track</div>
-                                <div>Performance</div>
-                            </div>
-                        </div>
-
-                        <div className="h-7 w-[1px] bg-white/20 hidden sm:block"></div>
-
-                        {/* 3. Monitor Progress */}
-                        <div className="flex items-center gap-2.5 py-1 px-1.5">
-                            <svg className="w-5 h-5 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
-                            </svg>
-                            <div className="text-[11px] sm:text-xs font-bold text-white leading-tight">
-                                <div>Monitor</div>
-                                <div>Progress</div>
-                            </div>
-                        </div>
-
-                        <div className="h-7 w-[1px] bg-white/20 hidden sm:block"></div>
-
-                        {/* 4. Secure & Reliable */}
-                        <div className="flex items-center gap-2.5 py-1 px-1.5">
-                            <svg className="w-5 h-5 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            <div className="text-[11px] sm:text-xs font-bold text-white leading-tight">
-                                <div>Secure &</div>
-                                <div>Reliable</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Subtitle / Powered by Footer */}
-                    <div className="text-right text-[11px] text-white/70 drop-shadow hidden lg:block">
-                        <p>© {new Date().getFullYear()} APSIMS • Powered by <span className="text-cyan-300 font-bold">Hawkinsoft Solutions</span></p>
-                    </div>
-                </div>
+                {/* Bottom Spacer to leave the glistening background dock bar unobstructed */}
+                <div className="w-full h-12 lg:h-16 pointer-events-none"></div>
             </div>
 
             {/* Forgot Password Modal — 3-Step Self-Service Reset */}
