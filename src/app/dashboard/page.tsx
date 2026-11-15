@@ -504,42 +504,51 @@ export default function DashboardPage() {
                 {/* ── CARD 1: Total Students ── */}
                 <Link
                     href="/dashboard/students"
-                    className="group relative bg-white/85 backdrop-blur-xl border border-white/95 rounded-2xl p-4 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(37,99,235,0.12)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between"
+                    className="group relative border border-white/95 rounded-[22px] px-5 py-4 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_36px_rgba(37,99,235,0.16)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex items-center justify-between min-h-[92px]"
+                    style={{ background: 'linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #f0f7ff 100%)' }}
                 >
-                    <div className="flex items-start justify-between relative z-10">
-                        <div className="flex items-center gap-3.5">
-                            {/* Glowing 3D Blue Orb */}
-                            <div
-                                className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-[0_6px_18px_rgba(37,99,235,0.35)] ring-4 ring-blue-50/70 flex-shrink-0"
-                                style={{ background: 'linear-gradient(135deg, #1d63ed 0%, #2563eb 50%, #38bdf8 100%)' }}
-                            >
-                                <LucideUsers size={22} strokeWidth={2.4} />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-black text-slate-800 tracking-tight leading-none">
-                                    {fmtN(active.length || 127)}
-                                </p>
-                                <p className="text-xs text-slate-400 font-semibold mt-1">Total Students</p>
-                            </div>
+                    <div className="flex items-center gap-4 relative z-10">
+                        {/* 3D Gloss Liquid Orb — Blue */}
+                        <div
+                            className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-white flex-shrink-0 relative transition-transform duration-200 group-hover:scale-105"
+                            style={{
+                                background: 'radial-gradient(circle at 32% 28%, #93c5fd 0%, #3b82f6 42%, #1d4ed8 82%, #1e40af 100%)',
+                                boxShadow: '0 12px 28px -4px rgba(37,99,235,0.65), inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -3px 5px rgba(0,0,0,0.22)',
+                            }}
+                        >
+                            <LucideUsers size={23} strokeWidth={2.4} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]" />
                         </div>
+                        <div>
+                            <p className="text-[26px] font-black text-slate-800 tracking-tight leading-none">
+                                {fmtN(active.length || 127)}
+                            </p>
+                            <p className="text-[12px] font-semibold text-slate-500 mt-1">Total Students</p>
+                        </div>
+                    </div>
 
-                        {/* Top-Right Badge */}
-                        <span className="flex items-center gap-1 bg-[#eaf8f1] text-[#10b981] border border-[#c6f0db] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                            <span className="text-[8px]">▲</span> 12%
+                    {/* Top-Right Badge */}
+                    <div className="absolute top-3.5 right-3.5 z-10">
+                        <span className="flex items-center gap-0.5 bg-[#d1fae5]/80 text-[#059669] border border-[#a7f3d0] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                            <span className="text-[7px]">▲</span> 12%
                         </span>
                     </div>
 
-                    {/* Smooth Bottom-Right SVG Wave Sparkline */}
-                    <div className="absolute right-0 bottom-0 w-36 h-12 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
-                        <svg viewBox="0 0 140 48" className="w-full h-full" preserveAspectRatio="none">
+                    {/* Smooth Organic SVG Wave Sparkline — Seamless Fade-In */}
+                    <div className="absolute right-0 bottom-0 w-[55%] h-13 pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
+                        <svg viewBox="0 0 200 60" className="w-full h-full" preserveAspectRatio="none">
                             <defs>
-                                <linearGradient id="waveBlue" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
-                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                                <linearGradient id="blueWaveStroke" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0" />
+                                    <stop offset="25%" stopColor="#3b82f6" stopOpacity="0.5" />
+                                    <stop offset="100%" stopColor="#2563eb" stopOpacity="1" />
+                                </linearGradient>
+                                <linearGradient id="blueWaveArea" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.22" />
+                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.01" />
                                 </linearGradient>
                             </defs>
-                            <path d="M0,38 C20,38 35,28 55,30 C75,32 90,14 110,24 C125,31 135,16 140,18 L140,48 L0,48 Z" fill="url(#waveBlue)" />
-                            <path d="M0,38 C20,38 35,28 55,30 C75,32 90,14 110,24 C125,31 135,16 140,18" fill="none" stroke="#3b82f6" strokeWidth="2.4" strokeLinecap="round" />
+                            <path d="M0,52 Q25,50 48,44 T92,30 T132,42 T168,16 T200,22 L200,60 L0,60 Z" fill="url(#blueWaveArea)" />
+                            <path d="M0,52 Q25,50 48,44 T92,30 T132,42 T168,16 T200,22" fill="none" stroke="url(#blueWaveStroke)" strokeWidth="2.6" strokeLinecap="round" />
                         </svg>
                     </div>
                 </Link>
@@ -547,42 +556,51 @@ export default function DashboardPage() {
                 {/* ── CARD 2: Total Enrolled ── */}
                 <Link
                     href="/dashboard/students/admissions"
-                    className="group relative bg-white/85 backdrop-blur-xl border border-white/95 rounded-2xl p-4 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(124,58,237,0.12)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between"
+                    className="group relative border border-white/95 rounded-[22px] px-5 py-4 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_36px_rgba(124,58,237,0.16)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex items-center justify-between min-h-[92px]"
+                    style={{ background: 'linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #faf5ff 100%)' }}
                 >
-                    <div className="flex items-start justify-between relative z-10">
-                        <div className="flex items-center gap-3.5">
-                            {/* Glowing 3D Purple Orb */}
-                            <div
-                                className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-[0_6px_18px_rgba(124,58,237,0.35)] ring-4 ring-purple-50/70 flex-shrink-0"
-                                style={{ background: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 50%, #c084fc 100%)' }}
-                            >
-                                <LucideGraduationCap size={22} strokeWidth={2.4} />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-black text-slate-800 tracking-tight leading-none">
-                                    {fmtN(stats.totalStudents || stats.newEnrollments || 126)}
-                                </p>
-                                <p className="text-xs text-slate-400 font-semibold mt-1">Total Enrolled</p>
-                            </div>
+                    <div className="flex items-center gap-4 relative z-10">
+                        {/* 3D Gloss Liquid Orb — Purple */}
+                        <div
+                            className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-white flex-shrink-0 relative transition-transform duration-200 group-hover:scale-105"
+                            style={{
+                                background: 'radial-gradient(circle at 32% 28%, #d8b4fe 0%, #a855f7 42%, #7c3aed 82%, #581c87 100%)',
+                                boxShadow: '0 12px 28px -4px rgba(124,58,237,0.65), inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -3px 5px rgba(0,0,0,0.22)',
+                            }}
+                        >
+                            <LucideGraduationCap size={23} strokeWidth={2.4} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]" />
                         </div>
+                        <div>
+                            <p className="text-[26px] font-black text-slate-800 tracking-tight leading-none">
+                                {fmtN(stats.totalStudents || stats.newEnrollments || 126)}
+                            </p>
+                            <p className="text-[12px] font-semibold text-slate-500 mt-1">Total Enrolled</p>
+                        </div>
+                    </div>
 
-                        {/* Top-Right Badge */}
-                        <span className="flex items-center gap-1 bg-[#eaf8f1] text-[#10b981] border border-[#c6f0db] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                            <span className="text-[8px]">▲</span> 8%
+                    {/* Top-Right Badge */}
+                    <div className="absolute top-3.5 right-3.5 z-10">
+                        <span className="flex items-center gap-0.5 bg-[#d1fae5]/80 text-[#059669] border border-[#a7f3d0] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                            <span className="text-[7px]">▲</span> 8%
                         </span>
                     </div>
 
-                    {/* Smooth Bottom-Right SVG Wave Sparkline */}
-                    <div className="absolute right-0 bottom-0 w-36 h-12 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
-                        <svg viewBox="0 0 140 48" className="w-full h-full" preserveAspectRatio="none">
+                    {/* Smooth Organic SVG Wave Sparkline — Seamless Fade-In */}
+                    <div className="absolute right-0 bottom-0 w-[55%] h-13 pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
+                        <svg viewBox="0 0 200 60" className="w-full h-full" preserveAspectRatio="none">
                             <defs>
-                                <linearGradient id="wavePurple" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.28" />
-                                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
+                                <linearGradient id="purpleWaveStroke" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0" />
+                                    <stop offset="25%" stopColor="#8b5cf6" stopOpacity="0.5" />
+                                    <stop offset="100%" stopColor="#7c3aed" stopOpacity="1" />
+                                </linearGradient>
+                                <linearGradient id="purpleWaveArea" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.22" />
+                                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.01" />
                                 </linearGradient>
                             </defs>
-                            <path d="M0,35 C25,35 40,22 65,26 C85,29 105,12 120,20 C130,25 136,15 140,16 L140,48 L0,48 Z" fill="url(#wavePurple)" />
-                            <path d="M0,35 C25,35 40,22 65,26 C85,29 105,12 120,20 C130,25 136,15 140,16" fill="none" stroke="#8b5cf6" strokeWidth="2.4" strokeLinecap="round" />
+                            <path d="M0,52 Q30,48 58,40 T102,26 T142,38 T174,14 T200,20 L200,60 L0,60 Z" fill="url(#purpleWaveArea)" />
+                            <path d="M0,52 Q30,48 58,40 T102,26 T142,38 T174,14 T200,20" fill="none" stroke="url(#purpleWaveStroke)" strokeWidth="2.6" strokeLinecap="round" />
                         </svg>
                     </div>
                 </Link>
@@ -590,42 +608,51 @@ export default function DashboardPage() {
                 {/* ── CARD 3: Expected Fees ── */}
                 <Link
                     href="/dashboard/fees"
-                    className="group relative bg-white/85 backdrop-blur-xl border border-white/95 rounded-2xl p-4 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(16,185,129,0.12)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between"
+                    className="group relative border border-white/95 rounded-[22px] px-5 py-4 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_36px_rgba(16,185,129,0.16)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex items-center justify-between min-h-[92px]"
+                    style={{ background: 'linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #f0fdf4 100%)' }}
                 >
-                    <div className="flex items-start justify-between relative z-10">
-                        <div className="flex items-center gap-3.5">
-                            {/* Glowing 3D Emerald Orb */}
-                            <div
-                                className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-[0_6px_18px_rgba(16,185,129,0.35)] ring-4 ring-emerald-50/70 flex-shrink-0"
-                                style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%)' }}
-                            >
-                                <LucideWallet size={22} strokeWidth={2.4} />
-                            </div>
-                            <div>
-                                <p className="text-xl lg:text-[22px] font-black text-slate-800 tracking-tight leading-none">
-                                    {stats.feesDue > 0 ? fmt(stats.feesDue) : (stats.feesCollected > 0 ? fmt(stats.feesCollected) : 'Ksh 461,000')}
-                                </p>
-                                <p className="text-xs text-slate-400 font-semibold mt-1">Expected Fees</p>
-                            </div>
+                    <div className="flex items-center gap-4 relative z-10">
+                        {/* 3D Gloss Liquid Orb — Green */}
+                        <div
+                            className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-white flex-shrink-0 relative transition-transform duration-200 group-hover:scale-105"
+                            style={{
+                                background: 'radial-gradient(circle at 32% 28%, #86efac 0%, #22c55e 42%, #059669 82%, #064e3b 100%)',
+                                boxShadow: '0 12px 28px -4px rgba(16,185,129,0.65), inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -3px 5px rgba(0,0,0,0.22)',
+                            }}
+                        >
+                            <LucideWallet size={23} strokeWidth={2.4} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]" />
                         </div>
+                        <div>
+                            <p className="text-[20px] lg:text-[22px] font-black text-slate-800 tracking-tight leading-none">
+                                {stats.feesDue > 0 ? fmt(stats.feesDue) : (stats.feesCollected > 0 ? fmt(stats.feesCollected) : 'Ksh 461,000')}
+                            </p>
+                            <p className="text-[12px] font-semibold text-slate-500 mt-1">Expected Fees</p>
+                        </div>
+                    </div>
 
-                        {/* Top-Right Badge */}
-                        <span className="flex items-center gap-1 bg-[#eaf8f1] text-[#10b981] border border-[#c6f0db] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                            <span className="text-[8px]">▲</span> 15%
+                    {/* Top-Right Badge */}
+                    <div className="absolute top-3.5 right-3.5 z-10">
+                        <span className="flex items-center gap-0.5 bg-[#d1fae5]/80 text-[#059669] border border-[#a7f3d0] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                            <span className="text-[7px]">▲</span> 15%
                         </span>
                     </div>
 
-                    {/* Smooth Bottom-Right SVG Wave Sparkline */}
-                    <div className="absolute right-0 bottom-0 w-36 h-12 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
-                        <svg viewBox="0 0 140 48" className="w-full h-full" preserveAspectRatio="none">
+                    {/* Smooth Organic SVG Wave Sparkline — Seamless Fade-In */}
+                    <div className="absolute right-0 bottom-0 w-[55%] h-13 pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
+                        <svg viewBox="0 0 200 60" className="w-full h-full" preserveAspectRatio="none">
                             <defs>
-                                <linearGradient id="waveGreen" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#10b981" stopOpacity="0.28" />
-                                    <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                                <linearGradient id="greenWaveStroke" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#10b981" stopOpacity="0" />
+                                    <stop offset="25%" stopColor="#10b981" stopOpacity="0.5" />
+                                    <stop offset="100%" stopColor="#059669" stopOpacity="1" />
+                                </linearGradient>
+                                <linearGradient id="greenWaveArea" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#10b981" stopOpacity="0.22" />
+                                    <stop offset="100%" stopColor="#10b981" stopOpacity="0.01" />
                                 </linearGradient>
                             </defs>
-                            <path d="M0,32 C20,32 40,24 60,28 C80,32 100,10 120,18 C130,22 136,12 140,14 L140,48 L0,48 Z" fill="url(#waveGreen)" />
-                            <path d="M0,32 C20,32 40,24 60,28 C80,32 100,10 120,18 C130,22 136,12 140,14" fill="none" stroke="#10b981" strokeWidth="2.4" strokeLinecap="round" />
+                            <path d="M0,50 Q25,48 52,42 T98,28 T138,40 T170,12 T200,18 L200,60 L0,60 Z" fill="url(#greenWaveArea)" />
+                            <path d="M0,50 Q25,48 52,42 T98,28 T138,40 T170,12 T200,18" fill="none" stroke="url(#greenWaveStroke)" strokeWidth="2.6" strokeLinecap="round" />
                         </svg>
                     </div>
                 </Link>
@@ -633,42 +660,51 @@ export default function DashboardPage() {
                 {/* ── CARD 4: Pending Issues ── */}
                 <Link
                     href="/dashboard/stores/ultra"
-                    className="group relative bg-white/85 backdrop-blur-xl border border-amber-200/50 rounded-2xl p-4 shadow-[0_4px_24px_rgba(245,158,11,0.08),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(245,158,11,0.18)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between"
+                    className="group relative border border-amber-200/75 rounded-[22px] px-5 py-4 shadow-[0_4px_24px_rgba(245,158,11,0.09),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_36px_rgba(245,158,11,0.2)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex items-center justify-between min-h-[92px]"
+                    style={{ background: 'linear-gradient(180deg, #fffcf5 0%, #fff9ec 45%, #fef3c7 100%)' }}
                 >
-                    <div className="flex items-start justify-between relative z-10">
-                        <div className="flex items-center gap-3.5">
-                            {/* Glowing 3D Amber Orb */}
-                            <div
-                                className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-[0_6px_18px_rgba(245,158,11,0.35)] ring-4 ring-amber-50/70 flex-shrink-0"
-                                style={{ background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 50%, #fbbf24 100%)' }}
-                            >
-                                <LucideAlertTriangle size={22} strokeWidth={2.4} />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-black text-slate-800 tracking-tight leading-none">
-                                    {String(pendingIssues || 2)}
-                                </p>
-                                <p className="text-xs text-slate-400 font-semibold mt-1">Pending Issues</p>
-                            </div>
+                    <div className="flex items-center gap-4 relative z-10">
+                        {/* 3D Gloss Liquid Orb — Amber */}
+                        <div
+                            className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-white flex-shrink-0 relative transition-transform duration-200 group-hover:scale-105"
+                            style={{
+                                background: 'radial-gradient(circle at 32% 28%, #fde047 0%, #f59e0b 42%, #d97706 82%, #78350f 100%)',
+                                boxShadow: '0 12px 28px -4px rgba(245,158,11,0.65), inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -3px 5px rgba(0,0,0,0.22)',
+                            }}
+                        >
+                            <LucideAlertTriangle size={23} strokeWidth={2.4} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]" />
                         </div>
+                        <div>
+                            <p className="text-[26px] font-black text-slate-800 tracking-tight leading-none">
+                                {String(pendingIssues || 2)}
+                            </p>
+                            <p className="text-[12px] font-semibold text-slate-500 mt-1">Pending Issues</p>
+                        </div>
+                    </div>
 
-                        {/* Top-Right Badge */}
-                        <span className="flex items-center gap-1 bg-[#fef2f2] text-[#ef4444] border border-[#fecaca] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                            <span className="text-[8px]">▼</span> 0%
+                    {/* Top-Right Badge */}
+                    <div className="absolute top-3.5 right-3.5 z-10">
+                        <span className="flex items-center gap-0.5 bg-[#fee2e2]/80 text-[#dc2626] border border-[#fecaca] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                            <span className="text-[7px]">▼</span> 0%
                         </span>
                     </div>
 
-                    {/* Smooth Bottom-Right SVG Wave Sparkline */}
-                    <div className="absolute right-0 bottom-0 w-36 h-12 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
-                        <svg viewBox="0 0 140 48" className="w-full h-full" preserveAspectRatio="none">
+                    {/* Smooth Organic SVG Wave Sparkline — Seamless Fade-In */}
+                    <div className="absolute right-0 bottom-0 w-[55%] h-13 pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
+                        <svg viewBox="0 0 200 60" className="w-full h-full" preserveAspectRatio="none">
                             <defs>
-                                <linearGradient id="waveAmber" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.28" />
-                                    <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+                                <linearGradient id="amberWaveStroke" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0" />
+                                    <stop offset="25%" stopColor="#f59e0b" stopOpacity="0.5" />
+                                    <stop offset="100%" stopColor="#d97706" stopOpacity="1" />
+                                </linearGradient>
+                                <linearGradient id="amberWaveArea" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.22" />
+                                    <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.01" />
                                 </linearGradient>
                             </defs>
-                            <path d="M0,34 C25,34 45,26 70,30 C90,34 110,16 125,22 C133,26 137,18 140,20 L140,48 L0,48 Z" fill="url(#waveAmber)" />
-                            <path d="M0,34 C25,34 45,26 70,30 C90,34 110,16 125,22 C133,26 137,18 140,20" fill="none" stroke="#f59e0b" strokeWidth="2.4" strokeLinecap="round" />
+                            <path d="M0,52 Q28,50 56,44 T100,30 T140,40 T172,16 T200,22 L200,60 L0,60 Z" fill="url(#amberWaveArea)" />
+                            <path d="M0,52 Q28,50 56,44 T100,30 T140,40 T172,16 T200,22" fill="none" stroke="url(#amberWaveStroke)" strokeWidth="2.6" strokeLinecap="round" />
                         </svg>
                     </div>
                 </Link>

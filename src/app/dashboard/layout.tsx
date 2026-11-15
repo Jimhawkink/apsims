@@ -801,7 +801,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SchoolModeProvider userSection={userSection}>
         <ThemeProvider>
         <LayoutThemeExtras>
-        <div className="min-h-screen bg-[#edf2f9] flex text-slate-800" style={{ fontFamily: "'Inter', 'Outfit', system-ui, -apple-system, sans-serif" }}>
+        <div className="min-h-screen flex text-slate-800" style={{ background: 'linear-gradient(180deg, #edf3fb 0%, #e9f0f9 50%, #edf3fb 100%)', fontFamily: "'Inter', 'Outfit', system-ui, -apple-system, sans-serif" }}>
             <CommandPalette />
             <QuickActionsButton />
             {pageLoading && (
@@ -1014,7 +1014,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {SyncUI}
 
                 {/* ── Top Floating Glass Island Header (Exact Match to Premium UI Kit) ── */}
-                <div className="sticky top-0 z-30 px-4 lg:px-6 pt-2.5 pb-2.5 bg-[#edf2f9]/85 backdrop-blur-md transition-all">
+                <div className="sticky top-0 z-30 px-4 lg:px-6 pt-2.5 pb-2.5 bg-[#edf3fb]/90 backdrop-blur-md transition-all">
                     <header className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_20px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-2xl px-4 lg:px-5 py-2 flex items-center justify-between transition-all">
                         {/* Left: Mobile Menu + Soft Ice-Blue Pill Search Bar */}
                         <div className="flex items-center gap-3">
