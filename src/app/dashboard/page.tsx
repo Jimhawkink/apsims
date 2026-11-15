@@ -22,6 +22,15 @@ import {
     GraduationCap as LucideGraduationCap,
     Wallet as LucideWallet,
     AlertTriangle as LucideAlertTriangle,
+    CreditCard as LucideCreditCard,
+    UserPlus as LucideUserPlus,
+    CheckCircle2 as LucideCheckCircle2,
+    FileText as LucideFileText,
+    Mail as LucideMail,
+    BarChart3 as LucideBarChart3,
+    FileCheck as LucideFileCheck,
+    LayoutGrid as LucideLayoutGrid,
+    ArrowRight as LucideArrowRight,
 } from 'lucide-react';
 import UltraCardsSection from './components/UltraCards';
 import FeeAnalyticsSection from './components/FeeAnalyticsSection';
@@ -56,28 +65,30 @@ function SH({ title, sub, href, linkLabel }: { title: string; sub?: string; href
     );
 }
 
-// ── Stat card (light, bright) ──
+// ── Sizable Ultra-Premium Stat Card ──
 function StatCard({ icon, label, value, sub, color, bg, trend, trendLabel, href }: {
     icon: string; label: string; value: string; sub: string;
     color: string; bg: string; trend?: 'up' | 'down'; trendLabel?: string; href?: string;
 }) {
     const inner = (
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all group">
-            <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: bg }}>{icon}</div>
+        <div className="bg-white/85 backdrop-blur-xl rounded-[20px] p-3.5 border border-white/95 shadow-[0_4px_20px_rgba(20,50,120,0.05),0_1px_3px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_28px_rgba(20,50,120,0.1)] hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base shadow-xs" style={{ background: bg }}>{icon}</div>
                 {trend && (
-                    <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${trend === 'up' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
-                        {trend === 'up' ? <FiTrendingUp size={10} /> : <FiTrendingDown size={10} />}
+                    <span className={`flex items-center gap-0.5 text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs ${trend === 'up' ? 'bg-[#d1fae5] text-[#059669] border border-[#a7f3d0]' : 'bg-[#fee2e2] text-[#dc2626] border border-[#fecaca]'}`}>
+                        <span className="text-[7px]">{trend === 'up' ? '▲' : '▼'}</span>
                         {trendLabel}
                     </span>
                 )}
             </div>
-            <p className="text-2xl font-black text-gray-900 leading-none mb-1" style={{ color }}>{value}</p>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
-            <p className="text-[10px] text-gray-400">{sub}</p>
+            <div>
+                <p className="text-xl font-black text-slate-800 tracking-tight leading-none mb-1" style={{ color }}>{value}</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{label}</p>
+                <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">{sub}</p>
+            </div>
         </div>
     );
-    return href ? <Link href={href}>{inner}</Link> : inner;
+    return href ? <Link href={href} className="block">{inner}</Link> : inner;
 }
 
 export default function DashboardPage() {
@@ -710,66 +721,98 @@ export default function DashboardPage() {
                 </Link>
             </div>
 
-            {/* ══ SCHOOL HEALTH SCORE + TERM INFO ══ */}
+            {/* ══ SIZABLE COMPACT SCHOOL HEALTH, TERM & REALTIME CARDS ══ */}
             {(() => {
                 const feeRate = stats.feesCollected > 0 ? Math.min(100, Math.round(stats.feesCollected / (stats.feesCollected + stats.feesDue + 1) * 100)) : 0;
                 const healthScore = Math.round((attRate * 0.35) + (feeRate * 0.40) + (formPerf.length > 0 ? Math.min(100, formPerf.reduce((s, f) => s + f.avg, 0) / formPerf.length) * 0.25 : 0));
-                const healthColor = healthScore >= 75 ? '#16a34a' : healthScore >= 50 ? '#d97706' : '#dc2626';
+                const healthColor = healthScore >= 75 ? '#10b981' : healthScore >= 50 ? '#f59e0b' : '#ef4444';
                 const healthLabel = healthScore >= 75 ? 'Excellent' : healthScore >= 50 ? 'Good' : 'Needs Attention';
+                const daysRemaining = currentTerm?.end_date ? Math.max(0, Math.ceil((new Date(currentTerm.end_date).getTime() - Date.now()) / 86400000)) : 0;
+                const termPct = currentTerm?.start_date && currentTerm?.end_date ? (() => {
+                    const s = new Date(currentTerm.start_date).getTime();
+                    const e = new Date(currentTerm.end_date).getTime();
+                    return Math.min(100, Math.max(0, Math.round((Date.now() - s) / (e - s) * 100)));
+                })() : 0;
+
                 return (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {/* School Health Score */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
-                            <div className="relative w-16 h-16 flex-shrink-0">
-                                <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
-                                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" strokeWidth="3" />
-                                    <circle cx="18" cy="18" r="15.9" fill="none" stroke={healthColor} strokeWidth="3" strokeDasharray={`${healthScore} 100`} strokeLinecap="round" />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                        {/* ── CARD 1: School Health Score ── */}
+                        <div className="bg-white/85 backdrop-blur-xl border border-white/95 rounded-[20px] px-4 py-3 shadow-[0_4px_20px_rgba(20,50,120,0.05),0_1px_3px_rgba(0,0,0,0.02)] flex items-center gap-3.5 min-h-[76px]">
+                            <div className="relative w-11 h-11 flex-shrink-0">
+                                <svg viewBox="0 0 36 36" className="w-11 h-11 -rotate-90">
+                                    <circle cx="18" cy="18" r="15" fill="none" stroke="#eef2f6" strokeWidth="3" />
+                                    <circle
+                                        cx="18" cy="18" r="15" fill="none"
+                                        stroke={healthColor} strokeWidth="3"
+                                        strokeDasharray={`${healthScore} 100`}
+                                        strokeLinecap="round"
+                                        style={{ transition: 'stroke-dasharray 0.5s ease' }}
+                                    />
                                 </svg>
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-sm font-black" style={{ color: healthColor }}>{healthScore}</span>
+                                    <span className="text-[11px] font-black" style={{ color: healthColor }}>{healthScore}%</span>
                                 </div>
                             </div>
-                            <div>
-                                <p className="text-xs font-black text-gray-800">🏫 School Health Score</p>
-                                <p className="text-lg font-black mt-0.5" style={{ color: healthColor }}>{healthLabel}</p>
-                                <p className="text-[9px] text-gray-400 mt-1">Attendance · Fees · Academics</p>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="text-xs font-black text-slate-800 tracking-tight">School Health</p>
+                                    <span
+                                        className="text-[9px] font-black px-2 py-0.5 rounded-full"
+                                        style={{
+                                            background: healthScore >= 75 ? '#d1fae5' : healthScore >= 50 ? '#fef3c7' : '#fee2e2',
+                                            color: healthScore >= 75 ? '#065f46' : healthScore >= 50 ? '#92400e' : '#991b1b',
+                                        }}
+                                    >
+                                        {healthLabel}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">Attendance · Fees · Academics</p>
                             </div>
                         </div>
-                        {/* Term info */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">📅 Current Term</p>
-                            <p className="text-base font-black text-gray-900">{currentTerm?.term_name || 'Term 1'} {currentYear}</p>
-                            {currentTerm?.end_date && (
-                                <p className="text-sm text-indigo-600 font-bold mt-1">
-                                    {Math.max(0, Math.ceil((new Date(currentTerm.end_date).getTime() - Date.now()) / 86400000))} days remaining
-                                </p>
-                            )}
-                            <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                {currentTerm?.start_date && currentTerm?.end_date && (() => {
-                                    const start = new Date(currentTerm.start_date).getTime();
-                                    const end = new Date(currentTerm.end_date).getTime();
-                                    const pctDone = Math.min(100, Math.round((Date.now() - start) / (end - start) * 100));
-                                    return <div className="h-1.5 rounded-full bg-indigo-500 transition-all" style={{ width: `${pctDone}%` }} />;
-                                })()}
+
+                        {/* ── CARD 2: Current Term Progress ── */}
+                        <div className="bg-white/85 backdrop-blur-xl border border-white/95 rounded-[20px] px-4 py-3 shadow-[0_4px_20px_rgba(20,50,120,0.05),0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-center min-h-[76px]">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-xs">📅</span>
+                                    <p className="text-xs font-black text-slate-800 tracking-tight">{currentTerm?.term_name || 'Term 3'} {currentYear}</p>
+                                </div>
+                                <span className="text-[10px] font-bold text-blue-600 bg-blue-50/80 px-2 py-0.5 rounded-full border border-blue-100/70">
+                                    {daysRemaining} days left
+                                </span>
                             </div>
-                            <p className="text-[9px] text-gray-400 mt-1">Term progress</p>
+                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full rounded-full transition-all duration-500"
+                                    style={{
+                                        width: `${termPct}%`,
+                                        background: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 100%)',
+                                    }}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between mt-1 text-[9px] text-slate-400 font-semibold">
+                                <span>Term progress</span>
+                                <span>{termPct}%</span>
+                            </div>
                         </div>
-                        {/* Live Activity Ticker */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                                <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" /></span>
-                                Live Activity Feed
-                            </p>
+
+                        {/* ── CARD 3: Live Realtime Activity Feed ── */}
+                        <div className="bg-white/85 backdrop-blur-xl border border-white/95 rounded-[20px] px-4 py-3 shadow-[0_4px_20px_rgba(20,50,120,0.05),0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-center min-h-[76px] overflow-hidden">
+                            <div className="flex items-center gap-2 mb-1.5">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                                </span>
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">Live Realtime Feed</p>
+                            </div>
                             {liveActivity.length === 0 ? (
-                                <p className="text-xs text-gray-400">No activity yet today</p>
+                                <p className="text-[11px] text-slate-400 font-medium truncate flex items-center gap-1">
+                                    <span>✨</span> All systems synced & operating normally
+                                </p>
                             ) : (
-                                <div className="space-y-2">
-                                    {liveActivity.slice(0, 3).map((a, i) => (
-                                        <div key={i} className="flex items-start gap-2">
-                                            <span className="text-sm flex-shrink-0">{a.icon}</span>
-                                            <p className="text-[11px] text-gray-600 leading-tight">{a.text}</p>
-                                        </div>
-                                    ))}
+                                <div className="flex items-center gap-2 text-[11px] text-slate-700 font-medium truncate">
+                                    <span className="text-sm flex-shrink-0">{liveActivity[0].icon}</span>
+                                    <span className="truncate">{liveActivity[0].text}</span>
                                 </div>
                             )}
                         </div>
@@ -786,42 +829,151 @@ export default function DashboardPage() {
             {activeTab === 'overview' && (
                 <div className="space-y-4">
 
-                    {/* ── TOP 4 BRIGHT STAT CARDS (ENHANCED) ── */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* ── SIZABLE 4 STAT CARDS ── */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
                         <StatCard icon="🎓" label="Active Students" value={fmtN(active.length)} sub={`${maleCount} boys · ${femaleCount} girls`} color="#4f46e5" bg="#eef2ff" trend="up" trendLabel={`+${newThisYear} new`} href="/dashboard/students" />
                         <StatCard icon="💰" label="Fees Collected" value={fmtShort(totalFees)} sub={`${fmt(payThisMonth)} this month`} color="#059669" bg="#ecfdf5" trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees" />
                         <StatCard icon="✅" label="Attendance Rate" value={`${attRate}%`} sub={`${todayPre} present · ${todayAbs} absent`} color={attRate >= 80 ? '#0891b2' : '#d97706'} bg={attRate >= 80 ? '#e0f2fe' : '#fef3c7'} trend={attRate >= 80 ? 'up' : 'down'} trendLabel={`${todayAbs} absent`} href="/dashboard/attendance" />
                         <StatCard icon="📊" label="Net Position" value={fmtShort(Math.abs(netPos))} sub={`Income ${fmtShort(totalIncome)}`} color={netPos >= 0 ? '#7c3aed' : '#dc2626'} bg={netPos >= 0 ? '#f5f3ff' : '#fef2f2'} trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees/reports/pl" />
                     </div>
 
-                    {/* ── ULTRA QUICK ACTIONS (ENHANCED — 12 buttons with gradient borders) ── */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">⚡ Quick Actions</p>
-                            <span className="text-[9px] text-gray-400">12 shortcuts</span>
+                    {/* ══════════════════════════════════════════════════
+                        ⚡ SUPER ULTRA QUICK ACTIONS (Exact Reference Match)
+                    ══════════════════════════════════════════════════ */}
+                    <div className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-[22px] px-5 py-4">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-3.5">
+                            <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shadow-xs">⚡</span>
+                                <h2 className="text-sm font-black text-slate-800 tracking-tight">Quick Actions</h2>
+                            </div>
+                            <Link
+                                href="/dashboard/tools"
+                                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors group"
+                            >
+                                <span>More Tools</span>
+                                <LucideArrowRight size={13} strokeWidth={2.4} className="group-hover:translate-x-0.5 transition-transform" />
+                            </Link>
                         </div>
-                        <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2">
+
+                        {/* 10 Ultra-Premium Action Buttons */}
+                        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2.5">
                             {[
-                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', color: '#22c55e', bg: 'linear-gradient(135deg,#ecfdf5,#d1fae5)' },
-                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '🎓', color: '#6366f1', bg: 'linear-gradient(135deg,#eef2ff,#e0e7ff)' },
-                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', color: '#3b82f6', bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)' },
-                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', color: '#f59e0b', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
-                                { label: 'Send SMS', href: '/dashboard/fees/bulk-reminders', icon: '📱', color: '#8b5cf6', bg: 'linear-gradient(135deg,#f5f3ff,#ede9fe)' },
-                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', color: '#0891b2', bg: 'linear-gradient(135deg,#ecfeff,#e0f2fe)' },
-                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', color: '#ef4444', bg: 'linear-gradient(135deg,#fff1f2,#fee2e2)' },
-                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👔', color: '#7c3aed', bg: 'linear-gradient(135deg,#faf5ff,#f3e8ff)' },
-                                { label: 'Stores', href: '/dashboard/stores/ultra', icon: '📦', color: '#b45309', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
-                                { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: '📋', color: '#059669', bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)' },
-                                { label: 'Discipline', href: '/dashboard/discipline', icon: '🛡️', color: '#dc2626', bg: 'linear-gradient(135deg,#fff1f2,#fee2e2)' },
-                                { label: 'Notifications', href: '/dashboard/notifications', icon: '🔔', color: '#d97706', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
-                            ].map((a, i) => (
-                                <Link key={i} href={a.href}
-                                    className="rounded-xl p-2.5 text-center hover:shadow-md hover:scale-[1.05] transition-all border border-gray-100 group relative overflow-hidden"
-                                    style={{ background: a.bg }}>
-                                    <div className="text-xl mb-1">{a.icon}</div>
-                                    <p className="text-[9px] font-bold leading-tight" style={{ color: a.color }}>{a.label}</p>
-                                </Link>
-                            ))}
+                                {
+                                    label: 'Collect Fee',
+                                    href: '/dashboard/fees/collect',
+                                    icon: LucideCreditCard,
+                                    color: '#1d63ed',
+                                    bg: 'linear-gradient(180deg, rgba(239, 246, 255, 0.95) 0%, rgba(219, 234, 254, 0.6) 100%)',
+                                    border: 'rgba(191, 219, 254, 0.8)',
+                                    shadow: 'rgba(37, 99, 235, 0.12)',
+                                },
+                                {
+                                    label: 'Add Student',
+                                    href: '/dashboard/students/admissions',
+                                    icon: LucideUserPlus,
+                                    color: '#2563eb',
+                                    bg: 'linear-gradient(180deg, rgba(240, 245, 255, 0.95) 0%, rgba(224, 231, 255, 0.6) 100%)',
+                                    border: 'rgba(199, 210, 254, 0.8)',
+                                    shadow: 'rgba(79, 70, 229, 0.12)',
+                                },
+                                {
+                                    label: 'Attendance',
+                                    href: '/dashboard/attendance',
+                                    icon: LucideCheckCircle2,
+                                    color: '#10b981',
+                                    bg: 'linear-gradient(180deg, rgba(236, 253, 245, 0.95) 0%, rgba(209, 250, 229, 0.6) 100%)',
+                                    border: 'rgba(167, 243, 208, 0.8)',
+                                    shadow: 'rgba(16, 185, 129, 0.12)',
+                                },
+                                {
+                                    label: 'Enter Marks',
+                                    href: '/dashboard/exams/marks',
+                                    icon: LucideFileText,
+                                    color: '#f59e0b',
+                                    bg: 'linear-gradient(180deg, rgba(255, 241, 242, 0.95) 0%, rgba(254, 226, 226, 0.6) 100%)',
+                                    border: 'rgba(254, 202, 202, 0.8)',
+                                    shadow: 'rgba(244, 63, 94, 0.12)',
+                                },
+                                {
+                                    label: 'Bulk SMS',
+                                    href: '/dashboard/fees/bulk-reminders',
+                                    icon: LucideMail,
+                                    color: '#2563eb',
+                                    bg: 'linear-gradient(180deg, rgba(239, 246, 255, 0.95) 0%, rgba(219, 234, 254, 0.6) 100%)',
+                                    border: 'rgba(191, 219, 254, 0.8)',
+                                    shadow: 'rgba(37, 99, 235, 0.12)',
+                                },
+                                {
+                                    label: 'P&L Report',
+                                    href: '/dashboard/fees/reports/pl',
+                                    icon: LucideBarChart3,
+                                    color: '#0891b2',
+                                    bg: 'linear-gradient(180deg, rgba(240, 249, 255, 0.95) 0%, rgba(224, 242, 254, 0.6) 100%)',
+                                    border: 'rgba(186, 230, 253, 0.8)',
+                                    shadow: 'rgba(2, 132, 199, 0.12)',
+                                },
+                                {
+                                    label: 'Add Expense',
+                                    href: '/dashboard/expenses',
+                                    icon: LucideWallet,
+                                    color: '#ea580c',
+                                    bg: 'linear-gradient(180deg, rgba(255, 247, 237, 0.95) 0%, rgba(254, 237, 213, 0.6) 100%)',
+                                    border: 'rgba(254, 215, 170, 0.8)',
+                                    shadow: 'rgba(234, 88, 12, 0.12)',
+                                },
+                                {
+                                    label: 'Payroll',
+                                    href: '/dashboard/hr-payroll/payroll',
+                                    icon: LucideUsers,
+                                    color: '#2563eb',
+                                    bg: 'linear-gradient(180deg, rgba(239, 246, 255, 0.95) 0%, rgba(219, 234, 254, 0.6) 100%)',
+                                    border: 'rgba(191, 219, 254, 0.8)',
+                                    shadow: 'rgba(37, 99, 235, 0.12)',
+                                },
+                                {
+                                    label: 'Report Cards',
+                                    href: '/dashboard/exams/report-cards',
+                                    icon: LucideFileCheck,
+                                    color: '#059669',
+                                    bg: 'linear-gradient(180deg, rgba(240, 253, 244, 0.95) 0%, rgba(220, 252, 231, 0.6) 100%)',
+                                    border: 'rgba(187, 247, 208, 0.8)',
+                                    shadow: 'rgba(22, 163, 74, 0.12)',
+                                },
+                                {
+                                    label: 'More Tools',
+                                    href: '/dashboard/tools',
+                                    icon: LucideLayoutGrid,
+                                    color: '#7c3aed',
+                                    bg: 'linear-gradient(180deg, rgba(245, 243, 255, 0.95) 0%, rgba(237, 233, 254, 0.6) 100%)',
+                                    border: 'rgba(221, 214, 254, 0.8)',
+                                    shadow: 'rgba(124, 58, 237, 0.12)',
+                                },
+                            ].map((btn, i) => {
+                                const Icon = btn.icon;
+                                return (
+                                    <Link
+                                        key={i}
+                                        href={btn.href}
+                                        className="group/btn flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer text-center relative overflow-hidden"
+                                        style={{
+                                            background: btn.bg,
+                                            border: `1px solid ${btn.border}`,
+                                            boxShadow: `0 4px 12px ${btn.shadow}`,
+                                        }}
+                                    >
+                                        <div
+                                            className="w-10 h-10 rounded-xl flex items-center justify-center mb-1.5 transition-transform duration-200 group-hover/btn:scale-110"
+                                            style={{ color: btn.color }}
+                                        >
+                                            <Icon size={22} strokeWidth={2.4} />
+                                        </div>
+                                        <span className="text-[11px] font-black text-slate-700 leading-tight tracking-tight group-hover/btn:text-blue-600 transition-colors whitespace-nowrap">
+                                            {btn.label}
+                                        </span>
+                                    </Link>
+                                );
+                            })}
                         </div>
                     </div>
 
