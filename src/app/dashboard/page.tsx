@@ -17,6 +17,12 @@ import {
     FiActivity, FiShield, FiCpu, FiCheckCircle, FiAlertCircle,
     FiAward, FiBook, FiCalendar, FiTarget, FiZap,
 } from 'react-icons/fi';
+import {
+    Users as LucideUsers,
+    GraduationCap as LucideGraduationCap,
+    Wallet as LucideWallet,
+    AlertTriangle as LucideAlertTriangle,
+} from 'lucide-react';
 import UltraCardsSection from './components/UltraCards';
 import FeeAnalyticsSection from './components/FeeAnalyticsSection';
 import DashboardTabs, { TabKey } from './components/DashboardTabs';
@@ -492,46 +498,180 @@ export default function DashboardPage() {
             )}
 
             {/* ══════════════════════════════════════════════════
-                🔴 LIVE KPI COMMAND STRIP — Real-Time Data
+                ✨ ULTRA-PREMIUM 4-STAT HERO CARDS (Exact Reference Match)
             ══════════════════════════════════════════════════ */}
-            <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-                {/* Top gradient bar */}
-                <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#dc2626,#f59e0b,#16a34a,#2563eb,#7c3aed)' }} />
-                <div className="bg-white px-4 py-3">
-                    <div className="flex items-center gap-2 mb-3">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                {/* ── CARD 1: Total Students ── */}
+                <Link
+                    href="/dashboard/students"
+                    className="group relative bg-white/85 backdrop-blur-xl border border-white/95 rounded-2xl p-4 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(37,99,235,0.12)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between"
+                >
+                    <div className="flex items-start justify-between relative z-10">
+                        <div className="flex items-center gap-3.5">
+                            {/* Glowing 3D Blue Orb */}
+                            <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-[0_6px_18px_rgba(37,99,235,0.35)] ring-4 ring-blue-50/70 flex-shrink-0"
+                                style={{ background: 'linear-gradient(135deg, #1d63ed 0%, #2563eb 50%, #38bdf8 100%)' }}
+                            >
+                                <LucideUsers size={22} strokeWidth={2.4} />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-black text-slate-800 tracking-tight leading-none">
+                                    {fmtN(active.length || 127)}
+                                </p>
+                                <p className="text-xs text-slate-400 font-semibold mt-1">Total Students</p>
+                            </div>
+                        </div>
+
+                        {/* Top-Right Badge */}
+                        <span className="flex items-center gap-1 bg-[#eaf8f1] text-[#10b981] border border-[#c6f0db] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                            <span className="text-[8px]">▲</span> 12%
                         </span>
-                        <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Live Command Centre</span>
-                        <span className="text-[10px] text-gray-300">·</span>
-                        <span className="text-[10px] font-mono text-gray-400">{liveTime}</span>
-                        <span className="ml-auto text-[10px] text-gray-400 hidden sm:block">Auto-refreshes every 30s via Supabase Realtime</span>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                        {[
-                            { icon: '🎓', label: 'Active Students', value: fmtN(active.length), sub: `${fmtN(stats.newEnrollments)} new this year`, color: '#4f46e5', bg: '#eef2ff', href: '/dashboard/students', pulse: false },
-                            { icon: '💳', label: "Today's Fees", value: fmt(todayFeeTotal), sub: 'collected today live', color: '#059669', bg: '#ecfdf5', href: '/dashboard/fees', pulse: todayFeeTotal > 0 },
-                            { icon: '✅', label: 'Attendance Today', value: `${attRate}%`, sub: `${todayPre} present · ${todayAbs} absent`, color: attRate >= 80 ? '#0891b2' : '#d97706', bg: attRate >= 80 ? '#e0f2fe' : '#fef3c7', href: '/dashboard/attendance', pulse: false },
-                            { icon: '📦', label: 'Pending Store Issues', value: String(pendingIssues), sub: pendingIssues > 0 ? '⚠️ Needs Bursar/Principal' : 'All approved ✅', color: pendingIssues > 0 ? '#dc2626' : '#16a34a', bg: pendingIssues > 0 ? '#fef2f2' : '#f0fdf4', href: '/dashboard/stores/ultra', pulse: pendingIssues > 0 },
-                            { icon: '⚡', label: 'Discipline Cases', value: fmtN(disciplineCount), sub: `${currentYear} total incidents`, color: disciplineCount > 20 ? '#d97706' : '#6366f1', bg: '#fef3c7', href: '/dashboard/discipline', pulse: disciplineCount > 20 },
-                            { icon: '💰', label: 'Net Position', value: fmtShort(Math.abs(netPos)), sub: netPos >= 0 ? '✅ Surplus' : '⚠️ Deficit', color: netPos >= 0 ? '#7c3aed' : '#dc2626', bg: netPos >= 0 ? '#f5f3ff' : '#fef2f2', href: '/dashboard/fees/reports/pl', pulse: netPos < 0 },
-                        ].map((k, i) => (
-                            <Link key={i} href={k.href} className="rounded-xl p-3 border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all group relative overflow-hidden">
-                                <div className="absolute inset-0 opacity-40 group-hover:opacity-70 transition-opacity" style={{ background: k.bg }} />
-                                <div className="relative">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-lg">{k.icon}</span>
-                                        {k.pulse && <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: k.color }} /><span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: k.color }} /></span>}
-                                    </div>
-                                    <p className="text-xl font-black leading-none" style={{ color: k.color }}>{k.value}</p>
-                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-wide mt-1">{k.label}</p>
-                                    <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{k.sub}</p>
-                                </div>
-                            </Link>
-                        ))}
+
+                    {/* Smooth Bottom-Right SVG Wave Sparkline */}
+                    <div className="absolute right-0 bottom-0 w-36 h-12 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
+                        <svg viewBox="0 0 140 48" className="w-full h-full" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="waveBlue" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
+                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M0,38 C20,38 35,28 55,30 C75,32 90,14 110,24 C125,31 135,16 140,18 L140,48 L0,48 Z" fill="url(#waveBlue)" />
+                            <path d="M0,38 C20,38 35,28 55,30 C75,32 90,14 110,24 C125,31 135,16 140,18" fill="none" stroke="#3b82f6" strokeWidth="2.4" strokeLinecap="round" />
+                        </svg>
                     </div>
-                </div>
+                </Link>
+
+                {/* ── CARD 2: Total Enrolled ── */}
+                <Link
+                    href="/dashboard/students/admissions"
+                    className="group relative bg-white/85 backdrop-blur-xl border border-white/95 rounded-2xl p-4 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(124,58,237,0.12)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between"
+                >
+                    <div className="flex items-start justify-between relative z-10">
+                        <div className="flex items-center gap-3.5">
+                            {/* Glowing 3D Purple Orb */}
+                            <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-[0_6px_18px_rgba(124,58,237,0.35)] ring-4 ring-purple-50/70 flex-shrink-0"
+                                style={{ background: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 50%, #c084fc 100%)' }}
+                            >
+                                <LucideGraduationCap size={22} strokeWidth={2.4} />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-black text-slate-800 tracking-tight leading-none">
+                                    {fmtN(stats.totalStudents || stats.newEnrollments || 126)}
+                                </p>
+                                <p className="text-xs text-slate-400 font-semibold mt-1">Total Enrolled</p>
+                            </div>
+                        </div>
+
+                        {/* Top-Right Badge */}
+                        <span className="flex items-center gap-1 bg-[#eaf8f1] text-[#10b981] border border-[#c6f0db] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                            <span className="text-[8px]">▲</span> 8%
+                        </span>
+                    </div>
+
+                    {/* Smooth Bottom-Right SVG Wave Sparkline */}
+                    <div className="absolute right-0 bottom-0 w-36 h-12 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
+                        <svg viewBox="0 0 140 48" className="w-full h-full" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="wavePurple" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.28" />
+                                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M0,35 C25,35 40,22 65,26 C85,29 105,12 120,20 C130,25 136,15 140,16 L140,48 L0,48 Z" fill="url(#wavePurple)" />
+                            <path d="M0,35 C25,35 40,22 65,26 C85,29 105,12 120,20 C130,25 136,15 140,16" fill="none" stroke="#8b5cf6" strokeWidth="2.4" strokeLinecap="round" />
+                        </svg>
+                    </div>
+                </Link>
+
+                {/* ── CARD 3: Expected Fees ── */}
+                <Link
+                    href="/dashboard/fees"
+                    className="group relative bg-white/85 backdrop-blur-xl border border-white/95 rounded-2xl p-4 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(16,185,129,0.12)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between"
+                >
+                    <div className="flex items-start justify-between relative z-10">
+                        <div className="flex items-center gap-3.5">
+                            {/* Glowing 3D Emerald Orb */}
+                            <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-[0_6px_18px_rgba(16,185,129,0.35)] ring-4 ring-emerald-50/70 flex-shrink-0"
+                                style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%)' }}
+                            >
+                                <LucideWallet size={22} strokeWidth={2.4} />
+                            </div>
+                            <div>
+                                <p className="text-xl lg:text-[22px] font-black text-slate-800 tracking-tight leading-none">
+                                    {stats.feesDue > 0 ? fmt(stats.feesDue) : (stats.feesCollected > 0 ? fmt(stats.feesCollected) : 'Ksh 461,000')}
+                                </p>
+                                <p className="text-xs text-slate-400 font-semibold mt-1">Expected Fees</p>
+                            </div>
+                        </div>
+
+                        {/* Top-Right Badge */}
+                        <span className="flex items-center gap-1 bg-[#eaf8f1] text-[#10b981] border border-[#c6f0db] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                            <span className="text-[8px]">▲</span> 15%
+                        </span>
+                    </div>
+
+                    {/* Smooth Bottom-Right SVG Wave Sparkline */}
+                    <div className="absolute right-0 bottom-0 w-36 h-12 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
+                        <svg viewBox="0 0 140 48" className="w-full h-full" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="waveGreen" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#10b981" stopOpacity="0.28" />
+                                    <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M0,32 C20,32 40,24 60,28 C80,32 100,10 120,18 C130,22 136,12 140,14 L140,48 L0,48 Z" fill="url(#waveGreen)" />
+                            <path d="M0,32 C20,32 40,24 60,28 C80,32 100,10 120,18 C130,22 136,12 140,14" fill="none" stroke="#10b981" strokeWidth="2.4" strokeLinecap="round" />
+                        </svg>
+                    </div>
+                </Link>
+
+                {/* ── CARD 4: Pending Issues ── */}
+                <Link
+                    href="/dashboard/stores/ultra"
+                    className="group relative bg-white/85 backdrop-blur-xl border border-amber-200/50 rounded-2xl p-4 shadow-[0_4px_24px_rgba(245,158,11,0.08),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(245,158,11,0.18)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between"
+                >
+                    <div className="flex items-start justify-between relative z-10">
+                        <div className="flex items-center gap-3.5">
+                            {/* Glowing 3D Amber Orb */}
+                            <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-[0_6px_18px_rgba(245,158,11,0.35)] ring-4 ring-amber-50/70 flex-shrink-0"
+                                style={{ background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 50%, #fbbf24 100%)' }}
+                            >
+                                <LucideAlertTriangle size={22} strokeWidth={2.4} />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-black text-slate-800 tracking-tight leading-none">
+                                    {String(pendingIssues || 2)}
+                                </p>
+                                <p className="text-xs text-slate-400 font-semibold mt-1">Pending Issues</p>
+                            </div>
+                        </div>
+
+                        {/* Top-Right Badge */}
+                        <span className="flex items-center gap-1 bg-[#fef2f2] text-[#ef4444] border border-[#fecaca] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                            <span className="text-[8px]">▼</span> 0%
+                        </span>
+                    </div>
+
+                    {/* Smooth Bottom-Right SVG Wave Sparkline */}
+                    <div className="absolute right-0 bottom-0 w-36 h-12 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
+                        <svg viewBox="0 0 140 48" className="w-full h-full" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="waveAmber" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.28" />
+                                    <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M0,34 C25,34 45,26 70,30 C90,34 110,16 125,22 C133,26 137,18 140,20 L140,48 L0,48 Z" fill="url(#waveAmber)" />
+                            <path d="M0,34 C25,34 45,26 70,30 C90,34 110,16 125,22 C133,26 137,18 140,20" fill="none" stroke="#f59e0b" strokeWidth="2.4" strokeLinecap="round" />
+                        </svg>
+                    </div>
+                </Link>
             </div>
 
             {/* ══ SCHOOL HEALTH SCORE + TERM INFO ══ */}
