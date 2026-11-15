@@ -384,73 +384,106 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* ════════════════════════════════════════
-                SLIM BRIGHT HEADER (not heavy/dark)
-            ════════════════════════════════════════ */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {/* Top accent line */}
-                <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #6366f1, #3b82f6, #06b6d4, #10b981)' }} />
-                <div className="px-5 py-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div>
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                                </span>
-                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Live</span>
-                                <span className="text-[10px] text-gray-300 mx-1">·</span>
-                                <span className="text-[10px] font-mono text-gray-400">{liveTime}</span>
-                                {currentTerm && (
-                                    <>
-                                        <span className="text-[10px] text-gray-300 mx-1">·</span>
-                                        <span className="text-[10px] font-bold text-indigo-500">{currentTerm.term_name} {currentYear}</span>
-                                    </>
-                                )}
-                            </div>
-                            <h1 className="text-lg font-black text-gray-900">
-                                {greeting}, <span className="text-indigo-600">{userName}</span>! 👋
-                            </h1>
-                            <p className="text-[10px] text-gray-400 mt-0.5">
-                                {new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                                <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-black bg-gradient-to-r from-amber-400 to-orange-400 text-white">🇰🇪 #1 IN KENYA</span>
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button onClick={() => setRefreshKey(k => k + 1)} className="p-2 rounded-xl bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 border border-gray-100 transition-all" title="Refresh">
-                                <FiRefreshCw size={14} />
-                            </button>
-                        </div>
+            {/* ══════════════════════════════════════════════════
+                SLIM GLASS GREETING & PERIOD BAR (Matching Top Bar)
+            ══════════════════════════════════════════════════ */}
+            <div className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-2xl px-4 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all">
+                {/* Left: Greeting + Live metadata */}
+                <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                        </span>
+                        <h1 className="text-sm font-black text-slate-800 tracking-tight flex items-center gap-1.5">
+                            <span>{greeting},</span>
+                            <span className="text-blue-600 font-extrabold">{userName}</span>! 👋
+                        </h1>
                     </div>
 
-                    {/* Date filter pills */}
-                    <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-gray-50">
-                        <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Period:</span>
+                    <div className="hidden sm:flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                        <span className="text-slate-300">·</span>
+                        <span className="font-mono bg-slate-100/80 px-2 py-0.5 rounded-md text-slate-600 font-semibold">{liveTime}</span>
+                        {currentTerm && (
+                            <>
+                                <span className="text-slate-300">·</span>
+                                <span className="font-bold text-blue-600 bg-blue-50/80 px-2 py-0.5 rounded-md border border-blue-100/60">{currentTerm.term_name} {currentYear}</span>
+                            </>
+                        )}
+                        <span className="text-slate-300">·</span>
+                        <span>{new Date().toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-xs">🇰🇪 #1 IN KENYA</span>
+                    </div>
+                </div>
+
+                {/* Right: Period selector pills + Custom Dates + Refresh */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1 bg-[#f0f5fc] p-0.5 rounded-full border border-[#e2ecf8]">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider pl-2.5 pr-1 hidden lg:inline">Period:</span>
                         {dateRangeOpts.map(opt => (
-                            <button key={opt.key} onClick={() => setDateRange(opt.key)}
-                                className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${dateRange === opt.key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600'}`}>
+                            <button
+                                key={opt.key}
+                                type="button"
+                                onClick={() => setDateRange(opt.key)}
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-150 ${
+                                    dateRange === opt.key
+                                        ? 'bg-blue-600 text-white shadow-xs'
+                                        : 'text-slate-600 hover:text-blue-600 hover:bg-white/60'
+                                }`}
+                            >
                                 {opt.label}
                             </button>
                         ))}
-                        {dateRange === 'custom' && (
-                            <div className="flex items-center gap-1.5 ml-1">
-                                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:border-indigo-400" />
-                                <span className="text-gray-400 text-[10px]">→</span>
-                                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:border-indigo-400" />
-                            </div>
-                        )}
                     </div>
+
+                    {dateRange === 'custom' && (
+                        <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-full border border-slate-200 shadow-xs">
+                            <input
+                                type="date"
+                                value={customFrom}
+                                onChange={e => setCustomFrom(e.target.value)}
+                                className="text-[10px] bg-transparent text-slate-700 outline-none w-24"
+                            />
+                            <span className="text-slate-400 text-[10px]">→</span>
+                            <input
+                                type="date"
+                                value={customTo}
+                                onChange={e => setCustomTo(e.target.value)}
+                                className="text-[10px] bg-transparent text-slate-700 outline-none w-24"
+                            />
+                        </div>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={() => setRefreshKey(k => k + 1)}
+                        className="w-7 h-7 rounded-full bg-white border border-slate-200/80 text-slate-500 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-all hover:scale-105 flex-shrink-0"
+                        title="Refresh Data"
+                    >
+                        <FiRefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+                    </button>
                 </div>
             </div>
 
-            {/* ── Smart Alerts ── */}
+            {/* ── Slim Glassmorphic Alerts ── */}
             {alerts.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                     {alerts.map((a, i) => (
-                        <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-semibold ${a.level === 'error' ? 'bg-red-50 border-red-200 text-red-800' : a.level === 'warn' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
-                            {a.level === 'error' ? <FiAlertCircle size={14} className="flex-shrink-0" /> : a.level === 'warn' ? <FiAlertTriangle size={14} className="flex-shrink-0" /> : <FiCheckCircle size={14} className="flex-shrink-0" />}
-                            <span className="flex-1">{a.msg}</span>
-                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${a.level === 'error' ? 'bg-red-200 text-red-700' : a.level === 'warn' ? 'bg-amber-200 text-amber-700' : 'bg-blue-200 text-blue-700'}`}>
+                        <div
+                            key={i}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border text-xs font-semibold backdrop-blur-md transition-all ${
+                                a.level === 'error'
+                                    ? 'bg-rose-50/80 border-rose-200/70 text-rose-800 shadow-xs'
+                                    : a.level === 'warn'
+                                    ? 'bg-amber-50/80 border-amber-200/70 text-amber-800 shadow-xs'
+                                    : 'bg-blue-50/80 border-blue-200/70 text-blue-800 shadow-xs'
+                            }`}
+                        >
+                            {a.level === 'error' ? <FiAlertCircle size={14} className="flex-shrink-0 text-rose-600" /> : a.level === 'warn' ? <FiAlertTriangle size={14} className="flex-shrink-0 text-amber-600" /> : <FiCheckCircle size={14} className="flex-shrink-0 text-blue-600" />}
+                            <span className="flex-1 truncate">{a.msg}</span>
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wider ${
+                                a.level === 'error' ? 'bg-rose-200/80 text-rose-700' : a.level === 'warn' ? 'bg-amber-200/80 text-amber-700' : 'bg-blue-200/80 text-blue-700'
+                            }`}>
                                 {a.level === 'error' ? 'CRITICAL' : a.level === 'warn' ? 'WARNING' : 'INFO'}
                             </span>
                         </div>
