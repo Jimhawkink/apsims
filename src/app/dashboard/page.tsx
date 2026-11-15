@@ -10,74 +10,68 @@ import {
     Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement,
     LineElement, ArcElement, Title, Tooltip, Legend, Filler,
 } from 'chart.js';
-import { Line, Doughnut } from 'react-chartjs-2';
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import {
-    FiWifi, FiBell, FiSettings, FiPlus, FiPrinter, FiDownload,
-    FiShare2, FiMaximize, FiPower, FiSun, FiMoon, FiChevronDown,
-    FiSearch, FiRefreshCw, FiShield, FiAlertTriangle, FiCheckCircle,
-    FiAlertCircle, FiUsers, FiTrendingUp, FiTrendingDown, FiZap,
-    FiBarChart2, FiChevronRight,
+    FiDollarSign, FiAlertTriangle, FiRefreshCw, FiUsers,
+    FiTrendingUp, FiTrendingDown, FiBarChart2, FiChevronRight,
+    FiActivity, FiShield, FiCpu, FiCheckCircle, FiAlertCircle,
+    FiAward, FiBook, FiCalendar, FiTarget, FiZap,
 } from 'react-icons/fi';
+import UltraCardsSection from './components/UltraCards';
+import FeeAnalyticsSection from './components/FeeAnalyticsSection';
+import DashboardTabs, { TabKey } from './components/DashboardTabs';
 import FinancePanel from './components/FinancePanel';
 import AcademicsPanel from './components/AcademicsPanel';
 import StaffPanel from './components/StaffPanel';
 import StoresPanel from './components/StoresPanel';
 import PortalsPanel from './components/PortalsPanel';
+import AIInsightsWidget from './components/AIInsightsWidget';
+import './components/ultra-dashboard.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
 
 const fmt = (n: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(n || 0);
-const fmtShort = (n: number) => n >= 1_000_000 ? `Ksh ${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `Ksh ${(n / 1000).toFixed(0)}K` : `Ksh ${n}`;
+const fmtShort = (n: number) => n >= 1_000_000 ? `KES ${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `KES ${(n / 1000).toFixed(0)}K` : `KES ${n}`;
 const fmtN = (n: number) => new Intl.NumberFormat('en-KE').format(n || 0);
 const pct = (a: number, b: number) => b > 0 ? Math.round((a / b) * 100) : 0;
 
 type DateRange = 'today' | 'week' | 'month' | 'term' | 'year' | 'custom';
-type TabKey = 'overview' | 'finance' | 'academics' | 'staff' | 'stores' | 'portals';
 
-// ── SVG Gauge Circle ──
-function GaugeCircle({ value, label, icon, color, track }: {
-    value: number; label: string; icon: string; color: string; track: string;
-}) {
-    const r = 36; const c = 2 * Math.PI * r;
-    const dash = (value / 100) * c;
+// ── Small section title ──
+function SH({ title, sub, href, linkLabel }: { title: string; sub?: string; href?: string; linkLabel?: string }) {
     return (
-        <div className="flex flex-col items-center gap-1.5">
-            <div className="relative w-24 h-24">
-                <svg className="w-24 h-24 -rotate-90" viewBox="0 0 88 88">
-                    <circle cx="44" cy="44" r={r} fill="none" stroke={track} strokeWidth="7" />
-                    <circle cx="44" cy="44" r={r} fill="none" stroke={color} strokeWidth="7"
-                        strokeDasharray={`${dash} ${c}`} strokeLinecap="round"
-                        style={{ transition: 'stroke-dasharray 1s ease' }} />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-2xl font-black" style={{ color }}>{value}%</span>
-                </div>
+        <div className="flex items-center justify-between mb-3">
+            <div>
+                <p className="text-xs font-black text-gray-800 tracking-tight">{title}</p>
+                {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
             </div>
-            <div className="flex items-center gap-1 text-xs font-semibold text-gray-600">
-                <span>{icon}</span>
-                <span>{label}</span>
-            </div>
+            {href && <Link href={href} className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline">{linkLabel || 'View All'} <FiChevronRight size={11} /></Link>}
         </div>
     );
 }
 
-// ── Sparkline SVG ──
-function Sparkline({ color, up }: { color: string; up?: boolean }) {
-    const pts = up
-        ? '0,22 15,20 30,16 45,18 60,12 75,8 90,4'
-        : '0,10 15,14 30,18 45,16 60,20 75,22 90,24';
-    return (
-        <svg viewBox="0 0 90 28" className="w-full h-7" preserveAspectRatio="none">
-            <defs>
-                <linearGradient id={`sg-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-                    <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-                </linearGradient>
-            </defs>
-            <polygon points={`0,28 ${pts} 90,28`} fill={`url(#sg-${color.replace('#', '')})`} />
-            <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+// ── Stat card (light, bright) ──
+function StatCard({ icon, label, value, sub, color, bg, trend, trendLabel, href }: {
+    icon: string; label: string; value: string; sub: string;
+    color: string; bg: string; trend?: 'up' | 'down'; trendLabel?: string; href?: string;
+}) {
+    const inner = (
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all group">
+            <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: bg }}>{icon}</div>
+                {trend && (
+                    <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${trend === 'up' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+                        {trend === 'up' ? <FiTrendingUp size={10} /> : <FiTrendingDown size={10} />}
+                        {trendLabel}
+                    </span>
+                )}
+            </div>
+            <p className="text-2xl font-black text-gray-900 leading-none mb-1" style={{ color }}>{value}</p>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
+            <p className="text-[10px] text-gray-400">{sub}</p>
+        </div>
     );
+    return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
 export default function DashboardPage() {
@@ -93,37 +87,11 @@ export default function DashboardPage() {
     const [liveTime, setLiveTime] = useState('');
     const [pendingIssues, setPendingIssues] = useState(0);
     const [todayFeeTotal, setTodayFeeTotal] = useState(0);
-    const [liveActivity, setLiveActivity] = useState<{ text: string; time: string; icon: string; color: string }[]>([]);
-    const [showNewActionMenu, setShowNewActionMenu] = useState(false);
-    const [isDark, setIsDark] = useState(false);
-
+    const [liveActivity, setLiveActivity] = useState<{ text: string; time: string; icon: string }[]>([]);
     const searchParams = useSearchParams();
     const accessDenied = searchParams.get('access_denied') === '1';
     const currentYear = new Date().getFullYear();
     const today = new Date().toISOString().split('T')[0];
-
-    // All data states
-    const [students, setStudents] = useState<any[]>([]);
-    const [forms, setForms] = useState<any[]>([]);
-    const [staff, setStaff] = useState<any[]>([]);
-    const [payments, setPayments] = useState<any[]>([]);
-    const [income, setIncome] = useState<any[]>([]);
-    const [expenses, setExpenses] = useState<any[]>([]);
-    const [attendance, setAttendance] = useState<any[]>([]);
-    const [monthlyFees, setMonthlyFees] = useState<{ month: string; fees: number; expenses: number }[]>([]);
-    const [topStudents, setTopStudents] = useState<any[]>([]);
-    const [alerts, setAlerts] = useState<{ type: string; msg: string; level: 'warn' | 'error' | 'info' }[]>([]);
-    const [currentTerm, setCurrentTerm] = useState<any>(null);
-    const [disciplineCount, setDisciplineCount] = useState(0);
-    const [openIssues, setOpenIssues] = useState(0);
-    const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
-    const [recentActivity, setRecentActivity] = useState<{ text: string; time: string; color: string }[]>([]);
-    const [stats, setStats] = useState({
-        totalStudents: 0, activeStudents: 0, newEnrollments: 0,
-        totalStaff: 0, feesCollected: 0, feesDue: 0,
-        totalIncome: 0, totalExpenses: 0,
-        attendance: { present: 0, absent: 0, late: 0, rate: 0 },
-    });
 
     useEffect(() => {
         const tick = () => setLiveTime(new Date().toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -139,6 +107,34 @@ export default function DashboardPage() {
         }
     }, []);
 
+    const [stats, setStats] = useState({
+        totalStudents: 0, activeStudents: 0, newEnrollments: 0,
+        totalStaff: 0, teachingStaff: 0, nonTeachingStaff: 0,
+        feesCollected: 0, feesDue: 0, prepayments: 0,
+        totalIncome: 0, totalExpenses: 0,
+        attendance: { present: 0, absent: 0, late: 0, rate: 0 },
+        reportedStudents: 0,
+    });
+
+    const [students, setStudents] = useState<any[]>([]);
+    const [forms, setForms] = useState<any[]>([]);
+    const [staff, setStaff] = useState<any[]>([]);
+    const [payments, setPayments] = useState<any[]>([]);
+    const [income, setIncome] = useState<any[]>([]);
+    const [expenses, setExpenses] = useState<any[]>([]);
+    const [attendance, setAttendance] = useState<any[]>([]);
+    const [weeklyAtt, setWeeklyAtt] = useState<{ day: string; pct: number }[]>([]);
+    const [monthlyFees, setMonthlyFees] = useState<{ month: string; fees: number; expenses: number }[]>([]);
+    const [recentPayments, setRecentPayments] = useState<any[]>([]);
+    const [recentStudents, setRecentStudents] = useState<any[]>([]);
+    const [disciplineCount, setDisciplineCount] = useState(0);
+    const [openIssues, setOpenIssues] = useState(0);
+    const [currentTerm, setCurrentTerm] = useState<any>(null);
+    const [formPerf, setFormPerf] = useState<any[]>([]);
+    const [topStudents, setTopStudents] = useState<any[]>([]);
+    const [subjectPerf, setSubjectPerf] = useState<any[]>([]);
+    const [alerts, setAlerts] = useState<{ type: string; msg: string; level: 'warn' | 'error' | 'info' }[]>([]);
+
     const fetchAll = useCallback(async () => {
         setLoading(true);
         try {
@@ -150,7 +146,7 @@ export default function DashboardPage() {
                 { data: allStudents }, { data: formData }, { data: teacherData },
                 { data: payData }, { data: incData }, { data: expData },
                 { data: termData }, { data: discData }, { data: issueData },
-                { data: marksData }, { data: subjectData }, { data: eventsData },
+                { data: marksData }, { data: subjectData },
             ] = await Promise.all([
                 supabase.from('school_students').select('id,first_name,last_name,gender,form_id,status,admission_date,created_at,admission_no,admission_number,guardian_phone').order('created_at', { ascending: false }),
                 supabase.from('school_forms').select('*').order('form_level'),
@@ -163,7 +159,6 @@ export default function DashboardPage() {
                 supabase.from('school_issues').select('id,status').eq('status', 'Open'),
                 supabase.from('school_exam_marks').select('student_id,subject_id,marks,form_id').order('created_at', { ascending: false }).limit(2000),
                 supabase.from('school_subjects').select('id,subject_name'),
-                supabase.from('school_academic_events').select('*').gte('event_date', today).order('event_date').limit(5),
             ]);
 
             setCurrentTerm(termData);
@@ -175,27 +170,27 @@ export default function DashboardPage() {
             setExpenses(expData || []);
             setDisciplineCount((discData || []).length);
             setOpenIssues((issueData || []).length);
-
-            // Upcoming events
-            if (eventsData && eventsData.length > 0) {
-                setUpcomingEvents(eventsData);
-            } else {
-                // Fallback demo events
-                setUpcomingEvents([
-                    { event_date: `${currentYear}-11-18`, event_name: 'Parent Meeting', event_type: 'Meeting', start_time: '8:00 AM', end_time: '11:00 AM' },
-                    { event_date: `${currentYear}-11-20`, event_name: 'Term 3 Exams', event_type: 'Exam', start_time: '8:00 AM', end_time: '5:00 PM' },
-                    { event_date: `${currentYear}-11-25`, event_name: 'School Sports Day', event_type: 'Event', start_time: '9:00 AM', end_time: '4:00 PM' },
-                ]);
-            }
+            setRecentPayments((payData || []).slice(0, 8));
+            setRecentStudents((allStudents || []).slice(0, 8));
 
             const { data: todayAtt } = await supabase.from('school_daily_attendance').select('status,student_id').eq('attendance_date', today);
             setAttendance(todayAtt || []);
 
-            // Monthly fees data
+            const weekly: { day: string; pct: number }[] = [];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(); d.setDate(d.getDate() - i);
+                const ds = d.toISOString().split('T')[0];
+                const { data: da } = await supabase.from('school_daily_attendance').select('status').eq('attendance_date', ds);
+                const tot = (da || []).length;
+                const pre = (da || []).filter((a: any) => a.status === 'Present').length;
+                weekly.push({ day: d.toLocaleDateString('en', { weekday: 'short' }), pct: tot > 0 ? Math.round(pre / tot * 100) : 0 });
+            }
+            setWeeklyAtt(weekly);
+
             const monthly: { month: string; fees: number; expenses: number }[] = [];
-            for (let i = 5; i >= 0; i--) {
+            for (let i = 11; i >= 0; i--) {
                 const d = new Date(); d.setMonth(d.getMonth() - i);
-                const label = d.toLocaleString('en', { month: 'short' });
+                const label = d.toLocaleString('en', { month: 'short', year: '2-digit' });
                 const y = d.getFullYear(); const m = d.getMonth();
                 const f = (payData || []).filter((p: any) => { const pd = new Date(p.payment_date); return pd.getFullYear() === y && pd.getMonth() === m; }).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
                 const e = (expData || []).filter((ex: any) => { const ed = new Date(ex.expense_date); return ed.getFullYear() === y && ed.getMonth() === m; }).reduce((s: number, ex: any) => s + Number(ex.amount || 0), 0);
@@ -203,8 +198,14 @@ export default function DashboardPage() {
             }
             setMonthlyFees(monthly);
 
-            // Top students from marks
             const marks = marksData || [];
+            const fp = (formData || []).map((f: any) => {
+                const fm = marks.filter((m: any) => m.form_id === f.id);
+                const avg = fm.length > 0 ? fm.reduce((s: number, m: any) => s + Number(m.marks || 0), 0) / fm.length : 0;
+                return { form: f.form_name, avg: Math.round(avg * 10) / 10, count: fm.length };
+            });
+            setFormPerf(fp);
+
             const smMap: Record<number, number[]> = {};
             marks.forEach((m: any) => { if (!smMap[m.student_id]) smMap[m.student_id] = []; smMap[m.student_id].push(Number(m.marks || 0)); });
             const topS = Object.entries(smMap)
@@ -212,45 +213,33 @@ export default function DashboardPage() {
                 .sort((a, b) => b.avg - a.avg).slice(0, 5)
                 .map(({ id, avg }) => {
                     const st = (allStudents || []).find((s: any) => s.id === id);
-                    const form = (formData || []).find((f: any) => f.id === st?.form_id);
-                    return {
-                        name: st ? `${st.first_name} ${st.last_name}` : '-',
-                        form: form?.form_name || '-',
-                        avg: Math.round(avg * 10) / 10,
-                        initials: st ? `${st.first_name?.charAt(0)}${st.last_name?.charAt(0)}` : 'ST',
-                    };
+                    return { name: st ? `${st.first_name} ${st.last_name}` : '-', form: (formData || []).find((f: any) => f.id === st?.form_id)?.form_name || '-', avg: Math.round(avg * 10) / 10 };
                 });
             setTopStudents(topS);
 
-            // Recent activity from payments
-            const actColors = ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4'];
-            const recentActs = [
-                ...(payData || []).slice(0, 3).map((p: any, i: number) => {
-                    const st = (allStudents || []).find((s: any) => s.id === p.student_id);
-                    const name = st ? `${st.first_name} ${st.last_name}` : 'Student';
-                    const mins = Math.floor(Math.random() * 25) + 1;
-                    return { text: `Fees payment received (${fmt(Number(p.amount))})`, time: `${mins} min ago`, color: actColors[1] };
-                }),
-                (allStudents || []).length > 0 ? { text: `New student registered — ${(allStudents || [])[0]?.first_name || 'Student'}`, time: '2 min ago', color: actColors[0] } : null,
-                (marksData || []).length > 0 ? { text: 'Report card generated — Grade 10', time: '12 min ago', color: actColors[2] } : null,
-                (teacherData || []).length > 0 ? { text: `New staff added — ${(teacherData || [])[0]?.full_name?.split(' ')[0] || 'Staff'}`, time: '18 min ago', color: actColors[3] } : null,
-                { text: 'Attendance updated', time: '25 min ago', color: actColors[4] },
-            ].filter(Boolean) as { text: string; time: string; color: string }[];
-            setRecentActivity(recentActs.slice(0, 5));
+            const sp = (subjectData || []).slice(0, 10).map((s: any) => {
+                const sm = marks.filter((m: any) => m.subject_id === s.id);
+                const avg = sm.length > 0 ? sm.reduce((sum: number, m: any) => sum + Number(m.marks || 0), 0) / sm.length : 0;
+                return { name: s.subject_name, avg: Math.round(avg * 10) / 10, count: sm.length };
+            }).filter((s: any) => s.count > 0).sort((a: any, b: any) => b.avg - a.avg);
+            setSubjectPerf(sp);
 
-            // Alerts
             const newAlerts: typeof alerts = [];
             const active = (allStudents || []).filter((s: any) => s.status === 'Active');
             const totalFeesCollected = (payData || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
             const { data: feeStructures } = await supabase.from('school_fee_structures').select('amount');
             const totalExpected = (feeStructures || []).reduce((s: number, f: any) => s + Number(f.amount || 0), 0) * active.length;
             const collRate = pct(totalFeesCollected, totalExpected);
-            if (collRate < 40) newAlerts.push({ type: 'fees', msg: `Fee collection critically low at ${collRate}%`, level: 'error' });
+            if (collRate < 40) newAlerts.push({ type: 'fees', msg: `Fee collection critically low at ${collRate}% — ${fmt(totalExpected - totalFeesCollected)} outstanding`, level: 'error' });
             else if (collRate < 70) newAlerts.push({ type: 'fees', msg: `Fee collection at ${collRate}% — ${fmt(totalExpected - totalFeesCollected)} outstanding`, level: 'warn' });
             const todayPre = (todayAtt || []).filter((a: any) => a.status === 'Present').length;
             const todayTot = (todayAtt || []).length;
-            if (todayTot > 0 && pct(todayPre, todayTot) < 80) newAlerts.push({ type: 'att', msg: `Today's attendance ${pct(todayPre, todayTot)}%`, level: 'warn' });
+            if (todayTot > 0 && pct(todayPre, todayTot) < 80) newAlerts.push({ type: 'att', msg: `Today's attendance ${pct(todayPre, todayTot)}% — ${todayTot - todayPre} students absent`, level: 'warn' });
             if ((issueData || []).length > 0) newAlerts.push({ type: 'issues', msg: `${(issueData || []).length} open maintenance issues`, level: 'info' });
+            if ((discData || []).length > 10) newAlerts.push({ type: 'disc', msg: `${(discData || []).length} discipline incidents this year`, level: 'warn' });
+            const totalInc = totalFeesCollected + (incData || []).reduce((s: number, i: any) => s + Number(i.amount || 0), 0);
+            const totalExp = (expData || []).filter((e: any) => (e.status || 'approved') === 'approved').reduce((s: number, e: any) => s + Number(e.amount || 0), 0);
+            if (totalExp > totalInc) newAlerts.push({ type: 'fin', msg: `Financial deficit: expenses ${fmt(totalExp)} exceed income ${fmt(totalInc)}`, level: 'error' });
             setAlerts(newAlerts);
 
             const feesDue = Math.max(0, totalExpected - totalFeesCollected);
@@ -258,16 +247,22 @@ export default function DashboardPage() {
             const attAbs = (todayAtt || []).filter((a: any) => a.status === 'Absent').length;
             const attLat = (todayAtt || []).filter((a: any) => a.status === 'Late').length;
             const attRt = todayTot > 0 ? Math.round(attPre / todayTot * 100) : 0;
-            const totalInc = totalFeesCollected + (incData || []).reduce((s: number, i: any) => s + Number(i.amount || 0), 0);
-            const totalExp = (expData || []).filter((e: any) => (e.status || 'approved') === 'approved').reduce((s: number, e: any) => s + Number(e.amount || 0), 0);
-
+            let reported = 0;
+            if (termData) {
+                const { count } = await supabase.from('school_daily_attendance').select('student_id', { count: 'exact', head: true })
+                    .gte('attendance_date', termData.start_date || `${currentYear}-01-01`).lte('attendance_date', termData.end_date || today);
+                reported = count || 0;
+            }
             setStats({
                 totalStudents: (allStudents || []).length, activeStudents: active.length,
                 newEnrollments: (allStudents || []).filter((s: any) => s.admission_date && new Date(s.admission_date).getFullYear() === currentYear).length,
                 totalStaff: (teacherData || []).length,
-                feesCollected: totalFeesCollected, feesDue,
+                teachingStaff: (teacherData || []).filter((t: any) => t.staff_type === 'Teaching').length,
+                nonTeachingStaff: (teacherData || []).filter((t: any) => t.staff_type !== 'Teaching').length,
+                feesCollected: totalFeesCollected, feesDue, prepayments: Math.max(0, totalFeesCollected - totalExpected),
                 totalIncome: totalInc, totalExpenses: totalExp,
                 attendance: { present: attPre, absent: attAbs, late: attLat, rate: attRt },
+                reportedStudents: reported,
             });
         } catch (e) { console.error('Dashboard error:', e); }
         setLoading(false);
@@ -275,7 +270,7 @@ export default function DashboardPage() {
 
     useEffect(() => { fetchAll(); }, [fetchAll, refreshKey]);
 
-    // Live KPIs
+    // ── LIVE KPI: pending store issues + today's fees ──────────────────────
     const fetchLiveKPIs = useCallback(async () => {
         const todayStr = new Date().toISOString().split('T')[0];
         const [issRes, feeRes, payRes] = await Promise.all([
@@ -285,6 +280,11 @@ export default function DashboardPage() {
         ]);
         setPendingIssues(issRes.count || 0);
         setTodayFeeTotal((feeRes.data || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0));
+        setLiveActivity((payRes.data || []).map((p: any) => ({
+            icon: '💳',
+            text: `${p.school_students ? `${p.school_students.first_name} ${p.school_students.last_name}` : 'Student'} paid KES ${Number(p.amount).toLocaleString()} via ${p.payment_method || 'Cash'}`,
+            time: 'today',
+        })));
     }, []);
 
     useEffect(() => {
@@ -293,6 +293,7 @@ export default function DashboardPage() {
         return () => clearInterval(interval);
     }, [fetchLiveKPIs]);
 
+    // Supabase Realtime — update live KPIs instantly on new payments / store issues
     useEffect(() => {
         const ch = supabase.channel('dashboard-live-kpis')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'school_fee_payments' }, () => fetchLiveKPIs())
@@ -302,7 +303,6 @@ export default function DashboardPage() {
         return () => { supabase.removeChannel(ch); };
     }, [fetchLiveKPIs]);
 
-    // Computed values
     const active = students.filter(s => s.status === 'Active');
     const totalFees = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
     const approvedExp = expenses.filter(e => (e.status || 'approved') === 'approved').reduce((s, e) => s + Number(e.amount || 0), 0);
@@ -313,728 +313,619 @@ export default function DashboardPage() {
     const todayAbs = attendance.filter(a => a.status === 'Absent').length;
     const todayLat = attendance.filter(a => a.status === 'Late').length;
     const attRate = pct(todayPre, attendance.length);
-    const totalExpected = stats.feesCollected + stats.feesDue;
-    const collRate = totalExpected > 0 ? Math.min(100, Math.round((totalFees / totalExpected) * 100)) : 78;
-    const outstanding = Math.max(0, totalExpected - totalFees);
+    const maleCount = active.filter(s => s.gender === 'Male').length;
+    const femaleCount = active.filter(s => s.gender === 'Female').length;
+    const payThisMonth = payments.filter(p => { const d = new Date(p.payment_date); return d.getMonth() === new Date().getMonth() && d.getFullYear() === currentYear; }).reduce((s, p) => s + Number(p.amount || 0), 0);
+    const newThisYear = students.filter(s => s.admission_date && new Date(s.admission_date).getFullYear() === currentYear).length;
+
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
-    const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-    const dayNum = new Date().getDate();
-    const monthYear = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
-    // Fee line chart data (last 6 months)
-    const lineData = {
+    const dateRangeOpts: { key: DateRange; label: string }[] = [
+        { key: 'today', label: 'Today' }, { key: 'week', label: 'Week' },
+        { key: 'month', label: 'Month' }, { key: 'term', label: 'Term' },
+        { key: 'year', label: 'Year' }, { key: 'custom', label: 'Custom' },
+    ];
+
+    // Charts
+    const feeExpChart = {
         labels: monthlyFees.map(m => m.month),
-        datasets: [{
-            label: 'Fee Collections',
-            data: monthlyFees.map(m => m.fees || Math.floor(Math.random() * 400000 + 100000)),
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59,130,246,0.08)',
-            fill: true,
-            tension: 0.5,
-            pointBackgroundColor: '#3b82f6',
-            pointRadius: 4,
-            pointHoverRadius: 7,
-            borderWidth: 2.5,
-        }],
+        datasets: [
+            { label: 'Fee Collections', data: monthlyFees.map(m => m.fees), backgroundColor: 'rgba(99,102,241,0.85)', borderRadius: 6, borderSkipped: false as const },
+            { label: 'Expenses', data: monthlyFees.map(m => m.expenses), backgroundColor: 'rgba(239,68,68,0.7)', borderRadius: 6, borderSkipped: false as const },
+        ],
     };
-
-    // Helpers
-    const handlePrint = () => { if (typeof window !== 'undefined') window.print(); };
-    const handleFullscreen = () => {
-        if (typeof document !== 'undefined') {
-            if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(() => {}); }
-            else { document.exitFullscreen().catch(() => {}); }
-        }
+    const wAttChart = {
+        labels: weeklyAtt.map(w => w.day),
+        datasets: [{ label: 'Attendance %', data: weeklyAtt.map(w => w.pct), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.08)', fill: true, tension: 0.4, pointBackgroundColor: '#22c55e', pointRadius: 4, borderWidth: 2.5 }],
     };
-    const handleShare = () => {
-        if (typeof navigator !== 'undefined' && navigator.share) {
-            navigator.share({ title: 'APSIMS Dashboard', url: window.location.href }).catch(() => {});
-        } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-            navigator.clipboard.writeText(window.location.href);
-        }
+    const fPerfChart = {
+        labels: formPerf.map(f => f.form),
+        datasets: [{ label: 'Avg Score', data: formPerf.map(f => f.avg), backgroundColor: ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#0891b2', '#16a34a'].slice(0, formPerf.length), borderRadius: 8 }],
     };
+    const attDonut = {
+        labels: ['Present', 'Absent', 'Late'],
+        datasets: [{ data: [todayPre || 1, todayAbs, todayLat], backgroundColor: ['#22c55e', '#ef4444', '#f59e0b'], borderWidth: 0, hoverOffset: 6 }],
+    };
+    const cb = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
 
     if (theme === 'light-soft' || theme === 'full-system') return <AppHub />;
 
     if (loading) return (
-        <div className="flex flex-col items-center justify-center h-[80vh] gap-5" style={{ background: '#edf2f9' }}>
+        <div className="flex flex-col items-center justify-center h-[70vh] gap-4">
             <div className="relative">
-                <div className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl"
-                    style={{ background: 'linear-gradient(135deg,#1e3a8a,#2563eb,#3b82f6)' }}>
-                    <FiBarChart2 className="text-white" size={32} />
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl" style={{ background: 'linear-gradient(135deg,#6366f1,#4f46e5)' }}>
+                    <FiBarChart2 className="text-white" size={28} />
                 </div>
-                <div className="absolute -inset-3 rounded-3xl border-2 border-blue-200 animate-ping opacity-25" />
+                <div className="absolute -inset-2 rounded-3xl border-2 border-indigo-200 animate-ping opacity-30" />
             </div>
-            <div className="text-center">
-                <p className="text-base font-black text-gray-700 tracking-tight">Loading APSIMS Dashboard…</p>
-                <p className="text-xs text-gray-400 mt-1">Fetching live school data</p>
-            </div>
-            <div className="flex gap-2">
-                {[0, 1, 2, 3].map(i => (
-                    <div key={i} className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-bounce"
-                        style={{ animationDelay: `${i * 0.12}s` }} />
-                ))}
+            <p className="text-sm font-black text-gray-600">Loading APSIMS Ultra…</p>
+            <div className="flex gap-1.5">
+                {[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
             </div>
         </div>
     );
 
-    // ── TABS ──
-    const TABS: { key: TabKey; label: string; icon: string }[] = [
-        { key: 'overview', label: 'Overview Hub', icon: '🏠' },
-        { key: 'finance', label: 'Fees & Finance', icon: '💰' },
-        { key: 'academics', label: 'Academics & Grading', icon: '📚' },
-        { key: 'staff', label: 'Staff & HR', icon: '👨‍🏫' },
-        { key: 'stores', label: 'Stores & Inventory', icon: '📦' },
-        { key: 'portals', label: 'Portal Users', icon: '🔑' },
-    ];
-
     return (
-        <div className="min-h-screen -m-4 lg:-m-6" style={{ background: '#edf2f9', fontFamily: "'Inter', 'Outfit', system-ui, sans-serif" }}>
+        <div className="space-y-4 ultra-animate pb-8">
 
-            {/* ══════════ ROLE / ACCESS BANNERS ══════════ */}
-            {userRole?.toLowerCase?.() === 'auditor' && (
-                <div className="mx-4 mt-4 flex items-center gap-3 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50">
+            {/* ── Role banners ── */}
+            {userRole.toLowerCase() === 'auditor' && (
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50">
                     <span>🔍</span>
                     <p className="text-xs font-bold text-amber-800 flex-1">Auditor Read-Only Access — write operations are restricted.</p>
                     <span className="text-[9px] font-black px-2 py-0.5 bg-amber-200 text-amber-700 rounded-full">READ ONLY</span>
                 </div>
             )}
             {accessDenied && (
-                <div className="mx-4 mt-4 flex items-center gap-3 px-4 py-2.5 rounded-xl border border-red-200 bg-red-50">
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-red-200 bg-red-50">
                     <FiShield size={16} className="text-red-500" />
                     <p className="text-xs font-bold text-red-800">Access Denied — you do not have permission to view that page.</p>
                 </div>
             )}
 
-            <div className="p-4 lg:p-5 space-y-3.5">
-
-                {/* ══════════════════════════════════════════════════════
-                    TOP HEADER BAR
-                ══════════════════════════════════════════════════════ */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/90 backdrop-blur rounded-2xl px-4 py-2.5 shadow-sm border border-white/80">
-
-                    {/* Search Bar */}
-                    <div
-                        onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))}
-                        className="flex items-center gap-2.5 bg-gray-50 hover:bg-blue-50/50 border border-gray-200 hover:border-blue-300 rounded-full px-4 py-2 w-full sm:w-72 cursor-pointer transition-all duration-200 group"
-                    >
-                        <FiSearch className="text-gray-400 group-hover:text-blue-500 transition-colors" size={15} />
-                        <span className="text-xs text-gray-400 select-none flex-1">Search students, staff, reports...</span>
-                        <span className="text-[10px] text-gray-400 font-mono bg-white px-1.5 py-0.5 rounded-md border border-gray-200 shadow-sm">Ctrl + K</span>
+            {/* ════════════════════════════════════════
+                SLIM BRIGHT HEADER (not heavy/dark)
+            ════════════════════════════════════════ */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Top accent line */}
+                <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #6366f1, #3b82f6, #06b6d4, #10b981)' }} />
+                <div className="px-5 py-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                                </span>
+                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Live</span>
+                                <span className="text-[10px] text-gray-300 mx-1">·</span>
+                                <span className="text-[10px] font-mono text-gray-400">{liveTime}</span>
+                                {currentTerm && (
+                                    <>
+                                        <span className="text-[10px] text-gray-300 mx-1">·</span>
+                                        <span className="text-[10px] font-bold text-indigo-500">{currentTerm.term_name} {currentYear}</span>
+                                    </>
+                                )}
+                            </div>
+                            <h1 className="text-lg font-black text-gray-900">
+                                {greeting}, <span className="text-indigo-600">{userName}</span>! 👋
+                            </h1>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                                {new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-black bg-gradient-to-r from-amber-400 to-orange-400 text-white">🇰🇪 #1 IN KENYA</span>
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setRefreshKey(k => k + 1)} className="p-2 rounded-xl bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 border border-gray-100 transition-all" title="Refresh">
+                                <FiRefreshCw size={14} />
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Right side controls */}
-                    <div className="flex items-center gap-2">
-                        {/* WiFi indicator */}
-                        <div className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500">
-                            <FiWifi size={15} />
-                        </div>
-
-                        {/* Notification Bell */}
-                        <Link href="/dashboard/notifications" className="relative w-9 h-9 rounded-full bg-white border border-gray-200 hover:border-blue-300 flex items-center justify-center text-gray-500 hover:text-blue-600 transition-all shadow-sm">
-                            <FiBell size={15} />
-                            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-sm">3</span>
-                        </Link>
-
-                        {/* Settings */}
-                        <Link href="/dashboard/settings" className="w-9 h-9 rounded-full bg-white border border-gray-200 hover:border-blue-300 flex items-center justify-center text-gray-500 hover:text-blue-600 transition-all shadow-sm">
-                            <FiSettings size={15} />
-                        </Link>
-
-                        {/* Divider */}
-                        <div className="h-5 w-px bg-gray-200 mx-0.5" />
-
-                        {/* User pill */}
-                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full pl-1 pr-3 py-1 shadow-sm cursor-pointer hover:border-blue-300 transition-all">
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-blue-400 text-white text-[11px] font-black flex items-center justify-center">
-                                {userName?.charAt(0)?.toUpperCase() || 'A'}
-                            </div>
-                            <div className="hidden md:block">
-                                <p className="text-[11px] font-bold text-gray-800 leading-none">{userName || 'Admin'}</p>
-                                <p className="text-[9px] text-gray-400">{userRole || 'Admin'}</p>
-                            </div>
-                            <FiChevronDown size={11} className="text-gray-400" />
-                        </div>
-
-                        {/* New Action Button */}
-                        <div className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setShowNewActionMenu(!showNewActionMenu)}
-                                className="flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95"
-                                style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)' }}
-                            >
-                                <FiPlus size={14} />
-                                <span>New Action</span>
-                                <FiChevronDown size={11} className={`transition-transform ${showNewActionMenu ? 'rotate-180' : ''}`} />
+                    {/* Date filter pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-gray-50">
+                        <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Period:</span>
+                        {dateRangeOpts.map(opt => (
+                            <button key={opt.key} onClick={() => setDateRange(opt.key)}
+                                className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${dateRange === opt.key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600'}`}>
+                                {opt.label}
                             </button>
-                            {showNewActionMenu && (
-                                <div className="absolute right-0 top-full mt-2 w-60 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-50">
-                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider px-3 py-1.5">Quick Shortcuts</p>
-                                    {[
-                                        { label: 'Collect Fee Payment', icon: '💳', href: '/dashboard/fees/collect' },
-                                        { label: 'Register New Student', icon: '🎓', href: '/dashboard/students/admissions' },
-                                        { label: 'Enter Exam Marks', icon: '📝', href: '/dashboard/exams/marks' },
-                                        { label: 'Add School Expense', icon: '💸', href: '/dashboard/expenses' },
-                                        { label: 'Broadcast Bulk SMS', icon: '📱', href: '/dashboard/fees/bulk-reminders' },
-                                    ].map((item, i) => (
-                                        <Link key={i} href={item.href} onClick={() => setShowNewActionMenu(false)}
-                                            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                            <span className="text-sm">{item.icon}</span> {item.label}
-                                        </Link>
+                        ))}
+                        {dateRange === 'custom' && (
+                            <div className="flex items-center gap-1.5 ml-1">
+                                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:border-indigo-400" />
+                                <span className="text-gray-400 text-[10px]">→</span>
+                                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:border-indigo-400" />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Smart Alerts ── */}
+            {alerts.length > 0 && (
+                <div className="space-y-2">
+                    {alerts.map((a, i) => (
+                        <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-semibold ${a.level === 'error' ? 'bg-red-50 border-red-200 text-red-800' : a.level === 'warn' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+                            {a.level === 'error' ? <FiAlertCircle size={14} className="flex-shrink-0" /> : a.level === 'warn' ? <FiAlertTriangle size={14} className="flex-shrink-0" /> : <FiCheckCircle size={14} className="flex-shrink-0" />}
+                            <span className="flex-1">{a.msg}</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${a.level === 'error' ? 'bg-red-200 text-red-700' : a.level === 'warn' ? 'bg-amber-200 text-amber-700' : 'bg-blue-200 text-blue-700'}`}>
+                                {a.level === 'error' ? 'CRITICAL' : a.level === 'warn' ? 'WARNING' : 'INFO'}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════
+                🔴 LIVE KPI COMMAND STRIP — Real-Time Data
+            ══════════════════════════════════════════════════ */}
+            <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                {/* Top gradient bar */}
+                <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#dc2626,#f59e0b,#16a34a,#2563eb,#7c3aed)' }} />
+                <div className="bg-white px-4 py-3">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                        </span>
+                        <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Live Command Centre</span>
+                        <span className="text-[10px] text-gray-300">·</span>
+                        <span className="text-[10px] font-mono text-gray-400">{liveTime}</span>
+                        <span className="ml-auto text-[10px] text-gray-400 hidden sm:block">Auto-refreshes every 30s via Supabase Realtime</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                        {[
+                            { icon: '🎓', label: 'Active Students', value: fmtN(active.length), sub: `${fmtN(stats.newEnrollments)} new this year`, color: '#4f46e5', bg: '#eef2ff', href: '/dashboard/students', pulse: false },
+                            { icon: '💳', label: "Today's Fees", value: fmt(todayFeeTotal), sub: 'collected today live', color: '#059669', bg: '#ecfdf5', href: '/dashboard/fees', pulse: todayFeeTotal > 0 },
+                            { icon: '✅', label: 'Attendance Today', value: `${attRate}%`, sub: `${todayPre} present · ${todayAbs} absent`, color: attRate >= 80 ? '#0891b2' : '#d97706', bg: attRate >= 80 ? '#e0f2fe' : '#fef3c7', href: '/dashboard/attendance', pulse: false },
+                            { icon: '📦', label: 'Pending Store Issues', value: String(pendingIssues), sub: pendingIssues > 0 ? '⚠️ Needs Bursar/Principal' : 'All approved ✅', color: pendingIssues > 0 ? '#dc2626' : '#16a34a', bg: pendingIssues > 0 ? '#fef2f2' : '#f0fdf4', href: '/dashboard/stores/ultra', pulse: pendingIssues > 0 },
+                            { icon: '⚡', label: 'Discipline Cases', value: fmtN(disciplineCount), sub: `${currentYear} total incidents`, color: disciplineCount > 20 ? '#d97706' : '#6366f1', bg: '#fef3c7', href: '/dashboard/discipline', pulse: disciplineCount > 20 },
+                            { icon: '💰', label: 'Net Position', value: fmtShort(Math.abs(netPos)), sub: netPos >= 0 ? '✅ Surplus' : '⚠️ Deficit', color: netPos >= 0 ? '#7c3aed' : '#dc2626', bg: netPos >= 0 ? '#f5f3ff' : '#fef2f2', href: '/dashboard/fees/reports/pl', pulse: netPos < 0 },
+                        ].map((k, i) => (
+                            <Link key={i} href={k.href} className="rounded-xl p-3 border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all group relative overflow-hidden">
+                                <div className="absolute inset-0 opacity-40 group-hover:opacity-70 transition-opacity" style={{ background: k.bg }} />
+                                <div className="relative">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-lg">{k.icon}</span>
+                                        {k.pulse && <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: k.color }} /><span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: k.color }} /></span>}
+                                    </div>
+                                    <p className="text-xl font-black leading-none" style={{ color: k.color }}>{k.value}</p>
+                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-wide mt-1">{k.label}</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{k.sub}</p>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* ══ SCHOOL HEALTH SCORE + TERM INFO ══ */}
+            {(() => {
+                const feeRate = stats.feesCollected > 0 ? Math.min(100, Math.round(stats.feesCollected / (stats.feesCollected + stats.feesDue + 1) * 100)) : 0;
+                const healthScore = Math.round((attRate * 0.35) + (feeRate * 0.40) + (formPerf.length > 0 ? Math.min(100, formPerf.reduce((s, f) => s + f.avg, 0) / formPerf.length) * 0.25 : 0));
+                const healthColor = healthScore >= 75 ? '#16a34a' : healthScore >= 50 ? '#d97706' : '#dc2626';
+                const healthLabel = healthScore >= 75 ? 'Excellent' : healthScore >= 50 ? 'Good' : 'Needs Attention';
+                return (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* School Health Score */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+                            <div className="relative w-16 h-16 flex-shrink-0">
+                                <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
+                                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" strokeWidth="3" />
+                                    <circle cx="18" cy="18" r="15.9" fill="none" stroke={healthColor} strokeWidth="3" strokeDasharray={`${healthScore} 100`} strokeLinecap="round" />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="text-sm font-black" style={{ color: healthColor }}>{healthScore}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs font-black text-gray-800">🏫 School Health Score</p>
+                                <p className="text-lg font-black mt-0.5" style={{ color: healthColor }}>{healthLabel}</p>
+                                <p className="text-[9px] text-gray-400 mt-1">Attendance · Fees · Academics</p>
+                            </div>
+                        </div>
+                        {/* Term info */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">📅 Current Term</p>
+                            <p className="text-base font-black text-gray-900">{currentTerm?.term_name || 'Term 1'} {currentYear}</p>
+                            {currentTerm?.end_date && (
+                                <p className="text-sm text-indigo-600 font-bold mt-1">
+                                    {Math.max(0, Math.ceil((new Date(currentTerm.end_date).getTime() - Date.now()) / 86400000))} days remaining
+                                </p>
+                            )}
+                            <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                {currentTerm?.start_date && currentTerm?.end_date && (() => {
+                                    const start = new Date(currentTerm.start_date).getTime();
+                                    const end = new Date(currentTerm.end_date).getTime();
+                                    const pctDone = Math.min(100, Math.round((Date.now() - start) / (end - start) * 100));
+                                    return <div className="h-1.5 rounded-full bg-indigo-500 transition-all" style={{ width: `${pctDone}%` }} />;
+                                })()}
+                            </div>
+                            <p className="text-[9px] text-gray-400 mt-1">Term progress</p>
+                        </div>
+                        {/* Live Activity Ticker */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                                <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" /></span>
+                                Live Activity Feed
+                            </p>
+                            {liveActivity.length === 0 ? (
+                                <p className="text-xs text-gray-400">No activity yet today</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {liveActivity.slice(0, 3).map((a, i) => (
+                                        <div key={i} className="flex items-start gap-2">
+                                            <span className="text-sm flex-shrink-0">{a.icon}</span>
+                                            <p className="text-[11px] text-gray-600 leading-tight">{a.text}</p>
+                                        </div>
                                     ))}
                                 </div>
                             )}
                         </div>
-
-                        {/* Refresh */}
-                        <button onClick={() => setRefreshKey(k => k + 1)}
-                            className="w-9 h-9 rounded-full bg-white border border-gray-200 hover:border-blue-300 flex items-center justify-center text-gray-500 hover:text-blue-600 transition-all shadow-sm"
-                            title="Refresh Data">
-                            <FiRefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                        </button>
                     </div>
-                </div>
+                );
+            })()}
 
-                {/* ══════════════════════════════════════════════════════
-                    TAB NAVIGATION
-                ══════════════════════════════════════════════════════ */}
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
-                        {TABS.map(tab => {
-                            const isActive = activeTab === tab.key;
-                            return (
-                                <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)}
-                                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                                        isActive
-                                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25'
-                                            : 'bg-white/80 text-gray-600 hover:bg-white hover:text-blue-600 border border-gray-200/60'
-                                    }`}>
-                                    <span>{tab.icon}</span>
-                                    <span>{tab.label}</span>
-                                </button>
-                            );
-                        })}
+            {/* ── Tab Nav ── */}
+            <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+            {/* ════════════════════════════════════════
+                OVERVIEW TAB
+            ════════════════════════════════════════ */}
+            {activeTab === 'overview' && (
+                <div className="space-y-4">
+
+                    {/* ── TOP 4 BRIGHT STAT CARDS (ENHANCED) ── */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <StatCard icon="🎓" label="Active Students" value={fmtN(active.length)} sub={`${maleCount} boys · ${femaleCount} girls`} color="#4f46e5" bg="#eef2ff" trend="up" trendLabel={`+${newThisYear} new`} href="/dashboard/students" />
+                        <StatCard icon="💰" label="Fees Collected" value={fmtShort(totalFees)} sub={`${fmt(payThisMonth)} this month`} color="#059669" bg="#ecfdf5" trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees" />
+                        <StatCard icon="✅" label="Attendance Rate" value={`${attRate}%`} sub={`${todayPre} present · ${todayAbs} absent`} color={attRate >= 80 ? '#0891b2' : '#d97706'} bg={attRate >= 80 ? '#e0f2fe' : '#fef3c7'} trend={attRate >= 80 ? 'up' : 'down'} trendLabel={`${todayAbs} absent`} href="/dashboard/attendance" />
+                        <StatCard icon="📊" label="Net Position" value={fmtShort(Math.abs(netPos))} sub={`Income ${fmtShort(totalIncome)}`} color={netPos >= 0 ? '#7c3aed' : '#dc2626'} bg={netPos >= 0 ? '#f5f3ff' : '#fef2f2'} trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees/reports/pl" />
                     </div>
-                    <button onClick={() => setRefreshKey(k => k + 1)}
-                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/80 border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 text-xs font-bold transition-all shadow-sm">
-                        <FiRefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-                        <span>Sync</span>
-                    </button>
-                </div>
 
-                {/* ── Other Panels ── */}
-                {activeTab === 'finance' && <FinancePanel />}
-                {activeTab === 'academics' && <AcademicsPanel />}
-                {activeTab === 'staff' && <StaffPanel />}
-                {activeTab === 'stores' && <StoresPanel />}
-                {activeTab === 'portals' && <PortalsPanel />}
-
-                {/* ══════════════════════════════════════════════════════
-                    OVERVIEW HUB
-                ══════════════════════════════════════════════════════ */}
-                {activeTab === 'overview' && (
-                    <div className="space-y-3.5">
-
-                        {/* Smart Alerts */}
-                        {alerts.length > 0 && (
-                            <div className="space-y-2">
-                                {alerts.map((a, i) => (
-                                    <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-semibold ${a.level === 'error' ? 'bg-red-50 border-red-200 text-red-800' : a.level === 'warn' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
-                                        {a.level === 'error' ? <FiAlertCircle size={14} className="flex-shrink-0" /> : a.level === 'warn' ? <FiAlertTriangle size={14} className="flex-shrink-0" /> : <FiCheckCircle size={14} className="flex-shrink-0" />}
-                                        <span className="flex-1">{a.msg}</span>
-                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${a.level === 'error' ? 'bg-red-200 text-red-700' : a.level === 'warn' ? 'bg-amber-200 text-amber-700' : 'bg-blue-200 text-blue-700'}`}>
-                                            {a.level === 'error' ? 'CRITICAL' : a.level === 'warn' ? 'WARNING' : 'INFO'}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* ── ROW 1: 4 STAT CARDS + TOP STUDENTS ── */}
-                        <div className="grid grid-cols-12 gap-3.5">
-
-                            {/* 4 Stat Cards */}
-                            <div className="col-span-12 lg:col-span-9 grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-
-                                {/* Card 1: Total Students */}
-                                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all">
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
-                                            style={{ background: 'linear-gradient(135deg,#2563eb,#60a5fa)' }}>
-                                            <FiUsers size={20} className="text-white" />
-                                        </div>
-                                        <span className="flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                                            <FiTrendingUp size={9} /> 12%
-                                        </span>
-                                    </div>
-                                    <p className="text-3xl font-black text-gray-900 leading-none">{fmtN(students.length || 127)}</p>
-                                    <p className="text-xs text-gray-500 mt-1 font-medium">Total Students</p>
-                                    <div className="mt-3 -mx-1"><Sparkline color="#2563eb" up /></div>
-                                </div>
-
-                                {/* Card 2: Total Enrolled */}
-                                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all">
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
-                                            style={{ background: 'linear-gradient(135deg,#7c3aed,#a78bfa)' }}>
-                                            <span className="text-xl">🎓</span>
-                                        </div>
-                                        <span className="flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                                            <FiTrendingUp size={9} /> 8%
-                                        </span>
-                                    </div>
-                                    <p className="text-3xl font-black text-gray-900 leading-none">{fmtN(active.length || 126)}</p>
-                                    <p className="text-xs text-gray-500 mt-1 font-medium">Total Enrolled</p>
-                                    <div className="mt-3 -mx-1"><Sparkline color="#7c3aed" up /></div>
-                                </div>
-
-                                {/* Card 3: Expected Fees */}
-                                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all">
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
-                                            style={{ background: 'linear-gradient(135deg,#059669,#34d399)' }}>
-                                            <span className="text-xl">💰</span>
-                                        </div>
-                                        <span className="flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                                            <FiTrendingUp size={9} /> 15%
-                                        </span>
-                                    </div>
-                                    <p className="text-2xl font-black text-gray-900 leading-none">{totalFees > 0 ? fmtShort(totalFees) : 'Ksh 461,000'}</p>
-                                    <p className="text-xs text-gray-500 mt-1 font-medium">Expected Fees</p>
-                                    <div className="mt-3 -mx-1"><Sparkline color="#059669" up /></div>
-                                </div>
-
-                                {/* Card 4: Pending Issues */}
-                                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all">
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
-                                            style={{ background: 'linear-gradient(135deg,#f59e0b,#fbbf24)' }}>
-                                            <span className="text-xl">⚠️</span>
-                                        </div>
-                                        <span className="flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-500">
-                                            <FiTrendingDown size={9} /> 0%
-                                        </span>
-                                    </div>
-                                    <p className="text-3xl font-black text-gray-900 leading-none">{pendingIssues || openIssues || 2}</p>
-                                    <p className="text-xs text-gray-500 mt-1 font-medium">Pending Issues</p>
-                                    <div className="mt-3 -mx-1"><Sparkline color="#f59e0b" /></div>
-                                </div>
-                            </div>
-
-                            {/* Top Performing Students */}
-                            <div className="col-span-12 lg:col-span-3 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                                <div className="flex items-center justify-between mb-3">
-                                    <p className="text-xs font-black text-gray-800 flex items-center gap-1.5">
-                                        <span>🏆</span> Top Performing Students
-                                    </p>
-                                    <Link href="/dashboard/exams/merit-list" className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-0.5">
-                                        View All <FiChevronRight size={11} />
-                                    </Link>
-                                </div>
-                                <div className="space-y-2.5">
-                                    {(topStudents.length > 0 ? topStudents : [
-                                        { name: 'Mercy N. Kiplagat', form: 'Grade 10', avg: 98.5, initials: 'MK' },
-                                        { name: 'Ochieng Auma', form: 'Grade 10', avg: 97.8, initials: 'OA' },
-                                        { name: 'James Siambi', form: 'Grade 9', avg: 96.9, initials: 'JS' },
-                                        { name: 'Everly Wangari', form: 'Grade 8', avg: 95.6, initials: 'EW' },
-                                        { name: 'David Muthui', form: 'Grade 7', avg: 94.8, initials: 'DM' },
-                                    ]).slice(0, 5).map((s: any, i: number) => {
-                                        const colors = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
-                                        return (
-                                            <div key={i} className="flex items-center justify-between gap-2">
-                                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    <span className="text-[11px] font-black text-gray-400 w-4">{i + 1}</span>
-                                                    <div className="w-7 h-7 rounded-full text-white text-[10px] font-black flex items-center justify-center flex-shrink-0"
-                                                        style={{ background: colors[i] }}>
-                                                        {s.initials || s.name?.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-[11px] font-bold text-gray-800 truncate">{s.name}</p>
-                                                        <p className="text-[9px] text-gray-400">{s.form}</p>
-                                                    </div>
-                                                </div>
-                                                <span className="text-[11px] font-black text-white px-2 py-0.5 rounded-full flex-shrink-0"
-                                                    style={{ background: 'linear-gradient(135deg,#22c55e,#16a34a)' }}>
-                                                    {s.avg}%
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                    {/* ── ULTRA QUICK ACTIONS (ENHANCED — 12 buttons with gradient borders) ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">⚡ Quick Actions</p>
+                            <span className="text-[9px] text-gray-400">12 shortcuts</span>
                         </div>
-
-                        {/* ── ROW 2: QUICK ACTIONS ── */}
-                        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-xs font-black text-gray-800 flex items-center gap-1.5">
-                                    <FiZap size={14} className="text-yellow-500" /> Quick Actions
-                                </p>
-                                <Link href="/dashboard" className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-0.5">
-                                    More Tools <FiChevronRight size={11} />
+                        <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2">
+                            {[
+                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', color: '#22c55e', bg: 'linear-gradient(135deg,#ecfdf5,#d1fae5)' },
+                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '🎓', color: '#6366f1', bg: 'linear-gradient(135deg,#eef2ff,#e0e7ff)' },
+                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', color: '#3b82f6', bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)' },
+                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', color: '#f59e0b', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                                { label: 'Send SMS', href: '/dashboard/fees/bulk-reminders', icon: '📱', color: '#8b5cf6', bg: 'linear-gradient(135deg,#f5f3ff,#ede9fe)' },
+                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', color: '#0891b2', bg: 'linear-gradient(135deg,#ecfeff,#e0f2fe)' },
+                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', color: '#ef4444', bg: 'linear-gradient(135deg,#fff1f2,#fee2e2)' },
+                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👔', color: '#7c3aed', bg: 'linear-gradient(135deg,#faf5ff,#f3e8ff)' },
+                                { label: 'Stores', href: '/dashboard/stores/ultra', icon: '📦', color: '#b45309', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                                { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: '📋', color: '#059669', bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)' },
+                                { label: 'Discipline', href: '/dashboard/discipline', icon: '🛡️', color: '#dc2626', bg: 'linear-gradient(135deg,#fff1f2,#fee2e2)' },
+                                { label: 'Notifications', href: '/dashboard/notifications', icon: '🔔', color: '#d97706', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+                            ].map((a, i) => (
+                                <Link key={i} href={a.href}
+                                    className="rounded-xl p-2.5 text-center hover:shadow-md hover:scale-[1.05] transition-all border border-gray-100 group relative overflow-hidden"
+                                    style={{ background: a.bg }}>
+                                    <div className="text-xl mb-1">{a.icon}</div>
+                                    <p className="text-[9px] font-bold leading-tight" style={{ color: a.color }}>{a.label}</p>
                                 </Link>
-                            </div>
-                            <div className="grid grid-cols-5 sm:grid-cols-10 gap-2.5">
-                                {[
-                                    { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', from: '#1d4ed8', to: '#3b82f6', bg: '#eff6ff' },
-                                    { label: 'Add Student', href: '/dashboard/students/admissions', icon: '👤', from: '#6366f1', to: '#8b5cf6', bg: '#f5f3ff' },
-                                    { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', from: '#059669', to: '#10b981', bg: '#f0fdf4' },
-                                    { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', from: '#d97706', to: '#f59e0b', bg: '#fffbeb' },
-                                    { label: 'Bulk SMS', href: '/dashboard/fees/bulk-reminders', icon: '📨', from: '#7c3aed', to: '#a855f7', bg: '#faf5ff' },
-                                    { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', from: '#0891b2', to: '#06b6d4', bg: '#ecfeff' },
-                                    { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', from: '#dc2626', to: '#ef4444', bg: '#fff1f2' },
-                                    { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👔', from: '#0369a1', to: '#0ea5e9', bg: '#f0f9ff' },
-                                    { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: '📋', from: '#16a34a', to: '#22c55e', bg: '#f0fdf4' },
-                                    { label: 'More Tools', href: '/dashboard/stores/ultra', icon: '⚙️', from: '#475569', to: '#64748b', bg: '#f8fafc' },
-                                ].map((a, i) => (
-                                    <Link key={i} href={a.href}
-                                        className="flex flex-col items-center gap-2 p-3 rounded-2xl border border-gray-100 hover:shadow-md hover:scale-[1.05] transition-all group"
-                                        style={{ background: a.bg }}>
-                                        <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl shadow-sm"
-                                            style={{ background: `linear-gradient(135deg,${a.from},${a.to})` }}>
-                                            <span>{a.icon}</span>
-                                        </div>
-                                        <p className="text-[10px] font-bold text-gray-600 text-center leading-tight">{a.label}</p>
-                                    </Link>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* ── ROW 3: FEE ANALYTICS + PERFORMANCE OVERVIEW ── */}
-                        <div className="grid grid-cols-12 gap-3.5">
-
-                            {/* Fee Analytics & Class Intelligence */}
-                            <div className="col-span-12 lg:col-span-7 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                                <div className="flex items-center justify-between mb-3">
-                                    <p className="text-xs font-black text-gray-800 flex items-center gap-1.5">
-                                        <FiBarChart2 size={14} className="text-blue-600" /> Fee Analytics & Class Intelligence
-                                    </p>
-                                    <div className="flex items-center gap-1">
-                                        {['This Term', 'This Year', 'All Terms'].map((opt, i) => (
-                                            <button key={i} type="button"
-                                                onClick={() => setDateRange(i === 0 ? 'term' : i === 1 ? 'year' : 'custom')}
-                                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
-                                                    (i === 0 && dateRange === 'term') || (i === 1 && dateRange === 'year') || (i === 2 && !['term','year'].includes(dateRange))
-                                                        ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                                }`}
-                                                style={(i === 0 && dateRange === 'term') || (i === 1 && dateRange === 'year') || (i === 2 && !['term','year'].includes(dateRange))
-                                                    ? { background: 'linear-gradient(135deg,#2563eb,#4f46e5)' } : {}}>
-                                                {opt}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="flex items-start gap-4">
-                                    {/* Donut */}
-                                    <div className="flex-shrink-0">
-                                        <div className="relative w-32 h-32">
-                                            <svg className="w-32 h-32 -rotate-90" viewBox="0 0 88 88">
-                                                <circle cx="44" cy="44" r="36" fill="none" stroke="#f1f5f9" strokeWidth="10" />
-                                                <circle cx="44" cy="44" r="36" fill="none"
-                                                    stroke="url(#feeGrad)" strokeWidth="10"
-                                                    strokeDasharray={`${(collRate / 100) * 226} 226`}
-                                                    strokeLinecap="round" />
-                                                <defs>
-                                                    <linearGradient id="feeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                                        <stop offset="0%" stopColor="#2563eb" />
-                                                        <stop offset="100%" stopColor="#7c3aed" />
-                                                    </linearGradient>
-                                                </defs>
-                                            </svg>
-                                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                                <span className="text-2xl font-black text-gray-900">{collRate}%</span>
-                                                <span className="text-[9px] font-bold text-gray-500 text-center leading-tight">Collection<br/>Rate</span>
-                                            </div>
-                                        </div>
-                                        <div className="mt-2 space-y-1">
-                                            {[
-                                                { label: 'Collected', val: totalFees > 0 ? fmtShort(totalFees) : 'Ksh 461,000', color: '#2563eb' },
-                                                { label: 'Outstanding', val: outstanding > 0 ? fmtShort(outstanding) : 'Ksh 131,000', color: '#7c3aed' },
-                                                { label: 'Expected', val: totalExpected > 0 ? fmtShort(totalExpected) : 'Ksh 592,000', color: '#22c55e' },
-                                            ].map((item, i) => (
-                                                <div key={i} className="flex items-center gap-2">
-                                                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
-                                                    <span className="text-[10px] text-gray-500">{item.label}</span>
-                                                    <span className="text-[10px] font-bold text-gray-800 ml-auto">{item.val}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Line Chart */}
-                                    <div className="flex-1 min-w-0">
-                                        <div style={{ height: 160 }}>
-                                            <Line data={lineData} options={{
-                                                responsive: true,
-                                                maintainAspectRatio: false,
-                                                plugins: {
-                                                    legend: { display: false },
-                                                    tooltip: {
-                                                        callbacks: {
-                                                            label: (ctx: any) => `Ksh ${Number(ctx.raw).toLocaleString()}`,
-                                                        },
-                                                        backgroundColor: '#1e3a8a',
-                                                        titleColor: '#fff',
-                                                        bodyColor: '#93c5fd',
-                                                        padding: 10,
-                                                        cornerRadius: 10,
-                                                    }
-                                                },
-                                                scales: {
-                                                    y: {
-                                                        beginAtZero: true,
-                                                        grid: { color: '#f1f5f9' },
-                                                        ticks: { callback: (v: any) => `${(v / 1000).toFixed(0)}K`, font: { size: 10 }, color: '#94a3b8' },
-                                                    },
-                                                    x: {
-                                                        grid: { display: false },
-                                                        ticks: { font: { size: 10 }, color: '#94a3b8' },
-                                                    }
-                                                }
-                                            }} />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Performance Overview */}
-                            <div className="col-span-12 lg:col-span-5 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                                <div className="flex items-center justify-between mb-4">
-                                    <p className="text-xs font-black text-gray-800 flex items-center gap-1.5">
-                                        🏆 Performance Overview
-                                    </p>
-                                    <select className="text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none">
-                                        <option>This Term</option>
-                                        <option>Last Term</option>
-                                        <option>This Year</option>
-                                    </select>
-                                </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                    <GaugeCircle value={attRate > 0 ? attRate : 96} label="Attendance" icon="👥" color="#2563eb" track="#dbeafe" />
-                                    <GaugeCircle value={92} label="Pass Rate" icon="✓" color="#7c3aed" track="#ede9fe" />
-                                    <GaugeCircle value={94} label="Class Progress" icon="📊" color="#f59e0b" track="#fef3c7" />
-                                    <GaugeCircle value={100} label="Discipline" icon="🛡" color="#22c55e" track="#dcfce7" />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ── ROW 4: RECENT ACTIVITY + UPCOMING EVENTS + FEE COLLECTION TREND ── */}
-                        <div className="grid grid-cols-12 gap-3.5">
-
-                            {/* Recent Activity */}
-                            <div className="col-span-12 sm:col-span-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                                <div className="flex items-center justify-between mb-3">
-                                    <p className="text-xs font-black text-gray-800 flex items-center gap-1.5">
-                                        <span>📡</span> Recent Activity
-                                    </p>
-                                    <Link href="/dashboard/notifications" className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-0.5">
-                                        View All <FiChevronRight size={11} />
-                                    </Link>
-                                </div>
-                                <div className="space-y-3">
-                                    {(recentActivity.length > 0 ? recentActivity : [
-                                        { text: 'New student registered', time: '2 min ago', color: '#3b82f6' },
-                                        { text: 'Fees payment received (Ksh 25,000)', time: '5 min ago', color: '#22c55e' },
-                                        { text: 'Report card generated', time: '12 min ago', color: '#f59e0b' },
-                                        { text: 'New staff added', time: '18 min ago', color: '#8b5cf6' },
-                                        { text: 'Attendance updated', time: '25 min ago', color: '#06b6d4' },
-                                    ]).map((act, i) => (
-                                        <div key={i} className="flex items-start gap-2.5">
-                                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: act.color }} />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[11px] font-semibold text-gray-700 leading-tight truncate">{act.text}</p>
-                                                <p className="text-[9px] text-gray-400 mt-0.5">{act.time}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Upcoming Events */}
-                            <div className="col-span-12 sm:col-span-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                                <div className="flex items-center justify-between mb-3">
-                                    <p className="text-xs font-black text-gray-800 flex items-center gap-1.5">
-                                        📅 Upcoming Events
-                                    </p>
-                                    <Link href="/dashboard/ptm" className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-0.5">
-                                        View All <FiChevronRight size={11} />
-                                    </Link>
-                                </div>
-                                <div className="space-y-2.5">
-                                    {upcomingEvents.slice(0, 3).map((ev: any, i: number) => {
-                                        const d = new Date(ev.event_date || ev.date);
-                                        const day = d.getDate();
-                                        const mon = d.toLocaleString('en', { month: 'short' });
-                                        const typeColors: Record<string, { bg: string; text: string }> = {
-                                            Meeting: { bg: '#ede9fe', text: '#7c3aed' },
-                                            Exam: { bg: '#dbeafe', text: '#2563eb' },
-                                            Event: { bg: '#fef3c7', text: '#d97706' },
-                                            Holiday: { bg: '#dcfce7', text: '#16a34a' },
-                                        };
-                                        const tc = typeColors[ev.event_type || 'Event'] || typeColors.Event;
-                                        return (
-                                            <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50 hover:bg-blue-50/50 transition-colors">
-                                                <div className="flex-shrink-0 text-center w-10">
-                                                    <div className="text-lg font-black text-blue-600 leading-none">{day}</div>
-                                                    <div className="text-[9px] font-bold text-gray-500 uppercase">{mon}</div>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-[11px] font-bold text-gray-800 leading-tight">{ev.event_name || ev.title}</p>
-                                                    <p className="text-[9px] text-gray-400">{ev.start_time || '—'} – {ev.end_time || '—'}</p>
-                                                </div>
-                                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-                                                    style={{ background: tc.bg, color: tc.text }}>
-                                                    {ev.event_type || 'Event'}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Fee Collection Trend (Bar) */}
-                            <div className="col-span-12 sm:col-span-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                                <div className="flex items-center justify-between mb-3">
-                                    <p className="text-xs font-black text-gray-800">📈 Fee Collection Trend</p>
-                                    <select className="text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none">
-                                        <option>6 Months</option>
-                                        <option>12 Months</option>
-                                        <option>This Year</option>
-                                    </select>
-                                </div>
-                                {/* Simple SVG bar chart */}
-                                <div className="mt-2">
-                                    {(() => {
-                                        const data = monthlyFees.length > 0 ? monthlyFees.slice(-6) : [
-                                            { month: 'Jun', fees: 120000 }, { month: 'Jul', fees: 180000 },
-                                            { month: 'Aug', fees: 240000 }, { month: 'Sep', fees: 310000 },
-                                            { month: 'Oct', fees: 390000 }, { month: 'Nov', fees: 461000 },
-                                        ];
-                                        const max = Math.max(...data.map((d: any) => d.fees), 1);
-                                        const topVal = data[data.length - 1];
-                                        return (
-                                            <>
-                                                <div className="flex items-end gap-2 h-28 relative">
-                                                    {/* Tooltip for last bar */}
-                                                    <div className="absolute top-0 right-2 bg-blue-900 text-white text-[9px] font-bold px-2 py-1 rounded-lg shadow">
-                                                        {fmtShort((topVal as any)?.fees || 461000)}<br/>
-                                                        <span className="text-blue-300">This Month</span>
-                                                    </div>
-                                                    {data.map((m: any, i: number) => {
-                                                        const h = Math.max(8, Math.round((m.fees / max) * 96));
-                                                        const isLast = i === data.length - 1;
-                                                        return (
-                                                            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                                                                <div className="w-full rounded-t-lg transition-all"
-                                                                    style={{
-                                                                        height: `${h}px`,
-                                                                        background: isLast
-                                                                            ? 'linear-gradient(180deg,#2563eb,#1d4ed8)'
-                                                                            : 'linear-gradient(180deg,#93c5fd,#bfdbfe)',
-                                                                    }} />
-                                                                <span className="text-[8px] text-gray-400 font-medium">{m.month}</span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <div className="flex justify-between text-[9px] text-gray-400 mt-2">
-                                                    <span>0K</span>
-                                                    <span>{Math.round(max / 1000 / 2)}K</span>
-                                                    <span>{Math.round(max / 1000)}K</span>
-                                                </div>
-                                            </>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ── BOTTOM TOOLBAR ── */}
-                        <div className="bg-white rounded-2xl px-4 py-2.5 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-
-                            {/* Status filters */}
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                                {[
-                                    { label: 'Active', color: '#22c55e' },
-                                    { label: 'On Time', color: '#f59e0b' },
-                                    { label: 'Overdue', color: '#ef4444' },
-                                ].map((s, i) => (
-                                    <div key={i} className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-600">
-                                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
-                                        {s.label}
-                                    </div>
-                                ))}
-                                <button type="button" className="flex items-center gap-1 text-[11px] font-bold text-gray-600 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-all">
-                                    All Statuses <FiChevronDown size={11} />
-                                </button>
-                            </div>
-
-                            {/* Pagination */}
-                            <div className="flex items-center gap-1.5">
-                                <button type="button" className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 flex items-center justify-center text-xs hover:border-blue-300 hover:text-blue-600 transition-all">‹</button>
-                                {[1, 2, 3].map(p => (
-                                    <button key={p} type="button"
-                                        className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${p === 1 ? 'text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                                        style={p === 1 ? { background: 'linear-gradient(135deg,#2563eb,#4f46e5)' } : {}}>
-                                        {p}
-                                    </button>
-                                ))}
-                                <button type="button" className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 flex items-center justify-center text-xs hover:border-blue-300 hover:text-blue-600 transition-all">›</button>
-                                <span className="text-[11px] font-semibold text-gray-500 flex items-center gap-0.5 ml-1">
-                                    10 / page <FiChevronDown size={10} />
-                                </span>
-                            </div>
-
-                            {/* Utility icons */}
-                            <div className="flex items-center gap-2">
-                                {/* Theme toggle */}
-                                <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
-                                    <span className="text-[11px] font-bold text-gray-600">Theme</span>
-                                    <FiMoon size={12} className="text-gray-400" />
-                                    <button type="button" onClick={() => setIsDark(!isDark)}
-                                        className="relative w-8 h-4 rounded-full transition-colors"
-                                        style={{ background: 'linear-gradient(135deg,#2563eb,#4f46e5)' }}>
-                                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${isDark ? 'left-0.5' : 'right-0.5'}`} />
-                                    </button>
-                                    <FiSun size={12} className="text-amber-400" />
-                                </div>
-                                {[
-                                    { icon: FiPrinter, label: 'Print', action: handlePrint },
-                                    { icon: FiDownload, label: 'Download', action: handlePrint },
-                                    { icon: FiShare2, label: 'Share', action: handleShare },
-                                    { icon: FiMaximize, label: 'Fullscreen', action: handleFullscreen },
-                                ].map(({ icon: Icon, label, action }, i) => (
-                                    <button key={i} type="button" onClick={action} title={label}
-                                        className="w-8 h-8 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center transition-all shadow-sm">
-                                        <Icon size={14} />
-                                    </button>
-                                ))}
-                                <a href="/api/auth/logout"
-                                    className="w-8 h-8 rounded-xl bg-red-50 border border-red-100 text-red-500 hover:bg-red-100 flex items-center justify-center transition-all shadow-sm"
-                                    title="Logout">
-                                    <FiPower size={14} />
-                                </a>
-                            </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="text-center py-2 border-t border-gray-200/40">
-                            <p className="text-[9px] text-gray-400 font-medium tracking-widest uppercase">
-                                APSIMS Ultra v3.0 · 🇰🇪 No.1 School ERP in Kenya · © {currentYear}
-                            </p>
+                            ))}
                         </div>
                     </div>
-                )}
-            </div>
 
-            <style jsx global>{`
-                .scrollbar-hide::-webkit-scrollbar { display: none; }
-                .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-                @keyframes ultraFadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-            `}</style>
+                    {/* ── FEE ANALYTICS (existing component) ── */}
+                    <FeeAnalyticsSection />
+
+                    {/* ── ULTRA KPI CARDS ── */}
+                    <UltraCardsSection stats={stats} currentYear={currentYear} fmt={fmt} />
+
+                    {/* ── SECONDARY METRICS ── */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                            { label: 'Gender M:F', value: `${maleCount}:${femaleCount}`, bar: pct(maleCount, active.length), color: '#3b82f6', bg: '#dbeafe', icon: '⚖️', sub: `${pct(maleCount, active.length)}% male` },
+                            { label: 'Month Fees', value: fmtShort(payThisMonth), bar: Math.min(100, pct(payThisMonth, totalFees || 1)), color: '#10b981', bg: '#d1fae5', icon: '📅', sub: 'of total collected' },
+                            { label: 'Today Absent', value: `${todayAbs}`, bar: pct(todayAbs, active.length || 1), color: '#ef4444', bg: '#fee2e2', icon: '⚠️', sub: `of ${active.length} active` },
+                            { label: 'Discipline Cases', value: fmtN(disciplineCount), bar: Math.min(100, disciplineCount * 5), color: '#f59e0b', bg: '#fef3c7', icon: '⚡', sub: `${currentYear} total` },
+                        ].map((m, i) => (
+                            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background: m.bg }}>{m.icon}</div>
+                                </div>
+                                <p className="text-xl font-black text-gray-900">{m.value}</p>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-wide mt-0.5">{m.label}</p>
+                                <p className="text-[9px] text-gray-400 mb-2">{m.sub}</p>
+                                <div className="bg-gray-100 rounded-full h-1.5">
+                                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${m.bar}%`, background: m.color }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* ── CHARTS ROW 1: Fees vs Expenses + Doughnut ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="📊 Fee Collections vs Expenses — 12 Months" sub="Monthly revenue vs costs" href="/dashboard/fees/analytics" linkLabel="Analytics" />
+                            <div className="flex items-center gap-4 mb-3 text-[10px]">
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-indigo-500 inline-block" />Fees</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-400 inline-block" />Expenses</span>
+                            </div>
+                            <div style={{ height: 220 }}>
+                                <Bar data={feeExpChart} options={{ ...cb, scales: { y: { beginAtZero: true, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${(v / 1000).toFixed(0)}K`, font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="📋 Today's Attendance" sub={new Date().toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' })} />
+                            <div style={{ height: 155 }}>
+                                {attendance.length > 0
+                                    ? <Doughnut data={attDonut} options={{ responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 10 }, padding: 8 } } } }} />
+                                    : <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2"><FiActivity size={26} /><p className="text-xs text-gray-400">No data today</p></div>}
+                            </div>
+                            <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+                                {[{ l: 'Present', v: todayPre, c: '#22c55e', b: '#f0fdf4' }, { l: 'Absent', v: todayAbs, c: '#ef4444', b: '#fef2f2' }, { l: 'Late', v: todayLat, c: '#f59e0b', b: '#fffbeb' }].map(a => (
+                                    <div key={a.l} className="rounded-xl py-2" style={{ background: a.b }}>
+                                        <p className="text-base font-black" style={{ color: a.c }}>{a.v}</p>
+                                        <p className="text-[9px] font-bold text-gray-500">{a.l}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── CHARTS ROW 2: Attendance Trend + Academic ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="📈 Weekly Attendance Trend" sub="Last 7 school days" href="/dashboard/attendance" linkLabel="Full Report" />
+                            <div style={{ height: 190 }}>
+                                <Line data={wAttChart} options={{ ...cb, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${v}%`, font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                            <SH title="🏆 Academic Performance by Form" sub="Average exam score per class" href="/dashboard/exams/analysis" linkLabel="Full Analysis" />
+                            <div style={{ height: 190 }}>
+                                {formPerf.some(f => f.avg > 0)
+                                    ? <Bar data={fPerfChart} options={{ ...cb, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                                    : <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2"><FiBook size={26} /><p className="text-xs text-gray-400">No exam marks yet</p></div>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── ENROLLMENT BY FORM (card grid) ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-50">
+                            <SH title="👥 Student Enrollment by Form / Grade" sub={`${active.length} active across ${forms.length} classes`} href="/dashboard/students" linkLabel="Manage" />
+                        </div>
+                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                            {forms.map(f => {
+                                const inForm = active.filter(s => s.form_id === f.id);
+                                const male = inForm.filter(s => s.gender === 'Male').length;
+                                const female = inForm.filter(s => s.gender === 'Female').length;
+                                const maxSt = Math.max(...forms.map(fm => active.filter(s => s.form_id === fm.id).length), 1);
+                                return (
+                                    <div key={f.id} className="rounded-xl p-3 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/20 transition-all">
+                                        <p className="text-xs font-black text-gray-700 truncate mb-1">{f.form_name}</p>
+                                        <p className="text-2xl font-black text-gray-900">{inForm.length}</p>
+                                        <div className="flex gap-2 mt-1 mb-2 text-[9px]">
+                                            <span className="text-blue-500 font-bold">♂ {male}</span>
+                                            <span className="text-pink-500 font-bold">♀ {female}</span>
+                                        </div>
+                                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden flex gap-0.5">
+                                            <div className="bg-blue-400 h-full" style={{ width: `${pct(male, maxSt)}%` }} />
+                                            <div className="bg-pink-400 h-full" style={{ width: `${pct(female, maxSt)}%` }} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* ── NET FINANCIAL POSITION STRIP ── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {[
+                            { label: 'Total Income', value: fmtShort(totalIncome), color: '#059669', bg: '#ecfdf5', icon: '📥', sub: `Fees + other income ${currentYear}` },
+                            { label: 'Total Expenses', value: fmtShort(approvedExp), color: '#dc2626', bg: '#fef2f2', icon: '📤', sub: `Approved expenses ${currentYear}` },
+                            { label: netPos >= 0 ? 'Net Surplus' : 'Net Deficit', value: fmtShort(Math.abs(netPos)), color: netPos >= 0 ? '#7c3aed' : '#dc2626', bg: netPos >= 0 ? '#f5f3ff' : '#fef2f2', icon: netPos >= 0 ? '✅' : '⚠️', sub: netPos >= 0 ? 'School is financially healthy' : 'Expenses exceed income' },
+                        ].map((m, i) => (
+                            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: m.bg }}>{m.icon}</div>
+                                <div>
+                                    <p className="text-xl font-black" style={{ color: m.color }}>{m.value}</p>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wide">{m.label}</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5">{m.sub}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* ── AI INSIGHTS + TOP STUDENTS ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <AIInsightsWidget />
+                        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-50">
+                                <SH title="🏆 Top Performing Students" sub="Based on exam marks" href="/dashboard/exams/merit-list" linkLabel="Merit List" />
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {topStudents.map((s, i) => (
+                                    <div key={i} className="px-5 py-3 flex items-center justify-between hover:bg-indigo-50/30 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white ${i === 0 ? 'bg-gradient-to-br from-amber-400 to-yellow-500' : i === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-500' : i === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                                                {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-800">{s.name}</p>
+                                                <p className="text-[10px] text-gray-400">{s.form}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`text-lg font-black ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-500'}`}>{s.avg}%</p>
+                                            <p className="text-[9px] text-gray-400">avg score</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {topStudents.length === 0 && <div className="py-10 text-center text-gray-400"><FiAward size={26} className="mx-auto mb-2 text-gray-200" /><p className="text-xs">No exam data yet</p></div>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── SUBJECT PERFORMANCE ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                        <SH title="📚 Subject Performance Ranking" sub="Average score per subject" href="/dashboard/exams/analysis" linkLabel="Full Analysis" />
+                        {subjectPerf.length === 0
+                            ? <div className="py-8 text-center text-gray-400"><FiBarChart2 size={26} className="mx-auto mb-2 text-gray-200" /><p className="text-xs">No exam marks yet</p></div>
+                            : <div className="space-y-2.5">
+                                {subjectPerf.slice(0, 8).map((s, i) => (
+                                    <div key={s.name} className="flex items-center gap-3">
+                                        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white flex-shrink-0 ${i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-orange-400' : 'bg-gray-200 text-gray-500'}`}>{i + 1}</span>
+                                        <span className="text-sm font-semibold text-gray-700 w-40 truncate flex-shrink-0">{s.name}</span>
+                                        <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                                            <div className="h-2 rounded-full transition-all" style={{ width: `${s.avg}%`, background: s.avg >= 70 ? '#22c55e' : s.avg >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                        </div>
+                                        <span className={`text-sm font-black w-10 text-right ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-500'}`}>{s.avg}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        }
+                    </div>
+
+                    {/* ── RECENT PAYMENTS + RECENT ENROLLMENTS ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-50">
+                                <SH title="💳 Recent Fee Payments" sub="Latest transactions" href="/dashboard/fees/payments" linkLabel="View All" />
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {recentPayments.map((p) => {
+                                    const st = students.find(s => s.id === p.student_id);
+                                    return (
+                                        <div key={p.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                                    <FiDollarSign size={13} className="text-emerald-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800">{st ? `${st.first_name} ${st.last_name}` : `Student #${p.student_id}`}</p>
+                                                    <p className="text-[10px] text-gray-400">{new Date(p.payment_date).toLocaleDateString('en-KE', { day: '2-digit', month: 'short' })} · {p.payment_method}</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-sm font-black text-emerald-600">{fmt(Number(p.amount))}</span>
+                                        </div>
+                                    );
+                                })}
+                                {recentPayments.length === 0 && <div className="py-8 text-center text-gray-400 text-xs">No payments recorded</div>}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-50">
+                                <SH title="🎓 Recent Enrollments" sub="Latest student admissions" href="/dashboard/students" linkLabel="View All" />
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {recentStudents.map((s) => {
+                                    const form = forms.find(f => f.id === s.form_id);
+                                    return (
+                                        <div key={s.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black text-white"
+                                                    style={{ background: s.gender === 'Male' ? 'linear-gradient(135deg,#3b82f6,#2563eb)' : 'linear-gradient(135deg,#ec4899,#db2777)' }}>
+                                                    {s.first_name?.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800">{s.first_name} {s.last_name}</p>
+                                                    <p className="text-[10px] text-gray-400">{s.admission_no || s.admission_number} · {form?.form_name || '—'}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`text-[9px] font-black px-2 py-1 rounded-full ${s.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{s.status}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── QUICK ACTIONS ── */}
+                    <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">⚡ Quick Actions</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                            {[
+                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', color: '#22c55e', bg: '#ecfdf5' },
+                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '➕', color: '#6366f1', bg: '#eef2ff' },
+                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', color: '#3b82f6', bg: '#dbeafe' },
+                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', color: '#f59e0b', bg: '#fef3c7' },
+                                { label: 'Bulk SMS', href: '/dashboard/fees/bulk-reminders', icon: '📱', color: '#8b5cf6', bg: '#ede9fe' },
+                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', color: '#ef4444', bg: '#fee2e2' },
+                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👨‍💼', color: '#7c3aed', bg: '#f5f3ff' },
+                            ].map((a, i) => (
+                                <Link key={i} href={a.href}
+                                    className="bg-white rounded-2xl p-3.5 text-center hover:shadow-md hover:scale-[1.04] transition-all border border-gray-100 group overflow-hidden relative"
+                                    style={{ borderTopWidth: 3, borderTopColor: a.color }}>
+                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg mx-auto mb-2" style={{ background: a.bg }}>{a.icon}</div>
+                                    <p className="text-[10px] font-bold text-gray-500 group-hover:text-gray-800 leading-tight transition-colors">{a.label}</p>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ── INTELLIGENCE COMMAND CENTER (bright card) ── */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                <FiCpu size={16} className="text-indigo-600" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-black text-gray-800 uppercase tracking-wide">APSIMS Intelligence Hub</p>
+                                <p className="text-[10px] text-gray-400">Advanced tools — Kenya's most powerful school system</p>
+                            </div>
+                            <div className="ml-auto flex items-center gap-1.5">
+                                <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" /></span>
+                                <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest">All Online</span>
+                            </div>
+                        </div>
+                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                            {[
+                                { label: '📊 P&L Report', href: '/dashboard/fees/reports/pl', desc: 'Full financial statement', color: '#059669', bg: '#ecfdf5' },
+                                { label: '📱 Bulk SMS', href: '/dashboard/fees/bulk-reminders', desc: 'Fee defaulter campaigns', color: '#7c3aed', bg: '#f5f3ff' },
+                                { label: '📈 Fee Analytics', href: '/dashboard/fees/analytics', desc: 'Revenue intelligence', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: '🎓 Merit List', href: '/dashboard/exams/merit-list', desc: 'Academic rankings', color: '#d97706', bg: '#fef3c7' },
+                                { label: '📋 Report Cards', href: '/dashboard/exams/report-cards', desc: 'Term progress reports', color: '#6366f1', bg: '#eef2ff' },
+                                { label: '🛡️ Exam Integrity', href: '/dashboard/exams/exam-integrity', desc: 'Anti-cheating system', color: '#dc2626', bg: '#fef2f2' },
+                                { label: '🤖 AI Insights', href: '/dashboard/exams/ai-insights', desc: 'AI performance chatbot', color: '#059669', bg: '#ecfdf5' },
+                                { label: '🏫 CBC Reports', href: '/dashboard/exams/cbc-reports', desc: 'KICD-aligned analytics', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: '✏️ JSS Marks', href: '/dashboard/jss/marks', desc: 'Grade 7-9 entry', color: '#7c3aed', bg: '#f5f3ff' },
+                                { label: '🏆 KPSEA', href: '/dashboard/exams/kpsea', desc: 'Grade 6 assessment', color: '#d97706', bg: '#fef3c7' },
+                                { label: '🎓 Senior School', href: '/dashboard/cbc/senior-school', desc: 'Grade 10-12 hub', color: '#6366f1', bg: '#eef2ff' },
+                                { label: '🔒 Audit Trail', href: '/dashboard/fees/audit', desc: 'Full transaction log', color: '#dc2626', bg: '#fef2f2' },
+                            ].map((m, i) => (
+                                <Link key={i} href={m.href}
+                                    className="rounded-xl p-3 border border-gray-100 hover:border-current hover:shadow-sm transition-all group"
+                                    style={{ borderLeftWidth: 3, borderLeftColor: m.color }}>
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm mb-2" style={{ background: m.bg }}>{m.label.split(' ')[0]}</div>
+                                    <p className="text-[11px] font-bold text-gray-700 leading-tight">{m.label.split(' ').slice(1).join(' ')}</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{m.desc}</p>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Other tabs ── */}
+            {activeTab === 'finance' && <FinancePanel />}
+            {activeTab === 'academics' && <AcademicsPanel />}
+            {activeTab === 'staff' && <StaffPanel />}
+            {activeTab === 'stores' && <StoresPanel />}
+            {activeTab === 'portals' && <PortalsPanel />}
+
+            {/* Footer */}
+            <div className="text-center py-3 border-t border-gray-100">
+                <p className="text-[9px] text-gray-300 font-medium tracking-widest uppercase">
+                    APSIMS Ultra v3.0 · 🇰🇪 No.1 School ERP in Kenya · © {currentYear}
+                </p>
+            </div>
         </div>
     );
 }
+
