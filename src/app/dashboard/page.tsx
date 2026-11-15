@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
-import AppHub from '@/components/AppHub';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
@@ -91,6 +90,9 @@ export default function DashboardPage() {
     const [pendingIssues, setPendingIssues] = useState(0);
     const [todayFeeTotal, setTodayFeeTotal] = useState(0);
     const [liveActivity, setLiveActivity] = useState<{ text: string; time: string; icon: string }[]>([]);
+    const [showNewActionMenu, setShowNewActionMenu] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ontime' | 'overdue'>('all');
+    const [currentPage, setCurrentPage] = useState(1);
     const searchParams = useSearchParams();
     const accessDenied = searchParams.get('access_denied') === '1';
     const currentYear = new Date().getFullYear();
@@ -352,8 +354,6 @@ export default function DashboardPage() {
     };
     const cb = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
 
-    if (theme === 'light-soft' || theme === 'full-system') return <AppHub />;
-
     if (loading) return (
         <div className="flex flex-col items-center justify-center h-[70vh] gap-4">
             <div className="relative">
@@ -368,10 +368,6 @@ export default function DashboardPage() {
             </div>
         </div>
     );
-
-    const [showNewActionMenu, setShowNewActionMenu] = useState(false);
-    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ontime' | 'overdue'>('all');
-    const [currentPage, setCurrentPage] = useState(1);
 
     const handlePrint = () => {
         if (typeof window !== 'undefined') window.print();
