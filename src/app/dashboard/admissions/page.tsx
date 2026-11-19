@@ -1,851 +1,960 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
+import { supabase } from '@/lib/supabase';
 import {
-  FiSearch, FiRefreshCw, FiEye, FiCheck, FiX, FiClock,
-  FiUserPlus, FiDownload, FiPrinter, FiAlertCircle,
-  FiPhone, FiMail, FiChevronLeft, FiChevronRight, FiStar,
-  FiMapPin, FiBook, FiHeart, FiFileText, FiUser, FiShield,
-  FiCalendar, FiAward, FiExternalLink, FiInfo,
+  FiSearch,
+  FiRefreshCw,
+  FiEye,
+  FiCheck,
+  FiX,
+  FiClock,
+  FiUserPlus,
+  FiDownload,
+  FiPrinter,
+  FiPhone,
+  FiMail,
+  FiChevronLeft,
+  FiChevronRight,
+  FiStar,
+  FiMapPin,
+  FiBook,
+  FiAward,
+  FiFileText,
+  FiSliders,
+  FiShare2,
+  FiCheckSquare,
+  FiSquare,
+  FiTrash2,
+  FiExternalLink,
 } from 'react-icons/fi';
 
-/* ── Types ──────────────────────────────────────────────────────────────────── */
-interface Application {
-  id: number; reference_number: string; status: string;
-  student_first_name: string; student_middle_name?: string; student_last_name: string;
-  date_of_birth?: string; gender?: string; nationality?: string;
-  county?: string; sub_county?: string; village_estate?: string;
-  form_applied_for?: number; previous_school?: string; previous_school_county?: string;
-  kcpe_index_number?: string; kcpe_total_marks?: number; kcpe_year?: number;
-  guardian_full_name?: string; guardian_relationship?: string; guardian_phone?: string;
-  guardian_alt_phone?: string; guardian_email?: string; guardian_national_id?: string;
-  guardian_occupation?: string; guardian_county?: string;
-  emergency_name?: string; emergency_phone?: string; emergency_relationship?: string;
-  blood_group?: string; has_disability?: boolean; disability_details?: string;
-  allergies?: string; medical_conditions?: string;
-  photo_url?: string; birth_cert_url?: string; kcpe_slip_url?: string;
-  other_doc_url?: string; other_doc_name?: string;
-  review_notes?: string; reviewed_at?: string;
-  converted_student_id?: number; phone_verified?: boolean; email_verified?: boolean;
-  terms_agreed?: boolean; submitter_ip?: string;
-  created_at: string; updated_at?: string; submitted_at?: string;
-}
+import {
+  UltraAdmissionsHeader,
+  ONLINE_APPLY_URL,
+  ONLINE_STATUS_URL,
+} from '@/components/admissions/UltraAdmissionsHeader';
+import { UltraAdmissionsFunnel } from '@/components/admissions/UltraAdmissionsFunnel';
+import { UltraAdmissionsImportModal } from '@/components/admissions/UltraAdmissionsImportModal';
+import { UltraCallingLetterModal } from '@/components/admissions/UltraCallingLetterModal';
+import { UltraAdmissionsPosterModal } from '@/components/admissions/UltraAdmissionsPosterModal';
+import { UltraAdmissionDetailModal } from '@/components/admissions/UltraAdmissionDetailModal';
+import { UltraAdmitStudentModal } from '@/components/admissions/UltraAdmitStudentModal';
+import { UltraAdmissionsActionModal } from '@/components/admissions/UltraAdmissionsActionModal';
+import {
+  exportAdmissionsWorkbook,
+  ExportApplication,
+} from '@/components/admissions/UltraAdmissionsExport';
 
-/* ── Helpers ────────────────────────────────────────────────────────────────── */
-const G = {
-  teal:   'linear-gradient(135deg,#0f766e,#0d9488)',
-  blue:   'linear-gradient(135deg,#1d4ed8,#3b82f6)',
-  green:  'linear-gradient(135deg,#15803d,#22c55e)',
-  amber:  'linear-gradient(135deg,#d97706,#f59e0b)',
-  red:    'linear-gradient(135deg,#b91c1c,#ef4444)',
-  purple: 'linear-gradient(135deg,#7c3aed,#8b5cf6)',
-  dark:   'linear-gradient(135deg,#1e293b,#334155)',
-};
-
-const STATUS: Record<string,{bg:string;text:string;border:string;icon:string;grad:string}> = {
-  'Submitted':    { bg:'#eff6ff',  text:'#1d4ed8', border:'#bfdbfe', icon:'📥', grad:G.blue   },
-  'Under Review': { bg:'#fefce8',  text:'#a16207', border:'#fde68a', icon:'🔍', grad:G.amber  },
-  'Approved':     { bg:'#f0fdf4',  text:'#15803d', border:'#bbf7d0', icon:'✅', grad:G.green  },
-  'Rejected':     { bg:'#fef2f2',  text:'#b91c1c', border:'#fecaca', icon:'❌', grad:G.red    },
-  'Waitlisted':   { bg:'#faf5ff',  text:'#7c3aed', border:'#e9d5ff', icon:'⏳', grad:G.purple },
-};
-
-const formLabel = (v?: number|string) => {
-  const n = Number(v);
-  if (n===10) return 'Grade 10 (CBC)'; if (n===11) return 'Grade 11 (CBC)'; if (n===12) return 'Grade 12 (CBC)';
-  if (n>=1&&n<=4) return `Form ${n}`; return v ? `Form ${v}` : '—';
-};
-const age = (dob?: string) => {
-  if (!dob) return '—';
-  const d=new Date(dob), n=new Date(); let a=n.getFullYear()-d.getFullYear();
-  if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;
-  return `${a} yrs`;
-};
-const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}) : '—';
-const fmtDT = (d?: string) => d ? new Date(d).toLocaleString('en-KE',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
-
-/* ── Main Page ──────────────────────────────────────────────────────────────── */
 export default function OnlineAdmissionsAdminPage() {
-  const [apps, setApps]               = useState<Application[]>([]);
-  const [filtered, setFiltered]       = useState<Application[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [statusFilter, setStatus]     = useState('All');
-  const [search, setSearch]           = useState('');
-  const [formFilter, setFormFilter]   = useState('');
-  const [dateFrom, setDateFrom]       = useState('');
-  const [dateTo, setDateTo]           = useState('');
-  const [page, setPage]               = useState(1);
-  const [selected, setSelected]       = useState<Application|null>(null);
-  const [actionModal, setActionModal] = useState<{app:Application;action:string}|null>(null);
-  const [convertModal, setConvertModal] = useState<Application|null>(null);
-  const [reviewNotes, setReviewNotes] = useState('');
-  const [saving, setSaving]           = useState(false);
-  const [convertForm, setConvertForm] = useState({stream_id:'',admission_number:'',reporting_date:''});
-  const [streams, setStreams]         = useState<any[]>([]);
-  const [forms,   setForms]           = useState<any[]>([]);
-  const [streamCounts, setStreamCounts] = useState<Record<string,number>>({});
-  const PAGE = 20;
+  const [apps, setApps] = useState<ExportApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [streams, setStreams] = useState<any[]>([]);
+  const [forms, setForms] = useState<any[]>([]);
+  const [streamCounts, setStreamCounts] = useState<Record<string, number>>({});
 
-  /* ── Load ─────────────────────────────────────────────────────────────────── */
-  const load = useCallback(async () => {
+  // Filtering & Sorting State
+  const [curriculumTrack, setCurriculumTrack] = useState<'all' | 'cbc-senior' | '8-4-4' | 'jss' | 'primary'>('all');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [formFilter, setFormFilter] = useState('');
+  const [kcpeMeritFilter, setKcpeMeritFilter] = useState('all');
+  const [docFilter, setDocFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortField, setSortField] = useState<'created_at' | 'student_first_name' | 'kcpe_total_marks' | 'form_applied_for'>('created_at');
+  const [sortAsc, setSortAsc] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+
+  // Batch Selection State
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  // Modals State
+  const [detailApp, setDetailApp] = useState<ExportApplication | null>(null);
+  const [actionModal, setActionModal] = useState<{ app: ExportApplication; action: string } | null>(null);
+  const [admitApp, setAdmitApp] = useState<ExportApplication | null>(null);
+  const [callingLetterApp, setCallingLetterApp] = useState<ExportApplication | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isPosterOpen, setIsPosterOpen] = useState(false);
+
+  /* ── 1. Fetch Live Data ─────────────────────────────────────────────────── */
+  const loadData = useCallback(async () => {
     setLoading(true);
-    const [{ data }, { data: st }, { data: fm }, { data: stuStreams }] = await Promise.all([
-      supabase.from('school_admission_applications').select('*').order('created_at',{ascending:false}),
-      supabase.from('school_streams').select('*').order('stream_name'),
-      supabase.from('school_forms').select('*').order('form_level'),
-      supabase.from('school_students').select('stream_id').eq('status','Active'),
-    ]);
-    // Build stream→count map
-    const countMap: Record<string,number> = {};
-    (stuStreams||[]).forEach((s:any)=>{ if(s.stream_id){ countMap[String(s.stream_id)]=(countMap[String(s.stream_id)]||0)+1; } });
-    setStreamCounts(countMap);
-    setApps(data||[]); setStreams(st||[]); setForms(fm||[]); setLoading(false);
-  },[]);
-  useEffect(()=>{ load(); },[load]);
-
-  /* ── Filter ───────────────────────────────────────────────────────────────── */
-  useEffect(()=>{
-    let r = [...apps];
-    if(statusFilter!=='All') r=r.filter(a=>a.status===statusFilter);
-    if(formFilter) r=r.filter(a=>String(a.form_applied_for)===formFilter);
-    if(dateFrom) r=r.filter(a=>new Date(a.created_at)>=new Date(dateFrom));
-    if(dateTo) r=r.filter(a=>new Date(a.created_at)<=new Date(dateTo+'T23:59:59'));
-    if(search.trim()){
-      const q=search.toLowerCase();
-      r=r.filter(a=>[a.student_first_name,a.student_last_name,a.reference_number,
-        a.guardian_phone,a.guardian_email,a.kcpe_index_number,a.guardian_full_name]
-        .some(f=>f?.toLowerCase().includes(q)));
-    }
-    setFiltered(r); setPage(1);
-  },[apps,statusFilter,formFilter,dateFrom,dateTo,search]);
-
-  const counts = {
-    total:   apps.length,
-    new:     apps.filter(a=>a.status==='Submitted').length,
-    review:  apps.filter(a=>a.status==='Under Review').length,
-    approved:apps.filter(a=>a.status==='Approved').length,
-    rejected:apps.filter(a=>a.status==='Rejected').length,
-    waitlist:apps.filter(a=>a.status==='Waitlisted').length,
-    admitted:apps.filter(a=>!!a.converted_student_id).length,
-  };
-
-  const paged = filtered.slice((page-1)*PAGE, page*PAGE);
-  const tp = Math.max(1,Math.ceil(filtered.length/PAGE));
-
-  /* ── Send Email Notification ─────────────────────────────────────────────── */
-  const sendNotification = async (app: Application, status: string, notes?: string) => {
-    if(!app.guardian_email) return; // no email = silent
     try {
-      await fetch('/api/admissions/notify', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          to_email:        app.guardian_email,
-          to_name:         app.guardian_full_name||'Guardian',
-          student_name:    [app.student_first_name,app.student_middle_name,app.student_last_name].filter(Boolean).join(' '),
-          reference_number:app.reference_number,
-          status,
-          notes:           notes||undefined,
-          school_name:     'APSIMS School',
-        }),
+      const [{ data: appData, error: appErr }, { data: stData }, { data: fmData }, { data: stuStreams }] =
+        await Promise.all([
+          supabase
+            .from('school_admission_applications')
+            .select('*')
+            .order('created_at', { ascending: false }),
+          supabase.from('school_streams').select('*').order('stream_name'),
+          supabase.from('school_forms').select('*').order('form_level'),
+          supabase.from('school_students').select('stream_id').eq('status', 'Active'),
+        ]);
+
+      if (appErr) throw appErr;
+
+      // Build stream count map
+      const countMap: Record<string, number> = {};
+      (stuStreams || []).forEach((s: any) => {
+        if (s.stream_id) {
+          countMap[String(s.stream_id)] = (countMap[String(s.stream_id)] || 0) + 1;
+        }
       });
-    } catch { /* notification failure is non-blocking */ }
-  };
 
-  /* ── Update Status ────────────────────────────────────────────────────────── */
-  const updateStatus = async () => {
-    if(!actionModal) return;
-    if(actionModal.action==='Rejected'&&!reviewNotes.trim()){ toast.error('Reason for rejection is required'); return; }
-    setSaving(true);
-    const{error}=await supabase.from('school_admission_applications').update({
-      status:actionModal.action, review_notes:reviewNotes.trim()||null,
-      reviewed_at:new Date().toISOString(), updated_at:new Date().toISOString(),
-    }).eq('id',actionModal.app.id);
-    if(error){ toast.error(error.message); }
-    else{
-      toast.success(`✅ Application ${actionModal.action}`);
-      // Send email notification to parent (non-blocking)
-      sendNotification(actionModal.app, actionModal.action, reviewNotes.trim()||undefined);
-      if(actionModal.app.guardian_email) toast.success(`📧 Notification sent to ${actionModal.app.guardian_email}`);
-      setActionModal(null); setReviewNotes(''); load();
+      setStreamCounts(countMap);
+      setApps(appData || []);
+      setStreams(stData || []);
+      setForms(fmData || []);
+    } catch (err: any) {
+      toast.error(`Error loading admissions: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
-    setSaving(false);
-  };
+  }, []);
 
-  /* ── Auto-generate next Admission Number from DB ─────────────────────────── */
-  const fetchNextAdmNo = async (): Promise<string> => {
-    const year = new Date().getFullYear();
-    try {
-      // Get all admission numbers for current year to find the max sequence
-      const { data } = await supabase
-        .from('school_students')
-        .select('admission_number')
-        .ilike('admission_number', `ADM/${year}/%`)
-        .order('admission_number', { ascending: false })
-        .limit(1);
-      if(data && data.length > 0) {
-        const last = data[0].admission_number; // e.g. ADM/2026/1015
-        const parts = last.split('/');
-        const seq = parseInt(parts[parts.length-1]||'0',10);
-        return `ADM/${year}/${String(seq+1).padStart(4,'0')}`;
-      }
-    } catch {}
-    // Fallback: count all students
-    const { count } = await supabase.from('school_students').select('id',{count:'exact',head:true});
-    return `ADM/${year}/${String((count||0)+1).padStart(4,'0')}`;
-  };
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  /* ── Convert to Student ───────────────────────────────────────────────────── */
-  const convertToStudent = async () => {
-    if(!convertModal||!convertForm.admission_number.trim()){ toast.error('Admission number required'); return; }
-    setSaving(true);
-    try {
-      // Look up the form_id from school_forms by matching form_level to form_applied_for
-      const matchedForm = forms.find((f:any) => String(f.form_level) === String(convertModal.form_applied_for));
-      const formId = matchedForm ? Number(matchedForm.id) : null;
+  /* ── 2. Filter & Sort Logic ─────────────────────────────────────────────── */
+  const filteredApps = useMemo(() => {
+    let result = [...apps];
 
-      const { data: stu, error: e1 } = await supabase.from('school_students').insert([{
-        admission_number: convertForm.admission_number.trim(),
-        first_name:       convertModal.student_first_name,
-        middle_name:      convertModal.student_middle_name||null,
-        last_name:        convertModal.student_last_name,
-        date_of_birth:    convertModal.date_of_birth||null,
-        gender:           convertModal.gender||null,
-        form_id:          formId,                                          // ← CRITICAL: sets the CLASS
-        stream_id:        convertForm.stream_id ? Number(convertForm.stream_id) : null,
-        admission_date:   convertForm.reporting_date || new Date().toISOString().split('T')[0],
-        status:           'Active',
-        guardian_name:    convertModal.guardian_full_name||null,
-        guardian_phone:   convertModal.guardian_phone||null,
-        guardian_email:   convertModal.guardian_email||null,
-        county:           convertModal.county||null,
-        blood_group:      convertModal.blood_group||null,
-        kcpe_marks:       convertModal.kcpe_total_marks||null,
-        previous_school:  convertModal.previous_school||null,
-        nationality:      convertModal.nationality||null,
-      }]).select().single();
-      if(e1) throw e1;
-      await supabase.from('school_admission_applications').update({
-        converted_student_id: stu.id, status:'Approved', updated_at:new Date().toISOString()
-      }).eq('id',convertModal.id);
-      toast.success(`🎓 ${convertModal.student_first_name} admitted to student list! Form: ${matchedForm?.form_name||convertModal.form_applied_for}`);
-      // Email parent that they are now admitted
-      sendNotification({...convertModal, status:'Approved'}, 'Approved', 'Your child has been successfully admitted. Please report to school with all original documents.');
-      if(convertModal.guardian_email) toast.success(`📧 Admission confirmation sent to ${convertModal.guardian_email}`);
-      setConvertModal(null); load();
-    } catch(e:any){ toast.error(e.message); }
-    setSaving(false);
-  };
+    // Curriculum Track filter
+    if (curriculumTrack === 'cbc-senior') {
+      result = result.filter((a) => [10, 11, 12].includes(Number(a.form_applied_for)));
+    } else if (curriculumTrack === '8-4-4') {
+      result = result.filter((a) => [1, 2, 3, 4].includes(Number(a.form_applied_for)));
+    } else if (curriculumTrack === 'jss') {
+      result = result.filter((a) => [7, 8, 9].includes(Number(a.form_applied_for)));
+    } else if (curriculumTrack === 'primary') {
+      result = result.filter((a) => {
+        const lvl = Number(a.form_applied_for);
+        return lvl <= 6 || lvl < 1;
+      });
+    }
 
-  /* ── CSV Export ───────────────────────────────────────────────────────────── */
-  const exportCSV = () => {
-    const rows=[['Ref No','Student Name','Gender','DOB','Form','KCPE Marks','KCPE Index','County','Previous School','Guardian','Guardian Phone','Guardian Email','National ID','Blood Group','Status','Submitted']];
-    filtered.forEach(a=>rows.push([
-      a.reference_number||'',
-      [a.student_first_name,a.student_middle_name,a.student_last_name].filter(Boolean).join(' '),
-      a.gender||'',fmt(a.date_of_birth),formLabel(a.form_applied_for),
-      String(a.kcpe_total_marks||''),a.kcpe_index_number||'',
-      a.county||'',a.previous_school||'',
-      a.guardian_full_name||'',a.guardian_phone||'',a.guardian_email||'',
-      a.guardian_national_id||'',a.blood_group||'',a.status||'',fmt(a.created_at),
-    ]));
-    const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const b=new Blob([csv],{type:'text/csv'});
-    const u=URL.createObjectURL(b);
-    const a=document.createElement('a'); a.href=u; a.download=`admissions-${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(u);
-  };
+    // Status filter
+    if (statusFilter === 'Admitted') {
+      result = result.filter((a) => !!a.converted_student_id);
+    } else if (statusFilter !== 'All') {
+      result = result.filter((a) => a.status === statusFilter);
+    }
 
-  /* ── KPI Cards ────────────────────────────────────────────────────────────── */
-  const KPIs = [
-    {l:'Total',    v:counts.total,   e:'📋', c:'#1d4ed8'},
-    {l:'New',      v:counts.new,     e:'📥', c:'#0891b2'},
-    {l:'Review',   v:counts.review,  e:'🔍', c:'#d97706'},
-    {l:'Approved', v:counts.approved,e:'✅', c:'#15803d'},
-    {l:'Rejected', v:counts.rejected,e:'❌', c:'#b91c1c'},
-    {l:'Waitlisted',v:counts.waitlist,e:'⏳',c:'#7c3aed'},
-    {l:'Admitted', v:counts.admitted,e:'🎓', c:'#0f766e'},
-  ];
+    // Specific Form filter
+    if (formFilter) {
+      result = result.filter((a) => String(a.form_applied_for) === formFilter);
+    }
 
-  if(loading) return(
-    <div className="flex flex-col items-center justify-center h-64 gap-4">
-      <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-lg" style={{background:G.blue}}>📋</div>
-      <p className="text-sm font-bold text-gray-500 animate-pulse">Loading applications…</p>
-    </div>
+    // KCPE Merit bracket filter
+    if (kcpeMeritFilter === '350+') {
+      result = result.filter((a) => (a.kcpe_total_marks || 0) >= 350);
+    } else if (kcpeMeritFilter === '300-349') {
+      result = result.filter((a) => (a.kcpe_total_marks || 0) >= 300 && (a.kcpe_total_marks || 0) < 350);
+    } else if (kcpeMeritFilter === '250-299') {
+      result = result.filter((a) => (a.kcpe_total_marks || 0) >= 250 && (a.kcpe_total_marks || 0) < 300);
+    } else if (kcpeMeritFilter === '<250') {
+      result = result.filter((a) => (a.kcpe_total_marks || 0) < 250);
+    }
+
+    // Documents completion filter
+    if (docFilter === 'complete') {
+      result = result.filter((a) => a.birth_cert_url && a.kcpe_slip_url);
+    } else if (docFilter === 'pending') {
+      result = result.filter((a) => !a.birth_cert_url || !a.kcpe_slip_url);
+    }
+
+    // Date range
+    if (dateFrom) {
+      result = result.filter((a) => new Date(a.created_at) >= new Date(dateFrom));
+    }
+    if (dateTo) {
+      result = result.filter((a) => new Date(a.created_at) <= new Date(dateTo + 'T23:59:59'));
+    }
+
+    // Live search query
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter((a) =>
+        [
+          a.student_first_name,
+          a.student_middle_name,
+          a.student_last_name,
+          a.reference_number,
+          a.guardian_phone,
+          a.guardian_email,
+          a.guardian_full_name,
+          a.guardian_national_id,
+          a.kcpe_index_number,
+          a.previous_school,
+          a.county,
+        ].some((f) => f?.toLowerCase().includes(q))
+      );
+    }
+
+    // Sorting
+    result.sort((x, y) => {
+      let vx: any = x[sortField];
+      let vy: any = y[sortField];
+      if (typeof vx === 'string') vx = vx.toLowerCase();
+      if (typeof vy === 'string') vy = vy.toLowerCase();
+      if (vx < vy) return sortAsc ? -1 : 1;
+      if (vx > vy) return sortAsc ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [
+    apps,
+    curriculumTrack,
+    statusFilter,
+    formFilter,
+    kcpeMeritFilter,
+    docFilter,
+    dateFrom,
+    dateTo,
+    search,
+    sortField,
+    sortAsc,
+  ]);
+
+  // Pagination slice
+  const totalPages = Math.max(1, Math.ceil(filteredApps.length / PAGE_SIZE));
+  const pagedApps = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredApps.slice(start, start + PAGE_SIZE);
+  }, [filteredApps, page]);
+
+  // Overall Funnel counts
+  const funnelCounts = useMemo(
+    () => ({
+      total: apps.length,
+      new: apps.filter((a) => a.status === 'Submitted').length,
+      review: apps.filter((a) => a.status === 'Under Review').length,
+      approved: apps.filter((a) => a.status === 'Approved').length,
+      rejected: apps.filter((a) => a.status === 'Rejected').length,
+      waitlist: apps.filter((a) => a.status === 'Waitlisted').length,
+      admitted: apps.filter((a) => !!a.converted_student_id).length,
+    }),
+    [apps]
   );
 
-  return (
-    <div className="space-y-5 animate-fadeIn">
+  /* ── 3. Batch Selection Handlers ────────────────────────────────────────── */
+  const handleToggleSelectAll = () => {
+    if (selectedIds.length === pagedApps.length && pagedApps.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(pagedApps.map((a) => a.id));
+    }
+  };
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl border border-sky-100 shadow-sm" style={{background:'linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 45%,#f0fdf4 100%)'}}>
-        <div className="absolute -right-12 -top-12 w-56 h-56 rounded-full opacity-[0.15]" style={{background:'radial-gradient(circle,#0891b2,transparent)'}}/>
-        <div className="absolute -left-6 -bottom-6 w-36 h-36 rounded-full opacity-[0.08]" style={{background:'radial-gradient(circle,#0f766e,transparent)'}}/>
-        <div className="relative p-6">
-          <div className="flex items-center justify-between flex-wrap gap-4 mb-5">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg text-2xl" style={{background:'linear-gradient(135deg,#0891b2,#0f766e)'}}>
-                📋
-              </div>
-              <div>
-                <h1 className="text-2xl font-black text-gray-900" style={{fontFamily:'Outfit,sans-serif',letterSpacing:'-0.03em'}}>Online Admissions</h1>
-                <p className="text-sm text-gray-500 mt-0.5">Admin Panel · Review · Approve · Admit Students</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button onClick={load} className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition shadow-sm" title="Refresh"><FiRefreshCw size={15}/></button>
-              <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition shadow-sm"><FiDownload size={14}/> Export CSV</button>
-              <button onClick={()=>window.print()} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition shadow-sm"><FiPrinter size={14}/> Print</button>
-            </div>
-          </div>
-          {/* KPI cards */}
-          <div className="grid grid-cols-4 lg:grid-cols-7 gap-3">
-            {KPIs.map(k=>(
-              <div key={k.l} className="bg-white rounded-2xl p-3 text-center shadow-sm hover:shadow-md transition-all"
-                style={{borderLeft:`3px solid ${k.c}`}}>
-                <p className="text-xl font-black text-gray-900">{k.v}</p>
-                <p className="text-[10px] font-bold uppercase tracking-wide mt-0.5" style={{color:k.c}}>{k.e} {k.l}</p>
-              </div>
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
+  };
+
+  const handleBatchApprove = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from('school_admission_applications')
+        .update({
+          status: 'Approved',
+          reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', selectedIds);
+      if (error) throw error;
+      toast.success(`✓ Approved ${selectedIds.length} applications!`);
+      setSelectedIds([]);
+      loadData();
+    } catch (err: any) {
+      toast.error(`Batch approve failed: ${err.message}`);
+    }
+  };
+
+  const handleBatchReject = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from('school_admission_applications')
+        .update({
+          status: 'Rejected',
+          review_notes: 'Batch rejected by admissions committee.',
+          reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', selectedIds);
+      if (error) throw error;
+      toast.success(`Marked ${selectedIds.length} applications as Rejected.`);
+      setSelectedIds([]);
+      loadData();
+    } catch (err: any) {
+      toast.error(`Batch reject failed: ${err.message}`);
+    }
+  };
+
+  const handleExportSelected = () => {
+    const toExport = apps.filter((a) => selectedIds.includes(a.id));
+    if (toExport.length === 0) {
+      toast.error('Select at least 1 application to export.');
+      return;
+    }
+    exportAdmissionsWorkbook(toExport);
+  };
+
+  /* ── 4. Formatting Helpers ──────────────────────────────────────────────── */
+  const formDisplay = (v?: number | string) => {
+    const n = Number(v);
+    if (n === 10) return { label: 'Grade 10 (CBC)', track: 'CBC Senior', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+    if (n === 11) return { label: 'Grade 11 (CBC)', track: 'CBC Senior', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+    if (n === 12) return { label: 'Grade 12 (CBC)', track: 'CBC Senior', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+    if (n >= 7 && n <= 9) return { label: `Grade ${n} (JSS)`, track: 'CBC JSS', color: 'bg-teal-50 text-teal-700 border-teal-200' };
+    if (n >= 1 && n <= 4) return { label: `Form ${n}`, track: '8-4-4', color: 'bg-blue-50 text-blue-700 border-blue-200' };
+    return { label: `Form/Grade ${v || '—'}`, track: 'Intake', color: 'bg-slate-50 text-slate-700 border-slate-200' };
+  };
+
+  const meritBadge = (marks?: number) => {
+    if (!marks) return <span className="text-slate-400 font-mono">—</span>;
+    if (marks >= 350) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+          ★ {marks}
+        </span>
+      );
+    }
+    if (marks >= 300) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+          ✓ {marks}
+        </span>
+      );
+    }
+    if (marks >= 250) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200">
+          {marks}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+        {marks}
+      </span>
+    );
+  };
+
+  const statusBadge = (status: string, isAdmitted: boolean) => {
+    if (isAdmitted) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs">
+          🎓 Admitted
+        </span>
+      );
+    }
+    switch (status) {
+      case 'Approved':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+            ✓ Approved
+          </span>
+        );
+      case 'Under Review':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+            🔍 Review
+          </span>
+        );
+      case 'Rejected':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
+            ✕ Rejected
+          </span>
+        );
+      case 'Waitlisted':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200">
+            ⏳ Waitlist
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
+            📥 Submitted
+          </span>
+        );
+    }
+  };
+
+  const calcAge = (dob?: string) => {
+    if (!dob) return '—';
+    const d = new Date(dob);
+    const n = new Date();
+    let a = n.getFullYear() - d.getFullYear();
+    if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
+    return a > 0 ? `${a}y` : '—';
+  };
+
+  const formatDate = (iso?: string) => {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleDateString('en-KE', { day: '2-digit', month: 'short' });
+    } catch {
+      return iso;
+    }
+  };
+
+  return (
+    <div className="space-y-4 animate-fadeIn pb-12" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+      
+      {/* ── 1. Top Executive Command Header & Link Dock ── */}
+      <UltraAdmissionsHeader
+        totalCount={apps.length}
+        newCount={funnelCounts.new}
+        loading={loading}
+        onRefresh={loadData}
+        onExportExcel={() => exportAdmissionsWorkbook(filteredApps)}
+        onOpenImport={() => setIsImportOpen(true)}
+        onPrintRegister={() => window.print()}
+        onOpenQRPoster={() => setIsPosterOpen(true)}
+      />
+
+      {/* ── 2. Admissions Funnel HUD (6 KPI Cards) ── */}
+      <UltraAdmissionsFunnel
+        counts={funnelCounts}
+        activeStatus={statusFilter}
+        onSelectStatus={(st) => {
+          setStatusFilter(st);
+          setPage(1);
+        }}
+      />
+
+      {/* ── 3. Dual-Track Curriculum Switcher & Filter Toolbar ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 space-y-3">
+        
+        {/* Curriculum Track Switcher Pills */}
+        <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">Curriculum Track:</span>
+            {[
+              { id: 'all', label: 'All Curriculums', count: apps.length },
+              { id: 'cbc-senior', label: '🇰🇪 CBC Senior School (Grades 10–12)', count: apps.filter((a) => [10, 11, 12].includes(Number(a.form_applied_for))).length },
+              { id: '8-4-4', label: '📘 8-4-4 Secondary (Forms 1–4)', count: apps.filter((a) => [1, 2, 3, 4].includes(Number(a.form_applied_for))).length },
+              { id: 'jss', label: '🎓 Junior Secondary (Grades 7–9)', count: apps.filter((a) => [7, 8, 9].includes(Number(a.form_applied_for))).length },
+              { id: 'primary', label: '🎒 Primary CBC', count: apps.filter((a) => Number(a.form_applied_for) <= 6).length },
+            ].map((trk) => (
+              <button
+                key={trk.id}
+                onClick={() => {
+                  setCurriculumTrack(trk.id as any);
+                  setPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                  curriculumTrack === trk.id
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80'
+                }`}
+              >
+                <span>{trk.label}</span>
+                <span className="ml-1.5 text-[10px] opacity-70">({trk.count})</span>
+              </button>
             ))}
           </div>
-        </div>
-      </div>
 
-      {/* ── Filters ────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
-        {/* Status tabs */}
-        <div className="flex gap-1 flex-wrap">
-          {['All','Submitted','Under Review','Approved','Rejected','Waitlisted'].map(s=>{
-            const ss=STATUS[s]; const cnt=s==='All'?counts.total:apps.filter(a=>a.status===s).length;
-            return(
-              <button key={s} onClick={()=>setStatus(s)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${statusFilter===s?'text-white border-transparent shadow-md':'border-transparent'}`}
-                style={statusFilter===s?{background:ss?.grad||G.dark}:{background:'#f8fafc',color:'#64748b'}}>
-                {ss?.icon||'📋'} {s} <span className="ml-1 opacity-70">{cnt}</span>
-              </button>
-            );
-          })}
-        </div>
-        {/* Search + form filter + dates */}
-        <div className="flex flex-wrap gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={14}/>
-            <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}
-              placeholder="Search name, ref no, phone, KCPE index…"
-              className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-blue-300"/>
+          <div className="text-xs font-mono font-bold text-slate-500">
+            Showing {filteredApps.length} of {apps.length}
           </div>
-          <select value={formFilter} onChange={e=>setFormFilter(e.target.value)}
-            className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-300 font-medium">
-            <option value="">All Forms</option>
-            {[1,2,3,4,10,11,12].map(f=><option key={f} value={f}>{formLabel(f)}</option>)}
-          </select>
-          <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
-            className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-300"
-            placeholder="From"/>
-          <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
-            className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-300"
-            placeholder="To"/>
-          {(search||formFilter||dateFrom||dateTo)&&(
-            <button onClick={()=>{setSearch('');setFormFilter('');setDateFrom('');setDateTo('');}}
-              className="px-3 py-2.5 text-xs font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200">
-              Clear
-            </button>
-          )}
-          <span className="self-center text-xs text-gray-400 font-medium ml-auto">{filtered.length} application{filtered.length!==1?'s':''}</span>
         </div>
+
+        {/* Multi-Dimensional Filters Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-2.5 items-center">
+          
+          {/* Live Search */}
+          <div className="md:col-span-4 relative">
+            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Search name, ref no, phone, KCPE index, county..."
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+            />
+          </div>
+
+          {/* Form / Grade Filter */}
+          <div className="md:col-span-2">
+            <select
+              value={formFilter}
+              onChange={(e) => {
+                setFormFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:bg-white focus:border-blue-500"
+            >
+              <option value="">All Form / Grades</option>
+              <optgroup label="8-4-4 Secondary">
+                <option value="1">Form 1</option>
+                <option value="2">Form 2</option>
+                <option value="3">Form 3</option>
+                <option value="4">Form 4</option>
+              </optgroup>
+              <optgroup label="CBC Senior School">
+                <option value="10">Grade 10 (Senior CBC)</option>
+                <option value="11">Grade 11 (Senior CBC)</option>
+                <option value="12">Grade 12 (Senior CBC)</option>
+              </optgroup>
+              <optgroup label="CBC Junior Secondary">
+                <option value="7">Grade 7 (JSS)</option>
+                <option value="8">Grade 8 (JSS)</option>
+                <option value="9">Grade 9 (JSS)</option>
+              </optgroup>
+            </select>
+          </div>
+
+          {/* KCPE Merit Filter */}
+          <div className="md:col-span-2">
+            <select
+              value={kcpeMeritFilter}
+              onChange={(e) => {
+                setKcpeMeritFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:bg-white focus:border-blue-500"
+            >
+              <option value="all">All KCPE Scores</option>
+              <option value="350+">★ 350+ Marks (Honors)</option>
+              <option value="300-349">✓ 300–349 Marks</option>
+              <option value="250-299">250–299 Marks</option>
+              <option value="<250">&lt; 250 Marks</option>
+            </select>
+          </div>
+
+          {/* Documents Filter */}
+          <div className="md:col-span-2">
+            <select
+              value={docFilter}
+              onChange={(e) => {
+                setDocFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:bg-white focus:border-blue-500"
+            >
+              <option value="all">All Documents</option>
+              <option value="complete">✓ Complete (Birth + Slip)</option>
+              <option value="pending">⚠️ Pending Documents</option>
+            </select>
+          </div>
+
+          {/* Reset Filters */}
+          <div className="md:col-span-2 flex items-center justify-end">
+            {(search || formFilter || kcpeMeritFilter !== 'all' || docFilter !== 'all' || dateFrom || dateTo || statusFilter !== 'All' || curriculumTrack !== 'all') && (
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setFormFilter('');
+                  setKcpeMeritFilter('all');
+                  setDocFilter('all');
+                  setDateFrom('');
+                  setDateTo('');
+                  setStatusFilter('All');
+                  setCurriculumTrack('all');
+                  setPage(1);
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+
+        </div>
+
       </div>
 
-      {/* ── Table ──────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* ── 4. Batch Actions Bar (Appears when items are checked) ── */}
+      {selectedIds.length > 0 && (
+        <div className="bg-indigo-900 text-white p-3 px-5 rounded-2xl shadow-lg flex items-center justify-between gap-3 flex-wrap animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-xs font-black">
+              {selectedIds.length} application{selectedIds.length > 1 ? 's' : ''} selected
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleBatchApprove}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 transition"
+            >
+              <FiCheck size={13} />
+              <span>Approve Selected</span>
+            </button>
+
+            <button
+              onClick={handleBatchReject}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-700 transition"
+            >
+              <FiX size={13} />
+              <span>Reject Selected</span>
+            </button>
+
+            <button
+              onClick={handleExportSelected}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-white/20 hover:bg-white/30 transition"
+            >
+              <FiDownload size={13} />
+              <span>Export Selected</span>
+            </button>
+
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-2.5 py-1.5 text-xs font-bold text-indigo-200 hover:text-white"
+            >
+              Deselect All
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 5. Super Ultra-Premium Applications Datagrid ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{fontSize:12}}>
+          <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
-                {['#','Ref No','Student Name','Gender','Age','Form','KCPE Marks','Guardian','Phone','Status','Submitted','Actions'].map(h=>(
-                  <th key={h} className="text-left px-3 py-3 text-[10px] font-black uppercase tracking-wider" style={{color:'#475569'}}>{h}</th>
-                ))}
+              <tr className="bg-slate-50/90 border-b border-slate-200/90 text-slate-600 font-bold">
+                <th className="px-3 py-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={pagedApps.length > 0 && selectedIds.length === pagedApps.length}
+                    onChange={handleToggleSelectAll}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
+                <th className="px-3 py-3 w-12 text-center text-[10px] uppercase tracking-wider text-slate-400">#</th>
+                <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-slate-500">Ref Number</th>
+                <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-slate-500">Applicant Details</th>
+                <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-slate-500">Target Curriculum</th>
+                <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-slate-500">Merit (KCPE)</th>
+                <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-slate-500">Guardian Contact</th>
+                <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-slate-500 text-center">Docs</th>
+                <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-slate-500">Status</th>
+                <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-slate-500">Date</th>
+                <th className="px-3 py-3 text-[10px] uppercase tracking-wider text-slate-500 text-right pr-4">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {paged.length===0?(
-                <tr><td colSpan={12} className="text-center py-16">
-                  <div className="text-4xl mb-3">📋</div>
-                  <p className="text-sm font-bold text-gray-400">No applications found</p>
-                  <p className="text-xs text-gray-300 mt-1">Adjust filters or wait for submissions</p>
-                </td></tr>
-              ):paged.map((a,idx)=>{
-                const ss=STATUS[a.status]||STATUS['Submitted'];
-                return(
-                  <tr key={a.id} style={{borderBottom:'1px solid #f1f5f9'}}
-                    onMouseEnter={e=>(e.currentTarget as HTMLTableRowElement).style.background='#fafbff'}
-                    onMouseLeave={e=>(e.currentTarget as HTMLTableRowElement).style.background=''}>
-                    <td className="px-3 py-3 text-center text-gray-400 font-bold">{(page-1)*PAGE+idx+1}</td>
-                    <td className="px-3 py-3">
-                      <button onClick={()=>setSelected(a)} className="font-black text-blue-600 hover:underline font-mono text-[11px]">{a.reference_number}</button>
-                      {a.converted_student_id&&<span className="ml-1 text-[9px] bg-emerald-100 text-emerald-700 rounded px-1 font-bold">ADM</span>}
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-black shadow-sm flex-shrink-0"
-                          style={{background:a.gender==='Female'?G.purple:G.blue}}>
-                          {(a.student_first_name||'?')[0].toUpperCase()}
+            <tbody className="divide-y divide-slate-100">
+              {pagedApps.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="py-16 text-center">
+                    <div className="text-4xl mb-2">📋</div>
+                    <p className="text-sm font-bold text-slate-700">No applications found</p>
+                    <p className="text-xs text-slate-400 mt-1">Adjust your filters or share the online admission link with prospective students.</p>
+                  </td>
+                </tr>
+              ) : (
+                pagedApps.map((a, idx) => {
+                  const seqNumber = (page - 1) * PAGE_SIZE + idx + 1;
+                  const isChecked = selectedIds.includes(a.id);
+                  const fullName = [a.student_first_name, a.student_middle_name, a.student_last_name].filter(Boolean).join(' ');
+                  const cur = formDisplay(a.form_applied_for);
+                  const isAdmitted = !!a.converted_student_id;
+
+                  return (
+                    <tr
+                      key={a.id}
+                      className={`transition-colors duration-100 hover:bg-slate-50/80 ${
+                        isChecked ? 'bg-indigo-50/40' : ''
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="px-3 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleSelect(a.id)}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                      </td>
+
+                      {/* Sequence */}
+                      <td className="px-3 py-3 text-center font-mono text-[11px] text-slate-400 font-bold">
+                        {seqNumber}
+                      </td>
+
+                      {/* Ref Number */}
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setDetailApp(a)}
+                            className="font-mono text-xs font-black text-blue-600 hover:underline hover:text-blue-800"
+                            title="View Full Dossier"
+                          >
+                            {a.reference_number || `ADM-${a.id}`}
+                          </button>
                         </div>
-                        <span className="font-bold text-gray-900">{[a.student_first_name,a.student_last_name].join(' ')}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-gray-600">{a.gender||'—'}</td>
-                    <td className="px-3 py-3 text-gray-500">{age(a.date_of_birth)}</td>
-                    <td className="px-3 py-3"><span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-blue-50 text-blue-700">{formLabel(a.form_applied_for)}</span></td>
-                    <td className="px-3 py-3 font-bold text-gray-800">{a.kcpe_total_marks||'—'}</td>
-                    <td className="px-3 py-3 text-gray-700 max-w-[110px] truncate">{a.guardian_full_name||'—'}</td>
-                    <td className="px-3 py-3 text-gray-600">{a.guardian_phone||'—'}</td>
-                    <td className="px-3 py-3">
-                      <span className="px-2 py-1 rounded-lg text-[10px] font-black border" style={{background:ss.bg,color:ss.text,borderColor:ss.border}}>
-                        {ss.icon} {a.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-gray-400 text-[11px]">{fmt(a.created_at)}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={()=>setSelected(a)} title="View Full Details"
-                          className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition" ><FiEye size={12}/></button>
-                        {!a.converted_student_id&&<>
-                          <button onClick={()=>{setActionModal({app:a,action:'Under Review'});setReviewNotes('');}} title="Under Review"
-                            className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition"><FiClock size={12}/></button>
-                          <button onClick={()=>{setActionModal({app:a,action:'Approved'});setReviewNotes('');}} title="Approve"
-                            className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition"><FiCheck size={12}/></button>
-                          <button onClick={()=>{setActionModal({app:a,action:'Rejected'});setReviewNotes('');}} title="Reject"
-                            className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition"><FiX size={12}/></button>
-                          {a.status==='Approved'&&(
-                            <button onClick={async()=>{const no=await fetchNextAdmNo();setConvertModal(a);setConvertForm({stream_id:'',admission_number:no,reporting_date:''}); }} title="Admit Student"
-                              className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition"><FiStar size={12}/></button>
+                        {a.county && (
+                          <span className="text-[10px] text-slate-400 block truncate">
+                            {a.county} County
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Applicant Details */}
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0 shadow-xs ${
+                              a.gender === 'Female'
+                                ? 'bg-gradient-to-tr from-purple-600 to-pink-500'
+                                : 'bg-gradient-to-tr from-blue-600 to-indigo-500'
+                            }`}
+                          >
+                            {(a.student_first_name || 'A')[0]}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 leading-tight">{fullName}</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                              <span>{a.gender || '—'}</span>
+                              <span className="mx-1">•</span>
+                              <span>{calcAge(a.date_of_birth)}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Target Curriculum */}
+                      <td className="px-3 py-3">
+                        <span className={`inline-block px-2.5 py-0.5 rounded-lg text-[10px] font-black border ${cur.color}`}>
+                          {cur.label}
+                        </span>
+                      </td>
+
+                      {/* Academic Merit */}
+                      <td className="px-3 py-3">
+                        <div>
+                          {meritBadge(a.kcpe_total_marks)}
+                          {a.previous_school && (
+                            <p className="text-[10px] text-slate-400 truncate max-w-[140px] mt-0.5" title={a.previous_school}>
+                              {a.previous_school}
+                            </p>
                           )}
-                        </>}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                        </div>
+                      </td>
+
+                      {/* Guardian Contact */}
+                      <td className="px-3 py-3">
+                        <div>
+                          <p className="font-bold text-slate-800 truncate max-w-[130px]" title={a.guardian_full_name}>
+                            {a.guardian_full_name || '—'}
+                          </p>
+                          {a.guardian_phone && (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <a
+                                href={`tel:${a.guardian_phone}`}
+                                className="text-[10px] font-mono text-slate-500 hover:text-blue-600 flex items-center gap-1"
+                              >
+                                <FiPhone size={10} />
+                                <span>{a.guardian_phone}</span>
+                              </a>
+                              <a
+                                href={`https://wa.me/${a.guardian_phone.replace(/[^0-9]/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] text-emerald-600 hover:text-emerald-700 font-bold"
+                                title="Chat on WhatsApp"
+                              >
+                                WA
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Document Vault Status */}
+                      <td className="px-3 py-3 text-center">
+                        <div className="inline-flex items-center gap-1 text-xs">
+                          <span title={a.photo_url ? 'Passport Photo attached' : 'Photo missing'} className={a.photo_url ? 'opacity-100' : 'opacity-25 grayscale'}>
+                            📸
+                          </span>
+                          <span title={a.birth_cert_url ? 'Birth Certificate attached' : 'Birth Cert missing'} className={a.birth_cert_url ? 'opacity-100' : 'opacity-25 grayscale'}>
+                            📜
+                          </span>
+                          <span title={a.kcpe_slip_url ? 'KCPE Slip attached' : 'KCPE Slip missing'} className={a.kcpe_slip_url ? 'opacity-100' : 'opacity-25 grayscale'}>
+                            🏆
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-3 py-3">
+                        {statusBadge(a.status, isAdmitted)}
+                      </td>
+
+                      {/* Submission Date */}
+                      <td className="px-3 py-3 text-[11px] font-mono text-slate-400">
+                        {formatDate(a.created_at)}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-3 py-3 text-right pr-4">
+                        <div className="flex items-center justify-end gap-1">
+                          {/* Full Dossier */}
+                          <button
+                            onClick={() => setDetailApp(a)}
+                            className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+                            title="View Full Candidate Dossier"
+                          >
+                            <FiEye size={12} />
+                          </button>
+
+                          {/* Print Calling Letter */}
+                          <button
+                            onClick={() => setCallingLetterApp(a)}
+                            className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition"
+                            title="Print Official Calling Letter (PDF)"
+                          >
+                            <FiPrinter size={12} />
+                          </button>
+
+                          {/* Review Decision */}
+                          {!isAdmitted && (
+                            <>
+                              <button
+                                onClick={() => setActionModal({ app: a, action: 'Approved' })}
+                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition"
+                                title="Approve Application"
+                              >
+                                <FiCheck size={12} />
+                              </button>
+
+                              {a.status === 'Approved' && (
+                                <button
+                                  onClick={() => setAdmitApp(a)}
+                                  className="p-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs hover:opacity-90 transition"
+                                  title="Admit Student & Assign Class"
+                                >
+                                  <FiUserPlus size={12} />
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => setActionModal({ app: a, action: 'Rejected' })}
+                                className="p-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition"
+                                title="Reject Application"
+                              >
+                                <FiX size={12} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
-        {/* Pagination */}
-        {filtered.length>PAGE&&(
-          <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-            <p className="text-xs text-gray-400">Page {page} of {tp} · {filtered.length} total</p>
-            <div className="flex items-center gap-1.5">
-              <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
-                className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30"><FiChevronLeft size={14}/></button>
-              <button onClick={()=>setPage(p=>Math.min(tp,p+1))} disabled={page===tp}
-                className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30"><FiChevronRight size={14}/></button>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* ══════════════════════════════════════════════════
-           FULL DETAIL MODAL
-      ══════════════════════════════════════════════════ */}
-      {selected&&<DetailModal app={selected} onClose={()=>setSelected(null)}
-        onAction={(app,action)=>{setActionModal({app,action});setReviewNotes('');setSelected(null);}}
-        onConvert={async(app)=>{const no=await fetchNextAdmNo();setConvertModal(app);setConvertForm({stream_id:'',admission_number:no,reporting_date:''});setSelected(null);}}
-      />}
-
-      {/* ══════════════════════════════════════════════════
-           ACTION MODAL (Approve / Reject / Waitlist)
-      ══════════════════════════════════════════════════ */}
-      {actionModal&&(
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style={{backdropFilter:'blur(4px)'}}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
-            {(()=>{ const ss=STATUS[actionModal.action]||STATUS['Submitted']; return(
-            <>
-              <div className="p-5 rounded-t-3xl border-b" style={{background:ss.bg}}>
-                <p className="font-black text-lg" style={{color:ss.text}}>{ss.icon} {actionModal.action} Application</p>
-                <p className="text-sm mt-0.5" style={{color:ss.text}}>{actionModal.app.student_first_name} {actionModal.app.student_last_name} · {actionModal.app.reference_number}</p>
-              </div>
-              <div className="p-5 space-y-4">
-                <div className="p-3 bg-gray-50 rounded-xl text-xs text-gray-600">
-                  {actionModal.action==='Approved'&&'✅ Approving allows this application to be converted to a student record.'}
-                  {actionModal.action==='Rejected'&&'❌ Please provide a clear reason. The applicant will be notified.'}
-                  {actionModal.action==='Waitlisted'&&'⏳ Applicant will be notified they are on the waitlist.'}
-                  {actionModal.action==='Under Review'&&'🔍 Marks this application as actively being reviewed.'}
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-gray-600 mb-1.5">
-                    Review Notes {actionModal.action==='Rejected'?'(required)':'(optional)'}
-                  </label>
-                  <textarea value={reviewNotes} onChange={e=>setReviewNotes(e.target.value)} rows={4}
-                    className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-400 resize-none"
-                    placeholder={actionModal.action==='Rejected'?'Reason for rejection…':'Internal notes…'}/>
-                </div>
-              </div>
-              <div className="p-4 border-t flex gap-3">
-                <button onClick={updateStatus} disabled={saving||(actionModal.action==='Rejected'&&!reviewNotes.trim())}
-                  className="flex-1 py-3 font-black text-white rounded-2xl disabled:opacity-60"
-                  style={{background:ss.grad}}>
-                  {saving?'Saving…':`Confirm ${actionModal.action}`}
-                </button>
-                <button onClick={()=>setActionModal(null)} className="px-5 py-3 bg-gray-100 text-gray-600 rounded-2xl font-semibold text-sm">Cancel</button>
-              </div>
-            </>
-            );})()}
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════
-           CONVERT TO STUDENT MODAL
-      ══════════════════════════════════════════════════ */}
-      {convertModal&&(
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style={{backdropFilter:'blur(4px)'}}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-5 border-b" style={{background:G.green}}>
-              <p className="text-white font-black text-lg">🎓 Admit Student — Final Step</p>
-              <p className="text-green-100 text-sm mt-0.5">{convertModal.student_first_name} {convertModal.student_last_name} · {convertModal.reference_number}</p>
-            </div>
-            <div className="p-5 space-y-4">
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800">
-                ✅ This creates a <strong>school_students</strong> record and permanently admits this student. All application data will be copied across automatically.
-              </div>
-              <div className="bg-gray-50 rounded-2xl p-4">
-                <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Pre-filled from Application</p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  {[
-                    ['Name',[convertModal.student_first_name,convertModal.student_middle_name,convertModal.student_last_name].filter(Boolean).join(' ')],
-                    ['Gender',convertModal.gender||'—'],['DOB',fmt(convertModal.date_of_birth)],
-                    ['Form',formLabel(convertModal.form_applied_for)],['KCPE Marks',convertModal.kcpe_total_marks?`${convertModal.kcpe_total_marks}/500`:'—'],
-                    ['Guardian',convertModal.guardian_full_name||'—'],['Guardian Phone',convertModal.guardian_phone||'—'],
-                    ['County',convertModal.county||'—'],['Blood Group',convertModal.blood_group||'—'],
-                  ].map(([l,v])=>(
-                    <div key={l as string}><span className="text-gray-400 font-semibold">{l}: </span><span className="font-bold text-gray-800">{v}</span></div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-black text-gray-600 mb-1">Admission Number *</label>
-                <input value={convertForm.admission_number} onChange={e=>setConvertForm(p=>({...p,admission_number:e.target.value}))}
-                  className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400 font-mono font-black" placeholder="e.g. ADM2026-001"/>
-              </div>
-              <div>
-                <label className="block text-xs font-black text-gray-600 mb-1">Stream / Class
-                  <span className="ml-1 text-gray-400 font-normal normal-case">(numbers show current students)</span>
-                </label>
-                <select value={convertForm.stream_id} onChange={e=>setConvertForm(p=>({...p,stream_id:e.target.value}))}
-                  className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400">
-                  <option value="">— Select Stream / Class —</option>
-                  {(()=>{
-                    // Match form by form_level using String() comparison — same as attendance page
-                    const matchForm = forms.find((f:any)=>String(f.form_level)===String(convertModal?.form_applied_for));
-                    // Filter streams by form_id using String() comparison
-                    const byForm = matchForm
-                      ? streams.filter((s:any)=>String(s.form_id)===String(matchForm.id))
-                      : streams;
-                    // Show matched streams, fall back to ALL streams if none matched
-                    const toShow = byForm.length > 0 ? byForm : streams;
-                    if(toShow.length===0) return <option disabled value="">No streams found in database</option>;
-                    return toShow.map((s:any)=>{
-                      const cnt = streamCounts[String(s.id)]||0;
-                      return(
-                        <option key={s.id} value={s.id}>
-                          {s.stream_name} — {cnt} student{cnt!==1?'s':''}
-                        </option>
-                      );
-                    });
-                  })()}
-                </select>
-                {convertForm.stream_id&&(()=>{
-                  const cnt=streamCounts[String(convertForm.stream_id)]||0;
-                  const clr=cnt>=40?'text-red-600 bg-red-50 border-red-200':cnt>=30?'text-amber-600 bg-amber-50 border-amber-200':'text-green-700 bg-green-50 border-green-200';
-                  return<p className={`text-[11px] font-bold mt-1.5 px-2.5 py-1 rounded-lg border ${clr}`}>
-                    {cnt>=40?'⚠️ Class full (40+)':cnt>=30?`⚡ ${cnt} students — getting full`:`✅ ${cnt} student${cnt!==1?'s':''} — space available`}
-                  </p>;
-                })()}
-              </div>
-              <div>
-                <label className="block text-xs font-black text-gray-600 mb-1">Reporting Date</label>
-                <input type="date" value={convertForm.reporting_date} onChange={e=>setConvertForm(p=>({...p,reporting_date:e.target.value}))}
-                  className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400"/>
-              </div>
-            </div>
-            <div className="p-5 border-t flex gap-3">
-              <button onClick={convertToStudent} disabled={saving||!convertForm.admission_number.trim()}
-                className="flex-1 py-3 font-black text-white rounded-2xl disabled:opacity-60"
-                style={{background:G.green}}>
-                {saving?'⏳ Admitting…':'🎓 Admit Student — Save to Database'}
-              </button>
-              <button onClick={()=>setConvertModal(null)} className="px-5 py-3 bg-gray-100 text-gray-600 rounded-2xl font-semibold text-sm">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   FULL DETAIL MODAL — PREMIUM TABBED VIEW
-══════════════════════════════════════════════════════════════════════════════ */
-function DetailModal({ app, onClose, onAction, onConvert }: {
-  app: Application;
-  onClose: () => void;
-  onAction: (app: Application, action: string) => void;
-  onConvert: (app: Application) => void;
-}) {
-  const [tab, setTab] = useState<'student'|'academic'|'guardian'|'medical'|'documents'>('student');
-  const ss = STATUS[app.status] || STATUS['Submitted'];
-
-  const Row = ({ icon, label, value, mono=false }: { icon?: React.ReactNode; label: string; value?: string|null|boolean; mono?: boolean }) => (
-    <div className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0">
-      {icon && <span className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</span>}
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{label}</p>
-        <p className={`text-sm font-semibold text-gray-800 mt-0.5 break-words ${mono?'font-mono':''}`}>
-          {value===true?'✅ Yes':value===false?'❌ No':value||'—'}
-        </p>
-      </div>
-    </div>
-  );
-
-  const DocBtn = ({ url, label, icon }: { url?: string|null; label: string; icon: string }) => (
-    <div className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all ${url?'border-blue-200 bg-blue-50':'border-gray-100 bg-gray-50 opacity-60'}`}>
-      <span className="text-2xl">{icon}</span>
-      <div className="flex-1">
-        <p className="text-xs font-black text-gray-700">{label}</p>
-        <p className="text-[10px] text-gray-400">{url?'Uploaded ✅':'Not uploaded'}</p>
-      </div>
-      {url&&(
-        <div className="flex gap-1.5">
-          <a href={url} target="_blank" rel="noopener noreferrer"
-            className="p-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition" title="View">
-            <FiExternalLink size={13}/>
-          </a>
-          <a href={url} download
-            className="p-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition" title="Download">
-            <FiDownload size={13}/>
-          </a>
-        </div>
-      )}
-    </div>
-  );
-
-  const TABS = [
-    {k:'student',   icon:'🎓', label:'Student'},
-    {k:'academic',  icon:'📚', label:'Academic'},
-    {k:'guardian',  icon:'👪', label:'Guardian'},
-    {k:'medical',   icon:'🏥', label:'Medical'},
-    {k:'documents', icon:'📄', label:'Documents'},
-  ] as const;
-
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center p-3 overflow-y-auto" style={{backdropFilter:'blur(4px)'}}>
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl my-4" onClick={e=>e.stopPropagation()}>
-
-        {/* Header */}
-        <div className="p-5 relative overflow-hidden" style={{background:G.dark}}>
-          <div className="absolute inset-0 opacity-5" style={{backgroundImage:'radial-gradient(circle at 1px 1px,#fff 1px,transparent 0)',backgroundSize:'20px 20px'}}/>
-          <div className="relative flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-lg flex-shrink-0"
-                style={{background:app.gender==='Female'?G.purple:G.blue}}>
-                {(app.student_first_name||'?')[0].toUpperCase()}
-              </div>
-              <div>
-                <p className="text-white font-black text-lg leading-tight">
-                  {[app.student_first_name,app.student_middle_name,app.student_last_name].filter(Boolean).join(' ')}
-                </p>
-                <p className="text-slate-400 text-xs font-mono mt-0.5">{app.reference_number}</p>
-                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-xl text-[11px] font-black border" style={{background:ss.bg,color:ss.text,borderColor:ss.border}}>
-                    {ss.icon} {app.status}
-                  </span>
-                  {app.converted_student_id&&<span className="px-2 py-0.5 rounded-xl text-[11px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200">🎓 ADMITTED</span>}
-                  {app.email_verified&&<span className="px-2 py-0.5 rounded-xl text-[11px] font-black bg-blue-900/30 text-blue-300 border border-blue-700/30">✉️ Email Verified</span>}
-                </div>
-              </div>
-            </div>
-            <button onClick={onClose} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition flex-shrink-0"><FiX size={18}/></button>
-          </div>
-          {/* Meta row */}
-          <div className="relative flex items-center gap-4 mt-4 text-xs text-slate-400 flex-wrap">
-            <span className="flex items-center gap-1"><FiCalendar size={11}/> Submitted: {fmtDT(app.created_at)}</span>
-            {app.reviewed_at&&<span className="flex items-center gap-1"><FiInfo size={11}/> Reviewed: {fmtDT(app.reviewed_at)}</span>}
-            {app.submitter_ip&&<span className="flex items-center gap-1"><FiShield size={11}/> IP: {app.submitter_ip}</span>}
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-0 border-b border-gray-100 bg-gray-50/50 overflow-x-auto">
-          {TABS.map(t=>(
-            <button key={t.k} onClick={()=>setTab(t.k)}
-              className={`px-4 py-3 text-xs font-black whitespace-nowrap transition-all border-b-2 flex items-center gap-1.5
-                ${tab===t.k?'border-blue-600 text-blue-700 bg-white':'border-transparent text-gray-500 hover:text-gray-700'}`}>
-              {t.icon} {t.label}
+        {/* ── Pagination Footer ── */}
+        <div className="p-3.5 px-5 bg-slate-50/80 border-t border-slate-200/90 flex items-center justify-between text-xs text-slate-500">
+          <p>
+            Showing Page <span className="font-bold text-slate-900">{page}</span> of{' '}
+            <span className="font-bold text-slate-900">{totalPages}</span> ({filteredApps.length} total entries)
+          </p>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none transition"
+            >
+              <FiChevronLeft size={14} />
             </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        <div className="p-5">
-
-          {/* ── STUDENT TAB ─────────────────────────────────────────────── */}
-          {tab==='student'&&(
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
-              <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">🧑 Personal Details</p>
-                <Row label="First Name"   value={app.student_first_name}/>
-                <Row label="Middle Name"  value={app.student_middle_name}/>
-                <Row label="Last Name"    value={app.student_last_name}/>
-                <Row label="Date of Birth" value={`${fmt(app.date_of_birth)} (${age(app.date_of_birth)})`}/>
-                <Row label="Gender"       value={app.gender}/>
-                <Row label="Nationality"  value={app.nationality||'Kenyan'}/>
-              </div>
-              <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">📍 Location</p>
-                <Row icon={<FiMapPin size={13}/>} label="County"        value={app.county}/>
-                <Row label="Sub-County"   value={app.sub_county}/>
-                <Row label="Village/Estate" value={app.village_estate}/>
-                {app.photo_url&&(
-                  <div className="mt-4">
-                    <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">📸 Student Photo</p>
-                    <img src={app.photo_url} alt="Student" className="w-24 h-24 rounded-2xl object-cover border-2 border-gray-200 shadow"/>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── ACADEMIC TAB ─────────────────────────────────────────────── */}
-          {tab==='academic'&&(
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
-              <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">📚 Admission</p>
-                <Row icon={<FiBook size={13}/>} label="Form Applied For"  value={formLabel(app.form_applied_for)}/>
-                <Row label="Previous School"   value={app.previous_school}/>
-                <Row label="Previous School County" value={app.previous_school_county}/>
-              </div>
-              <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">🏆 KCPE Details</p>
-                <Row icon={<FiAward size={13}/>} label="KCPE Index Number" value={app.kcpe_index_number} mono/>
-                <Row label="KCPE Total Marks"  value={app.kcpe_total_marks?`${app.kcpe_total_marks} / 500`:undefined}/>
-                <Row label="KCPE Year"         value={String(app.kcpe_year||'')||undefined}/>
-                {app.kcpe_total_marks&&(
-                  <div className="mt-3 p-3 rounded-xl" style={{
-                    background:app.kcpe_total_marks>=350?'#f0fdf4':app.kcpe_total_marks>=250?'#fefce8':'#fef2f2',
-                    border:`1px solid ${app.kcpe_total_marks>=350?'#bbf7d0':app.kcpe_total_marks>=250?'#fde68a':'#fecaca'}`
-                  }}>
-                    <p className="text-xs font-black" style={{color:app.kcpe_total_marks>=350?'#15803d':app.kcpe_total_marks>=250?'#a16207':'#b91c1c'}}>
-                      {app.kcpe_total_marks>=350?'🌟 Excellent performance':app.kcpe_total_marks>=250?'👍 Good performance':'📚 May need academic support'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── GUARDIAN TAB ─────────────────────────────────────────────── */}
-          {tab==='guardian'&&(
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
-              <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">👪 Parent / Guardian</p>
-                <Row icon={<FiUser size={13}/>}  label="Full Name"         value={app.guardian_full_name}/>
-                <Row label="Relationship"        value={app.guardian_relationship||'Parent'}/>
-                <Row icon={<FiPhone size={13}/>} label="Primary Phone"     value={app.guardian_phone}/>
-                <Row label="Alternative Phone"   value={app.guardian_alt_phone}/>
-                <Row icon={<FiMail size={13}/>}  label="Email"             value={app.guardian_email}/>
-                <Row label="National ID"         value={app.guardian_national_id} mono/>
-                <Row label="Occupation"          value={app.guardian_occupation}/>
-                <Row icon={<FiMapPin size={13}/>} label="Guardian County"  value={app.guardian_county}/>
-              </div>
-              <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">🆘 Emergency Contact</p>
-                <Row label="Contact Name"         value={app.emergency_name}/>
-                <Row icon={<FiPhone size={13}/>} label="Emergency Phone"   value={app.emergency_phone}/>
-                <Row label="Relationship"         value={app.emergency_relationship}/>
-                {app.review_notes&&(
-                  <div className="mt-4">
-                    <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">📝 Review Notes</p>
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                      <p className="text-sm text-amber-800">{app.review_notes}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── MEDICAL TAB ─────────────────────────────────────────────── */}
-          {tab==='medical'&&(
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
-              <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">🏥 Medical Information</p>
-                <Row icon={<FiHeart size={13}/>} label="Blood Group"       value={app.blood_group}/>
-                <Row label="Has Disability"      value={app.has_disability}/>
-                {app.has_disability&&<Row label="Disability Details" value={app.disability_details}/>}
-                <Row label="Allergies"           value={app.allergies}/>
-                <Row label="Medical Conditions"  value={app.medical_conditions}/>
-              </div>
-              <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">✅ Application Integrity</p>
-                <Row icon={<FiShield size={13}/>} label="Email Verified"   value={app.email_verified}/>
-                <Row label="Phone Verified"       value={app.phone_verified}/>
-                <Row label="Terms Agreed"         value={app.terms_agreed}/>
-                <Row label="Submitter IP"         value={app.submitter_ip} mono/>
-              </div>
-            </div>
-          )}
-
-          {/* ── DOCUMENTS TAB ─────────────────────────────────────────────── */}
-          {tab==='documents'&&(
-            <div className="space-y-3">
-              <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-3">📄 Uploaded Documents</p>
-              <DocBtn url={app.photo_url}      label="Student Passport Photo"   icon="📸"/>
-              <DocBtn url={app.birth_cert_url} label="Birth Certificate"        icon="📜"/>
-              <DocBtn url={app.kcpe_slip_url}  label="KCPE Result Slip"         icon="🏆"/>
-              <DocBtn url={app.other_doc_url}  label={app.other_doc_name||'Other Document'} icon="📎"/>
-              {!app.photo_url&&!app.birth_cert_url&&!app.kcpe_slip_url&&!app.other_doc_url&&(
-                <div className="text-center py-8">
-                  <p className="text-4xl mb-3">📂</p>
-                  <p className="text-sm font-bold text-gray-400">No documents uploaded yet</p>
-                  <p className="text-xs text-gray-300 mt-1">Documents can be submitted in person when the student reports</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer Actions */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-3xl flex gap-2 flex-wrap">
-          {!app.converted_student_id&&(
-            <>
-              {['Under Review','Approved','Rejected','Waitlisted'].map(act=>{
-                const s=STATUS[act];
-                return(
-                  <button key={act} onClick={()=>onAction(app,act)}
-                    className="px-3 py-2 rounded-xl text-xs font-black border transition-all hover:opacity-80"
-                    style={{background:s.bg,color:s.text,borderColor:s.border}}>
-                    {s.icon} {act}
-                  </button>
-                );
-              })}
-              {app.status==='Approved'&&(
-                <button onClick={()=>onConvert(app)}
-                  className="px-4 py-2 rounded-xl text-xs font-black text-white shadow-md hover:opacity-90 transition"
-                  style={{background:G.green}}>
-                  🎓 Admit Student
-                </button>
-              )}
-            </>
-          )}
-          {app.converted_student_id&&(
-            <span className="px-4 py-2 rounded-xl text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-200">
-              ✅ Student admitted to school system (ID: {app.converted_student_id})
-            </span>
-          )}
-          <button onClick={onClose} className="ml-auto px-5 py-2 bg-gray-200 text-gray-700 rounded-xl text-xs font-bold hover:bg-gray-300 transition">
-            Close
-          </button>
+            <span className="px-2 font-mono font-bold text-slate-800">{page}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:pointer-events-none transition"
+            >
+              <FiChevronRight size={14} />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* ── 6. Full Modals Suite ── */}
+
+      {/* Candidate Dossier Modal */}
+      {detailApp && (
+        <UltraAdmissionDetailModal
+          app={detailApp}
+          onClose={() => setDetailApp(null)}
+          onAction={(app, action) => {
+            setDetailApp(null);
+            setActionModal({ app, action });
+          }}
+          onConvert={(app) => {
+            setDetailApp(null);
+            setAdmitApp(app);
+          }}
+          onPrintCallingLetter={(app) => {
+            setDetailApp(null);
+            setCallingLetterApp(app);
+          }}
+        />
+      )}
+
+      {/* Status Decision Modal */}
+      {actionModal && (
+        <UltraAdmissionsActionModal
+          app={actionModal.app}
+          action={actionModal.action}
+          isOpen={true}
+          onClose={() => setActionModal(null)}
+          onSuccess={loadData}
+        />
+      )}
+
+      {/* Admit Student to Class Placement Modal */}
+      {admitApp && (
+        <UltraAdmitStudentModal
+          app={admitApp}
+          isOpen={true}
+          onClose={() => setAdmitApp(null)}
+          onSuccess={loadData}
+          forms={forms}
+          streams={streams}
+          streamCounts={streamCounts}
+        />
+      )}
+
+      {/* Calling Letter & Ministry Admission Offer Printable Modal */}
+      {callingLetterApp && (
+        <UltraCallingLetterModal
+          app={callingLetterApp}
+          isOpen={true}
+          onClose={() => setCallingLetterApp(null)}
+        />
+      )}
+
+      {/* Bulk Excel/CSV Importer Modal */}
+      <UltraAdmissionsImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onSuccess={loadData}
+      />
+
+      {/* Admissions QR Code Noticeboard Poster Modal */}
+      <UltraAdmissionsPosterModal
+        isOpen={isPosterOpen}
+        onClose={() => setIsPosterOpen(false)}
+      />
+
     </div>
   );
 }
