@@ -314,7 +314,7 @@ export function useUltraFeeCollect() {
     termId?: number;
     customReceiptNo?: string;
     paymentDate?: string;
-    selectedTermIds?: number[];
+    selectedTermIds?: (number | string)[];
   }) => {
     // ── Get next receipt number atomically from DB ──────────────────
     const receiptNo = data.customReceiptNo || await getNextReceiptNumber(supabase);

@@ -53,37 +53,39 @@ function KPICard({ label, value, sub, color, colorL, colorBd, icon, trend, onCli
   return (
     <div
       onClick={onClick}
-      style={{
-        background: '#fff',
-        border: `1.5px solid ${colorBd}`,
-        borderRadius: 18,
-        padding: '18px 20px',
-        position: 'relative',
-        overflow: 'hidden',
-        fontFamily: "'Inter','Outfit',sans-serif",
-        cursor: onClick ? 'pointer' : 'default',
-        boxShadow: '0 4px 20px rgba(20,50,120,0.04)',
-      }}
-      className="fee-kpi-card transition-all hover:-translate-y-1 hover:shadow-md"
+      className={`bg-white border rounded-xl p-2.5 shadow-2xs flex flex-col justify-between transition-all ${
+        onClick ? 'cursor-pointer hover:border-indigo-300 hover:shadow-xs' : ''
+      }`}
+      style={{ borderColor: colorBd || '#e2e8f0' }}
     >
-      <div style={{ position: 'absolute', top: -16, right: -16, width: 75, height: 75, borderRadius: '50%', background: color, opacity: 0.05 }} />
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 12, background: colorL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate mr-1">{label}</span>
+        <div
+          className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-xs"
+          style={{ background: colorL || '#f1f5f9' }}
+        >
           {icon}
         </div>
-        {trend !== undefined && (
-          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 99, background: trend >= 0 ? C.greenL : C.redL, color: trend >= 0 ? C.green : C.red }}>
-            {trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}%
-          </span>
-        )}
       </div>
-      <div style={{ fontSize: 10, fontWeight: 800, color, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
-        {label}
+      <div className="mt-1">
+        <div className="flex items-baseline justify-between gap-1">
+          <p className="text-sm font-extrabold font-mono tracking-tight" style={{ color: color || '#0f172a' }}>
+            {value}
+          </p>
+          {trend !== undefined && (
+            <span
+              className="text-[9px] font-bold px-1.5 py-0.2 rounded-full"
+              style={{
+                background: trend >= 0 ? C.greenL : C.redL,
+                color: trend >= 0 ? C.green : C.red,
+              }}
+            >
+              {trend >= 0 ? '▲' : '▼'}{Math.abs(trend)}%
+            </span>
+          )}
+        </div>
+        {sub && <p className="text-[9.5px] text-slate-400 font-medium truncate">{sub}</p>}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', lineHeight: 1.1, letterSpacing: '-0.025em', fontFamily: "'Outfit',sans-serif" }}>
-        {value}
-      </div>
-      {sub && <div style={{ fontSize: 10, color: C.slate, marginTop: 5, fontWeight: 500 }}>{sub}</div>}
     </div>
   );
 }
@@ -155,7 +157,10 @@ export default function FeeDashboardPage() {
 
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
-  const [schoolDetails, setSchoolDetails] = useState<any>({ school_name: 'APSIMS School', school_motto: 'Strive for Excellence' });
+  const [schoolDetails, setSchoolDetails] = useState<any>({
+    school_name: "ST. CATHERINE GIRL'S SCHOOL TEGAT",
+    school_motto: 'Excellence in Education',
+  });
   const [activeTab, setActiveTab] = useState<'overview' | 'curriculum' | 'ledger' | 'structures' | 'transactions' | 'defaulters' | 'modules'>('overview');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -177,7 +182,13 @@ export default function FeeDashboardPage() {
       const [{ data: inc }, { data: exp }, { data: det }] = await Promise.all([
         supabase.from('school_income').select('amount').eq('year', currentYear),
         supabase.from('school_expenses').select('amount,status').eq('year', currentYear),
-        supabase.from('school_details').select('*').single(),
+        supabase
+          .from('school_details')
+          .select('*')
+          .neq('section', 'primary')
+          .order('id', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
       ]);
       setTotalIncome((inc || []).reduce((s: number, i: any) => s + Number(i.amount || 0), 0));
       setTotalExpenses((exp || []).filter((e: any) => (e.status || 'approved') === 'approved').reduce((s: number, e: any) => s + Number(e.amount || 0), 0));
@@ -523,7 +534,7 @@ export default function FeeDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#edf3fb] pb-14 text-slate-800" style={{ fontFamily: "'Inter','Outfit',system-ui,sans-serif" }}>
+    <div className="space-y-3.5 pb-10 max-w-[1400px] mx-auto text-slate-800" style={{ fontFamily: "'Inter','Outfit',system-ui,sans-serif" }}>
       <Toaster position="top-right" />
 
       {/* ══════════════════════════════════════════════════════════════
@@ -531,9 +542,9 @@ export default function FeeDashboardPage() {
       ══════════════════════════════════════════════════════════════ */}
       <div className="hidden print:block p-8 bg-white border-b-2 border-slate-800 mb-6">
         <div className="text-center space-y-1">
-          <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">{schoolDetails.school_name || 'APSIMS School'}</h1>
-          <p className="text-xs font-bold text-slate-500 italic uppercase">"{schoolDetails.school_motto || 'Strive for Excellence'}"</p>
-          <p className="text-xs font-mono text-slate-700">P.O. BOX {schoolDetails.postal_address || '10100'}, {schoolDetails.county || 'KENYA'}</p>
+          <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">{schoolDetails.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT"}</h1>
+          <p className="text-xs font-bold text-slate-500 italic uppercase">"{schoolDetails.school_motto || 'Excellence in Education'}"</p>
+          <p className="text-xs font-mono text-slate-700">P.O. BOX {schoolDetails.postal_address || '112 BOMET'}, {schoolDetails.county || 'Bomet'}</p>
           <div className="border-t border-slate-300 pt-2 mt-2 flex justify-between text-xs font-bold text-slate-600">
             <span>OFFICIAL FINANCIAL LEDGER &amp; REVENUE SUMMARY</span>
             <span>ACADEMIC YEAR: {currentYear} · {currentTerm?.term_name || 'Term 3'}</span>
@@ -542,52 +553,43 @@ export default function FeeDashboardPage() {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════
-          TOP BANNER: EXECUTIVE CONTROLS, EXPORT & PRINT
-      ══════════════════════════════════════════════════════════════ */}
-      <div className="bg-white/90 backdrop-blur-xl border-b border-white/95 px-6 pt-5 pb-0 shadow-[0_4px_24px_rgba(20,50,120,0.06)] print:hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4">
+      {/* ═══ 1. COMPACT EXECUTIVE COMMAND HEADER (Light & Tight Like Fee Structure) ═══ */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs print:hidden">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           {/* Brand & Context */}
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white flex items-center justify-center text-2xl shadow-md flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-black text-lg shrink-0">
               💰
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-slate-900 tracking-tight font-sans">
-                  Financial Command Centre
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base font-extrabold text-slate-900 tracking-tight">
+                  Financial Command Centre &amp; Fees Desk
                 </h1>
-                <span className="px-2 py-0.5 text-[9px] font-black bg-blue-50 text-blue-700 border border-blue-200 rounded-full uppercase tracking-wider">
-                  Enterprise Fee Hub
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                  🏫 {schoolDetails.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT"}
                 </span>
-                <span className="px-2 py-0.5 text-[9px] font-black bg-purple-50 text-purple-700 border border-purple-200 rounded-full uppercase">
-                  CBC &amp; 8-4-4 Ready
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5 mt-1 text-[11px] font-medium text-slate-500 flex-wrap">
-                <span>{schoolDetails.school_name} · {currentYear} Financial Year</span>
                 {currentTerm && (
-                  <span className="flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>{currentTerm.term_name}</span>
+                    <span>{currentTerm.term_name} · {currentYear}</span>
                   </span>
                 )}
-                <span className="text-slate-400">·</span>
-                <span>👥 {activeStudents.length} Active Learners</span>
-                <span className="text-slate-400">·</span>
-                <span className={`px-2 py-0.5 rounded-full font-bold ${healthScore >= 75 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                  Fiscal Health: {healthScore}/100
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${healthScore >= 75 ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' : 'bg-amber-50 text-amber-700 border-amber-200/80'}`}>
+                  ⚡ Fiscal Health: {healthScore}/100
                 </span>
               </div>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                {activeStudents.length} Active Learners · CBC Senior &amp; 8-4-4 Dual-Track · Official Audit Stream
+              </p>
             </div>
           </div>
 
           {/* Super Premium Action Controls */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Quick Actions */}
             <Link
               href="/dashboard/fees/collect"
-              className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 transition-all"
+              className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-1.5 transition-all"
             >
               <FiDollarSign size={13} />
               <span>Collect Fee</span>
@@ -595,37 +597,34 @@ export default function FeeDashboardPage() {
 
             <Link
               href="/dashboard/fees/mpesa-push"
-              className="px-3 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center gap-1.5 transition-all"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 transition-all"
             >
               <FiCreditCard size={13} />
               <span>KCB / M-Pesa</span>
             </Link>
 
-            {/* Export Excel Button */}
             <button
               onClick={handleExportExcel}
-              className="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 shadow-xs flex items-center gap-1.5 transition-all"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
               title="Export complete fee ledger to Excel"
             >
               <FiDownload size={13} className="text-emerald-600" />
-              <span>Export Excel</span>
+              <span>Excel</span>
             </button>
 
-            {/* PDF Summary Print */}
             <button
               onClick={handlePrintSummary}
-              className="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 shadow-xs flex items-center gap-1.5 transition-all"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
               title="Print official fee summary sheet"
             >
               <FiPrinter size={13} className="text-blue-600" />
-              <span>Print Sheet</span>
+              <span>Print</span>
             </button>
 
-            {/* Live Sync */}
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 shadow-xs transition-all disabled:opacity-50"
+              className="p-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 shadow-xs transition-all disabled:opacity-50 cursor-pointer"
               title="Refresh database"
             >
               <FiRefreshCw size={13} className={refreshing ? 'animate-spin text-blue-600' : ''} />
@@ -633,49 +632,47 @@ export default function FeeDashboardPage() {
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════
-            CURRICULUM FILTER SWITCHER (GLOBAL DUAL-TRACK CONTROLLER)
-        ══════════════════════════════════════════════════════════════ */}
-        <div className="py-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-[10px] font-black uppercase text-slate-400 mr-1 flex items-center gap-1">
+        {/* ── Curriculum Filter Switcher & Workspace Tabs ── */}
+        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+          {/* Dual-Track Curriculum Filter */}
+          <div className="flex items-center gap-1 flex-wrap text-xs">
+            <span className="text-[10px] font-bold uppercase text-slate-400 mr-1 flex items-center gap-1">
               <FiFilter size={10} /> Track:
             </span>
             {[
-              { id: 'all', label: 'All Curricula', count: activeStudents.length, sum: totalCollected },
-              { id: '8-4-4', label: '8-4-4 System', count: studentsWithCurriculum.filter(s => s.systemTag === '8-4-4').length, sum: eightFourTotalCollected },
-              { id: 'cbc', label: 'CBC Senior School', count: studentsWithCurriculum.filter(s => s.systemTag === 'CBC Senior').length, sum: cbcTotalCollected },
-              { id: 'jss', label: 'Junior Secondary (JSS)', count: studentsWithCurriculum.filter(s => s.systemTag === 'JSS').length, sum: 0 },
+              { id: 'all', label: 'All Curricula', count: activeStudents.length },
+              { id: '8-4-4', label: '8-4-4 System', count: studentsWithCurriculum.filter(s => s.systemTag === '8-4-4').length },
+              { id: 'cbc', label: 'CBC Senior', count: studentsWithCurriculum.filter(s => s.systemTag === 'CBC Senior').length },
+              { id: 'jss', label: 'JSS (G7-9)', count: studentsWithCurriculum.filter(s => s.systemTag === 'JSS').length },
             ].map(tab => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => { setCurriculumFilter(tab.id as any); setLedgerPage(1); }}
-                className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
                   curriculumFilter === tab.id
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
                 }`}
               >
                 <span>{tab.label}</span>
-                <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${curriculumFilter === tab.id ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                <span className={`text-[9.5px] px-1 rounded-full font-mono ${curriculumFilter === tab.id ? 'bg-indigo-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
                   {tab.count}
                 </span>
               </button>
             ))}
           </div>
 
-          <div className="text-[11px] font-bold text-slate-600 flex items-center gap-3">
-            <span>8-4-4 Intake: <strong className="text-emerald-600 font-mono">{KESM(eightFourTotalCollected)}</strong></span>
+          {/* Quick Metrics Tag */}
+          <div className="text-[10.5px] font-bold text-slate-500 flex items-center gap-2">
+            <span>8-4-4: <strong className="text-emerald-700 font-mono">{KESM(eightFourTotalCollected)}</strong></span>
             <span>·</span>
-            <span>CBC Intake: <strong className="text-purple-600 font-mono">{KESM(cbcTotalCollected)}</strong></span>
+            <span>CBC: <strong className="text-purple-700 font-mono">{KESM(cbcTotalCollected)}</strong></span>
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════
-            ROUNDED PILL TABS STRIP
-        ══════════════════════════════════════════════════════════════ */}
-        <div className="flex gap-1 overflow-x-auto pt-2 border-t border-slate-100 text-xs font-bold">
+        {/* ── Workspace Tab Strip ── */}
+        <div className="mt-2.5 pt-2 border-t border-slate-100 flex gap-1 overflow-x-auto text-xs font-bold">
           {[
             { key: 'overview', label: '📊 Overview & Velocity' },
             { key: 'curriculum', label: '🏫 CBC & 8-4-4 Analysis' },
@@ -688,10 +685,10 @@ export default function FeeDashboardPage() {
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key as any)}
-              className={`px-4 py-2.5 rounded-t-xl transition-all whitespace-nowrap text-xs font-bold border-b-2 ${
+              className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap text-[11px] font-bold cursor-pointer ${
                 activeTab === t.key
-                  ? 'text-blue-700 border-blue-600 bg-blue-50/50 font-black'
-                  : 'text-slate-500 border-transparent hover:text-slate-800'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
               {t.label}
@@ -703,17 +700,17 @@ export default function FeeDashboardPage() {
       {/* ══════════════════════════════════════════════════════════════
           BODY CONTENT
       ══════════════════════════════════════════════════════════════ */}
-      <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+      <div className="space-y-3.5">
 
         {/* Alert strip for outstanding arrears */}
         {totalOutstanding > 500000 && (
-          <div className="bg-white/90 backdrop-blur-xl border border-rose-200 border-l-4 border-l-rose-500 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4 flex-wrap print:hidden">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-                <FiAlertTriangle size={18} />
+          <div className="bg-white border border-rose-200 border-l-4 border-l-rose-500 rounded-xl p-3 shadow-2xs flex items-center justify-between gap-3 flex-wrap print:hidden">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <FiAlertTriangle size={15} />
               </div>
               <div>
-                <span className="text-xs font-black text-rose-900 uppercase">Attention Required: </span>
+                <span className="text-xs font-extrabold text-rose-900 uppercase">Attention Required: </span>
                 <span className="text-xs text-rose-800">
                   {studentsOwing} students currently hold outstanding arrears totalling <strong className="font-mono">{KES(totalOutstanding)}</strong>. Current recovery rate is <strong className="font-mono">{collectionRate}%</strong>.
                 </span>
@@ -722,7 +719,7 @@ export default function FeeDashboardPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setActiveTab('defaulters')}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+                className="px-3 py-1 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs cursor-pointer"
               >
                 Launch Defaulter Recovery →
               </button>
@@ -734,9 +731,9 @@ export default function FeeDashboardPage() {
             TAB 1: OVERVIEW & INTAKE VELOCITY
         ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* 8 Metric KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="space-y-3.5">
+            {/* 8 Metric Fine Compact KPI Cards (Matching Fee Structure HUD) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
               <KPICard
                 label="Fee Revenue"
                 value={KES(totalCollected)}
@@ -744,7 +741,7 @@ export default function FeeDashboardPage() {
                 color={C.green}
                 colorL={C.greenL}
                 colorBd={C.greenBd}
-                sub={`${payments.length} verified transactions`}
+                sub={`${payments.length} verified txns`}
               />
               <KPICard
                 label="Annual Expected"
@@ -753,16 +750,16 @@ export default function FeeDashboardPage() {
                 color={C.indigo}
                 colorL={C.indigoL}
                 colorBd={C.indigoBd}
-                sub={`${filteredStudents.length} active registered learners`}
+                sub={`${filteredStudents.length} active learners`}
               />
               <KPICard
-                label="Outstanding Arrears"
+                label="Arrears Due"
                 value={KES(totalOutstanding)}
                 icon="⏳"
                 color={totalOutstanding > 0 ? C.red : C.green}
                 colorL={totalOutstanding > 0 ? C.redL : C.greenL}
                 colorBd={totalOutstanding > 0 ? C.redBd : C.greenBd}
-                sub={`${studentsOwing} students with balance due`}
+                sub={`${studentsOwing} owing learners`}
               />
               <KPICard
                 label="Collection Rate"
@@ -771,7 +768,7 @@ export default function FeeDashboardPage() {
                 color={collectionRate >= 70 ? C.green : collectionRate >= 40 ? C.amber : C.red}
                 colorL={collectionRate >= 70 ? C.greenL : collectionRate >= 40 ? C.amberL : C.redL}
                 colorBd={collectionRate >= 70 ? C.greenBd : collectionRate >= 40 ? C.amberBd : C.redBd}
-                sub={`${studentsCleared} students 100% cleared`}
+                sub={`${studentsCleared} 100% cleared`}
               />
               <KPICard
                 label="Today's Intake"
@@ -780,7 +777,7 @@ export default function FeeDashboardPage() {
                 color={C.teal}
                 colorL={C.tealL}
                 colorBd={C.tealBd}
-                sub={`${todayPays.length} payments recorded today`}
+                sub={`${todayPays.length} recorded today`}
               />
               <KPICard
                 label="Daily Velocity"
@@ -789,7 +786,7 @@ export default function FeeDashboardPage() {
                 color={C.blue}
                 colorL={C.blueL}
                 colorBd={C.blueBd}
-                sub={`Projected: ${KESM(projected)} / month`}
+                sub={`Proj: ${KESM(projected)}/mo`}
               />
               <KPICard
                 label="CBC Senior Intake"
@@ -798,16 +795,16 @@ export default function FeeDashboardPage() {
                 color={C.purple}
                 colorL={C.purpleL}
                 colorBd={C.purpleBd}
-                sub="Grade 10 Senior School fees"
+                sub="Grade 10 senior levies"
               />
               <KPICard
-                label="8-4-4 Secondary Intake"
+                label="8-4-4 Intake"
                 value={KES(eightFourTotalCollected)}
                 icon="🎓"
                 color={C.green}
                 colorL={C.greenL}
                 colorBd={C.greenBd}
-                sub="Form 1 - Form 4 secondary fees"
+                sub="Form 1 - Form 4 secondary"
               />
             </div>
 
@@ -1210,24 +1207,24 @@ export default function FeeDashboardPage() {
                 </Link>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {structures.map(fs => {
                   const f = forms.find(fm => fm.id === fs.form_id);
                   const isCbc = f?.education_system?.includes('CBC') || f?.form_name?.includes('Grade');
                   return (
-                    <div key={fs.id} className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200 hover:bg-slate-50 transition-all">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-black text-slate-900 text-xs font-sans">
+                    <div key={fs.id} className="p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-indigo-300 shadow-2xs flex flex-col justify-between transition-all">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-extrabold text-slate-900 text-xs">
                           {fs.vote_head_name || fs.category || 'Tuition'}
                         </span>
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${isCbc ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                        <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full ${isCbc ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
                           {f ? `${f.form_name}` : 'All Classes'}
                         </span>
                       </div>
-                      <div className="text-xl font-black text-slate-900 font-mono mt-2">
+                      <div className="text-base font-extrabold text-slate-900 font-mono">
                         {KES(fs.amount)}
                       </div>
-                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-200 text-[10px] text-slate-500">
+                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-slate-500">
                         <span>Term {fs.term_id || 'All'} · Year {fs.year || currentYear}</span>
                         <span className="font-bold text-slate-700">{isCbc ? 'CBC Levies' : '8-4-4 Standard'}</span>
                       </div>
@@ -1310,23 +1307,30 @@ export default function FeeDashboardPage() {
         ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'defaulters' && (
           <div className="space-y-6">
-            {/* Aging Risk Buckets */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            {/* Aging Risk Buckets (Fine Compact Cards) */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
               {[
-                { label: 'Current (0–30d)', val: aging.d0, color: C.green, bg: C.greenL },
-                { label: 'Overdue 31–60d', val: aging.d30, color: C.amber, bg: C.amberL },
-                { label: 'Overdue 61–90d', val: aging.d60, color: '#ea580c', bg: '#fff7ed' },
-                { label: 'Overdue 91–180d', val: aging.d90, color: C.red, bg: C.redL },
-                { label: 'Critical 180d+', val: aging.d180, color: '#7f1d1d', bg: '#fef2f2' },
+                { label: 'Current (0–30d)', val: aging.d0, color: C.green, bg: C.greenL, bd: C.greenBd },
+                { label: 'Overdue 31–60d', val: aging.d30, color: C.amber, bg: C.amberL, bd: C.amberBd },
+                { label: 'Overdue 61–90d', val: aging.d60, color: '#ea580c', bg: '#fff7ed', bd: '#fed7aa' },
+                { label: 'Overdue 91–180d', val: aging.d90, color: C.red, bg: C.redL, bd: C.redBd },
+                { label: 'Critical 180d+', val: aging.d180, color: '#7f1d1d', bg: '#fef2f2', bd: '#fecaca' },
               ].map((b, i) => (
-                <div key={i} className="p-4 rounded-2xl border" style={{ background: b.bg, borderColor: `${b.color}35` }}>
-                  <span className="text-[10px] font-black uppercase tracking-wider block mb-1" style={{ color: b.color }}>
-                    {b.label}
-                  </span>
-                  <div className="text-xl font-black font-mono text-slate-900">{KES(b.val)}</div>
-                  <span className="text-[10px] text-slate-500 mt-1 block">
-                    {b.val > 0 ? `${pct(b.val, totalOutstanding)}% of arrears` : 'Cleared'}
-                  </span>
+                <div key={i} className="bg-white border rounded-xl p-2.5 shadow-2xs flex flex-col justify-between" style={{ borderColor: b.bd }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: b.color }}>
+                      {b.label}
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold" style={{ background: b.bg, color: b.color }}>
+                      {b.val > 0 ? `${pct(b.val, totalOutstanding)}%` : '0%'}
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <p className="text-sm font-extrabold font-mono text-slate-900 tracking-tight">{KES(b.val)}</p>
+                    <p className="text-[9.5px] text-slate-400 font-medium truncate">
+                      {b.val > 0 ? `${pct(b.val, totalOutstanding)}% of arrears` : 'Fully cleared'}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1452,10 +1456,10 @@ export default function FeeDashboardPage() {
                   <Link
                     key={i}
                     href={m.href}
-                    className="p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-blue-300 hover:shadow-md transition-all flex flex-col items-center text-center gap-2 group"
+                    className="p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-indigo-400 hover:shadow-xs transition-all flex flex-col items-center text-center gap-1.5 group"
                   >
-                    <span className="text-2xl group-hover:scale-110 transition-transform">{m.icon}</span>
-                    <span className="text-[11px] font-bold text-slate-700 leading-tight group-hover:text-blue-700">
+                    <span className="text-xl group-hover:scale-110 transition-transform">{m.icon}</span>
+                    <span className="text-[10.5px] font-bold text-slate-700 leading-tight group-hover:text-indigo-700">
                       {m.label}
                     </span>
                   </Link>
