@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { autoDistributePayment } from '@/lib/feeDistribution';
 import { getNextReceiptNumber } from '@/lib/receiptNumber';
 
-export const fmt = (n: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(n);
+export const fmt = (n: number) => `KES ${Math.round(n || 0).toLocaleString('en-KE')}`;
 
 export const PAYMENT_METHODS = ['Cash', 'M-Pesa', 'Bank Transfer', 'Cheque', 'In-Kind'] as const;
 export type PayMethod = typeof PAYMENT_METHODS[number];

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast, { Toaster } from 'react-hot-toast';
+import { exportUltraFeeLedgerExcel } from '@/components/fees/UltraFeeLedgerExport';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement,
   LineElement, PointElement, Title, Tooltip, Legend, Filler, RadialLinearScale,
@@ -172,7 +173,8 @@ export default function FeeDashboardPage() {
   const [ledgerStatusFilter, setLedgerStatusFilter] = useState<'all' | 'cleared' | 'partial' | 'owing'>('all');
   const [ledgerFormFilter, setLedgerFormFilter] = useState<string>('all');
   const [ledgerPage, setLedgerPage] = useState(1);
-  const pageSize = 10;
+  const [ledgerPageSize, setLedgerPageSize] = useState(10);
+  const pageSize = ledgerPageSize;
 
   // Transactions Tab Search & Pagination
   const [txSearch, setTxSearch] = useState('');
@@ -395,37 +397,42 @@ export default function FeeDashboardPage() {
   }, [filteredStudents]);
 
   /* ══════════════════════════════════════════════════════════════
-     EXCEL EXPORT (CSV UTF-8 BOM for perfect Excel compatibility)
+     ENTERPRISE MULTI-SHEET EXCEL WORKBOOK EXPORT
   ══════════════════════════════════════════════════════════════ */
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     try {
-      const headers = ['Adm No', 'Student Name', 'Curriculum System', 'Class / Grade', 'Stream', 'Annual Expected (KES)', 'Total Paid (KES)', 'Balance Owed (KES)', 'Recovery Rate (%)', 'Status', 'Guardian Phone'];
-      const rows = ledgerFiltered.map(s => [
-        `"${s.admission_number || s.admission_no || ''}"`,
-        `"${s.first_name || ''} ${s.last_name || ''}"`,
-        `"${s.systemTag}"`,
-        `"${s.formName}"`,
-        `"${s.streamName}"`,
-        s.annualTotal,
-        s.totalPaid,
-        s.balance,
-        `${s.rate}%`,
-        s.status.toUpperCase(),
-        `"${s.guardian_phone || ''}"`,
-      ]);
-
-      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `APSIMS_Fee_Ledger_${currentYear}_${curriculumFilter.toUpperCase()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('Fee Ledger exported to Excel (.csv) successfully! 📊');
+      const toastId = toast.loading('Generating enterprise 3-sheet Excel workbook with official letterhead...');
+      await exportUltraFeeLedgerExcel({
+        schoolName: schoolDetails?.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT",
+        schoolMotto: schoolDetails?.school_motto || "Excellence in Education",
+        termName: `Academic Year ${currentYear}`,
+        students: ledgerFiltered.map((s) => ({
+          admission_number: s.admission_number || s.admission_no,
+          first_name: s.first_name,
+          last_name: s.last_name,
+          formName: s.formName,
+          streamName: s.streamName,
+          systemTag: s.systemTag,
+          annualTotal: s.annualTotal,
+          totalPaid: s.totalPaid,
+          balance: s.balance,
+          rate: s.rate,
+          guardian_phone: s.guardian_phone,
+        })),
+        classSummaries: formCollection.map((fc) => ({
+          formName: fc.name,
+          systemTag: fc.system,
+          studentCount: fc.students,
+          expected: fc.expected,
+          collected: fc.collected,
+          arrears: fc.balance,
+          recoveryRate: fc.rate,
+        })),
+      });
+      toast.success('Official 3-sheet Excel workbook exported with registered school branding! ✓', { id: toastId });
     } catch (err: any) {
-      toast.error('Failed to export ledger: ' + err.message);
+      console.error('Excel Export Error:', err);
+      toast.error('Failed to export Excel workbook: ' + (err?.message || 'Error occurred'));
     }
   };
 
@@ -737,29 +744,56 @@ export default function FeeDashboardPage() {
           </div>
         </div>
 
-        {/* ── Workspace Tab Strip ── */}
-        <div className="mt-2.5 pt-2 border-t border-slate-100 flex gap-1 overflow-x-auto text-xs font-bold">
-          {[
-            { key: 'overview', label: '📊 Overview & Velocity' },
-            { key: 'curriculum', label: '🏫 CBC & 8-4-4 Analysis' },
-            { key: 'ledger', label: '📋 Student Fee Ledger' },
-            { key: 'structures', label: '🏗️ Fee Structures' },
-            { key: 'transactions', label: '📲 Live Transactions' },
-            { key: 'defaulters', label: '🚨 Defaulters Recovery' },
-            { key: 'modules', label: '🗂️ All 30 Modules' },
-          ].map(t => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key as any)}
-              className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap text-[11px] font-bold cursor-pointer ${
-                activeTab === t.key
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
+        {/* ── Super Ultra-Premium Studio Segmented Tab Strip ── */}
+        <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 gap-1 overflow-x-auto text-xs">
+            {[
+              { key: 'overview', label: '📊 Overview & Velocity', badge: 'Live', badgeBg: 'bg-emerald-100 text-emerald-800' },
+              { key: 'curriculum', label: '🏫 Dual-Track CBC & 8-4-4', badge: `${studentsWithCurriculum.length}`, badgeBg: 'bg-purple-100 text-purple-800' },
+              { key: 'ledger', label: '📋 Student Fee Ledger', badge: `${activeStudents.length}`, badgeBg: 'bg-indigo-100 text-indigo-800' },
+              { key: 'structures', label: '🏗️ Fee Structures', badge: 'Studio', badgeBg: 'bg-sky-100 text-sky-800' },
+              { key: 'transactions', label: '📲 Live Transactions', badge: `${payments.length}`, badgeBg: 'bg-emerald-100 text-emerald-800' },
+              { key: 'defaulters', label: '🚨 Defaulters Recovery', badge: `${studentsOwing}`, badgeBg: 'bg-rose-100 text-rose-800' },
+              { key: 'modules', label: '🗂️ All 30 Modules', badge: '30', badgeBg: 'bg-slate-200 text-slate-700' },
+            ].map(t => {
+              const active = activeTab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveTab(t.key as any)}
+                  className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap text-[11px] font-bold flex items-center gap-1.5 cursor-pointer ${
+                    active
+                      ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-sm shadow-indigo-500/25 font-extrabold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                  }`}
+                >
+                  <span>{t.label}</span>
+                  <span
+                    className={`text-[9.5px] font-mono px-1.5 py-0.2 rounded-full font-black ${
+                      active ? 'bg-white/20 text-white' : t.badgeBg
+                    }`}
+                  >
+                    {t.badge}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Link
+              href="/dashboard/fees/payments"
+              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center gap-1 shadow-2xs transition cursor-pointer"
             >
-              {t.label}
-            </button>
-          ))}
+              <span>⚡ Payments Studio</span>
+            </Link>
+            <Link
+              href="/dashboard/fees/structure"
+              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center gap-1 shadow-2xs transition cursor-pointer"
+            >
+              <span>🏗️ Structure Studio</span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -768,28 +802,22 @@ export default function FeeDashboardPage() {
       ══════════════════════════════════════════════════════════════ */}
       <div className="space-y-3.5">
 
-        {/* Alert strip for outstanding arrears */}
+        {/* Compact Low-Profile Alert Strip */}
         {totalOutstanding > 500000 && (
-          <div className="bg-white border border-rose-200 border-l-4 border-l-rose-500 rounded-xl p-3 shadow-2xs flex items-center justify-between gap-3 flex-wrap print:hidden">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <FiAlertTriangle size={15} />
-              </div>
-              <div>
-                <span className="text-xs font-extrabold text-rose-900 uppercase">Attention Required: </span>
-                <span className="text-xs text-rose-800">
-                  {studentsOwing} students currently hold outstanding arrears totalling <strong className="font-mono">{KES(totalOutstanding)}</strong>. Current recovery rate is <strong className="font-mono">{collectionRate}%</strong>.
-                </span>
-              </div>
-            </div>
+          <div className="bg-rose-50/80 border border-rose-200/90 rounded-xl py-2 px-3.5 shadow-2xs flex items-center justify-between gap-3 flex-wrap print:hidden text-xs">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setActiveTab('defaulters')}
-                className="px-3 py-1 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs cursor-pointer"
-              >
-                Launch Defaulter Recovery →
-              </button>
+              <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping shrink-0" />
+              <span className="font-extrabold text-rose-900 uppercase text-[10.5px]">Arrears Alert:</span>
+              <span className="text-rose-800 text-[11px]">
+                <strong>{studentsOwing}</strong> learners hold outstanding arrears totalling <strong className="font-mono">{KES(totalOutstanding)}</strong> ({collectionRate}% recovery rate).
+              </span>
             </div>
+            <button
+              onClick={() => setActiveTab('defaulters')}
+              className="px-2.5 py-1 rounded-lg text-[10.5px] font-extrabold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition cursor-pointer shrink-0"
+            >
+              Defaulter Recovery →
+            </button>
           </div>
         )}
 
@@ -1102,129 +1130,248 @@ export default function FeeDashboardPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════
-            TAB 3: SEARCHABLE & PAGINATED STUDENT FEE LEDGER
+            TAB 3: SUPER ULTRA-PREMIUM STUDENT FEE LEDGER STUDIO
         ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'ledger' && (
-          <div className="space-y-4">
-            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
-              {/* Filter controls */}
-              <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-2.5 flex-1 min-w-[240px]">
-                  <div className="relative flex-1">
-                    <FiSearch className="absolute left-3.5 top-3 text-slate-400" size={13} />
+          <div className="space-y-3.5 fade-in">
+            {/* Side-to-Side Functions Directly on Top of Data Grid */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs space-y-2.5">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+                {/* Left Side: Search Bar + Live Status Filter Pills + Class Selector */}
+                <div className="flex items-center gap-2 flex-wrap flex-1">
+                  {/* Search Bar */}
+                  <div className="relative flex-1 min-w-[220px]">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
                     <input
                       type="text"
-                      placeholder="Search student by name, admission no, or phone..."
+                      placeholder="Search student by name, admission no, or phone... (Ctrl+F)"
                       value={ledgerSearch}
-                      onChange={e => { setLedgerSearch(e.target.value); setLedgerPage(1); }}
-                      className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:border-blue-400 focus:ring-2 focus:ring-blue-50 outline-none transition-all placeholder:text-slate-400"
+                      onChange={(e) => {
+                        setLedgerSearch(e.target.value);
+                        setLedgerPage(1);
+                      }}
+                      className="w-full pl-8 pr-7 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50/70 focus:bg-white outline-none transition"
                     />
+                    {ledgerSearch && (
+                      <button
+                        onClick={() => {
+                          setLedgerSearch('');
+                          setLedgerPage(1);
+                        }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Status filter */}
-                  <select
-                    value={ledgerStatusFilter}
-                    onChange={e => { setLedgerStatusFilter(e.target.value as any); setLedgerPage(1); }}
-                    className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white outline-none cursor-pointer"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="cleared">✅ Cleared (Paid in Full)</option>
-                    <option value="partial">⚠️ Partial Payments</option>
-                    <option value="owing">🚨 In Arrears (Owing)</option>
-                  </select>
+                  {/* Status Filter Pills */}
+                  {[
+                    { id: 'all', label: 'All', count: filteredStudents.length },
+                    { id: 'cleared', label: '✅ Cleared', count: studentsCleared },
+                    { id: 'partial', label: '⚠️ Partial', count: filteredStudents.filter((s) => s.status === 'partial').length },
+                    { id: 'owing', label: '🚨 In Arrears', count: studentsOwing },
+                  ].map((p) => {
+                    const active = ledgerStatusFilter === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setLedgerStatusFilter(p.id as any);
+                          setLedgerPage(1);
+                        }}
+                        className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          active
+                            ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-2xs font-extrabold'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        <span>{p.label}</span>
+                        <span
+                          className={`text-[9.5px] font-mono px-1.5 py-0.2 rounded-full font-black ${
+                            active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {p.count}
+                        </span>
+                      </button>
+                    );
+                  })}
 
-                  {/* Form filter */}
+                  {/* Class / Form Dropdown */}
                   <select
                     value={ledgerFormFilter}
-                    onChange={e => { setLedgerFormFilter(e.target.value); setLedgerPage(1); }}
-                    className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white outline-none cursor-pointer"
+                    onChange={(e) => {
+                      setLedgerFormFilter(e.target.value);
+                      setLedgerPage(1);
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
                   >
                     <option value="all">All Classes</option>
-                    {forms.map(f => (
+                    {forms.map((f) => (
                       <option key={f.id} value={String(f.id)}>
                         {f.form_name} ({f.education_system || '8-4-4'})
                       </option>
                     ))}
                   </select>
+                </div>
 
-                  {/* Export Excel */}
+                {/* Right Side: Live Volume Metrics Cockpit + Rows Selector + Excel Exporter */}
+                <div className="flex items-center gap-2.5 flex-wrap shrink-0 justify-between lg:justify-end">
+                  {/* Volume Cockpit Badges */}
+                  <div className="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200/80 px-2.5 py-1.5 rounded-xl">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Expected:</span>
+                    <span className="font-extrabold font-mono text-slate-800">{KESM(totalExpected)}</span>
+                    <span className="text-slate-300">|</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Paid:</span>
+                    <span className="font-extrabold font-mono text-emerald-700">{KESM(totalCollected)}</span>
+                    <span className="text-slate-300">|</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Arrears:</span>
+                    <span className="font-extrabold font-mono text-rose-700">{KESM(totalOutstanding)}</span>
+                  </div>
+
+                  {/* Rows Per Page Selector (Default 10 per user constraint) */}
+                  <select
+                    value={ledgerPageSize}
+                    onChange={(e) => {
+                      setLedgerPageSize(Number(e.target.value));
+                      setLedgerPage(1);
+                    }}
+                    className="px-2 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white outline-none cursor-pointer"
+                    title="Rows per page (strictly compact)"
+                  >
+                    {[10, 15, 25].map((n) => (
+                      <option key={n} value={n}>
+                        {n} rows / page
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Enterprise Multi-Sheet Excel Exporter */}
                   <button
                     onClick={handleExportExcel}
-                    className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 flex items-center gap-1.5 transition-all"
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                    title="Export 3-Sheet Enterprise Excel Workbook with St. Catherine Letterhead"
                   >
-                    <FiDownload size={12} />
-                    <span>Export Excel</span>
+                    <FiDownload size={13} />
+                    <span>Export Excel Workbook</span>
                   </button>
                 </div>
               </div>
+            </div>
 
-              {/* Data Table */}
+            {/* Elevated Datagrid Table */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                      <th className="py-3 px-4">Adm No</th>
-                      <th className="py-3 px-4">Student Name</th>
-                      <th className="py-3 px-4">Class &amp; Track</th>
-                      <th className="py-3 px-4 text-right">Expected (KES)</th>
-                      <th className="py-3 px-4 text-right">Paid (KES)</th>
-                      <th className="py-3 px-4 text-right">Balance Due</th>
-                      <th className="py-3 px-4 text-center">Status</th>
-                      <th className="py-3 px-4 text-center print:hidden">Action</th>
+                    <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                      <th className="py-2.5 px-3.5">Learner Profile</th>
+                      <th className="py-2.5 px-3">Class &amp; Track</th>
+                      <th className="py-2.5 px-3 text-right">Annual Expected</th>
+                      <th className="py-2.5 px-3 text-right">Total Paid</th>
+                      <th className="py-2.5 px-3 text-right">Balance Due</th>
+                      <th className="py-2.5 px-3 text-center">Settlement Status</th>
+                      <th className="py-2.5 px-3 text-center print:hidden">Clearance Voucher</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {paginatedLedger.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-400 text-xs">
+                        <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
                           No students matching your filter criteria.
                         </td>
                       </tr>
                     ) : (
-                      paginatedLedger.map(st => {
-                        const statusColor = st.balance === 0 ? 'bg-emerald-100 text-emerald-800' : st.totalPaid > 0 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800';
+                      paginatedLedger.map((st) => {
+                        const statusColor =
+                          st.balance === 0
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : st.totalPaid > 0
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : 'bg-rose-50 text-rose-800 border-rose-200';
                         const statusLabel = st.balance === 0 ? 'CLEARED' : st.totalPaid > 0 ? 'PARTIAL' : 'IN ARREARS';
+                        const isCbc = st.systemTag.includes('CBC') || st.systemTag === 'JSS';
+                        const initials = `${st.first_name?.[0] || ''}${st.last_name?.[0] || ''}`.toUpperCase() || 'S';
+
                         return (
-                          <tr key={st.id} className="hover:bg-blue-50/30 transition-colors">
-                            <td className="py-3 px-4 font-mono font-bold text-slate-600">
-                              {st.admission_number || st.admission_no || '—'}
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="font-black text-slate-900 text-xs">
-                                {st.first_name} {st.last_name}
-                              </div>
-                              {st.guardian_phone && (
-                                <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
-                                  <FiPhone size={9} /> {st.guardian_phone}
+                          <tr key={st.id} className="hover:bg-slate-50/80 transition-colors">
+                            {/* Learner Avatar & Name */}
+                            <td className="py-2.5 px-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <div
+                                  className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 ${
+                                    isCbc
+                                      ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                      : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                                  }`}
+                                >
+                                  {initials}
                                 </div>
-                              )}
+                                <div>
+                                  <div className="font-extrabold text-slate-900 text-xs leading-snug">
+                                    {st.first_name} {st.last_name}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+                                    <span>Adm: {st.admission_number || st.admission_no || '—'}</span>
+                                    {st.guardian_phone && (
+                                      <>
+                                        <span>·</span>
+                                        <a
+                                          href={`tel:${st.guardian_phone}`}
+                                          className="text-slate-500 hover:text-indigo-600 flex items-center gap-0.5"
+                                        >
+                                          <FiPhone size={9} /> {st.guardian_phone}
+                                        </a>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                             </td>
-                            <td className="py-3 px-4">
-                              <div className="font-bold text-slate-700">{st.formName}</div>
-                              <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded">
+
+                            {/* Class & Curriculum Track */}
+                            <td className="py-2.5 px-3">
+                              <div className="font-bold text-slate-800">{st.formName} {st.streamName}</div>
+                              <span
+                                className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full border inline-block mt-0.5 ${
+                                  isCbc
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}
+                              >
                                 {st.systemTag}
                               </span>
                             </td>
-                            <td className="py-3 px-4 text-right font-mono font-bold text-slate-600">
+
+                            {/* Annual Expected */}
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-700">
                               {KES(st.annualTotal)}
                             </td>
-                            <td className="py-3 px-4 text-right font-mono font-black text-emerald-600">
+
+                            {/* Total Paid */}
+                            <td className="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-600">
                               {KES(st.totalPaid)}
                             </td>
-                            <td className="py-3 px-4 text-right font-mono font-black" style={{ color: st.balance > 0 ? C.red : C.green }}>
+
+                            {/* Balance Due */}
+                            <td className="py-2.5 px-3 text-right font-mono font-black" style={{ color: st.balance > 0 ? C.red : C.green }}>
                               {KES(st.balance)}
                             </td>
-                            <td className="py-3 px-4 text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${statusColor}`}>
+
+                            {/* Status Chip */}
+                            <td className="py-2.5 px-3 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold border ${statusColor}`}>
                                 {statusLabel}
                               </span>
                             </td>
-                            <td className="py-3 px-4 text-center print:hidden">
+
+                            {/* Clearance Voucher */}
+                            <td className="py-2.5 px-3 text-center print:hidden">
                               <button
                                 onClick={() => openClearanceVoucher(st)}
-                                className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white border border-slate-200 hover:border-blue-300 text-blue-600 hover:bg-blue-50 transition-all shadow-xs flex items-center gap-1 mx-auto"
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white border border-slate-200 hover:border-indigo-300 text-indigo-700 hover:bg-indigo-50 transition shadow-2xs flex items-center gap-1 mx-auto cursor-pointer"
                                 title="Print Official Fee Clearance Voucher"
                               >
                                 <FiPrinter size={11} />
@@ -1239,29 +1386,49 @@ export default function FeeDashboardPage() {
                 </table>
               </div>
 
-              {/* Pagination Bar */}
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span>
-                  Showing {ledgerFiltered.length > 0 ? (ledgerPage - 1) * pageSize + 1 : 0} to {Math.min(ledgerPage * pageSize, ledgerFiltered.length)} of {ledgerFiltered.length} students
+              {/* Compact 10-Row Pagination Bar */}
+              <div className="p-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 bg-slate-50/50">
+                <span className="text-[11px] font-medium">
+                  Showing <strong>{ledgerFiltered.length > 0 ? (ledgerPage - 1) * pageSize + 1 : 0}</strong> to{' '}
+                  <strong>{Math.min(ledgerPage * pageSize, ledgerFiltered.length)}</strong> of{' '}
+                  <strong>{ledgerFiltered.length.toLocaleString()}</strong> learners
                 </span>
 
-                <div className="flex items-center gap-1.5 font-bold">
+                <div className="flex items-center gap-1 font-bold">
                   <button
-                    onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
+                    onClick={() => setLedgerPage(1)}
                     disabled={ledgerPage === 1}
-                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition-all"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-30 transition cursor-pointer"
+                    title="First page"
                   >
-                    <FiChevronLeft size={13} />
+                    «
                   </button>
-                  <span className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono">
+                  <button
+                    onClick={() => setLedgerPage((p) => Math.max(1, p - 1))}
+                    disabled={ledgerPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-30 transition cursor-pointer"
+                    title="Previous page"
+                  >
+                    ‹
+                  </button>
+                  <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-mono font-extrabold text-slate-800">
                     Page {ledgerPage} / {totalLedgerPages}
                   </span>
                   <button
-                    onClick={() => setLedgerPage(p => Math.min(totalLedgerPages, p + 1))}
+                    onClick={() => setLedgerPage((p) => Math.min(totalLedgerPages, p + 1))}
                     disabled={ledgerPage === totalLedgerPages}
-                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition-all"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-30 transition cursor-pointer"
+                    title="Next page"
                   >
-                    <FiChevronRight size={13} />
+                    ›
+                  </button>
+                  <button
+                    onClick={() => setLedgerPage(totalLedgerPages)}
+                    disabled={ledgerPage === totalLedgerPages}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-30 transition cursor-pointer"
+                    title="Last page"
+                  >
+                    »
                   </button>
                 </div>
               </div>
@@ -1692,63 +1859,138 @@ export default function FeeDashboardPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════
-            TAB 7: ALL 30 FINANCIAL MODULES HUB
+            TAB 7: ALL 30 FINANCIAL MODULES HUB (FINE LOW-PROFILE CARDS)
         ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'modules' && (
-          <div className="space-y-4">
-            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-5 shadow-[0_4px_24px_rgba(20,50,120,0.06)]">
-              <div className="mb-4">
-                <h3 className="text-sm font-black text-slate-900 tracking-tight">
-                  APSIMS Financial Suite — All 30 Integrated Modules
-                </h3>
-                <p className="text-[10px] text-slate-400 font-medium">
-                  Direct navigation to specialized billing, ledger, capitation, auditing, and accounting sub-systems
-                </p>
+          <div className="space-y-4 fade-in">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 flex-wrap gap-2">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <span>APSIMS Financial Suite</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      30 Specialized Modules
+                    </span>
+                  </h3>
+                  <p className="text-[10.5px] text-slate-400 font-medium mt-0.5">
+                    Categorized sub-systems for cashier settlement, fee vote heads, recovery, banking, and executive reporting
+                  </p>
+                </div>
+                <div className="text-[11px] font-bold text-slate-500">
+                  Registered School: <strong className="text-indigo-700">ST. CATHERINE GIRL'S SCHOOL TEGAT</strong>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {/* 5 Categorized Executive Workflow Suites */}
+              <div className="space-y-4">
                 {[
-                  { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💵', color: C.green },
-                  { label: 'Outstanding', href: '/dashboard/fees/outstanding', icon: '⏳', color: C.amber },
-                  { label: 'Payments List', href: '/dashboard/fees/payments', icon: '📋', color: C.blue },
-                  { label: 'Fee Structure', href: '/dashboard/fees/structure', icon: '🏗️', color: C.purple },
-                  { label: 'Statements', href: '/dashboard/fees/statements', icon: '📄', color: '#0891b2' },
-                  { label: 'Receipts', href: '/dashboard/fees/receipts', icon: '🧾', color: C.amber },
-                  { label: 'KCB Buni Push', href: '/dashboard/fees/mpesa-push', icon: '📱', color: C.green },
-                  { label: 'Fee Defaulters', href: '/dashboard/fees/defaulters', icon: '🚨', color: C.red },
-                  { label: 'Budget Module', href: '/dashboard/fees/budget', icon: '📊', color: C.blue },
-                  { label: 'Projections', href: '/dashboard/fees/projections', icon: '🔮', color: C.purple },
-                  { label: 'Board Report', href: '/dashboard/fees/reports/board', icon: '👔', color: '#0f172a' },
-                  { label: 'Export Centre', href: '/dashboard/fees/exports', icon: '📤', color: C.slate },
-                  { label: 'Bank Recon', href: '/dashboard/fees/bank-reconciliation', icon: '🏦', color: '#0c4a6e' },
-                  { label: 'Vote Ledger', href: '/dashboard/fees/vote-heads/ledger', icon: '📓', color: C.purple },
-                  { label: 'Capitation', href: '/dashboard/fees/capitation', icon: '🏫', color: C.green },
-                  { label: 'Notifications', href: '/dashboard/fees/notifications', icon: '🔔', color: '#713f12' },
-                  { label: 'P&L Statement', href: '/dashboard/fees/pl-statement', icon: '📈', color: C.red },
-                  { label: 'Trial Balance', href: '/dashboard/fees/trial-balance', icon: '⚖️', color: C.indigo },
-                  { label: 'Balance Sheet', href: '/dashboard/fees/balance-sheet', icon: '🏛️', color: C.blue },
-                  { label: 'Cash Book', href: '/dashboard/fees/cashbook', icon: '📓', color: C.teal },
-                  { label: 'Fee Analytics', href: '/dashboard/fees/analytics', icon: '🔬', color: C.indigo },
-                  { label: 'Bursary', href: '/dashboard/fees/bursary', icon: '🎓', color: C.pink },
-                  { label: 'Fee Waiver', href: '/dashboard/fees/fee-waiver', icon: '🎁', color: '#c026d3' },
-                  { label: 'Approvals', href: '/dashboard/fees/approval-workflow', icon: '✅', color: C.amber },
-                  { label: 'Audit Trail', href: '/dashboard/fees/audit', icon: '🔒', color: C.slate },
-                  { label: 'Demand Letters', href: '/dashboard/fees/demand-letters', icon: '✉️', color: C.red },
-                  { label: 'Reminders', href: '/dashboard/fees/reminder-scheduler', icon: '⏰', color: C.purple },
-                  { label: 'Govt Returns', href: '/dashboard/fees/government-returns', icon: '🏛️', color: '#1e293b' },
-                  { label: 'Bulk SMS/WA', href: '/dashboard/fees/bulk-reminders', icon: '📢', color: C.purple },
-                  { label: 'Aging Buckets', href: '/dashboard/fees/arrears-aging', icon: '📅', color: '#ea580c' },
-                ].map((m, i) => (
-                  <Link
-                    key={i}
-                    href={m.href}
-                    className="p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-indigo-400 hover:shadow-xs transition-all flex flex-col items-center text-center gap-1.5 group"
-                  >
-                    <span className="text-xl group-hover:scale-110 transition-transform">{m.icon}</span>
-                    <span className="text-[10.5px] font-bold text-slate-700 leading-tight group-hover:text-indigo-700">
-                      {m.label}
-                    </span>
-                  </Link>
+                  {
+                    title: 'Cashier Intake & Rapid Billing',
+                    icon: '💳',
+                    badge: '6 Sub-Systems',
+                    badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                    modules: [
+                      { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💵', desc: 'Single student rapid fee settlement' },
+                      { label: 'Payments Studio', href: '/dashboard/fees/payments', icon: '📋', desc: 'Official payment history & register' },
+                      { label: 'KCB Buni Push', href: '/dashboard/fees/mpesa-push', icon: '📱', desc: 'Direct M-Pesa STK push prompt' },
+                      { label: 'Receipts Register', href: '/dashboard/fees/receipts', icon: '🧾', desc: '80mm thermal & A4 vouchers' },
+                      { label: 'Student Statements', href: '/dashboard/fees/statements', icon: '📄', desc: 'Full student fee statement' },
+                      { label: 'Cashier Cashbook', href: '/dashboard/fees/cashbook', icon: '📓', desc: 'Daily shift cashbook & drawer' },
+                    ],
+                  },
+                  {
+                    title: 'Fee Structures & Vote Heads',
+                    icon: '🏗️',
+                    badge: '6 Sub-Systems',
+                    badgeBg: 'bg-purple-50 text-purple-700 border-purple-200',
+                    modules: [
+                      { label: 'Fee Structures Studio', href: '/dashboard/fees/structure', icon: '🏗️', desc: 'Circular-compliant fee schedules' },
+                      { label: 'Vote Head Ledger', href: '/dashboard/fees/vote-heads/ledger', icon: '📓', desc: 'Accounts & vote allocation rules' },
+                      { label: 'Budget Module', href: '/dashboard/fees/budget', icon: '📊', desc: 'Termly school budget vs actuals' },
+                      { label: 'Fee Projections', href: '/dashboard/fees/projections', icon: '🔮', desc: 'Annual cashflow & fee forecasts' },
+                      { label: 'Fee Waivers', href: '/dashboard/fees/fee-waiver', icon: '🎁', desc: 'Principal & hardship exemptions' },
+                      { label: 'Approval Workflow', href: '/dashboard/fees/approval-workflow', icon: '✅', desc: 'Multi-level financial approvals' },
+                    ],
+                  },
+                  {
+                    title: 'Defaulters, Recovery & Arrears Aging',
+                    icon: '🚨',
+                    badge: '6 Sub-Systems',
+                    badgeBg: 'bg-rose-50 text-rose-700 border-rose-200',
+                    modules: [
+                      { label: 'Outstanding Arrears', href: '/dashboard/fees/outstanding', icon: '⏳', desc: 'Learners owing fee balances' },
+                      { label: 'Fee Defaulters Hub', href: '/dashboard/fees/defaulters', icon: '🚨', desc: 'Prioritized arrears collection' },
+                      { label: 'Arrears Aging Buckets', href: '/dashboard/fees/arrears-aging', icon: '📅', desc: '30, 60, 90+ day aging risk' },
+                      { label: 'Demand Letters Suite', href: '/dashboard/fees/demand-letters', icon: '✉️', desc: 'Formal payment demand letters' },
+                      { label: 'Automated Reminders', href: '/dashboard/fees/reminder-scheduler', icon: '⏰', desc: 'Scheduled SMS reminders' },
+                      { label: 'Bulk SMS / WhatsApp', href: '/dashboard/fees/bulk-reminders', icon: '📢', desc: 'Mass parent payment broadcast' },
+                    ],
+                  },
+                  {
+                    title: 'Bank Reconciliation & Subsidies',
+                    icon: '🏦',
+                    badge: '6 Sub-Systems',
+                    badgeBg: 'bg-sky-50 text-sky-700 border-sky-200',
+                    modules: [
+                      { label: 'Bank Recon Studio', href: '/dashboard/fees/bank-reconciliation', icon: '🏦', desc: 'Bank statement auto-matching' },
+                      { label: 'MoE FDSE Capitation', href: '/dashboard/fees/capitation', icon: '🏫', desc: 'Government capitation allocation' },
+                      { label: 'Bursary & Grants', href: '/dashboard/fees/bursary', icon: '🎓', desc: 'CDF & County affirmative bursaries' },
+                      { label: 'Govt Returns & NEMIS', href: '/dashboard/fees/government-returns', icon: '🏛️', desc: 'Ministry of Education returns' },
+                      { label: 'Audit Trail', href: '/dashboard/fees/audit', icon: '🔒', desc: 'Immutable ledger audit log' },
+                      { label: 'Event Notifications', href: '/dashboard/fees/notifications', icon: '🔔', desc: 'Financial alert notifications' },
+                    ],
+                  },
+                  {
+                    title: 'Executive Financial Intelligence & Reporting',
+                    icon: '📊',
+                    badge: '6 Sub-Systems',
+                    badgeBg: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                    modules: [
+                      { label: 'Board Report', href: '/dashboard/fees/reports/board', icon: '👔', desc: 'Executive BOG/PTA financial brief' },
+                      { label: 'P&L Statement', href: '/dashboard/fees/pl-statement', icon: '📈', desc: 'Income & expenditure statement' },
+                      { label: 'Trial Balance', href: '/dashboard/fees/trial-balance', icon: '⚖️', desc: 'Double-entry trial balance' },
+                      { label: 'Balance Sheet', href: '/dashboard/fees/balance-sheet', icon: '🏛️', desc: 'Assets & liabilities snapshot' },
+                      { label: 'Fee Analytics', href: '/dashboard/fees/analytics', icon: '🔬', desc: 'Multi-year collection trends' },
+                      { label: 'Export Centre', href: '/dashboard/fees/exports', icon: '📤', desc: 'Multi-format document generation' },
+                    ],
+                  },
+                ].map((group, gIdx) => (
+                  <div key={gIdx} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">{group.icon}</span>
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                          {group.title}
+                        </span>
+                      </div>
+                      <span className={`text-[9.5px] font-bold px-2 py-0.2 rounded-full border ${group.badgeBg}`}>
+                        {group.badge}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                      {group.modules.map((m, mIdx) => (
+                        <Link
+                          key={mIdx}
+                          href={m.href}
+                          className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-200/80 hover:bg-white hover:border-indigo-400 hover:shadow-2xs transition-all flex flex-col justify-between group cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-base group-hover:scale-110 transition-transform">{m.icon}</span>
+                            <span className="text-[10px] text-slate-400 group-hover:text-indigo-600 transition">→</span>
+                          </div>
+                          <div>
+                            <div className="text-[11px] font-extrabold text-slate-900 group-hover:text-indigo-700 leading-tight">
+                              {m.label}
+                            </div>
+                            <div className="text-[9px] text-slate-400 font-medium mt-0.5 line-clamp-1">
+                              {m.desc}
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

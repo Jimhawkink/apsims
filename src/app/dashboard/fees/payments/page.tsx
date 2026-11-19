@@ -158,6 +158,12 @@ export default function UltraPaymentsPage() {
     fetchAll,
   } = useUltraFeeCollect();
 
+  // ── Client Mount Guard (Eliminates SSR/Client Hydration Mismatches) ──
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // ── School Identity (Direct DB Settings) ──
   const [schoolDetails, setSchoolDetails] = useState<any>(null);
 
@@ -182,6 +188,7 @@ export default function UltraPaymentsPage() {
   // ── Intelligent Term Resolver (Guarantees Term is Never Blank!) ──
   const resolvePaymentTerm = useCallback(
     (p: any): { id: number; name: string } => {
+      if (!p) return { id: 1, name: 'Term 1' };
       // 1. Direct term_id match
       if (p.term_id) {
         const match = terms.find((t) => Number(t.id) === Number(p.term_id));
@@ -1032,6 +1039,29 @@ export default function UltraPaymentsPage() {
       schoolName: schoolDetails?.school_name || settings?.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT",
     });
   };
+
+  if (!mounted) {
+    return (
+      <div className="space-y-4 pb-10 max-w-[1400px] mx-auto animate-pulse">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">💳</div>
+            <div>
+              <div className="h-4 w-48 bg-slate-200 rounded"></div>
+              <div className="h-3 w-64 bg-slate-100 rounded mt-1.5"></div>
+            </div>
+          </div>
+          <div className="h-8 w-60 bg-slate-100 rounded-xl"></div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-white border border-slate-100 rounded-xl p-3 h-20"></div>
+          ))}
+        </div>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 h-96"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3.5 pb-10 max-w-[1400px] mx-auto text-slate-800">
