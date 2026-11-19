@@ -743,55 +743,78 @@ export default function FeeDashboardPage() {
             <span>CBC: <strong className="text-purple-700 font-mono">{KESM(cbcTotalCollected)}</strong></span>
           </div>
         </div>
+      </div>
 
-        {/* ── Super Ultra-Premium Studio Segmented Tab Strip ── */}
-        <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 gap-1 overflow-x-auto text-xs">
+      {/* ═══ 2. STANDALONE ULTRA-PREMIUM WORKSPACE TAB BAR (MATCHING DASHBOARD/SETTINGS) ═══ */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-2 print:hidden">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          {/* Main Studio Navigation Tabs */}
+          <div className="flex gap-1.5 flex-wrap items-center">
             {[
-              { key: 'overview', label: '📊 Overview & Velocity', badge: 'Live', badgeBg: 'bg-emerald-100 text-emerald-800' },
-              { key: 'curriculum', label: '🏫 Dual-Track CBC & 8-4-4', badge: `${studentsWithCurriculum.length}`, badgeBg: 'bg-purple-100 text-purple-800' },
-              { key: 'ledger', label: '📋 Student Fee Ledger', badge: `${activeStudents.length}`, badgeBg: 'bg-indigo-100 text-indigo-800' },
-              { key: 'structures', label: '🏗️ Fee Structures', badge: 'Studio', badgeBg: 'bg-sky-100 text-sky-800' },
-              { key: 'transactions', label: '📲 Live Transactions', badge: `${payments.length}`, badgeBg: 'bg-emerald-100 text-emerald-800' },
-              { key: 'defaulters', label: '🚨 Defaulters Recovery', badge: `${studentsOwing}`, badgeBg: 'bg-rose-100 text-rose-800' },
-              { key: 'modules', label: '🗂️ All 30 Modules', badge: '30', badgeBg: 'bg-slate-200 text-slate-700' },
-            ].map(t => {
+              { key: 'overview', label: 'Overview & Velocity', icon: '📊', count: 0, badge: 'Live' },
+              { key: 'curriculum', label: 'CBC & 8-4-4 Dual-Track', icon: '🏫', count: formCollection.length, badge: '' },
+              { key: 'ledger', label: 'Student Fee Ledger', icon: '📋', count: activeStudents.length, badge: '' },
+              { key: 'structures', label: 'Fee Structures', icon: '🏗️', count: structures.length, badge: '' },
+              { key: 'transactions', label: 'Live Transactions', icon: '📲', count: payments.length, badge: '' },
+              { key: 'defaulters', label: 'Defaulters Recovery', icon: '🚨', count: studentsOwing, badge: studentsOwing > 0 ? 'Action' : '' },
+              { key: 'modules', label: 'All 30 Modules', icon: '⚡', count: 30, badge: 'Suite' },
+            ].map((t) => {
               const active = activeTab === t.key;
               return (
                 <button
                   key={t.key}
+                  type="button"
                   onClick={() => setActiveTab(t.key as any)}
-                  className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap text-[11px] font-bold flex items-center gap-1.5 cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
                     active
-                      ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-sm shadow-indigo-500/25 font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-bold'
                   }`}
                 >
+                  <span className="text-sm">{t.icon}</span>
                   <span>{t.label}</span>
-                  <span
-                    className={`text-[9.5px] font-mono px-1.5 py-0.2 rounded-full font-black ${
-                      active ? 'bg-white/20 text-white' : t.badgeBg
-                    }`}
-                  >
-                    {t.badge}
-                  </span>
+                  {t.count > 0 && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[9.5px] font-mono font-black min-w-[18px] text-center ${
+                        active ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {t.count}
+                    </span>
+                  )}
+                  {t.badge && !t.count && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                        active ? 'bg-white/25 text-white' : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {t.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
+          {/* Quick Studio Nav Links */}
           <div className="flex items-center gap-1.5 shrink-0">
             <Link
-              href="/dashboard/fees/payments"
-              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center gap-1 shadow-2xs transition cursor-pointer"
+              href="/dashboard/fees/vote-heads"
+              className="px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-extrabold flex items-center gap-1 shadow-2xs transition"
             >
-              <span>⚡ Payments Studio</span>
+              <span>⚡ Vote Heads Studio</span>
+            </Link>
+            <Link
+              href="/dashboard/fees/payments"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-extrabold flex items-center gap-1 shadow-2xs transition"
+            >
+              <span>💳 Payments</span>
             </Link>
             <Link
               href="/dashboard/fees/structure"
-              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center gap-1 shadow-2xs transition cursor-pointer"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-extrabold flex items-center gap-1 shadow-2xs transition"
             >
-              <span>🏗️ Structure Studio</span>
+              <span>🏗️ Structures</span>
             </Link>
           </div>
         </div>
