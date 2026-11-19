@@ -1,919 +1,1645 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { useFeeData, fmt, useVoteHeads } from '../useFeeData';
+import { exportUltraStructureExcel } from '@/components/fees/UltraStructureExport';
+import { UltraStructureCharts } from '@/components/fees/UltraStructureCharts';
+import { printOfficialFeeCircular } from '@/components/fees/UltraFeeStructurePrint';
 
 import {
-  FiGrid, FiPlus, FiEdit2, FiTrash2, FiSave, FiX, FiDollarSign,
-  FiArrowLeft, FiSearch, FiDownload, FiRefreshCw, FiCopy,
-  FiTrendingUp, FiFilter, FiChevronUp, FiChevronDown, FiLayers,
-  FiPercent, FiCheckSquare, FiAlertTriangle,
+  FiGrid,
+  FiPlus,
+  FiEdit2,
+  FiTrash2,
+  FiSave,
+  FiX,
+  FiDollarSign,
+  FiArrowLeft,
+  FiSearch,
+  FiDownload,
+  FiRefreshCw,
+  FiCopy,
+  FiTrendingUp,
+  FiFilter,
+  FiLayers,
+  FiPercent,
+  FiPrinter,
+  FiCalendar,
+  FiCheck,
+  FiFileText,
+  FiSliders,
 } from 'react-icons/fi';
 
-// ─── Sparkline mini-chart ─────────────────────────────────────────
-function Spark({ values, color = '#6366f1', h = 32, w = 80 }: { values: number[]; color?: string; h?: number; w?: number }) {
-  if (values.length < 2) return <div style={{ width: w, height: h }} />;
-  const mn = Math.min(...values), mx = Math.max(...values), rng = mx - mn || 1;
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * (w - 4) + 2;
-    const y = h - 4 - ((v - mn) / rng) * (h - 8);
-    return `${x},${y}`;
-  }).join(' ');
-  const fill = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * (w - 4) + 2;
-    const y = h - 4 - ((v - mn) / rng) * (h - 8);
-    return `${x},${y}`;
-  });
-  const fillPath = `M ${fill[0]} ${fill.slice(1).map(p => 'L ' + p).join(' ')} L ${(values.length - 1) / (values.length - 1) * (w - 4) + 2},${h - 2} L 2,${h - 2} Z`;
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
-      <defs>
-        <linearGradient id={`sg-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-      <path d={fillPath} fill={`url(#sg-${color.replace('#', '')})`} />
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={fill[fill.length - 1].split(',')[0]} cy={fill[fill.length - 1].split(',')[1]} r="3" fill={color} />
-    </svg>
-  );
+// ── Curriculum Track Categorizer ───────────────────────────────────────────
+function getCurriculumTrack(formName: string): { track: string; badgeColor: string; bg: string; border: string } {
+  const f = formName.toLowerCase();
+  if (f.includes('grade 10') || f.includes('grade 11') || f.includes('grade 12') || f.includes('senior')) {
+    return { track: 'CBC Senior', badgeColor: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' };
+  }
+  if (f.includes('form 1') || f.includes('form 2') || f.includes('form 3') || f.includes('form 4')) {
+    return { track: '8-4-4 High', badgeColor: '#0284c7', bg: '#f0f9ff', border: '#bae6fd' };
+  }
+  if (f.includes('grade 7') || f.includes('grade 8') || f.includes('grade 9') || f.includes('jss')) {
+    return { track: 'JSS (CBC)', badgeColor: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
+  }
+  if (f.includes('grade 1') || f.includes('grade 2') || f.includes('grade 3') || f.includes('grade 4') || f.includes('grade 5') || f.includes('grade 6')) {
+    return { track: 'Primary CBC', badgeColor: '#d97706', bg: '#fffbeb', border: '#fde68a' };
+  }
+  if (f.includes('pp 1') || f.includes('pp 2') || f.includes('pp1') || f.includes('pp2') || f.includes('playgroup')) {
+    return { track: 'Pre-Primary', badgeColor: '#7c3aed', bg: '#faf5ff', border: '#e9d5ff' };
+  }
+  return { track: 'General (All)', badgeColor: '#475569', bg: '#f8fafc', border: '#e2e8f0' };
 }
 
-// ─── KPI Card ─────────────────────────────────────────────────────
-function KpiCard({ icon, label, value, sub, trend, sparkValues, color, bg, border }: {
-  icon: React.ReactNode; label: string; value: string; sub?: string;
-  trend?: number; sparkValues?: number[]; color: string; bg: string; border: string;
-}) {
-  const trendUp = (trend ?? 0) >= 0;
-  return (
-    <div style={{
-      background: '#fff', borderRadius: 20, border: `1.5px solid ${border}`,
-      padding: '18px 20px', boxShadow: `0 4px 24px ${color}18`,
-      display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', overflow: 'hidden',
-    }}>
-      {/* Glow blob */}
-      <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: bg, opacity: 0.6 }} />
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', position: 'relative' }}>
-        <div>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color, fontSize: 18, marginBottom: 10, border: `1px solid ${border}` }}>
-            {icon}
-          </div>
-          <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{label}</p>
-          <p style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', margin: '4px 0 0', letterSpacing: '-0.5px' }}>{value}</p>
-          {sub && <p style={{ fontSize: 11, color: '#64748b', margin: '2px 0 0', fontWeight: 500 }}>{sub}</p>}
-        </div>
-        {sparkValues && sparkValues.length >= 2 && (
-          <Spark values={sparkValues} color={color} h={36} w={80} />
-        )}
-      </div>
-      {trend !== undefined && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 8, background: trendUp ? '#f0fdf4' : '#fef2f2', width: 'fit-content' }}>
-          <span style={{ color: trendUp ? '#10b981' : '#ef4444', fontSize: 11, fontWeight: 700 }}>
-            {trendUp ? '↑' : '↓'} {Math.abs(trend)}%
-          </span>
-          <span style={{ fontSize: 10, color: '#94a3b8' }}>vs last term</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-type SortDir = 'asc' | 'desc';
+type TabType = 'ledger' | 'matrix' | 'cloning' | 'circular';
 type SortKey = 'category' | 'amount' | 'form_id' | 'term_id' | 'year';
+type SortDir = 'asc' | 'desc';
 
-const FORM_COLORS = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b'];
-const FORM_BG    = ['#eef2ff', '#ecfeff', '#f0fdf4', '#fffbeb'];
-
-export default function FeeStructurePage() {
+export default function UltraFeeStructurePage() {
   const { forms, structures, terms, loading, fetchAll, getFormName } = useFeeData();
-  // Live vote heads from DB — used in the category dropdown (priority order)
   const { voteHeadNames } = useVoteHeads();
 
+  // School live settings from DB
+  const [schoolDetails, setSchoolDetails] = useState<any>(null);
+  const [schoolSettings, setSchoolSettings] = useState<any>(null);
+  const [loadingSchool, setLoadingSchool] = useState(true);
 
-  // Modal state
-  const [showModal, setShowModal]     = useState(false);
-  const [editId, setEditId]           = useState<number | null>(null);
-  const [form, setForm]               = useState<any>({ category: '', amount: '', term_id: '', form_id: '', description: '', year: new Date().getFullYear() });
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabType>('ledger');
 
-  // Grid state
-  const [search, setSearch]           = useState('');
-  const [filterForm, setFilterForm]   = useState('all');
-  const [filterTerm, setFilterTerm]   = useState('all');
-  const [filterYear, setFilterYear]   = useState('all');
-  const [sortKey, setSortKey]         = useState<SortKey>('category');
-  const [sortDir, setSortDir]         = useState<SortDir>('asc');
-  const [page, setPage]               = useState(1);
+  // Modal states
+  const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [formState, setFormState] = useState<any>({
+    category: '',
+    amount: '',
+    term_id: '',
+    form_id: '',
+    description: '',
+    year: new Date().getFullYear(),
+  });
+
+  // Grid filter states
+  const [search, setSearch] = useState('');
+  const [curriculumFilter, setCurriculumFilter] = useState<'all' | 'cbc_senior' | '844' | 'jss' | 'primary' | 'preprimary' | 'general'>('all');
+  const [filterForm, setFilterForm] = useState('all');
+  const [filterTerm, setFilterTerm] = useState('all');
+  const [filterYear, setFilterYear] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [sortKey, setSortKey] = useState<SortKey>('category');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  // Pagination (Default reduced to 10 rows per page to prevent UI lag)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [pageSize]                    = useState(15);
 
-  // Tools state
-  const [showBulkCopy, setShowBulkCopy]   = useState(false);
-  const [showIncModal, setShowIncModal]   = useState(false);
-  const [copyFromTerm, setCopyFromTerm]   = useState('');
-  const [copyToTerm, setCopyToTerm]       = useState('');
-  const [increaseType, setIncreaseType]   = useState<'pct' | 'flat'>('pct');
-  const [increaseVal, setIncreaseVal]     = useState('');
+  // Tools states
+  const [showBulkCopy, setShowBulkCopy] = useState(false);
+  const [showIncModal, setShowIncModal] = useState(false);
+  const [copyFromTerm, setCopyFromTerm] = useState('');
+  const [copyToTerm, setCopyToTerm] = useState('');
+  const [copyInflationPct, setCopyInflationPct] = useState('0');
+  const [increaseType, setIncreaseType] = useState<'pct' | 'flat'>('pct');
+  const [increaseVal, setIncreaseVal] = useState('');
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
-  const currentTerm = useMemo(() => terms.find(t => t.is_current), [terms]);
+  // Matrix Tab State
+  const [matrixSelectedForm, setMatrixSelectedForm] = useState<string>('all');
 
-  // ── Set a term as current ──
-  const handleSetCurrentTerm = useCallback(async (termId: number) => {
-    try {
-      // Unset all terms
-      await supabase.from('school_terms').update({ is_current: false }).neq('id', 0);
-      // Set selected term as current
-      await supabase.from('school_terms').update({ is_current: true }).eq('id', termId);
-      toast.success('Current term updated! Refreshing...', { icon: '📅' });
-      fetchAll();
-    } catch (e: any) {
-      toast.error('Failed to update term: ' + e.message);
+  // Fetch school details
+  useEffect(() => {
+    async function loadSchoolData() {
+      try {
+        const [detRes, setRes] = await Promise.all([
+          supabase.from('school_details').select('*').limit(1).maybeSingle(),
+          supabase.from('school_settings').select('*').limit(1).maybeSingle(),
+        ]);
+        if (detRes.data) setSchoolDetails(detRes.data);
+        if (setRes.data) setSchoolSettings(setRes.data);
+      } catch (err) {
+        console.error('Failed to load school details:', err);
+      } finally {
+        setLoadingSchool(false);
+      }
     }
-  }, [fetchAll]);
+    loadSchoolData();
+  }, []);
 
-  // All unique years from structures
-  const years = useMemo(() => [...new Set(structures.map(s => s.year).filter(Boolean))].sort((a, b) => b - a), [structures]);
+  const registeredSchoolName = useMemo(() => {
+    return schoolDetails?.school_name || schoolSettings?.school_name || 'SUNSHINE ACADEMY';
+  }, [schoolDetails, schoolSettings]);
 
-  // Sparkline data per form (amount trend across terms)
-  const sparkData = useMemo(() => {
-    const sorted = [...terms].sort((a, b) => (a.year - b.year) || (a.term_number - b.term_number));
-    return forms.map(f => ({
-      id: f.id,
-      values: sorted.map(t =>
-        structures.filter(s => (s.form_id === f.id || !s.form_id) && (s.term_id === t.id || !s.term_id)).reduce((a, b) => a + Number(b.amount || 0), 0)
-      ),
-    }));
-  }, [forms, terms, structures]);
+  const currentTerm = useMemo(() => terms.find((t) => t.is_current), [terms]);
 
-  // Filtered + sorted structures
+  // Set term as active current
+  const handleSetCurrentTerm = useCallback(
+    async (termId: number) => {
+      try {
+        await supabase.from('school_terms').update({ is_current: false }).neq('id', 0);
+        await supabase.from('school_terms').update({ is_current: true }).eq('id', termId);
+        toast.success('Active school term updated!', { icon: '📅' });
+        fetchAll();
+      } catch (e: any) {
+        toast.error('Failed to update term: ' + e.message);
+      }
+    },
+    [fetchAll]
+  );
+
+  // All unique academic years
+  const years = useMemo(() => {
+    return [...new Set(structures.map((s) => s.year).filter(Boolean))].sort((a, b) => Number(b) - Number(a));
+  }, [structures]);
+
+  // All unique vote head categories
+  const categories = useMemo(() => {
+    return [...new Set(structures.map((s) => s.category).filter(Boolean))].sort();
+  }, [structures]);
+
+  // ── FILTERED DATA ──────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
-    let d = structures.filter(s => {
+    let d = structures.filter((s) => {
+      // Curriculum track filter
+      if (curriculumFilter !== 'all') {
+        const fName = s.form_id ? getFormName(s.form_id) : 'General';
+        const { track } = getCurriculumTrack(fName);
+        if (curriculumFilter === 'cbc_senior' && track !== 'CBC Senior') return false;
+        if (curriculumFilter === '844' && track !== '8-4-4 High') return false;
+        if (curriculumFilter === 'jss' && track !== 'JSS (CBC)') return false;
+        if (curriculumFilter === 'primary' && track !== 'Primary CBC') return false;
+        if (curriculumFilter === 'preprimary' && track !== 'Pre-Primary') return false;
+        if (curriculumFilter === 'general' && track !== 'General (All)') return false;
+      }
+
+      // Specific Form filter
       if (filterForm !== 'all') {
         if (filterForm === 'general' && s.form_id) return false;
-        if (filterForm !== 'general' && filterForm !== 'all' && String(s.form_id) !== filterForm) return false;
+        if (filterForm !== 'general' && String(s.form_id) !== filterForm) return false;
       }
+
+      // Term filter
       if (filterTerm !== 'all' && String(s.term_id) !== filterTerm) return false;
+
+      // Year filter
       if (filterYear !== 'all' && String(s.year) !== filterYear) return false;
-      if (search) {
+
+      // Category filter
+      if (filterCategory !== 'all' && s.category !== filterCategory) return false;
+
+      // Search
+      if (search.trim()) {
         const q = search.toLowerCase();
-        if (!s.category?.toLowerCase().includes(q) && !s.description?.toLowerCase().includes(q)) return false;
+        const fName = s.form_id ? getFormName(s.form_id).toLowerCase() : 'all forms';
+        const cat = (s.category || '').toLowerCase();
+        const desc = (s.description || '').toLowerCase();
+        if (!cat.includes(q) && !desc.includes(q) && !fName.includes(q)) return false;
       }
       return true;
     });
+
+    // Sorting
     d = [...d].sort((a, b) => {
-      let va: any = a[sortKey], vb: any = b[sortKey];
-      if (sortKey === 'amount') { va = Number(va); vb = Number(vb); }
-      else { va = String(va ?? '').toLowerCase(); vb = String(vb ?? '').toLowerCase(); }
+      let va: any = a[sortKey];
+      let vb: any = b[sortKey];
+      if (sortKey === 'amount') {
+        va = Number(va || 0);
+        vb = Number(vb || 0);
+      } else {
+        va = String(va ?? '').toLowerCase();
+        vb = String(vb ?? '').toLowerCase();
+      }
       return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
     });
+
     return d;
-  }, [structures, filterForm, filterTerm, filterYear, search, sortKey, sortDir]);
+  }, [structures, curriculumFilter, filterForm, filterTerm, filterYear, filterCategory, search, sortKey, sortDir, getFormName]);
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const grandTotal = filtered.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paged = useMemo(() => {
+    return filtered.slice((page - 1) * pageSize, page * pageSize);
+  }, [filtered, page, pageSize]);
 
-  // Reset page on filter change
-  useEffect(() => setPage(1), [search, filterForm, filterTerm, filterYear]);
+  // Reset page when filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [search, curriculumFilter, filterForm, filterTerm, filterYear, filterCategory, pageSize]);
 
+  // ── METRICS FOR CHARTS & KPIS ──────────────────────────────────────────────
+  const totalAmount = useMemo(() => structures.reduce((s, f) => s + Number(f.amount || 0), 0), [structures]);
+  const filteredTotal = useMemo(() => filtered.reduce((s, f) => s + Number(f.amount || 0), 0), [filtered]);
+  const distinctCategories = useMemo(() => [...new Set(structures.map((s) => s.category))], [structures]);
+  const avgFeePerVoteHead = distinctCategories.length > 0 ? Math.round(totalAmount / distinctCategories.length) : 0;
+
+  // Chart 1: Vote Head breakdown metrics
+  const voteHeadChartMetrics = useMemo(() => {
+    const palette = ['#4f46e5', '#0284c7', '#059669', '#d97706', '#dc2626', '#7c3aed', '#ec4899', '#0d9488'];
+    const map = new Map<string, number>();
+    structures.forEach((s) => {
+      const cat = s.category || 'Tuition';
+      map.set(cat, (map.get(cat) || 0) + Number(s.amount || 0));
+    });
+    const sorted = Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+    const grand = totalAmount || 1;
+    return sorted.map(([name, amount], i) => ({
+      name,
+      amount,
+      pct: (amount / grand) * 100,
+      color: palette[i % palette.length],
+    }));
+  }, [structures, totalAmount]);
+
+  // Chart 2: Form progression metrics
+  const formProgressionMetrics = useMemo(() => {
+    return forms.map((f) => {
+      const annualAmount = structures
+        .filter((s) => s.form_id === f.id || !s.form_id)
+        .reduce((sum, s) => sum + Number(s.amount || 0), 0);
+      const { track } = getCurriculumTrack(f.form_name);
+      return {
+        name: f.form_name,
+        track,
+        annualAmount,
+      };
+    });
+  }, [forms, structures]);
+
+  // Matrix rows calculation (for Tab 2 & Excel export)
+  const matrixData = useMemo(() => {
+    const term1Obj = terms.find((t) => t.term_name?.toLowerCase().includes('term 1') || t.term_number === 1);
+    const term2Obj = terms.find((t) => t.term_name?.toLowerCase().includes('term 2') || t.term_number === 2);
+    const term3Obj = terms.find((t) => t.term_name?.toLowerCase().includes('term 3') || t.term_number === 3);
+
+    return forms.map((f) => {
+      const fStructures = structures.filter((s) => s.form_id === f.id || !s.form_id);
+      const t1 = fStructures.filter((s) => s.term_id === term1Obj?.id).reduce((acc, s) => acc + Number(s.amount || 0), 0);
+      const t2 = fStructures.filter((s) => s.term_id === term2Obj?.id).reduce((acc, s) => acc + Number(s.amount || 0), 0);
+      const t3 = fStructures.filter((s) => s.term_id === term3Obj?.id).reduce((acc, s) => acc + Number(s.amount || 0), 0);
+      const annual = fStructures.reduce((acc, s) => acc + Number(s.amount || 0), 0);
+      const { track } = getCurriculumTrack(f.form_name);
+      return {
+        formId: f.id,
+        formName: f.form_name,
+        curriculumTrack: track,
+        term1Amount: t1,
+        term2Amount: t2,
+        term3Amount: t3,
+        annualTotal: annual,
+      };
+    });
+  }, [forms, structures, terms]);
+
+  // Matrix items for selected form
+  const selectedFormMatrixItems = useMemo(() => {
+    const term1Obj = terms.find((t) => t.term_name?.toLowerCase().includes('term 1') || t.term_number === 1);
+    const term2Obj = terms.find((t) => t.term_name?.toLowerCase().includes('term 2') || t.term_number === 2);
+    const term3Obj = terms.find((t) => t.term_name?.toLowerCase().includes('term 3') || t.term_number === 3);
+
+    const targetFormId = matrixSelectedForm !== 'all' ? Number(matrixSelectedForm) : null;
+    const items = structures.filter((s) => (targetFormId ? s.form_id === targetFormId || !s.form_id : true));
+
+    const catMap = new Map<string, { term1: number; term2: number; term3: number; annual: number; desc: string }>();
+    items.forEach((s) => {
+      const cat = s.category || 'Tuition';
+      const cur = catMap.get(cat) || { term1: 0, term2: 0, term3: 0, annual: 0, desc: s.description || '' };
+      const amt = Number(s.amount || 0);
+      if (s.term_id === term1Obj?.id) cur.term1 += amt;
+      else if (s.term_id === term2Obj?.id) cur.term2 += amt;
+      else if (s.term_id === term3Obj?.id) cur.term3 += amt;
+      else {
+        // general term / all terms
+        cur.term1 += amt / 3;
+        cur.term2 += amt / 3;
+        cur.term3 += amt / 3;
+      }
+      cur.annual += amt;
+      catMap.set(cat, cur);
+    });
+
+    return Array.from(catMap.entries()).map(([category, val]) => ({
+      category,
+      description: val.desc,
+      term1: val.term1,
+      term2: val.term2,
+      term3: val.term3,
+      annual: val.annual,
+    }));
+  }, [structures, terms, matrixSelectedForm]);
+
+  // ── HANDLERS ───────────────────────────────────────────────────────────────
   const openAdd = () => {
     setEditId(null);
-    setForm({ category: '', amount: '', term_id: currentTerm?.id || '', form_id: '', description: '', year: new Date().getFullYear() });
+    setFormState({
+      category: voteHeadNames[0] || 'Tuition',
+      amount: '',
+      term_id: currentTerm?.id || '',
+      form_id: '',
+      description: '',
+      year: new Date().getFullYear(),
+    });
     setShowModal(true);
   };
+
   const openEdit = (item: any) => {
     setEditId(item.id);
-    setForm({ category: item.category, amount: String(item.amount), term_id: item.term_id || '', form_id: item.form_id || '', description: item.description || '', year: item.year || new Date().getFullYear() });
+    setFormState({
+      category: item.category,
+      amount: String(item.amount),
+      term_id: item.term_id || '',
+      form_id: item.form_id || '',
+      description: item.description || '',
+      year: item.year || new Date().getFullYear(),
+    });
     setShowModal(true);
   };
 
   const handleSave = async () => {
-    if (!form.category?.trim()) { toast.error('Select a fee vote head'); return; }
-    if (!form.amount || Number(form.amount) <= 0) { toast.error('Enter a valid amount'); return; }
+    if (!formState.category?.trim()) {
+      toast.error('Select a fee vote head');
+      return;
+    }
+    if (!formState.amount || Number(formState.amount) <= 0) {
+      toast.error('Enter a valid amount');
+      return;
+    }
+
     const payload = {
-      category: form.category.trim(), amount: Number(form.amount),
-      term_id: form.term_id ? Number(form.term_id) : null,
-      form_id: form.form_id ? Number(form.form_id) : null,
-      description: form.description || null,
-      year: Number(form.year) || new Date().getFullYear(),
+      category: formState.category.trim(),
+      amount: Number(formState.amount),
+      term_id: formState.term_id ? Number(formState.term_id) : null,
+      form_id: formState.form_id ? Number(formState.form_id) : null,
+      description: formState.description || null,
+      year: Number(formState.year) || new Date().getFullYear(),
     };
+
     let error;
-    if (editId) { ({ error } = await supabase.from('school_fee_structures').update(payload).eq('id', editId)); }
-    else { ({ error } = await supabase.from('school_fee_structures').insert([payload])); }
-    if (error) { toast.error(error.message); return; }
+    if (editId) {
+      ({ error } = await supabase.from('school_fee_structures').update(payload).eq('id', editId));
+    } else {
+      ({ error } = await supabase.from('school_fee_structures').insert([payload]));
+    }
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
     toast.success(editId ? '✅ Fee item updated' : '✅ Fee item added');
-    setShowModal(false); fetchAll();
+    setShowModal(false);
+    fetchAll();
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this fee item?')) return;
-    await supabase.from('school_fee_structures').delete().eq('id', id);
-    toast.success('Deleted'); fetchAll();
+    if (!confirm('Are you sure you want to delete this fee item?')) return;
+    const { error } = await supabase.from('school_fee_structures').delete().eq('id', id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success('Fee item deleted');
+      fetchAll();
+    }
   };
 
   const handleDuplicate = async (item: any) => {
-    const { id, ...rest } = item;
-    const { error } = await supabase.from('school_fee_structures').insert([{ ...rest, description: (rest.description || '') + ' (Copy)' }]);
-    if (error) toast.error(error.message); else { toast.success('Duplicated'); fetchAll(); }
+    const { id, created_at, updated_at, ...rest } = item;
+    const { error } = await supabase.from('school_fee_structures').insert([
+      {
+        ...rest,
+        description: (rest.description || '') + ' (Copy)',
+      },
+    ]);
+    if (error) toast.error(error.message);
+    else {
+      toast.success('Fee item duplicated');
+      fetchAll();
+    }
   };
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} selected items?`)) return;
-    await supabase.from('school_fee_structures').delete().in('id', Array.from(selectedIds));
-    toast.success(`Deleted ${selectedIds.size} items`);
-    setSelectedIds(new Set()); fetchAll();
+    if (!confirm(`Delete ${selectedIds.size} selected fee items?`)) return;
+    const { error } = await supabase.from('school_fee_structures').delete().in('id', Array.from(selectedIds));
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`Deleted ${selectedIds.size} fee items`);
+      setSelectedIds(new Set());
+      fetchAll();
+    }
   };
 
   const handleBulkCopy = async () => {
-    if (!copyFromTerm || !copyToTerm) { toast.error('Select both terms'); return; }
-    const src = structures.filter(s => String(s.term_id) === copyFromTerm);
-    if (src.length === 0) { toast.error('No items in source term'); return; }
-    const payload = src.map(({ id, term_id, ...rest }) => ({ ...rest, term_id: Number(copyToTerm) }));
+    if (!copyFromTerm || !copyToTerm) {
+      toast.error('Select both source and target terms');
+      return;
+    }
+    const src = structures.filter((s) => String(s.term_id) === copyFromTerm);
+    if (src.length === 0) {
+      toast.error('No fee items found in source term');
+      return;
+    }
+
+    const inflationFactor = 1 + (Number(copyInflationPct) || 0) / 100;
+    const payload = src.map(({ id, created_at, updated_at, term_id, amount, ...rest }) => ({
+      ...rest,
+      term_id: Number(copyToTerm),
+      amount: Math.round(Number(amount) * inflationFactor),
+    }));
+
     const { error } = await supabase.from('school_fee_structures').insert(payload);
     if (error) toast.error(error.message);
-    else { toast.success(`✅ Copied ${payload.length} items to target term`); setShowBulkCopy(false); fetchAll(); }
+    else {
+      toast.success(`✅ Cloned ${payload.length} fee items to target term with ${copyInflationPct}% adjustment!`);
+      setShowBulkCopy(false);
+      fetchAll();
+    }
   };
 
   const handleFeeIncrease = async () => {
-    if (!increaseVal || Number(increaseVal) <= 0) { toast.error('Enter increase value'); return; }
-    const targets = selectedIds.size > 0 ? paged.filter(s => selectedIds.has(s.id)) : filtered;
-    const updates = targets.map(s => {
-      const newAmt = increaseType === 'pct'
-        ? Math.round(Number(s.amount) * (1 + Number(increaseVal) / 100))
-        : Number(s.amount) + Number(increaseVal);
+    if (!increaseVal || Number(increaseVal) <= 0) {
+      toast.error('Enter a valid increase value');
+      return;
+    }
+    const targets = selectedIds.size > 0 ? structures.filter((s) => selectedIds.has(s.id)) : filtered;
+    if (targets.length === 0) {
+      toast.error('No items to update');
+      return;
+    }
+
+    const updates = targets.map((s) => {
+      const newAmt =
+        increaseType === 'pct'
+          ? Math.round(Number(s.amount) * (1 + Number(increaseVal) / 100))
+          : Number(s.amount) + Number(increaseVal);
       return supabase.from('school_fee_structures').update({ amount: newAmt }).eq('id', s.id);
     });
+
     await Promise.all(updates);
-    toast.success(`✅ Fee increase applied to ${targets.length} items`);
-    setShowIncModal(false); setIncreaseVal(''); fetchAll();
+    toast.success(`✅ Updated ${targets.length} items with ${increaseType === 'pct' ? `${increaseVal}%` : `KES ${increaseVal}`} adjustment`);
+    setShowIncModal(false);
+    setIncreaseVal('');
+    fetchAll();
   };
 
-  const handleExportCSV = () => {
-    const header = 'Vote Head,Description,Form,Term,Year,Amount';
-    const rows = filtered.map(s =>
-      `"${s.category}","${s.description || ''}","${s.form_id ? getFormName(s.form_id) : 'All Forms'}","${s.term_id ? terms.find(t => t.id === s.term_id)?.term_name || '' : 'All Terms'}","${s.year || ''}","${s.amount}"`
-    );
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'fee_structure.csv'; a.click();
-    URL.revokeObjectURL(url);
-    toast.success('📥 CSV downloaded');
+  // ── TRIGGER MULTI-SHEET EXCEL EXPORT (EXCELJS) ─────────────────────────────
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      toast.loading('Generating enterprise multi-sheet fee schedule...', { id: 'excel-export' });
+
+      const exportItems = filtered.map((s, idx) => {
+        const formObj = forms.find((f) => f.id === s.form_id);
+        const fName = formObj ? formObj.form_name : 'All Forms (General)';
+        const { track } = getCurriculumTrack(fName);
+        const termObj = terms.find((t) => t.id === s.term_id);
+        return {
+          index: idx + 1,
+          category: s.category || 'Tuition',
+          formName: fName,
+          curriculumTrack: track,
+          termName: termObj ? termObj.term_name : 'All Terms',
+          year: s.year || new Date().getFullYear(),
+          description: s.description || '—',
+          amount: Number(s.amount) || 0,
+        };
+      });
+
+      const voteHeadSummaries = voteHeadChartMetrics.map((vh) => ({
+        category: vh.name,
+        itemCount: structures.filter((s) => s.category === vh.name).length,
+        totalAmount: vh.amount,
+        pctOfTotal: vh.pct / 100,
+      }));
+
+      await exportUltraStructureExcel({
+        schoolName: registeredSchoolName,
+        schoolAddress: schoolDetails?.postal_address || 'P.O. Box 000, Kenya',
+        schoolPhone: schoolDetails?.phone1 || '+254 700 000 000',
+        schoolEmail: schoolDetails?.email || 'finance@school.ac.ke',
+        academicYear: filterYear !== 'all' ? filterYear : new Date().getFullYear(),
+        structures: exportItems,
+        matrixRows: matrixData,
+        voteHeadSummaries,
+      });
+
+      toast.success('📥 Enterprise Fee Structure Workbook downloaded!', { id: 'excel-export' });
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to export Excel: ' + (err.message || 'Unknown error'), { id: 'excel-export' });
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  // ── TRIGGER PRINT OFFICIAL CIRCULAR ────────────────────────────────────────
+  const handlePrintCircular = () => {
+    const selectedFormObj = forms.find((f) => String(f.id) === matrixSelectedForm);
+    const formName = selectedFormObj ? selectedFormObj.form_name : 'All Classes (Composite Schedule)';
+    const { track } = getCurriculumTrack(formName);
+
+    const t1Sum = selectedFormMatrixItems.reduce((acc, it) => acc + it.term1, 0);
+    const t2Sum = selectedFormMatrixItems.reduce((acc, it) => acc + it.term2, 0);
+    const t3Sum = selectedFormMatrixItems.reduce((acc, it) => acc + it.term3, 0);
+    const gAnnual = selectedFormMatrixItems.reduce((acc, it) => acc + it.annual, 0);
+
+    printOfficialFeeCircular({
+      schoolName: registeredSchoolName,
+      motto: schoolDetails?.motto || 'In God We Excel',
+      postalAddress: schoolDetails?.postal_address,
+      physicalAddress: schoolDetails?.physical_address,
+      county: schoolDetails?.county,
+      phone: schoolDetails?.phone1,
+      email: schoolDetails?.email,
+      principalName: schoolDetails?.principal_name || 'Mr. Jim (Principal)',
+      bankName: schoolDetails?.bank_name || 'KCB Bank',
+      bankAccountName: schoolDetails?.bank_account_name || registeredSchoolName,
+      bankAccountNumber: schoolDetails?.bank_account_number || '45625825215',
+      bankBranch: schoolDetails?.bank_branch || 'BOMET',
+      mpesaPaybill: schoolDetails?.mpesa_paybill,
+      academicYear: new Date().getFullYear(),
+      formName,
+      curriculumTrack: track,
+      items: selectedFormMatrixItems,
+      totalTerm1: t1Sum,
+      totalTerm2: t2Sum,
+      totalTerm3: t3Sum,
+      grandAnnual: gAnnual,
+    });
   };
 
   const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('asc'); }
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === paged.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(paged.map(s => s.id)));
+    if (selectedIds.size === paged.length && paged.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(paged.map((s) => s.id)));
+    }
   };
 
   const toggleSelect = (id: number) => {
-    setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
   };
 
-  // Compute KPI stats
-  const totalStructures = structures.length;
-  const totalAmount = structures.reduce((s, f) => s + Number(f.amount || 0), 0);
-  const maxFormTotal = forms.map(f => structures.filter(s => !s.form_id || s.form_id === f.id).reduce((a, b) => a + Number(b.amount || 0), 0));
-  const maxForm = forms[maxFormTotal.indexOf(Math.max(...maxFormTotal))]?.form_name || '—';
-  const voteHeadCount = [...new Set(structures.map(s => s.category))].length;
-  const avgFeePerHead = voteHeadCount > 0 ? Math.round(totalAmount / voteHeadCount) : 0;
-
-  const SortIcon = ({ col }: { col: SortKey }) => (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', marginLeft: 4, gap: 1, opacity: sortKey === col ? 1 : 0.3 }}>
-      <span style={{ fontSize: 7, lineHeight: 1, color: sortKey === col && sortDir === 'asc' ? '#6366f1' : '#94a3b8' }}>▲</span>
-      <span style={{ fontSize: 7, lineHeight: 1, color: sortKey === col && sortDir === 'desc' ? '#6366f1' : '#94a3b8' }}>▼</span>
-    </span>
-  );
-
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid #e2e8f0', borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-        <p style={{ color: '#94a3b8', fontSize: 13, fontWeight: 600 }}>Loading fee structures…</p>
+  if (loading || loadingSchool) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[55vh] gap-3">
+        <div className="w-10 h-10 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+        <p className="text-xs font-semibold text-slate-500">Loading fee structures & school parameters…</p>
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
+    );
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '0 0 40px' }}>
-
-      {/* ═══ HERO HEADER ═══ */}
-      <div style={{
-        background: 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 35%,#312e81 65%,#4338ca 100%)',
-        borderRadius: 24, padding: '28px 32px', position: 'relative', overflow: 'hidden',
-      }}>
-        {/* Animated orbs */}
-        <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', animation: 'orb 6s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', bottom: -40, left: 100, width: 160, height: 160, borderRadius: '50%', background: 'rgba(139,92,246,0.1)', animation: 'orb 8s ease-in-out infinite reverse' }} />
-        <div style={{ position: 'absolute', top: '50%', left: '40%', width: 1, height: 200, background: 'rgba(255,255,255,0.04)', transform: 'rotate(30deg)' }} />
-
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-              <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, border: '1px solid rgba(255,255,255,0.15)' }}>
-                📋
-              </div>
-              <div>
-                <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: '-0.5px' }}>Fee Structure Manager</h1>
-                <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, margin: '2px 0 0', fontWeight: 500 }}>
-                  Define vote heads · Set amounts · Manage all terms & forms
-                </p>
-              </div>
+    <div className="space-y-3.5 pb-10 max-w-[1400px] mx-auto text-slate-800">
+      {/* ═══ COMPACT EXECUTIVE COMMAND HEADER (Light Theme) ═══ */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          {/* Left: Branding & Status */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-black text-lg shrink-0">
+              📋
             </div>
-            {/* Quick stats strip */}
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {[
-                { label: 'Total Items', val: totalStructures },
-                { label: 'Vote Heads', val: voteHeadCount },
-                { label: 'Forms Configured', val: forms.length },
-                { label: 'Current Term', val: currentTerm?.term_name || 'N/A' },
-              ].map((s, i) => (
-                <div key={i} style={{ background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)', borderRadius: 10, padding: '6px 14px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 2px' }}>{s.label}</p>
-                  <p style={{ fontSize: 15, fontWeight: 800, color: '#fff', margin: 0 }}>{s.val}</p>
-                </div>
-              ))}
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base font-extrabold text-slate-900 tracking-tight">
+                  Fee Structure &amp; Vote Heads
+                </h1>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                  🏫 {registeredSchoolName}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                  {currentTerm?.term_name || 'Term 3'} · {new Date().getFullYear()}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                Official MoE vote heads · Cohort schedules · Termly breakdown · Multi-sheet Excel
+              </p>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Link href="/dashboard/fees" style={{
-              padding: '10px 16px', borderRadius: 12, border: '1.5px solid rgba(255,255,255,0.2)',
-              color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 700,
-              display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', background: 'rgba(255,255,255,0.07)',
-            }}>
-              <FiArrowLeft size={13} /> Fee Dashboard
+
+          {/* Right: Quick Action Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href="/dashboard/fees"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition flex items-center gap-1.5"
+            >
+              <FiArrowLeft size={13} /> Hub
             </Link>
-            <button onClick={openAdd} style={{
-              padding: '10px 20px', borderRadius: 12, border: 'none', cursor: 'pointer',
-              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-              color: '#fff', fontSize: 13, fontWeight: 800,
-              display: 'flex', alignItems: 'center', gap: 8,
-              boxShadow: '0 4px 20px rgba(99,102,241,0.5)',
-            }}>
-              <FiPlus size={15} /> Add Fee Item
+
+            <button
+              onClick={handleExportExcel}
+              disabled={isExportingExcel}
+              className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              title="Download 4-Sheet Enterprise Excel Workbook with Registered School Header"
+            >
+              <FiDownload size={13} className="text-emerald-700" />
+              <span>{isExportingExcel ? 'Exporting...' : 'Excel Sheet'}</span>
+            </button>
+
+            <button
+              onClick={handlePrintCircular}
+              className="px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              title="Print Official Approved School Fee Circular"
+            >
+              <FiPrinter size={13} className="text-blue-700" />
+              <span>Fee Circular</span>
+            </button>
+
+            <button
+              onClick={openAdd}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold transition flex items-center gap-1.5 shadow-xs"
+            >
+              <FiPlus size={14} />
+              <span>Add Vote Item</span>
+            </button>
+
+            <button
+              onClick={fetchAll}
+              title="Refresh Live DB Data"
+              className="p-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition"
+            >
+              <FiRefreshCw size={14} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* ═══ KPI CARDS WITH SPARKLINES ═══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
-        <KpiCard
-          icon={<FiDollarSign size={18} />}
-          label="Total Fee Load" value={fmt(totalAmount)}
-          sub={`${totalStructures} line items`}
-          sparkValues={terms.slice(0, 5).map(t => structures.filter(s => !s.term_id || s.term_id === t.id).reduce((a, b) => a + Number(b.amount || 0), 0))}
-          color="#6366f1" bg="#eef2ff" border="#c7d2fe"
-        />
-        <KpiCard
-          icon={<FiLayers size={18} />}
-          label="Avg per Vote Head" value={fmt(avgFeePerHead)}
-          sub={`${voteHeadCount} vote heads`}
-          sparkValues={[...new Set(structures.map(s => s.category))].slice(0, 6).map(c => structures.filter(s => s.category === c).reduce((a, b) => a + Number(b.amount || 0), 0))}
-          color="#06b6d4" bg="#ecfeff" border="#a5f3fc"
-        />
-        <KpiCard
-          icon={<FiTrendingUp size={18} />}
-          label="Highest Form Total" value={maxForm}
-          sub={fmt(Math.max(...maxFormTotal, 0))}
-          sparkValues={maxFormTotal}
-          color="#10b981" bg="#f0fdf4" border="#a7f3d0"
-        />
-        <KpiCard
-          icon={<FiGrid size={18} />}
-          label="Filtered Items" value={String(filtered.length)}
-          sub={`${fmt(grandTotal)} total`}
-          sparkValues={forms.map(f => filtered.filter(s => s.form_id === f.id).reduce((a, b) => a + Number(b.amount || 0), 0))}
-          color="#f59e0b" bg="#fffbeb" border="#fcd34d"
-        />
-      </div>
-
-      {/* ═══ TERM & ACADEMIC YEAR MANAGEMENT PANEL ═══ */}
-      <div style={{
-        background: '#fff', borderRadius: 20, border: '2px solid #e0e7ff',
-        padding: '20px 24px', boxShadow: '0 4px 24px rgba(99,102,241,0.08)', marginBottom: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 11, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📅</div>
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 800, color: '#1e293b', margin: 0 }}>Term &amp; Academic Year</p>
-              <p style={{ fontSize: 11, color: '#64748b', margin: 0 }}>Click &ldquo;Set Active&rdquo; to change the current term for fees, marks &amp; reports</p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div style={{ padding: '6px 14px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 11, fontWeight: 600, color: '#475569' }}>
-              Academic Year: <strong>{new Date().getFullYear()}</strong>
-            </div>
-            <div style={{ padding: '6px 14px', borderRadius: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 11, fontWeight: 700, color: '#059669' }}>
-              Today: {new Date().toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-          {terms.map(term => {
-            const isCurrent = term.is_current;
-            const today = new Date();
-            const start = term.start_date ? new Date(term.start_date) : null;
-            const end = term.end_date ? new Date(term.end_date) : null;
-            const isActive = start && end && today >= start && today <= end;
-            const isPast = end && today > end;
-            return (
-              <div key={term.id} style={{
-                borderRadius: 16,
-                border: isCurrent ? '2.5px solid #6366f1' : '1.5px solid #e2e8f0',
-                padding: '16px 18px',
-                background: isCurrent ? 'linear-gradient(135deg,#eef2ff,#f5f3ff)' : '#fafbff',
-                position: 'relative', overflow: 'hidden',
-                boxShadow: isCurrent ? '0 4px 20px rgba(99,102,241,0.15)' : 'none',
-                transition: 'all 0.2s',
-              }}>
-                {/* Active glow */}
-                {isCurrent && <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(99,102,241,0.08)' }} />}
-
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div>
-                    <p style={{ fontSize: 15, fontWeight: 900, color: isCurrent ? '#4f46e5' : '#1e293b', margin: 0 }}>{term.term_name}</p>
-                    <p style={{ fontSize: 10, color: '#94a3b8', margin: '2px 0 0', fontWeight: 600 }}>
-                      {term.start_date ? new Date(term.start_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) : '?'}
-                      {' — '}
-                      {term.end_date ? new Date(term.end_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '?'}
-                    </p>
-                  </div>
-                  {/* Status badge */}
-                  <span style={{
-                    fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 8,
-                    background: isCurrent ? '#6366f1' : isPast ? '#fee2e2' : isActive ? '#dcfce7' : '#f1f5f9',
-                    color: isCurrent ? '#fff' : isPast ? '#dc2626' : isActive ? '#16a34a' : '#64748b',
-                    textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0,
-                  }}>
-                    {isCurrent ? '✓ ACTIVE' : isPast ? 'PAST' : isActive ? 'RUNNING' : 'UPCOMING'}
-                  </span>
-                </div>
-
-                {/* Fee count for this term */}
-                <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 12px', fontWeight: 500 }}>
-                  {structures.filter(s => s.term_id === term.id).length} fee items configured
-                  {structures.filter(s => s.term_id === term.id).length > 0 && (
-                    <span style={{ color: '#4f46e5', fontWeight: 700 }}>
-                      {' · '}{fmt(structures.filter(s => s.term_id === term.id).reduce((a, b) => a + Number(b.amount || 0), 0))}
-                    </span>
-                  )}
-                </p>
-
-                {isCurrent ? (
-                  <div style={{ padding: '7px 14px', borderRadius: 10, background: '#6366f1', color: '#fff', fontSize: 11, fontWeight: 800, textAlign: 'center' }}>
-                    ✓ Currently Active Term
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleSetCurrentTerm(term.id)}
-                    style={{
-                      width: '100%', padding: '7px 14px', borderRadius: 10,
-                      background: 'transparent', border: '1.5px solid #6366f1',
-                      color: '#6366f1', fontSize: 11, fontWeight: 800, cursor: 'pointer',
-                      transition: 'all 0.15s',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#6366f1'; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#6366f1'; }}
-                  >
-                    📅 Set as Active Term
-                  </button>
-                )}
+      {/* ═══ COMPACT PREMIUM KPI HUD (Strictly Low Profile & Elegant) ═══ */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        {[
+          {
+            label: 'Total Fee Load',
+            value: fmt(totalAmount),
+            sub: `${structures.length} line items`,
+            color: 'text-indigo-700',
+            bg: 'bg-indigo-50/70',
+            border: 'border-indigo-100',
+            icon: <FiDollarSign size={14} className="text-indigo-600" />,
+          },
+          {
+            label: 'Vote Heads',
+            value: String(distinctCategories.length),
+            sub: 'Active categories',
+            color: 'text-sky-700',
+            bg: 'bg-sky-50/70',
+            border: 'border-sky-100',
+            icon: <FiLayers size={14} className="text-sky-600" />,
+          },
+          {
+            label: 'Class Cohorts',
+            value: String(forms.length),
+            sub: 'Configured levels',
+            color: 'text-emerald-700',
+            bg: 'bg-emerald-50/70',
+            border: 'border-emerald-100',
+            icon: <FiGrid size={14} className="text-emerald-600" />,
+          },
+          {
+            label: 'Active Term',
+            value: currentTerm?.term_name || 'Term 3',
+            sub: 'Academic session',
+            color: 'text-amber-700',
+            bg: 'bg-amber-50/70',
+            border: 'border-amber-100',
+            icon: <FiCalendar size={14} className="text-amber-600" />,
+          },
+          {
+            label: 'Avg / Vote Head',
+            value: fmt(avgFeePerVoteHead),
+            sub: 'Mean allocation',
+            color: 'text-purple-700',
+            bg: 'bg-purple-50/70',
+            border: 'border-purple-100',
+            icon: <FiTrendingUp size={14} className="text-purple-600" />,
+          },
+          {
+            label: 'Filtered Subtotal',
+            value: fmt(filteredTotal),
+            sub: `${filtered.length} matching rows`,
+            color: 'text-rose-700',
+            bg: 'bg-rose-50/70',
+            border: 'border-rose-100',
+            icon: <FiSliders size={14} className="text-rose-600" />,
+          },
+        ].map((k, i) => (
+          <div
+            key={i}
+            className={`bg-white border ${k.border} rounded-xl p-2.5 shadow-2xs flex flex-col justify-between`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{k.label}</span>
+              <div className={`w-6 h-6 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}>
+                {k.icon}
               </div>
-            );
-          })}
-        </div>
+            </div>
+            <div className="mt-1">
+              <p className={`text-sm font-extrabold font-mono ${k.color} tracking-tight`}>{k.value}</p>
+              <p className="text-[9.5px] text-slate-400 font-medium truncate">{k.sub}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* ═══ FORM TOTALS CARDS WITH TREND BARS ═══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(2, forms.length)},1fr)`, gap: 14 }}>
-        {forms.map((f, i) => {
-          const total = structures.filter(s => !s.form_id || s.form_id === f.id).reduce((s, st) => s + Number(st.amount || 0), 0);
-          const termTotals = sparkData.find(s => s.id === f.id)?.values || [];
-          const maxTotal = Math.max(...maxFormTotal, 1);
-          const pct = Math.round((total / maxTotal) * 100);
-          const col = FORM_COLORS[i % FORM_COLORS.length];
-          const bg = FORM_BG[i % FORM_BG.length];
-          const itemCount = structures.filter(s => s.form_id === f.id || !s.form_id).length;
+      {/* ═══ SIDE-BY-SIDE ANALYTICS SVG CHARTS ═══ */}
+      <UltraStructureCharts
+        voteHeadMetrics={voteHeadChartMetrics}
+        formProgressionMetrics={formProgressionMetrics}
+        totalAnnualBudget={totalAmount}
+      />
+
+      {/* ═══ 4-TAB EXECUTIVE WORKSPACE BAR ═══ */}
+      <div className="bg-slate-100/90 p-1 rounded-xl flex items-center gap-1 border border-slate-200/80">
+        {[
+          { id: 'ledger' as TabType, label: 'Vote Heads Ledger', icon: FiLayers, count: filtered.length },
+          { id: 'matrix' as TabType, label: 'Annual & Termly Matrix', icon: FiGrid },
+          { id: 'cloning' as TabType, label: 'Cohort Cloning & Adjuster', icon: FiCopy },
+          { id: 'circular' as TabType, label: 'Official Circular & Notice', icon: FiFileText },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
           return (
-            <div key={f.id} style={{
-              background: '#fff', borderRadius: 18, border: `1.5px solid ${col}28`,
-              padding: '18px 20px', boxShadow: `0 4px 20px ${col}12`,
-              cursor: 'pointer', transition: 'all 0.2s',
-            }}
-              onClick={() => setFilterForm(String(f.id))}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 30px ${col}25`; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 20px ${col}12`; }}
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                isActive
+                  ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: col, fontSize: 14, fontWeight: 900, border: `1.5px solid ${col}40` }}>
-                      {f.form_name?.charAt(0)}
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 12, fontWeight: 800, color: '#1e293b', margin: 0 }}>{f.form_name}</p>
-                      <p style={{ fontSize: 10, color: '#94a3b8', margin: 0 }}>{itemCount} items</p>
-                    </div>
-                  </div>
-                  <p style={{ fontSize: 22, fontWeight: 900, color: col, margin: 0, letterSpacing: '-0.5px' }}>{fmt(total)}</p>
-                  <p style={{ fontSize: 10, color: '#64748b', margin: '2px 0 0' }}>Annual fee load</p>
-                </div>
-                {termTotals.length >= 2 && <Spark values={termTotals} color={col} h={40} w={70} />}
-              </div>
-              {/* Progress bar vs max form */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>% of highest form</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: col }}>{pct}%</span>
-                </div>
-                <div style={{ height: 5, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg,${col},${col}aa)`, borderRadius: 99, transition: 'width 1s ease' }} />
-                </div>
-              </div>
-            </div>
+              <Icon size={14} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    isActive ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
           );
         })}
       </div>
 
-      {/* ═══ TOOLBAR ═══ */}
-      <div style={{ background: '#fff', borderRadius: 18, border: '1.5px solid #f1f5f9', padding: '14px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          {/* Left: search + filters */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
-            {/* Search */}
-            <div style={{ position: 'relative', minWidth: 220 }}>
-              <FiSearch size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-              <input
-                value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search vote heads…"
-                style={{ width: '100%', paddingLeft: 34, paddingRight: 12, paddingTop: 9, paddingBottom: 9, borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 12, outline: 'none', background: '#fafbff', boxSizing: 'border-box' } as React.CSSProperties}
-                onFocus={e => (e.target.style.borderColor = '#6366f1')}
-                onBlur={e => (e.target.style.borderColor = '#e2e8f0')}
-              />
-            </div>
-            {/* Form filter */}
-            <select value={filterForm} onChange={e => setFilterForm(e.target.value)}
-              style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 12, background: '#fafbff', outline: 'none', fontWeight: 600, cursor: 'pointer' }}>
-              <option value="all">All Forms</option>
-              <option value="general">General (All)</option>
-              {forms.map(f => <option key={f.id} value={f.id}>{f.form_name}</option>)}
-            </select>
-            {/* Term filter */}
-            <select value={filterTerm} onChange={e => setFilterTerm(e.target.value)}
-              style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 12, background: '#fafbff', outline: 'none', fontWeight: 600, cursor: 'pointer' }}>
-              <option value="all">All Terms</option>
-              {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year}</option>)}
-            </select>
-            {/* Year filter */}
-            <select value={filterYear} onChange={e => setFilterYear(e.target.value)}
-              style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 12, background: '#fafbff', outline: 'none', fontWeight: 600, cursor: 'pointer' }}>
-              <option value="all">All Years</option>
-              {years.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-            {(search || filterForm !== 'all' || filterTerm !== 'all' || filterYear !== 'all') && (
-              <button onClick={() => { setSearch(''); setFilterForm('all'); setFilterTerm('all'); setFilterYear('all'); }}
-                style={{ padding: '8px 12px', borderRadius: 10, border: '1.5px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <FiX size={12} /> Clear
+      {/* ═══════════════════════════════════════════════════════════════════════
+          TAB 1: VOTE HEADS LEDGER & DATAGRID
+          ═══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'ledger' && (
+        <div className="space-y-3">
+          {/* Dual-Track Curriculum Pill Selector */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+              Curriculum:
+            </span>
+            {[
+              { id: 'all', label: 'All Levels' },
+              { id: 'cbc_senior', label: 'CBC Senior (G10–12)' },
+              { id: '844', label: '8-4-4 High (F1–4)' },
+              { id: 'jss', label: 'JSS (G7–9)' },
+              { id: 'primary', label: 'Primary CBC (G1–6)' },
+              { id: 'preprimary', label: 'Pre-Primary (PP1–2)' },
+              { id: 'general', label: 'General / School-Wide' },
+            ].map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setCurriculumFilter(c.id as any)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition ${
+                  curriculumFilter === c.id
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {c.label}
               </button>
-            )}
+            ))}
           </div>
-          {/* Right: action buttons */}
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {selectedIds.size > 0 && (
-              <>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', background: '#eef2ff', padding: '4px 10px', borderRadius: 8 }}>{selectedIds.size} selected</span>
-                <button onClick={handleBulkDelete}
-                  style={{ padding: '8px 12px', borderRadius: 10, border: '1.5px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <FiTrash2 size={12} /> Delete
+
+          {/* Filter & Search Toolbar */}
+          <div className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-[280px]">
+              {/* Search */}
+              <div className="relative min-w-[180px] max-w-[260px] flex-1">
+                <FiSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search vote head, class..."
+                  className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 bg-slate-50/50"
+                />
+              </div>
+
+              {/* Form Select */}
+              <select
+                value={filterForm}
+                onChange={(e) => setFilterForm(e.target.value)}
+                className="py-1.5 px-2.5 text-xs rounded-lg border border-slate-200 bg-white font-medium text-slate-700"
+              >
+                <option value="all">All Classes</option>
+                <option value="general">School-wide (General)</option>
+                {forms.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.form_name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Term Select */}
+              <select
+                value={filterTerm}
+                onChange={(e) => setFilterTerm(e.target.value)}
+                className="py-1.5 px-2.5 text-xs rounded-lg border border-slate-200 bg-white font-medium text-slate-700"
+              >
+                <option value="all">All Terms</option>
+                {terms.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.term_name} {t.year}
+                  </option>
+                ))}
+              </select>
+
+              {/* Category Select */}
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="py-1.5 px-2.5 text-xs rounded-lg border border-slate-200 bg-white font-medium text-slate-700"
+              >
+                <option value="all">All Vote Heads</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+
+              {(search || curriculumFilter !== 'all' || filterForm !== 'all' || filterTerm !== 'all' || filterCategory !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearch('');
+                    setCurriculumFilter('all');
+                    setFilterForm('all');
+                    setFilterTerm('all');
+                    setFilterCategory('all');
+                  }}
+                  className="text-xs text-rose-600 hover:text-rose-700 font-bold px-2 py-1 flex items-center gap-1"
+                >
+                  <FiX size={12} /> Clear
                 </button>
-                <button onClick={() => setShowIncModal(true)}
-                  style={{ padding: '8px 12px', borderRadius: 10, border: '1.5px solid #fcd34d', background: '#fffbeb', color: '#d97706', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <FiPercent size={12} /> Increase
+              )}
+            </div>
+
+            {/* Right: Batch Controls & Page Size */}
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg">
+                  <span className="text-[11px] font-bold text-indigo-700 font-mono">
+                    {selectedIds.size} selected
+                  </span>
+                  <button
+                    onClick={handleBulkDelete}
+                    className="text-[11px] text-rose-600 hover:text-rose-700 font-bold px-1.5 py-0.5 rounded flex items-center gap-1"
+                  >
+                    <FiTrash2 size={11} /> Delete
+                  </button>
+                  <button
+                    onClick={() => setShowIncModal(true)}
+                    className="text-[11px] text-amber-700 hover:text-amber-800 font-bold px-1.5 py-0.5 rounded flex items-center gap-1"
+                  >
+                    <FiPercent size={11} /> Adjust
+                  </button>
+                </div>
+              )}
+
+              {/* Rows per page selector (10, 25, 50, 100) */}
+              <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
+                <span>Rows:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="py-1 px-1.5 rounded border border-slate-200 bg-white font-semibold text-slate-700 text-xs"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Data Grid Table (Compact, Reduced 10 Rows) */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">
+            {filtered.length === 0 ? (
+              <div className="p-10 text-center">
+                <div className="text-3xl mb-2">📋</div>
+                <p className="text-sm font-bold text-slate-600">No fee structure items found</p>
+                <p className="text-xs text-slate-400 mt-1">Adjust filters or click &ldquo;Add Vote Item&rdquo; to create one</p>
+                <button
+                  onClick={openAdd}
+                  className="mt-3 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold inline-flex items-center gap-1"
+                >
+                  <FiPlus size={12} /> Add Fee Item
                 </button>
-              </>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-2.5 px-3 text-center w-8">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.size === paged.length && paged.length > 0}
+                          onChange={toggleSelectAll}
+                          className="rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                        />
+                      </th>
+                      <th className="py-2.5 px-2 text-center w-8">#</th>
+                      <th
+                        className="py-2.5 px-3 cursor-pointer select-none"
+                        onClick={() => toggleSort('category')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Vote Head Category</span>
+                          {sortKey === 'category' && (sortDir === 'asc' ? '▲' : '▼')}
+                        </div>
+                      </th>
+                      <th
+                        className="py-2.5 px-3 cursor-pointer select-none"
+                        onClick={() => toggleSort('form_id')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Class / Form</span>
+                          {sortKey === 'form_id' && (sortDir === 'asc' ? '▲' : '▼')}
+                        </div>
+                      </th>
+                      <th className="py-2.5 px-3">Curriculum Track</th>
+                      <th
+                        className="py-2.5 px-3 cursor-pointer select-none"
+                        onClick={() => toggleSort('term_id')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Academic Term</span>
+                          {sortKey === 'term_id' && (sortDir === 'asc' ? '▲' : '▼')}
+                        </div>
+                      </th>
+                      <th
+                        className="py-2.5 px-3 text-right cursor-pointer select-none"
+                        onClick={() => toggleSort('amount')}
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          <span>Amount (KES)</span>
+                          {sortKey === 'amount' && (sortDir === 'asc' ? '▲' : '▼')}
+                        </div>
+                      </th>
+                      <th className="py-2.5 px-3">Description / Purpose</th>
+                      <th className="py-2.5 px-3 text-center w-24">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paged.map((s, i) => {
+                      const rowNum = (page - 1) * pageSize + i + 1;
+                      const isSelected = selectedIds.has(s.id);
+                      const fObj = forms.find((f) => f.id === s.form_id);
+                      const fName = fObj ? fObj.form_name : 'All Forms';
+                      const { track, badgeColor, bg, border } = getCurriculumTrack(fName);
+                      const tObj = terms.find((t) => t.id === s.term_id);
+
+                      return (
+                        <tr
+                          key={s.id}
+                          className={`transition-colors hover:bg-slate-50/80 ${
+                            isSelected ? 'bg-indigo-50/40' : i % 2 === 1 ? 'bg-slate-50/30' : 'bg-white'
+                          }`}
+                        >
+                          <td className="py-2.5 px-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelect(s.id)}
+                              className="rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-2.5 px-2 text-center text-[10px] font-mono text-slate-400">
+                            {rowNum}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-2 h-2 rounded-full shrink-0"
+                                style={{
+                                  background:
+                                    s.category === 'Tuition'
+                                      ? '#4f46e5'
+                                      : s.category === 'Boarding'
+                                      ? '#0284c7'
+                                      : s.category?.includes('Exam')
+                                      ? '#059669'
+                                      : '#d97706',
+                                }}
+                              />
+                              <span className="font-bold text-slate-800 text-xs">{s.category}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 font-medium text-slate-700">
+                            {s.form_id ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                {fName}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                School-wide
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span
+                              className="px-2 py-0.5 rounded-md text-[10px] font-bold"
+                              style={{ color: badgeColor, background: bg, border: `1px solid ${border}` }}
+                            >
+                              {track}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="text-[11px] font-semibold text-slate-600">
+                              {tObj ? tObj.term_name : 'All Terms'} {s.year ? `(${s.year})` : ''}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <span className="font-bold font-mono text-emerald-700 text-xs">
+                              {fmt(Number(s.amount))}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-400 text-[11px] max-w-[200px] truncate">
+                            {s.description || <span className="italic text-slate-300">No notes</span>}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => openEdit(s)}
+                                title="Edit Item"
+                                className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+                              >
+                                <FiEdit2 size={12} />
+                              </button>
+                              <button
+                                onClick={() => handleDuplicate(s)}
+                                title="Duplicate Item"
+                                className="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition"
+                              >
+                                <FiCopy size={12} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(s.id)}
+                                title="Delete Item"
+                                className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                              >
+                                <FiTrash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-50/80 border-t border-slate-200 text-xs font-bold">
+                      <td colSpan={6} className="py-2.5 px-3 text-slate-600 uppercase text-[10px] tracking-wider">
+                        Page Subtotal ({paged.length} items) · Filtered Total: {fmt(filteredTotal)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-emerald-800 text-sm">
+                        {fmt(paged.reduce((acc, it) => acc + Number(it.amount || 0), 0))}
+                      </td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             )}
-            <button onClick={() => setShowIncModal(true)}
-              style={{ padding: '8px 12px', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <FiPercent size={12} /> Fee Increase
-            </button>
-            <button onClick={() => setShowBulkCopy(true)}
-              style={{ padding: '8px 12px', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <FiCopy size={12} /> Copy Term
-            </button>
-            <button onClick={handleExportCSV}
-              style={{ padding: '8px 12px', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <FiDownload size={12} /> Export
-            </button>
-            <button onClick={fetchAll}
-              style={{ padding: '8px 10px', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-              <FiRefreshCw size={13} />
-            </button>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="p-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>
+                  Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} of {filtered.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="px-2.5 py-1 rounded border border-slate-200 bg-white disabled:opacity-40 font-semibold"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-2 text-xs font-bold text-slate-700">
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="px-2.5 py-1 rounded border border-slate-200 bg-white disabled:opacity-40 font-semibold"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ═══ ULTRA PREMIUM DATAGRID ═══ */}
-      <div style={{ background: '#fff', borderRadius: 20, border: '1.5px solid #f1f5f9', overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.05)' }}>
-        {filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '64px 32px' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
-            <p style={{ fontSize: 15, fontWeight: 700, color: '#64748b', margin: 0 }}>No fee items found</p>
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: '6px 0 0' }}>Try adjusting your filters or add a new fee item</p>
-            <button onClick={openAdd} style={{ marginTop: 16, padding: '10px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <FiPlus size={13} /> Add First Fee Item
-            </button>
+      {/* ═══════════════════════════════════════════════════════════════════════
+          TAB 2: ANNUAL & TERMLY MATRIX STUDIO
+          ═══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'matrix' && (
+        <div className="space-y-3">
+          {/* Top Bar for Matrix: Form Selector & Print */}
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-600">Select Class Focus:</span>
+              <select
+                value={matrixSelectedForm}
+                onChange={(e) => setMatrixSelectedForm(e.target.value)}
+                className="py-1 px-3 text-xs rounded-lg border border-slate-200 bg-white font-semibold text-slate-800"
+              >
+                <option value="all">Composite (All Classes Combined)</option>
+                {forms.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.form_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrintCircular}
+                className="px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold flex items-center gap-1.5 transition"
+              >
+                <FiPrinter size={13} />
+                <span>Print Schedule Voucher</span>
+              </button>
+            </div>
           </div>
-        ) : (
-          <>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+
+          {/* Matrix Table */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">
+            <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                  {matrixSelectedForm === 'all'
+                    ? 'Composite School Fee Matrix (Terms 1, 2, 3)'
+                    : `${forms.find((f) => String(f.id) === matrixSelectedForm)?.form_name || 'Class'} Termly Fee Breakdown`}
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Vote-head by term distribution matching Kenyan MoE capitation &amp; BOM budget structures
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr style={{ background: 'linear-gradient(135deg,#1e1b4b,#312e81)', position: 'sticky', top: 0, zIndex: 10 }}>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', width: 36 }}>
-                      <input type="checkbox" checked={selectedIds.size === paged.length && paged.length > 0} onChange={toggleSelectAll}
-                        style={{ width: 14, height: 14, accentColor: '#6366f1', cursor: 'pointer' }} />
-                    </th>
-                    <th style={{ padding: '12px 8px', color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 700, textAlign: 'left', width: 36 }}>#</th>
-                    {[
-                      { key: 'category' as SortKey, label: 'Vote Head' },
-                      { key: 'form_id' as SortKey, label: 'Form' },
-                      { key: 'term_id' as SortKey, label: 'Term' },
-                      { key: 'year' as SortKey, label: 'Year' },
-                      { key: 'amount' as SortKey, label: 'Amount (KES)' },
-                    ].map(col => (
-                      <th key={col.key}
-                        onClick={() => toggleSort(col.key)}
-                        style={{
-                          padding: '12px 14px', color: sortKey === col.key ? '#a5b4fc' : 'rgba(255,255,255,0.6)',
-                          fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em',
-                          textAlign: col.key === 'amount' ? 'right' : 'left', cursor: 'pointer',
-                          userSelect: 'none', whiteSpace: 'nowrap',
-                        }}>
-                        {col.label}<SortIcon col={col.key} />
-                      </th>
-                    ))}
-                    <th style={{ padding: '12px 14px', color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 700, textAlign: 'left' }}>Description</th>
-                    <th style={{ padding: '12px 14px', color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 700, textAlign: 'center', width: 120 }}>Actions</th>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-2.5 px-3">#</th>
+                    <th className="py-2.5 px-4">Vote Head / Category</th>
+                    <th className="py-2.5 px-3 text-right">Term 1 (KES)</th>
+                    <th className="py-2.5 px-3 text-right">Term 2 (KES)</th>
+                    <th className="py-2.5 px-3 text-right">Term 3 (KES)</th>
+                    <th className="py-2.5 px-4 text-right">Total Annual (KES)</th>
+                    <th className="py-2.5 px-3 text-right">% Budget</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {paged.map((item: any, i: number) => {
-                    const rowNum = (page - 1) * pageSize + i + 1;
-                    const isSelected = selectedIds.has(item.id);
-                    const formIdx = forms.findIndex(f => f.id === item.form_id);
-                    const col = formIdx >= 0 ? FORM_COLORS[formIdx % FORM_COLORS.length] : '#6366f1';
-                    const bg  = formIdx >= 0 ? FORM_BG[formIdx % FORM_BG.length] : '#eef2ff';
-                    const termName = item.term_id ? terms.find(t => t.id === item.term_id)?.term_name : null;
+                <tbody className="divide-y divide-slate-100">
+                  {selectedFormMatrixItems.map((item, i) => {
+                    const grand = selectedFormMatrixItems.reduce((acc, it) => acc + it.annual, 0) || 1;
+                    const pct = (item.annual / grand) * 100;
                     return (
-                      <tr key={item.id} style={{
-                        background: isSelected ? 'rgba(99,102,241,0.05)' : i % 2 === 0 ? '#fff' : '#fafbff',
-                        borderBottom: '1px solid #f1f5f9',
-                        transition: 'background 0.1s',
-                      }}
-                        onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = '#f5f7ff'; }}
-                        onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? '#fff' : '#fafbff'; }}
-                      >
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                          <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(item.id)}
-                            style={{ width: 14, height: 14, accentColor: '#6366f1', cursor: 'pointer' }} />
+                      <tr key={i} className="hover:bg-slate-50/60 transition">
+                        <td className="py-2 px-3 text-slate-400 font-mono text-[10px]">{i + 1}</td>
+                        <td className="py-2 px-4 font-bold text-slate-800">{item.category}</td>
+                        <td className="py-2 px-3 text-right font-mono text-slate-700">
+                          {item.term1 > 0 ? fmt(item.term1) : '—'}
                         </td>
-                        <td style={{ padding: '12px 8px', fontSize: 11, color: '#cbd5e1', fontWeight: 600, textAlign: 'center' }}>{rowNum}</td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: col, flexShrink: 0 }} />
-                            <span style={{ fontWeight: 700, color: '#1e293b', fontSize: 13 }}>{item.category}</span>
-                          </div>
+                        <td className="py-2 px-3 text-right font-mono text-slate-700">
+                          {item.term2 > 0 ? fmt(item.term2) : '—'}
                         </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: bg, color: col, border: `1px solid ${col}30` }}>
-                            {item.form_id ? getFormName(item.form_id) : 'All Forms'}
-                          </span>
+                        <td className="py-2 px-3 text-right font-mono text-slate-700">
+                          {item.term3 > 0 ? fmt(item.term3) : '—'}
                         </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: '#ecfeff', color: '#0891b2', border: '1px solid #a5f3fc30' }}>
-                            {termName || 'All Terms'}
-                          </span>
+                        <td className="py-2 px-4 text-right font-mono font-bold text-indigo-700">
+                          {fmt(item.annual)}
                         </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: '#fffbeb', color: '#d97706', border: '1px solid #fcd34d30' }}>
-                            {item.year || '—'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: '#059669', letterSpacing: '-0.3px' }}>
-                            {fmt(Number(item.amount))}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 14px', maxWidth: 180 }}>
-                          <span style={{ fontSize: 11, color: '#94a3b8', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.description || <span style={{ color: '#e2e8f0', fontStyle: 'italic' }}>No description</span>}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                            <button onClick={() => openEdit(item)} title="Edit"
-                              style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1', transition: 'all 0.15s' }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#eef2ff'; (e.currentTarget as HTMLElement).style.borderColor = '#6366f1'; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f8fafc'; (e.currentTarget as HTMLElement).style.borderColor = '#e2e8f0'; }}>
-                              <FiEdit2 size={12} />
-                            </button>
-                            <button onClick={() => handleDuplicate(item)} title="Duplicate"
-                              style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', transition: 'all 0.15s' }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f0fdf4'; (e.currentTarget as HTMLElement).style.borderColor = '#10b981'; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f8fafc'; (e.currentTarget as HTMLElement).style.borderColor = '#e2e8f0'; }}>
-                              <FiCopy size={12} />
-                            </button>
-                            <button onClick={() => handleDelete(item.id)} title="Delete"
-                              style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', transition: 'all 0.15s' }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fef2f2'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444'; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f8fafc'; (e.currentTarget as HTMLElement).style.borderColor = '#e2e8f0'; }}>
-                              <FiTrash2 size={12} />
-                            </button>
-                          </div>
+                        <td className="py-2 px-3 text-right font-medium text-slate-500">
+                          {pct.toFixed(1)}%
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
                 <tfoot>
-                  <tr style={{ background: 'linear-gradient(135deg,#f8faff,#eef2ff)', borderTop: '2px solid #c7d2fe' }}>
-                    <td colSpan={6} style={{ padding: '14px 22px', fontWeight: 800, color: '#4338ca', fontSize: 13 }}>
-                      GRAND TOTAL — {filtered.length} item{filtered.length !== 1 ? 's' : ''}
-                      {filtered.length !== structures.length && <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', marginLeft: 8 }}>(filtered)</span>}
+                  <tr className="bg-indigo-50/50 border-t-2 border-indigo-200 text-xs font-bold">
+                    <td colSpan={2} className="py-3 px-4 text-indigo-900 uppercase">
+                      Grand Annual Total:
                     </td>
-                    <td style={{ padding: '14px 14px', textAlign: 'right', fontWeight: 900, color: '#059669', fontSize: 20, letterSpacing: '-0.5px' }}>
-                      {fmt(grandTotal)}
+                    <td className="py-3 px-3 text-right font-mono text-slate-800">
+                      {fmt(selectedFormMatrixItems.reduce((acc, it) => acc + it.term1, 0))}
                     </td>
-                    <td colSpan={2} />
+                    <td className="py-3 px-3 text-right font-mono text-slate-800">
+                      {fmt(selectedFormMatrixItems.reduce((acc, it) => acc + it.term2, 0))}
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono text-slate-800">
+                      {fmt(selectedFormMatrixItems.reduce((acc, it) => acc + it.term3, 0))}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-emerald-700 text-sm">
+                      {fmt(selectedFormMatrixItems.reduce((acc, it) => acc + it.annual, 0))}
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono text-indigo-700">100%</td>
                   </tr>
                 </tfoot>
               </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderTop: '1px solid #f1f5f9' }}>
-                <p style={{ fontSize: 12, color: '#64748b', margin: 0, fontWeight: 500 }}>
-                  Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} of {filtered.length}
-                </p>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button onClick={() => setPage(1)} disabled={page === 1}
-                    style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: page === 1 ? '#f9fafb' : '#fff', color: page === 1 ? '#cbd5e1' : '#374151', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 700 }}>«</button>
-                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                    style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: page === 1 ? '#f9fafb' : '#fff', color: page === 1 ? '#cbd5e1' : '#374151', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 700 }}>‹</button>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const p = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
-                    return (
-                      <button key={p} onClick={() => setPage(p)}
-                        style={{ width: 34, height: 34, borderRadius: 8, border: `1.5px solid ${p === page ? '#6366f1' : '#e2e8f0'}`, background: p === page ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : '#fff', color: p === page ? '#fff' : '#374151', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-                        {p}
-                      </button>
-                    );
-                  })}
-                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                    style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: page === totalPages ? '#f9fafb' : '#fff', color: page === totalPages ? '#cbd5e1' : '#374151', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 700 }}>›</button>
-                  <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
-                    style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: page === totalPages ? '#f9fafb' : '#fff', color: page === totalPages ? '#cbd5e1' : '#374151', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 700 }}>»</button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* ═══ ADD / EDIT MODAL ═══ */}
-      {showModal && (
-        <div onClick={() => setShowModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 480, borderRadius: 24, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.25)', animation: 'modalUp 0.25s ease-out' }}>
-            <div style={{ background: 'linear-gradient(135deg,#1e1b4b,#4338ca)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 900, margin: 0 }}>
-                  {editId ? '✏️ Edit Fee Item' : '➕ Add Fee Item'}
-                </h3>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, margin: '2px 0 0' }}>
-                  {editId ? 'Update this fee vote head' : 'Add a new fee vote head to the structure'}
-                </p>
-              </div>
-              <button onClick={() => setShowModal(false)} style={{ width: 32, height: 32, borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✕</button>
-            </div>
-            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Vote Head */}
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Fee Vote Head *</label>
-                <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-                  style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '1.5px solid #e2e8f0', fontSize: 13, background: '#fafbff', outline: 'none', fontWeight: 600, cursor: 'pointer' }}>
-                  <option value="">— Select vote head —</option>
-                  {voteHeadNames.length > 0
-                    ? voteHeadNames.map(c => <option key={c}>{c}</option>)
-                    : <option disabled>Loading vote heads…</option>}
-
-                </select>
-              </div>
-              {/* Amount */}
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Amount (KES) *</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontWeight: 800, color: '#94a3b8', fontSize: 15 }}>KES</span>
-                  <input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0"
-                    style={{ width: '100%', paddingLeft: 52, paddingRight: 14, paddingTop: 14, paddingBottom: 14, borderRadius: 12, border: '1.5px solid #e2e8f0', fontSize: 22, fontWeight: 900, background: '#fafbff', outline: 'none', boxSizing: 'border-box', color: '#059669' } as React.CSSProperties}
-                    onFocus={e => (e.target.style.borderColor = '#6366f1')}
-                    onBlur={e => (e.target.style.borderColor = '#e2e8f0')} />
-                </div>
-              </div>
-              {/* Form / Term / Year row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                {[
-                  { label: 'Form', key: 'form_id', options: [{ id: '', label: 'All Forms' }, ...forms.map(f => ({ id: f.id, label: f.form_name }))] },
-                  { label: 'Term', key: 'term_id', options: [{ id: '', label: 'All Terms' }, ...terms.map(t => ({ id: t.id, label: t.term_name }))] },
-                ].map(sel => (
-                  <div key={sel.key}>
-                    <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{sel.label}</label>
-                    <select value={form[sel.key]} onChange={e => setForm({ ...form, [sel.key]: e.target.value })}
-                      style={{ width: '100%', padding: '10px 10px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 12, background: '#fafbff', outline: 'none', fontWeight: 600 }}>
-                      {sel.options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-                    </select>
-                  </div>
-                ))}
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Year</label>
-                  <input type="number" value={form.year} onChange={e => setForm({ ...form, year: e.target.value })}
-                    style={{ width: '100%', padding: '10px 10px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 12, background: '#fafbff', outline: 'none', fontWeight: 600, boxSizing: 'border-box' } as React.CSSProperties} />
-                </div>
-              </div>
-              {/* Description */}
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Description (optional)</label>
-                <input type="text" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="e.g. Covers full academic year"
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 13, background: '#fafbff', outline: 'none', boxSizing: 'border-box' } as React.CSSProperties}
-                  onFocus={e => (e.target.style.borderColor = '#6366f1')}
-                  onBlur={e => (e.target.style.borderColor = '#e2e8f0')} />
-              </div>
-            </div>
-            <div style={{ padding: '14px 24px', borderTop: '1px solid #f1f5f9', background: '#fafbff', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => setShowModal(false)}
-                style={{ padding: '10px 20px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, fontWeight: 700, color: '#64748b', cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={handleSave}
-                style={{ padding: '10px 28px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#1e1b4b,#6366f1)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 16px rgba(99,102,241,0.35)' }}>
-                <FiSave size={14} /> {editId ? 'Update Item' : 'Save Item'}
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ═══ BULK COPY TERM MODAL ═══ */}
-      {showBulkCopy && (
-        <div onClick={() => setShowBulkCopy(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 420, borderRadius: 24, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.25)', animation: 'modalUp 0.25s ease-out' }}>
-            <div style={{ background: 'linear-gradient(135deg,#064e3b,#047857)', padding: '20px 24px' }}>
-              <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 900, margin: 0 }}>📋 Copy Fee Structure</h3>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, margin: '4px 0 0' }}>Duplicate all fee items from one term to another</p>
+      {/* ═══════════════════════════════════════════════════════════════════════
+          TAB 3: COHORT CLONING & ADJUSTER
+          ═══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'cloning' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {/* Term-to-Term Cloning Card */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-3">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Clone Structure Between Terms
+              </h3>
             </div>
-            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p className="text-[11px] text-slate-500">
+              Duplicate an entire term&apos;s vote heads into the next term with an optional inflation or percentage adjustment.
+            </p>
+
+            <div className="space-y-2.5 text-xs">
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Copy FROM Term</label>
-                <select value={copyFromTerm} onChange={e => setCopyFromTerm(e.target.value)}
-                  style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '1.5px solid #e2e8f0', fontSize: 13, background: '#fafbff', outline: 'none', fontWeight: 600 }}>
-                  <option value="">— Select source term —</option>
-                  {terms.map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year}</option>)}
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Source Term (Copy From)
+                </label>
+                <select
+                  value={copyFromTerm}
+                  onChange={(e) => setCopyFromTerm(e.target.value)}
+                  className="w-full p-2 rounded-lg border border-slate-200 bg-white font-medium"
+                >
+                  <option value="">— Select Source Term —</option>
+                  {terms.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.term_name} {t.year} ({structures.filter((s) => s.term_id === t.id).length} items)
+                    </option>
+                  ))}
                 </select>
               </div>
-              <div style={{ textAlign: 'center', fontSize: 20 }}>↓</div>
+
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Copy TO Term</label>
-                <select value={copyToTerm} onChange={e => setCopyToTerm(e.target.value)}
-                  style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '1.5px solid #e2e8f0', fontSize: 13, background: '#fafbff', outline: 'none', fontWeight: 600 }}>
-                  <option value="">— Select target term —</option>
-                  {terms.filter(t => String(t.id) !== copyFromTerm).map(t => <option key={t.id} value={t.id}>{t.term_name} {t.year}</option>)}
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Target Term (Copy To)
+                </label>
+                <select
+                  value={copyToTerm}
+                  onChange={(e) => setCopyToTerm(e.target.value)}
+                  className="w-full p-2 rounded-lg border border-slate-200 bg-white font-medium"
+                >
+                  <option value="">— Select Target Term —</option>
+                  {terms
+                    .filter((t) => String(t.id) !== copyFromTerm)
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.term_name} {t.year}
+                      </option>
+                    ))}
                 </select>
               </div>
-              {copyFromTerm && (
-                <div style={{ padding: '10px 14px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #a7f3d0' }}>
-                  <p style={{ fontSize: 11, color: '#065f46', fontWeight: 600, margin: 0 }}>
-                    ℹ️ Will copy {structures.filter(s => String(s.term_id) === copyFromTerm).length} fee items
-                  </p>
-                </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Inflation / Fee Adjustment (%)
+                </label>
+                <input
+                  type="number"
+                  value={copyInflationPct}
+                  onChange={(e) => setCopyInflationPct(e.target.value)}
+                  placeholder="0"
+                  className="w-full p-2 rounded-lg border border-slate-200 bg-white font-mono"
+                />
+              </div>
+
+              <button
+                onClick={handleBulkCopy}
+                className="w-full mt-2 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
+              >
+                <FiCopy size={13} />
+                <span>Execute Term Cloning</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Active Session Term Switcher Card */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-3">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Academic Session &amp; Active Term
+              </h3>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Set which term is designated active in the live database for fee obligations, arrears, and receipt printing.
+            </p>
+
+            <div className="space-y-2">
+              {terms.map((t) => {
+                const isCurrent = t.is_current;
+                return (
+                  <div
+                    key={t.id}
+                    className={`p-2.5 rounded-xl border flex items-center justify-between transition ${
+                      isCurrent
+                        ? 'bg-indigo-50/70 border-indigo-200'
+                        : 'bg-slate-50/50 border-slate-200'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-800">{t.term_name}</span>
+                        {isCurrent && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-600 text-white">
+                            CURRENT ACTIVE
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        Year: {t.year} · {structures.filter((s) => s.term_id === t.id).length} configured items
+                      </p>
+                    </div>
+
+                    {!isCurrent && (
+                      <button
+                        onClick={() => handleSetCurrentTerm(t.id)}
+                        className="px-2.5 py-1 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-[11px] font-bold transition"
+                      >
+                        Set Active
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          TAB 4: OFFICIAL FEE CIRCULAR PREVIEW & NOTICE
+          ═══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'circular' && (
+        <div className="space-y-3">
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Official Ministry of Education Fee Notice Preview
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                School Letterhead with live banking instructions and BOM authorization
+              </p>
+            </div>
+            <button
+              onClick={handlePrintCircular}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+            >
+              <FiPrinter size={13} />
+              <span>Print A4 Circular</span>
+            </button>
+          </div>
+
+          {/* Letterhead Preview Box */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm max-w-[800px] mx-auto text-xs space-y-4">
+            {/* Header */}
+            <div className="text-center border-b-2 border-indigo-900 pb-3">
+              <h2 className="text-base font-black text-indigo-950 uppercase tracking-wider">
+                {registeredSchoolName}
+              </h2>
+              {schoolDetails?.motto && (
+                <p className="text-[11px] italic text-slate-500 mt-0.5">&ldquo;{schoolDetails.motto}&rdquo;</p>
               )}
+              <p className="text-[10px] text-slate-500 mt-1">
+                {schoolDetails?.postal_address || 'P.O. Box 12123'} · {schoolDetails?.physical_address || 'SILIBWET TOWN'} · {schoolDetails?.county || 'Bomet'} County
+              </p>
+              <span className="inline-block mt-2 px-3 py-0.5 rounded bg-indigo-900 text-white font-extrabold text-[10px] uppercase tracking-wider">
+                OFFICIAL APPROVED FEES SCHEDULE — ACADEMIC YEAR {new Date().getFullYear()}
+              </span>
             </div>
-            <div style={{ padding: '14px 24px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowBulkCopy(false)} style={{ padding: '10px 18px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 12, fontWeight: 700, color: '#64748b', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleBulkCopy} style={{ padding: '10px 24px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#064e3b,#059669)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FiCopy size={13} /> Copy Structure
+
+            {/* Meta */}
+            <div className="flex justify-between text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-200 font-medium">
+              <div>
+                Target Cohort: <strong className="text-indigo-950">All School Classes Composite</strong>
+              </div>
+              <div>
+                Principal: <strong className="text-indigo-950">{schoolDetails?.principal_name || 'Mr. Jim'}</strong>
+              </div>
+            </div>
+
+            {/* Mini Table Preview */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-indigo-950 text-white text-[9.5px] uppercase">
+                    <th className="py-1.5 px-2">#</th>
+                    <th className="py-1.5 px-3">Vote Head / Category</th>
+                    <th className="py-1.5 px-2 text-right">Term 1</th>
+                    <th className="py-1.5 px-2 text-right">Term 2</th>
+                    <th className="py-1.5 px-2 text-right">Term 3</th>
+                    <th className="py-1.5 px-2 text-right">Total Annual</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {selectedFormMatrixItems.slice(0, 8).map((it, idx) => (
+                    <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
+                      <td className="py-1.5 px-2 font-mono text-[10px]">{idx + 1}</td>
+                      <td className="py-1.5 px-3 font-semibold text-slate-800">{it.category}</td>
+                      <td className="py-1.5 px-2 text-right font-mono">{it.term1 > 0 ? fmt(it.term1) : '—'}</td>
+                      <td className="py-1.5 px-2 text-right font-mono">{it.term2 > 0 ? fmt(it.term2) : '—'}</td>
+                      <td className="py-1.5 px-2 text-right font-mono">{it.term3 > 0 ? fmt(it.term3) : '—'}</td>
+                      <td className="py-1.5 px-2 text-right font-mono font-bold text-indigo-900">{fmt(it.annual)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Banking Details Box */}
+            <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl text-[10.5px] text-blue-950">
+              <p className="font-extrabold uppercase text-blue-900 mb-1">Approved Payment Options:</p>
+              <p>
+                Bank: <strong>{schoolDetails?.bank_name || 'KCB Bank'}</strong> | A/C: <strong>{schoolDetails?.bank_account_number || '45625825215'}</strong> | Name: <strong>{schoolDetails?.bank_account_name || registeredSchoolName}</strong>
+              </p>
+              <p className="text-rose-700 font-semibold mt-1">
+                Notice: Strictly no cash transactions accepted at school premises.
+              </p>
+            </div>
+
+            {/* Signatures */}
+            <div className="grid grid-cols-3 gap-6 pt-6 text-center text-[10px] text-slate-600">
+              <div>
+                <div className="border border-dashed border-slate-300 h-10 rounded flex items-center justify-center font-bold text-slate-400">
+                  OFFICIAL STAMP
+                </div>
+              </div>
+              <div>
+                <div className="border-t border-slate-800 pt-1 font-bold mt-6">Senior Bursar</div>
+              </div>
+              <div>
+                <div className="border-t border-slate-800 pt-1 font-bold mt-6">{schoolDetails?.principal_name || 'Principal'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ADD / EDIT FEE ITEM MODAL ═══ */}
+      {showModal && (
+        <div
+          onClick={() => setShowModal(false)}
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-slate-200 max-w-md w-full shadow-xl overflow-hidden"
+          >
+            <div className="bg-indigo-600 p-4 text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold">{editId ? 'Edit Fee Vote Item' : 'Add Fee Vote Item'}</h3>
+                <p className="text-[11px] text-indigo-100 mt-0.5">Configure vote category, form allocation and amount</p>
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 text-xs">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Vote Head Category *
+                </label>
+                <select
+                  value={formState.category}
+                  onChange={(e) => setFormState({ ...formState, category: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white font-semibold text-slate-800"
+                >
+                  <option value="">— Select Vote Head —</option>
+                  {voteHeadNames.length > 0
+                    ? voteHeadNames.map((name) => <option key={name}>{name}</option>)
+                    : ['Tuition', 'Boarding', 'Exam Levies', 'Activity / Sports', 'Repairs & Maintenance', 'Medical'].map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Amount (KES) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">KES</span>
+                  <input
+                    type="number"
+                    value={formState.amount}
+                    onChange={(e) => setFormState({ ...formState, amount: e.target.value })}
+                    placeholder="0"
+                    className="w-full pl-12 pr-3 py-2 text-base font-extrabold font-mono rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-emerald-700 bg-emerald-50/30"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Class / Form
+                  </label>
+                  <select
+                    value={formState.form_id}
+                    onChange={(e) => setFormState({ ...formState, form_id: e.target.value })}
+                    className="w-full p-2 rounded-xl border border-slate-200 bg-white font-medium"
+                  >
+                    <option value="">All Forms (General)</option>
+                    {forms.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.form_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Academic Term
+                  </label>
+                  <select
+                    value={formState.term_id}
+                    onChange={(e) => setFormState({ ...formState, term_id: e.target.value })}
+                    className="w-full p-2 rounded-xl border border-slate-200 bg-white font-medium"
+                  >
+                    <option value="">All Terms</option>
+                    {terms.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.term_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Description / Purpose (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={formState.description}
+                  onChange={(e) => setFormState({ ...formState, description: e.target.value })}
+                  placeholder="e.g. Approved by BOM for Academic year"
+                  className="w-full p-2 rounded-xl border border-slate-200 bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs"
+              >
+                <FiSave size={13} />
+                <span>{editId ? 'Update Item' : 'Save Item'}</span>
               </button>
             </div>
           </div>
@@ -922,57 +1648,76 @@ export default function FeeStructurePage() {
 
       {/* ═══ FEE INCREASE MODAL ═══ */}
       {showIncModal && (
-        <div onClick={() => setShowIncModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 420, borderRadius: 24, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.25)', animation: 'modalUp 0.25s ease-out' }}>
-            <div style={{ background: 'linear-gradient(135deg,#78350f,#d97706)', padding: '20px 24px' }}>
-              <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 900, margin: 0 }}>📈 Apply Fee Increase</h3>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, margin: '4px 0 0' }}>
-                Apply to {selectedIds.size > 0 ? `${selectedIds.size} selected items` : `all ${filtered.length} filtered items`}
+        <div
+          onClick={() => setShowIncModal(false)}
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-slate-200 max-w-sm w-full shadow-xl overflow-hidden text-xs"
+          >
+            <div className="bg-amber-600 p-4 text-white">
+              <h3 className="text-sm font-extrabold">Batch Fee Adjustment</h3>
+              <p className="text-[11px] text-amber-100 mt-0.5">
+                Apply inflation adjustment to {selectedIds.size > 0 ? `${selectedIds.size} selected items` : `all ${filtered.length} filtered items`}
               </p>
             </div>
-            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[
-                  { key: 'pct', label: '% Percentage', icon: '%' },
-                  { key: 'flat', label: 'KES Flat Amount', icon: 'KES' },
-                ].map(t => (
-                  <button key={t.key} onClick={() => setIncreaseType(t.key as 'pct' | 'flat')}
-                    style={{ flex: 1, padding: '12px 10px', borderRadius: 12, border: `2px solid ${increaseType === t.key ? '#d97706' : '#e2e8f0'}`, background: increaseType === t.key ? '#fffbeb' : '#fff', color: increaseType === t.key ? '#d97706' : '#64748b', fontWeight: 800, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s' }}>
-                    {t.icon} {t.label}
-                  </button>
-                ))}
+
+            <div className="p-4 space-y-3">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIncreaseType('pct')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold border transition ${
+                    increaseType === 'pct'
+                      ? 'bg-amber-50 text-amber-800 border-amber-300'
+                      : 'bg-white text-slate-600 border-slate-200'
+                  }`}
+                >
+                  % Percentage
+                </button>
+                <button
+                  onClick={() => setIncreaseType('flat')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold border transition ${
+                    increaseType === 'flat'
+                      ? 'bg-amber-50 text-amber-800 border-amber-300'
+                      : 'bg-white text-slate-600 border-slate-200'
+                  }`}
+                >
+                  Flat KES
+                </button>
               </div>
+
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>
-                  {increaseType === 'pct' ? 'Percentage Increase (%)' : 'Flat Amount (KES)'}
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Adjustment Value ({increaseType === 'pct' ? '%' : 'KES'})
                 </label>
-                <input type="number" value={increaseVal} onChange={e => setIncreaseVal(e.target.value)} placeholder={increaseType === 'pct' ? '10' : '500'}
-                  style={{ width: '100%', padding: '14px 14px', borderRadius: 12, border: '1.5px solid #e2e8f0', fontSize: 22, fontWeight: 900, background: '#fffbeb', outline: 'none', boxSizing: 'border-box', color: '#d97706', textAlign: 'center' } as React.CSSProperties} />
+                <input
+                  type="number"
+                  value={increaseVal}
+                  onChange={(e) => setIncreaseVal(e.target.value)}
+                  placeholder={increaseType === 'pct' ? '5' : '1000'}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-base font-bold text-center"
+                />
               </div>
-              {increaseVal && Number(increaseVal) > 0 && (
-                <div style={{ padding: '12px 14px', background: '#fffbeb', borderRadius: 10, border: '1px solid #fcd34d' }}>
-                  <p style={{ fontSize: 11, color: '#92400e', fontWeight: 700, margin: 0 }}>
-                    ⚠️ This will permanently update {selectedIds.size > 0 ? selectedIds.size : filtered.length} fee items.
-                    {increaseType === 'pct' ? ` e.g. KES 10,000 → KES ${(10000 * (1 + Number(increaseVal) / 100)).toLocaleString()}` : ` e.g. KES 10,000 → KES ${(10000 + Number(increaseVal)).toLocaleString()}`}
-                  </p>
-                </div>
-              )}
             </div>
-            <div style={{ padding: '14px 24px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowIncModal(false)} style={{ padding: '10px 18px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 12, fontWeight: 700, color: '#64748b', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleFeeIncrease} style={{ padding: '10px 24px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#78350f,#d97706)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FiPercent size={13} /> Apply Increase
+
+            <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowIncModal(false)}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 font-bold text-slate-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFeeIncrease}
+                className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold"
+              >
+                Apply Adjustment
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes orb { 0%,100%{transform:scale(1) translate(0,0)} 50%{transform:scale(1.1) translate(10px,-10px)} }
-        @keyframes spin { to{transform:rotate(360deg)} }
-        @keyframes modalUp { from{opacity:0;transform:translateY(20px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
-      `}</style>
     </div>
   );
 }
