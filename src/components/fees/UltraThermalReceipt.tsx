@@ -375,3 +375,450 @@ export function printDemandLetter(student: any, fees: any, schoolName?: string) 
 </body></html>`);
   w.document.close();
 }
+
+/**
+ * Super Premium Official A4 Fee Payment Voucher & Receipt
+ */
+export function printA4OfficialReceipt(data: ReceiptData) {
+  const w = window.open('', '_blank');
+  if (!w) return;
+
+  const school = data.schoolName || 'ALPHA PREMIER SCHOOL';
+  const addr = data.schoolAddress || 'P.O. Box 000, Nairobi, Kenya';
+  const phone = data.schoolPhone || 'Tel: +254 700 000 000';
+  const email = data.schoolEmail || 'finance@alphapremier.ac.ke';
+  const motto = data.schoolMotto || 'Excellence, Integrity & Leadership';
+  const dateStr = new Date(data.paymentDate).toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const timeStr = new Date().toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' });
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Official Receipt - ${data.receiptNumber}</title>
+<style>
+  @page { size: A4 portrait; margin: 15mm; }
+  @media print {
+    .no-print { display: none !important; }
+    body { margin: 0; padding: 0; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    color: #0f172a;
+    background: #ffffff;
+    padding: 24px;
+    line-height: 1.45;
+    font-size: 13px;
+  }
+  .receipt-container {
+    max-width: 780px;
+    margin: 0 auto;
+    border: 2px solid #1e3a8a;
+    border-radius: 12px;
+    padding: 28px;
+    position: relative;
+    background: #ffffff;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid #1e3a8a;
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+  }
+  .brand-title {
+    font-size: 22px;
+    font-weight: 900;
+    color: #1e3a8a;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .brand-sub {
+    font-size: 11px;
+    color: #475569;
+    margin-top: 3px;
+  }
+  .badge-rcpt {
+    background: #1e3a8a;
+    color: #ffffff;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 14px;
+    text-align: right;
+    letter-spacing: 0.5px;
+  }
+  .badge-rcpt small {
+    display: block;
+    font-size: 9px;
+    opacity: 0.85;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .meta-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .meta-box-title {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #1e3a8a;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 4px;
+  }
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 11.5px;
+  }
+  .meta-label { color: #64748b; font-weight: 600; }
+  .meta-val { color: #0f172a; font-weight: 700; text-align: right; }
+  .amt-banner {
+    background: #eff6ff;
+    border: 2px solid #3b82f6;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .amt-banner-lbl { font-size: 11px; font-weight: 800; color: #1e40af; text-transform: uppercase; letter-spacing: 1px; }
+  .amt-banner-val { font-size: 26px; font-weight: 900; color: #1e3a8a; font-family: monospace; }
+  .table-section { margin-bottom: 20px; }
+  .section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1e3a8a; letter-spacing: 0.8px; margin-bottom: 6px; }
+  table.ledger-table { width: 100%; border-collapse: collapse; }
+  table.ledger-table th { background: #1e3a8a; color: #fff; padding: 7px 10px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }
+  table.ledger-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-size: 11.5px; }
+  .balances-card {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 24px;
+  }
+  .sig-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-top: 36px;
+    padding-top: 16px;
+    border-top: 1px dashed #cbd5e1;
+    text-align: center;
+  }
+  .sig-box {
+    border-top: 1.5px solid #0f172a;
+    padding-top: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #475569;
+  }
+  .stamp-box-a4 {
+    border: 2px dashed #94a3b8;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .footer-a4 {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 10px;
+    color: #94a3b8;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 10px;
+  }
+  .watermark {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    font-size: 72px;
+    font-weight: 900;
+    color: rgba(30, 58, 138, 0.04);
+    letter-spacing: 8px;
+    pointer-events: none;
+    text-transform: uppercase;
+  }
+</style></head><body>
+<div class="receipt-container">
+  <div class="watermark">OFFICIAL RECEIPT</div>
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="brand-title">${school}</div>
+      <div class="brand-sub">${addr} • ${phone} • ${email}</div>
+      <div style="font-size:10px;color:#1e3a8a;font-style:italic;margin-top:3px;">"${motto}"</div>
+    </div>
+    <div class="badge-rcpt">
+      <small>OFFICIAL FEE RECEIPT</small>
+      <span>${data.receiptNumber}</span>
+    </div>
+  </div>
+
+  <!-- Metadata Grid -->
+  <div class="meta-grid">
+    <div class="meta-box">
+      <div class="meta-box-title">Student Particulars</div>
+      <div class="meta-row"><span class="meta-label">Full Name:</span><span class="meta-val">${data.studentName}</span></div>
+      <div class="meta-row"><span class="meta-label">Admission No:</span><span class="meta-val" style="font-family:monospace;">${data.admissionNo}</span></div>
+      <div class="meta-row"><span class="meta-label">Class / Stream:</span><span class="meta-val">${data.formStream}</span></div>
+      ${data.parentPhone ? `<div class="meta-row"><span class="meta-label">Parent Contact:</span><span class="meta-val">${data.parentPhone}</span></div>` : ''}
+    </div>
+
+    <div class="meta-box">
+      <div class="meta-box-title">Transaction Particulars</div>
+      <div class="meta-row"><span class="meta-label">Payment Date:</span><span class="meta-val">${dateStr}</span></div>
+      <div class="meta-row"><span class="meta-label">Payment Rail:</span><span class="meta-val">${data.paymentMethod}</span></div>
+      ${data.reference ? `<div class="meta-row"><span class="meta-label">Ref / Transaction Code:</span><span class="meta-val" style="font-family:monospace;color:#1e3a8a;">${data.reference}</span></div>` : ''}
+      <div class="meta-row"><span class="meta-label">Issuing Terminal:</span><span class="meta-val">${data.cashier || 'Cashier Command Desk'}</span></div>
+    </div>
+  </div>
+
+  <!-- Big Amount Banner -->
+  <div class="amt-banner">
+    <div>
+      <div class="amt-banner-lbl">Total Amount Received</div>
+      <div style="font-size:11px;color:#334155;margin-top:2px;">Received with thanks in full settlement</div>
+    </div>
+    <div class="amt-banner-val">KES ${Number(data.amount || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}</div>
+  </div>
+
+  <!-- Student Current Fee Position -->
+  <div class="table-section">
+    <div class="section-title">Current Fee Position & Clearance Status</div>
+    <table class="ledger-table">
+      <thead>
+        <tr>
+          <th>Obligation Item</th>
+          <th style="text-align:right;">Billed Total (KES)</th>
+          <th style="text-align:right;">Paid to Date (KES)</th>
+          <th style="text-align:right;">Outstanding Due (KES)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Current Academic Term</strong></td>
+          <td style="text-align:right;">${Number(data.termFees || 0).toLocaleString('en-KE')}</td>
+          <td style="text-align:right;color:#15803d;font-weight:700;">${Number(data.totalPaid || 0).toLocaleString('en-KE')}</td>
+          <td style="text-align:right;color:${(data.termBalance || 0) > 0 ? '#b91c1c' : '#15803d'};font-weight:800;">
+            ${Number(data.termBalance || 0).toLocaleString('en-KE')}
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Full Academic Year</strong></td>
+          <td style="text-align:right;">${Number(data.annualFees || 0).toLocaleString('en-KE')}</td>
+          <td style="text-align:right;color:#15803d;font-weight:700;">${Number(data.totalPaid || 0).toLocaleString('en-KE')}</td>
+          <td style="text-align:right;color:${(data.annualBalance || 0) > 0 ? '#b91c1c' : '#15803d'};font-weight:800;">
+            ${Number(data.annualBalance || 0).toLocaleString('en-KE')}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Stamp and Signatures -->
+  <div class="sig-section">
+    <div>
+      <div class="stamp-box-a4">OFFICIAL STAMP HERE</div>
+      <div style="font-size:9px;color:#94a3b8;margin-top:4px;">School Finance Office Stamp</div>
+    </div>
+    <div>
+      <div style="height:48px;"></div>
+      <div class="sig-box">Prepared / Received By (Bursar)</div>
+    </div>
+    <div>
+      <div style="height:48px;"></div>
+      <div class="sig-box">Authorized Signatory / Principal</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer-a4">
+    <div>✅ Thank you for your continued partnership. This is a computer-generated official receipt issued by AlphaSIMS™.</div>
+    <div style="margin-top:3px;">Printed on: ${new Date().toLocaleString('en-KE')} • Serial: ${data.receiptNumber}-${Date.now().toString(36).toUpperCase()}</div>
+  </div>
+</div>
+
+<div class="no-print" style="text-align:center;margin:24px 0;">
+  <button onclick="window.print()" style="padding:10px 28px;background:#1e3a8a;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;margin-right:10px;">🖨️ PRINT OFFICIAL A4 RECEIPT</button>
+  <button onclick="window.close()" style="padding:10px 24px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕ CLOSE</button>
+</div>
+</body></html>`);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 400);
+}
+
+/**
+ * Super Premium Printable A4 Payments Register / Audit Report
+ */
+export function printPaymentsRegisterReport({
+  schoolName = 'ALPHA PREMIER SCHOOL',
+  termName = 'All Terms',
+  payments,
+  totalAmount,
+}: {
+  schoolName?: string;
+  termName?: string;
+  payments: any[];
+  totalAmount: number;
+}) {
+  const w = window.open('', '_blank');
+  if (!w) return;
+
+  const dateStr = new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  const rowsHtml = payments
+    .map(
+      (p, i) => `
+    <tr style="background:${i % 2 === 1 ? '#f8fafc' : '#ffffff'};">
+      <td style="padding:6px 8px;text-align:center;font-size:10px;border-bottom:1px solid #e2e8f0;">${i + 1}</td>
+      <td style="padding:6px 8px;font-family:monospace;font-size:10.5px;font-weight:700;color:#1e3a8a;border-bottom:1px solid #e2e8f0;">${p.receiptNo || p.receipt_number || '—'}</td>
+      <td style="padding:6px 8px;font-size:10.5px;border-bottom:1px solid #e2e8f0;">${p.paymentDate || p.payment_date || '—'}</td>
+      <td style="padding:6px 8px;font-weight:700;font-size:11px;border-bottom:1px solid #e2e8f0;">${p.studentName || 'Student'}</td>
+      <td style="padding:6px 8px;font-family:monospace;font-size:10px;text-align:center;border-bottom:1px solid #e2e8f0;">${p.admNo || '—'}</td>
+      <td style="padding:6px 8px;font-size:10px;border-bottom:1px solid #e2e8f0;">${p.formName || '—'}</td>
+      <td style="padding:6px 8px;font-size:10px;text-align:center;border-bottom:1px solid #e2e8f0;">${p.paymentMethod || p.payment_method || '—'}</td>
+      <td style="padding:6px 8px;font-family:monospace;font-size:10px;border-bottom:1px solid #e2e8f0;">${p.referenceNo || p.mpesa_code || p.reference_number || '—'}</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:800;font-size:11px;color:#15803d;border-bottom:1px solid #e2e8f0;">KES ${Number(p.amount || 0).toLocaleString('en-KE')}</td>
+    </tr>`
+    )
+    .join('');
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Payment Transactions Register Report</title>
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  @media print {
+    .no-print { display: none !important; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    color: #0f172a;
+    background: #ffffff;
+    padding: 20px;
+    font-size: 11px;
+  }
+  .report-header {
+    border-bottom: 2.5px solid #1e3a8a;
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .title { font-size: 18px; font-weight: 900; color: #1e3a8a; text-transform: uppercase; }
+  .subtitle { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .summary-bar {
+    display: flex;
+    gap: 16px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 14px;
+  }
+  .summary-item { font-size: 11px; color: #1e40af; }
+  .summary-item strong { color: #1e3a8a; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #1e3a8a; color: #fff; padding: 7px 8px; font-size: 10px; text-transform: uppercase; font-weight: 800; border: 1px solid #1e3a8a; }
+  .sign-grid {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+    text-align: center;
+  }
+  .sign-line {
+    border-top: 1.5px solid #0f172a;
+    margin-top: 36px;
+    padding-top: 4px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+</style></head><body>
+<div class="report-header">
+  <div>
+    <div class="title">${schoolName}</div>
+    <div class="subtitle">Official Fee Payments & Collections Register • Academic Term: ${termName}</div>
+  </div>
+  <div style="text-align:right;">
+    <div style="font-size:10px;color:#64748b;">Report Generated: ${dateStr}</div>
+    <div style="font-size:10px;font-weight:700;color:#1e3a8a;">Audit Ready • Certified Ledger</div>
+  </div>
+</div>
+
+<div class="summary-bar">
+  <div class="summary-item">Total Transactions: <strong>${payments.length.toLocaleString()}</strong></div>
+  <div class="summary-item">Cumulative Volume: <strong>KES ${Number(totalAmount || 0).toLocaleString('en-KE')}</strong></div>
+  <div class="summary-item">Academic Term: <strong>${termName}</strong></div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:30px;">#</th>
+      <th>Receipt No</th>
+      <th>Date</th>
+      <th style="text-align:left;">Student Name</th>
+      <th>Adm No</th>
+      <th>Class</th>
+      <th>Channel</th>
+      <th>Reference / Slip</th>
+      <th style="text-align:right;">Amount (KES)</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rowsHtml}
+  </tbody>
+  <tfoot>
+    <tr style="background:#f1f5f9;font-weight:900;">
+      <td colspan="8" style="padding:8px;text-align:right;font-size:11px;border-top:2px solid #0f172a;border-bottom:2px double #0f172a;">
+        GRAND TOTAL REVENUE (${payments.length} TRANSACTIONS):
+      </td>
+      <td style="padding:8px;text-align:right;font-size:12px;color:#15803d;border-top:2px solid #0f172a;border-bottom:2px double #0f172a;">
+        KES ${Number(totalAmount || 0).toLocaleString('en-KE')}
+      </td>
+    </tr>
+  </tfoot>
+</table>
+
+<div class="sign-grid">
+  <div>
+    <div class="sign-line">Prepared By (Bursar / Cashier)</div>
+  </div>
+  <div>
+    <div class="sign-line">Verified By (Internal Auditor)</div>
+  </div>
+  <div>
+    <div class="sign-line">Approved By (Principal / Board of Management)</div>
+  </div>
+</div>
+
+<div class="no-print" style="text-align:center;margin-top:20px;">
+  <button onclick="window.print()" style="padding:8px 24px;background:#1e3a8a;color:#fff;border:none;border-radius:4px;font-weight:800;cursor:pointer;margin-right:8px;">🖨️ PRINT REGISTER</button>
+  <button onclick="window.close()" style="padding:8px 20px;background:#e2e8f0;color:#0f172a;border:none;border-radius:4px;font-weight:700;cursor:pointer;">✕ CLOSE</button>
+</div>
+</body></html>`);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 400);
+}
+

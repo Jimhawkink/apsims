@@ -1,797 +1,2533 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
-import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { useFeeData, fmt, getMethodColor } from '../useFeeData';
+import toast from 'react-hot-toast';
+import { supabase } from '@/lib/supabase';
+import { useUltraFeeCollect, fmt, type StudentFeeProfile } from '@/hooks/useUltraFeeCollect';
+import UltraPaymentsCharts, { type MethodMetric, type DailyPoint } from '@/components/fees/UltraPaymentsCharts';
+import {
+  exportUltraPaymentsExcel,
+  type PaymentExportItem,
+  type MethodSummaryExportItem,
+  type FormCollectionExportItem,
+} from '@/components/fees/UltraPaymentsExport';
+import UltraPaymentModal, { type PaymentData } from '@/components/fees/UltraPaymentModal';
+import {
+  printThermalReceipt,
+  printA4OfficialReceipt,
+  printPaymentsRegisterReport,
+} from '@/components/fees/UltraThermalReceipt';
+import {
+  FiDollarSign,
+  FiCreditCard,
+  FiSmartphone,
+  FiSearch,
+  FiFilter,
+  FiDownload,
+  FiRefreshCw,
+  FiPrinter,
+  FiShare2,
+  FiEdit2,
+  FiTrash2,
+  FiEye,
+  FiPlus,
+  FiCheck,
+  FiX,
+  FiCalendar,
+  FiUser,
+  FiBookOpen,
+  FiChevronLeft,
+  FiChevronRight,
+  FiFileText,
+  FiLayers,
+  FiTrendingUp,
+  FiArrowUpRight,
+  FiCheckCircle,
+  FiShield,
+  FiSend,
+} from 'react-icons/fi';
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   TYPES
-══════════════════════════════════════════════════════════════════════════════ */
+   TYPES & EXECUTIVE THEME
+   ══════════════════════════════════════════════════════════════════════════════ */
 type SortKey = 'payment_date' | 'amount' | 'student' | 'receipt_number' | 'payment_method';
 type SortDir = 'asc' | 'desc';
-type View = 'table' | 'grid' | 'analytics';
-interface EditModal { open: boolean; payment: any | null; }
+type ViewMode = 'table' | 'grid' | 'analytics';
+type CurriculumFilter = 'ALL' | 'CBC_SENIOR' | '844_SEC' | 'JSS' | 'PRIMARY_CBC';
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   THEME CONSTANTS
-══════════════════════════════════════════════════════════════════════════════ */
 const T = {
-  bg:        '#f8fafc',
-  card:      '#ffffff',
-  border:    '#e2e8f0',
-  borderHov: '#c7d2fe',
-  text:      '#0f172a',
-  sub:       '#64748b',
-  muted:     '#94a3b8',
-  indigo:    '#4f46e5',
-  indigoL:   '#eef2ff',
-  indigoBd:  '#c7d2fe',
-  green:     '#16a34a',
-  greenL:    '#f0fdf4',
-  greenBd:   '#bbf7d0',
-  amber:     '#d97706',
-  amberL:    '#fffbeb',
-  red:       '#dc2626',
-  redL:      '#fef2f2',
-  blue:      '#2563eb',
-  blueL:     '#eff6ff',
-  redBd:     '#fecaca',
+  bg: '#f8fafc',
+  card: '#ffffff',
+  cardAlt: '#f1f5f9',
+  border: '#e2e8f0',
+  borderHov: '#cbd5e1',
+  text: '#0f172a',
+  sub: '#64748b',
+  muted: '#94a3b8',
+  indigo: '#4f46e5',
+  indigoL: '#eef2ff',
+  indigoBd: '#c7d2fe',
+  green: '#16a34a',
+  greenL: '#f0fdf4',
+  greenBd: '#bbf7d0',
+  amber: '#d97706',
+  amberL: '#fffbeb',
+  amberBd: '#fde68a',
+  red: '#dc2626',
+  redL: '#fef2f2',
+  redBd: '#fecaca',
+  blue: '#2563eb',
+  blueL: '#eff6ff',
+  blueBd: '#bfdbfe',
+  purple: '#7c3aed',
+  purpleL: '#f5f3ff',
+  purpleBd: '#ddd6fe',
+  teal: '#0d9488',
+  tealL: '#f0fdfa',
+  tealBd: '#99f6e4',
 };
 
-const METHOD_COLORS: Record<string, { bg: string; text: string; dot: string; icon: string }> = {
-  'M-Pesa':        { bg: '#f0fdf4', text: '#15803d', dot: '#22c55e', icon: '📱' },
-  'Cash':          { bg: '#fffbeb', text: '#b45309', dot: '#f59e0b', icon: '💵' },
+const METHOD_CONFIG: Record<string, { bg: string; text: string; dot: string; icon: string }> = {
+  'M-Pesa': { bg: '#f0fdf4', text: '#15803d', dot: '#22c55e', icon: '📱' },
+  'Cash': { bg: '#fffbeb', text: '#b45309', dot: '#f59e0b', icon: '💵' },
   'Bank Transfer': { bg: '#eff6ff', text: '#1d4ed8', dot: '#3b82f6', icon: '🏦' },
-  'Bank':          { bg: '#eff6ff', text: '#1d4ed8', dot: '#3b82f6', icon: '🏦' },
-  'Cheque':        { bg: '#faf5ff', text: '#6d28d9', dot: '#8b5cf6', icon: '📄' },
-  'In-Kind':       { bg: '#fdf4ff', text: '#a21caf', dot: '#d946ef', icon: '🎁' },
+  'Bank': { bg: '#eff6ff', text: '#1d4ed8', dot: '#3b82f6', icon: '🏦' },
+  'Cheque': { bg: '#faf5ff', text: '#6d28d9', dot: '#8b5cf6', icon: '📄' },
+  'In-Kind': { bg: '#fdf4ff', text: '#a21caf', dot: '#d946ef', icon: '🎁' },
+  'Bursary': { bg: '#f0fdfa', text: '#0f766e', dot: '#14b8a6', icon: '🏛️' },
+  'Capitation': { bg: '#eef2ff', text: '#4338ca', dot: '#6366f1', icon: '🎓' },
 };
-const getM = (m: string) => METHOD_COLORS[m] ?? { bg: '#f8fafc', text: '#475569', dot: '#94a3b8', icon: '💳' };
 
-const fmtDate     = (d: string) => d ? new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-const fmtDateLong = (d: string) => d ? new Date(d).toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '—';
-const fmtKES      = (n: number) => `KES ${n.toLocaleString('en-KE', { minimumFractionDigits: 2 })}`;
-const fmtK        = (n: number) => n >= 1_000_000 ? `KES ${(n/1_000_000).toFixed(1)}M` : n >= 1_000 ? `KES ${(n/1_000).toFixed(0)}K` : `KES ${n}`;
+function getMethodMeta(m: string) {
+  return METHOD_CONFIG[m] || { bg: '#f8fafc', text: '#475569', dot: '#94a3b8', icon: '💳' };
+}
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   METHOD PILL  (light)
-══════════════════════════════════════════════════════════════════════════════ */
-function MethodPill({ method }: { method: string }) {
-  const m = getM(method);
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 99, background: m.bg, color: m.text, fontSize: 11, fontWeight: 700, border: `1px solid ${m.dot}40` }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: m.dot, flexShrink: 0 }} />
-      {method || '—'}
-    </span>
-  );
+const fmtDate = (d: string) => (d ? new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
+const fmtDateLong = (d: string) => (d ? new Date(d).toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '—');
+const fmtKES = (n: number) => `KES ${Math.round(n || 0).toLocaleString('en-KE')}`;
+const fmtK = (n: number) => {
+  if (n >= 1_000_000) return `KES ${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `KES ${(n / 1_000).toFixed(1)}K`;
+  return `KES ${Math.round(n || 0).toLocaleString('en-KE')}`;
+};
+
+function detectCurriculum(formName: string): { track: CurriculumFilter; label: string; badgeColor: string } {
+  const fn = (formName || '').toLowerCase();
+  if (fn.includes('grade 10') || fn.includes('grade 11') || fn.includes('grade 12') || fn.includes('senior')) {
+    return { track: 'CBC_SENIOR', label: 'CBC Senior', badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+  }
+  if (fn.includes('form') || fn.includes('f1') || fn.includes('f2') || fn.includes('f3') || fn.includes('f4')) {
+    return { track: '844_SEC', label: '8-4-4 Sec', badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+  }
+  if (fn.includes('grade 7') || fn.includes('grade 8') || fn.includes('grade 9') || fn.includes('jss')) {
+    return { track: 'JSS', label: 'JSS (G7-9)', badgeColor: 'bg-sky-50 text-sky-700 border-sky-200' };
+  }
+  if (fn.includes('pp') || fn.includes('playgroup') || fn.includes('grade 1') || fn.includes('grade 2') || fn.includes('grade 3') || fn.includes('grade 4') || fn.includes('grade 5') || fn.includes('grade 6')) {
+    return { track: 'PRIMARY_CBC', label: 'Primary CBC', badgeColor: 'bg-amber-50 text-amber-700 border-amber-200' };
+  }
+  return { track: 'ALL', label: 'General', badgeColor: 'bg-slate-50 text-slate-700 border-slate-200' };
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   KPI CARD  (light premium)
-══════════════════════════════════════════════════════════════════════════════ */
-function KPICard({ label, value, sub, color, colorL, colorBd, icon }: any) {
-  return (
-    <div style={{ background: T.card, border: `1.5px solid ${colorBd}`, borderRadius: 16, padding: '18px 20px', position: 'relative', overflow: 'hidden', fontFamily: "'Inter','Outfit',sans-serif" }}>
-      <div style={{ position: 'absolute', top: -16, right: -16, width: 70, height: 70, borderRadius: '50%', background: color, opacity: 0.07 }} />
-      <div style={{ width: 38, height: 38, borderRadius: 11, background: colorL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, marginBottom: 10 }}>{icon}</div>
-      <div style={{ fontSize: 10, fontWeight: 800, color, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 900, color: T.text, lineHeight: 1, letterSpacing: '-0.02em' }}>{value}</div>
-      <div style={{ fontSize: 11, color: T.sub, marginTop: 5 }}>{sub}</div>
-    </div>
-  );
-}
+   MAIN COMPONENT
+   ══════════════════════════════════════════════════════════════════════════════ */
+export default function UltraPaymentsPage() {
+  const {
+    loading,
+    forms,
+    streams,
+    students,
+    payments,
+    terms,
+    currentTerm,
+    currentYear,
+    settings,
+    getFormName,
+    getStreamName,
+    getStudentFeeProfile,
+    recordPayment,
+    updatePayment,
+    deletePayment,
+    fetchAll,
+  } = useUltraFeeCollect();
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   SORTABLE COLUMN HEADER
-══════════════════════════════════════════════════════════════════════════════ */
-function ColH({ label, sk, current, dir, onSort }: { label: string; sk: SortKey; current: SortKey; dir: SortDir; onSort: (k: SortKey) => void }) {
-  const active = current === sk;
-  return (
-    <th style={{ padding: '11px 14px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-      <button onClick={() => onSort(sk)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: active ? T.indigo : T.sub, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: "'Inter',sans-serif" }}>
-        {label}
-        <span style={{ fontSize: 9 }}>{active ? (dir === 'asc' ? '↑' : '↓') : '⇅'}</span>
-      </button>
-    </th>
-  );
-}
+  // ── Intelligent Term Resolver (Guarantees Term is Never Blank!) ──
+  const resolvePaymentTerm = useCallback(
+    (p: any): { id: number; name: string } => {
+      // 1. Direct term_id match
+      if (p.term_id) {
+        const match = terms.find((t) => Number(t.id) === Number(p.term_id));
+        if (match) return { id: match.id, name: match.term_name };
+      }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   ANALYTICS VIEW  (light)
-══════════════════════════════════════════════════════════════════════════════ */
-function AnalyticsView({ payments, students, terms, getFormName }: any) {
-  const grandTotal = useMemo(() => payments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0), [payments]);
-  const COLORS = ['#4f46e5','#16a34a','#0ea5e9','#d97706','#8b5cf6','#ef4444','#0d9488'];
+      // 2. Date-range lookup against official school term dates
+      if (p.payment_date && terms.length > 0) {
+        for (const t of terms) {
+          if (t.start_date && t.end_date) {
+            if (p.payment_date >= t.start_date && p.payment_date <= t.end_date) {
+              return { id: t.id, name: t.term_name };
+            }
+          }
+        }
 
-  const byMethod = useMemo(() => {
-    const map: Record<string, { count: number; total: number }> = {};
-    payments.forEach((p: any) => { const m = p.payment_method || 'Unknown'; if (!map[m]) map[m] = { count: 0, total: 0 }; map[m].count++; map[m].total += Number(p.amount || 0); });
-    return Object.entries(map).sort((a, b) => b[1].total - a[1].total);
-  }, [payments]);
+        // Closest term by start_date
+        const sorted = [...terms].sort(
+          (a, b) => new Date(a.start_date || '').getTime() - new Date(b.start_date || '').getTime()
+        );
+        for (let i = 0; i < sorted.length; i++) {
+          const cur = sorted[i];
+          const next = sorted[i + 1];
+          if (cur.start_date && p.payment_date >= cur.start_date && (!next?.start_date || p.payment_date < next.start_date)) {
+            return { id: cur.id, name: cur.term_name };
+          }
+        }
+      }
 
-  const byForm = useMemo(() => {
-    const map: Record<string, { count: number; total: number }> = {};
-    payments.forEach((p: any) => { const s = students.find((st: any) => st.id === p.student_id); const form = s ? getFormName(s.form_id) : 'Unknown'; if (!map[form]) map[form] = { count: 0, total: 0 }; map[form].count++; map[form].total += Number(p.amount || 0); });
-    return Object.entries(map).sort((a, b) => b[1].total - a[1].total);
-  }, [payments, students, getFormName]);
-
-  const byTerm = useMemo(() => {
-    const map: Record<string, { count: number; total: number }> = {};
-    payments.forEach((p: any) => { const t = terms.find((tm: any) => Number(tm.id) === Number(p.term_id)); const tn = t?.term_name || 'No Term'; if (!map[tn]) map[tn] = { count: 0, total: 0 }; map[tn].count++; map[tn].total += Number(p.amount || 0); });
-    return Object.entries(map).sort((a, b) => b[1].total - a[1].total);
-  }, [payments, terms]);
-
-  const dailyTrend = useMemo(() => {
-    const map: Record<string, number> = {};
-    const today = new Date();
-    for (let i = 13; i >= 0; i--) { const d = new Date(today); d.setDate(d.getDate() - i); map[d.toISOString().split('T')[0]] = 0; }
-    payments.forEach((p: any) => { if (Object.prototype.hasOwnProperty.call(map, p.payment_date)) map[p.payment_date] += Number(p.amount || 0); });
-    return Object.entries(map);
-  }, [payments]);
-  const maxDay = Math.max(...dailyTrend.map(d => d[1]), 1);
-
-  const PBar = ({ pct, color }: { pct: number; color: string }) => (
-    <div style={{ height: 6, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden', marginTop: 4 }}>
-      <div style={{ height: 6, width: `${pct}%`, background: color, borderRadius: 99, transition: 'width 0.7s ease' }} />
-    </div>
+      // 3. Fallback to active current term or first term
+      if (currentTerm) {
+        return { id: currentTerm.id, name: currentTerm.term_name };
+      }
+      if (terms.length > 0) {
+        return { id: terms[0].id, name: terms[0].term_name };
+      }
+      return { id: 1, name: 'Term 1' };
+    },
+    [terms, currentTerm]
   );
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* 14-day trend bars */}
-      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 18, padding: 24, boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 14, color: T.text, fontFamily: "'Outfit',sans-serif" }}>14-Day Collection Trend</div>
-            <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>Daily fee receipts over the past two weeks</div>
-          </div>
-          <div style={{ background: T.indigoL, color: T.indigo, borderRadius: 10, padding: '6px 14px', fontSize: 12, fontWeight: 800 }}>{fmtKES(grandTotal)}</div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: 150 }}>
-          {dailyTrend.map(([date, amount]) => {
-            const p = (amount / maxDay) * 100;
-            const label = new Date(date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
-            const isToday = date === new Date().toISOString().split('T')[0];
-            return (
-              <div key={date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
-                <div title={`${label}: KES ${amount.toLocaleString()}`}
-                  style={{ width: '100%', background: amount > 0 ? (isToday ? T.indigo : '#818cf8') : '#f1f5f9', borderRadius: '5px 5px 0 0', minHeight: 4, height: `${Math.max(p, 3)}%`, transition: 'height 0.6s ease', cursor: 'pointer', boxShadow: amount > 0 ? `0 2px 8px ${T.indigo}30` : 'none' }} />
-                <span style={{ fontSize: 8, color: T.muted, fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 3 breakdown cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
-        {[
-          { title: 'By Payment Method', data: byMethod, colors: COLORS },
-          { title: 'By Form / Class',   data: byForm.slice(0,6), colors: ['#4f46e5','#16a34a','#0ea5e9','#8b5cf6','#d97706','#ef4444'] },
-          { title: 'By Term',           data: byTerm, colors: ['#4f46e5','#0d9488','#d97706','#8b5cf6','#16a34a'] },
-        ].map((section, si) => (
-          <div key={si} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 18, padding: 22, boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontWeight: 800, fontSize: 13, color: T.text, marginBottom: 16, fontFamily: "'Outfit',sans-serif" }}>{section.title}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {section.data.map(([name, val]: any, i: number) => {
-                const p = grandTotal > 0 ? (val.total / grandTotal) * 100 : 0;
-                const col = section.colors[i % section.colors.length];
-                return (
-                  <div key={name}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: 2, background: col, flexShrink: 0 }} />
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>{name}</span>
-                      </div>
-                      <span style={{ fontSize: 12, fontWeight: 900, color: T.text }}>{fmt(val.total)}</span>
-                    </div>
-                    <PBar pct={p} color={col} />
-                    <div style={{ fontSize: 10, color: T.muted, marginTop: 3 }}>{val.count} payments · {p.toFixed(1)}%</div>
-                  </div>
-                );
-              })}
-              {section.data.length === 0 && <div style={{ textAlign: 'center', color: T.muted, padding: 24 }}>No data</div>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   EDIT MODAL  (light)
-══════════════════════════════════════════════════════════════════════════════ */
-function EditModal({ modal, onClose, onSave, students, terms, getFormName }: any) {
-  const p = modal.payment;
-  const s = p ? students.find((st: any) => st.id === p.student_id) : null;
-  const [form, setForm] = useState({ amount: '', payment_method: 'Cash', reference_number: '', mpesa_code: '', bank_name: '', payment_date: '', term_id: '', notes: '', received_by: '' });
-  useEffect(() => { if (p) setForm({ amount: p.amount || '', payment_method: p.payment_method || 'Cash', reference_number: p.reference_number || '', mpesa_code: p.mpesa_code || '', bank_name: p.bank_name || '', payment_date: p.payment_date || '', term_id: p.term_id || '', notes: p.notes || '', received_by: p.received_by || '' }); }, [p]);
-  if (!modal.open || !p) return null;
-
-  const inp: React.CSSProperties = { width: '100%', padding: '9px 13px', borderRadius: 10, border: `1.5px solid ${T.border}`, fontSize: 13, fontWeight: 600, color: T.text, outline: 'none', fontFamily: "'Inter',sans-serif", background: T.bg };
-  const lbl: React.CSSProperties = { display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 };
-  const methods = ['Cash', 'M-Pesa', 'Bank Transfer', 'Cheque', 'In-Kind'];
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(6px)' }}>
-      <div style={{ width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', borderRadius: 20, background: T.card, border: `1px solid ${T.border}`, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', fontFamily: "'Inter','Outfit',sans-serif" }}>
-        <div style={{ padding: '20px 24px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 900, color: T.text, fontFamily: "'Outfit',sans-serif" }}>Edit Payment</div>
-            <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{s ? `${s.first_name} ${s.last_name}` : ''} · {p.receipt_number}</div>
-          </div>
-          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, cursor: 'pointer', fontSize: 16, color: T.sub, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-        </div>
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div><label style={lbl}>Amount (KES)</label><input type="number" style={inp} value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="0.00" /></div>
-            <div><label style={lbl}>Payment Date</label><input type="date" style={inp} value={form.payment_date} onChange={e => setForm(f => ({ ...f, payment_date: e.target.value }))} /></div>
-          </div>
-          <div>
-            <label style={lbl}>Payment Method</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {methods.map(m => {
-                const mc = getM(m);
-                const active = form.payment_method === m;
-                return (
-                  <button key={m} onClick={() => setForm(f => ({ ...f, payment_method: m }))} style={{ padding: '7px 14px', borderRadius: 9, border: `1.5px solid ${active ? mc.dot : T.border}`, background: active ? mc.bg : T.card, color: active ? mc.text : T.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                    {mc.icon} {m}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          {form.payment_method === 'M-Pesa' && (
-            <div><label style={lbl}>M-Pesa Code</label><input style={inp} value={form.mpesa_code} onChange={e => setForm(f => ({ ...f, mpesa_code: e.target.value.toUpperCase() }))} placeholder="e.g. RCK1AB2CD3" /></div>
-          )}
-          {(form.payment_method === 'Bank Transfer' || form.payment_method === 'Bank') && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div><label style={lbl}>Bank Name</label><input style={inp} value={form.bank_name} onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))} placeholder="Equity, KCB..." /></div>
-              <div><label style={lbl}>Reference No.</label><input style={inp} value={form.reference_number} onChange={e => setForm(f => ({ ...f, reference_number: e.target.value }))} placeholder="Trans ref" /></div>
-            </div>
-          )}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={lbl}>Term</label>
-              <select style={{ ...inp, cursor: 'pointer' }} value={form.term_id} onChange={e => setForm(f => ({ ...f, term_id: e.target.value }))}>
-                <option value="">— Any term —</option>
-                {terms.map((t: any) => <option key={t.id} value={t.id}>{t.term_name}</option>)}
-              </select>
-            </div>
-            <div><label style={lbl}>Received By</label><input style={inp} value={form.received_by} onChange={e => setForm(f => ({ ...f, received_by: e.target.value }))} placeholder="Bursar name" /></div>
-          </div>
-          <div><label style={lbl}>Notes</label><textarea style={{ ...inp, resize: 'none', height: 70 }} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any additional notes..." /></div>
-        </div>
-        <div style={{ padding: '0 24px 24px', display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 12, border: `1.5px solid ${T.border}`, background: T.card, color: T.sub, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={() => onSave({ ...p, ...form })} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', background: T.indigo, color: '#fff', fontSize: 13, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 14px rgba(79,70,229,0.35)' }}>Save Changes</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   PRINT RECEIPT (unchanged logic, light-styled HTML)
-══════════════════════════════════════════════════════════════════════════════ */
-function buildReceipt(p: any, s: any, fees: any, formName: string, termName: string): string {
-  return `<!DOCTYPE html><html><head><title>Receipt – ${p.receipt_number}</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap');
-@page{size:80mm auto;margin:4mm}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Outfit',sans-serif;padding:14px;max-width:340px;color:#111;font-size:11.5px;line-height:1.4}
-.brand{text-align:center;padding-bottom:14px;border-bottom:3px double #111;margin-bottom:14px}
-.brand-name{font-size:18px;font-weight:900;letter-spacing:2px;text-transform:uppercase}
-.brand-sub{font-size:9.5px;color:#666;margin-top:2px;font-weight:600;letter-spacing:0.5px}
-.rcpt-badge{text-align:center;margin:12px 0}
-.rcpt-badge span{font-family:'Courier New',monospace;font-size:15px;font-weight:700;background:#f1f5f9;padding:5px 14px;border-radius:6px;letter-spacing:1px;border:1.5px solid #e2e8f0}
-.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f1f1}
-.row .k{font-size:9.5px;font-weight:700;text-transform:uppercase;color:#888;letter-spacing:0.5px}
-.row .v{font-weight:700;font-size:11px;text-align:right;max-width:60%}
-.amt-block{margin:16px 0;padding:16px;border:2.5px solid #4f46e5;border-radius:10px;text-align:center;background:#eef2ff}
-.amt-block .lbl{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#4f46e5}
-.amt-block .num{font-size:28px;font-weight:900;margin-top:4px;letter-spacing:-1px;color:#312e81}
-.balances{margin:10px 0;padding:10px;background:#f8fafc;border-radius:8px}
-.bal-row{display:flex;justify-content:space-between;padding:4px 0;font-size:11px}
-.bal-row .label{color:#666;font-weight:600}.bal-row .value{font-weight:900}
-.red{color:#dc2626}.green{color:#16a34a}
-.footer{margin-top:16px;padding-top:12px;border-top:3px double #111;text-align:center}
-.footer p{font-size:9px;color:#888;margin:2px 0}
-</style></head><body>
-<div class="brand">
-  <div class="brand-name">Alpha Premier School</div>
-  <div class="brand-sub">P.O. Box 000 · Tel: 0700 000 000 · info@alphapremier.ac.ke</div>
-  <div style="font-size:10.5px;font-weight:700;margin-top:6px;letter-spacing:1px">🎓 OFFICIAL FEE PAYMENT RECEIPT</div>
-</div>
-<div class="rcpt-badge"><span>${p.receipt_number || '—'}</span></div>
-<div>
-  <div class="row"><span class="k">Date</span><span class="v">${fmtDateLong(p.payment_date)}</span></div>
-  <div class="row"><span class="k">Student</span><span class="v">${s ? `${s.first_name} ${s.last_name}` : '—'}</span></div>
-  <div class="row"><span class="k">Adm No</span><span class="v">${s?.admission_no || s?.admission_number || '—'}</span></div>
-  <div class="row"><span class="k">Form / Class</span><span class="v">${formName}</span></div>
-  <div class="row"><span class="k">Term</span><span class="v">${termName}</span></div>
-  <div class="row"><span class="k">Payment Method</span><span class="v">${p.payment_method || '—'}</span></div>
-  ${p.mpesa_code || p.reference_number ? `<div class="row"><span class="k">Reference</span><span class="v" style="font-family:monospace">${p.mpesa_code || p.reference_number}</span></div>` : ''}
-  ${p.bank_name ? `<div class="row"><span class="k">Bank</span><span class="v">${p.bank_name}</span></div>` : ''}
-  ${p.received_by ? `<div class="row"><span class="k">Received By</span><span class="v">${p.received_by}</span></div>` : ''}
-</div>
-<div class="amt-block">
-  <div class="lbl">Amount Received</div>
-  <div class="num">KES ${Number(p.amount).toLocaleString('en-KE', { minimumFractionDigits: 2 })}</div>
-</div>
-${fees ? `<div class="balances">
-  <div class="bal-row"><span class="label">Total Paid (All Time)</span><span class="value green">KES ${fees.totalPaid.toLocaleString()}</span></div>
-  <div class="bal-row"><span class="label">Term Balance Due</span><span class="value red">KES ${fees.termBalance.toLocaleString()}</span></div>
-  <div class="bal-row"><span class="label">Annual Balance Due</span><span class="value red">KES ${fees.annualBalance.toLocaleString()}</span></div>
-</div>` : ''}
-${p.notes ? `<div style="margin:10px 0;padding:8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;font-size:10px;color:#92400e"><strong>Note:</strong> ${p.notes}</div>` : ''}
-<div class="footer">
-  <p>✅ Thank you for your payment!</p>
-  <p>This is a computer-generated receipt. No signature required.</p>
-  <p>Printed: ${new Date().toLocaleString('en-KE')}</p>
-  <p style="margin-top:6px;font-size:8.5px;font-style:italic">Powered by AlphaSIMS School Management System</p>
-</div>
-</body></html>`;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   MAIN PAGE
-══════════════════════════════════════════════════════════════════════════════ */
-export default function PaymentHistoryPage() {
-  const { students, payments, terms, loading, fetchAll, getFormName, getStreamName, getStudentFees } = useFeeData();
-
-  // ── Filters ──
-  const [search, setSearch]           = useState('');
+  // ── Filters & Search ──
+  const [search, setSearch] = useState('');
+  const [curriculum, setCurriculum] = useState<CurriculumFilter>('ALL');
   const [filterMethod, setFilterMethod] = useState('');
-  const [filterForm, setFilterForm]   = useState('');
-  const [filterTerm, setFilterTerm]   = useState('');
-  const [dateFrom, setDateFrom]       = useState('');
-  const [dateTo, setDateTo]           = useState('');
-  const [amtMin, setAmtMin]           = useState('');
-  const [amtMax, setAmtMax]           = useState('');
+  const [filterForm, setFilterForm] = useState('');
+  const [filterTerm, setFilterTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [amtMin, setAmtMin] = useState('');
+  const [amtMax, setAmtMax] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // ── Sort / Pagination / View ──
-  const [sortKey, setSortKey]   = useState<SortKey>('payment_date');
-  const [sortDir, setSortDir]   = useState<SortDir>('desc');
-  const [page, setPage]         = useState(1);
-  const [perPage, setPerPage]   = useState(25);
-  const [view, setView]         = useState<View>('table');
+  // ── View, Sorting & Reduced Pagination ──
+  const [view, setView] = useState<ViewMode>('table');
+  const [sortKey, setSortKey] = useState<SortKey>('payment_date');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10); // Reduced default row loading per user request
 
-  // ── Selection / Modals ──
-  const [selected, setSelected]       = useState<Set<number>>(new Set());
-  const [editModal, setEditModal]     = useState<EditModal>({ open: false, payment: null });
+  // ── Selections & Modals ──
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [isFastCollectOpen, setIsFastCollectOpen] = useState(false);
   const [previewPayment, setPreviewPayment] = useState<any>(null);
+  const [editModalData, setEditModalData] = useState<{ open: boolean; payment: any | null }>({ open: false, payment: null });
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isSubmittingFastPay, setIsSubmittingFastPay] = useState(false);
+
   const searchRef = useRef<HTMLInputElement>(null);
 
+  // Keyboard shortcut Ctrl+F
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); searchRef.current?.focus(); } };
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
+    const handleKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
-  const formOptions = useMemo(() => { const s = new Set<string>(); students.forEach(st => { const n = getFormName(st.form_id); if (n) s.add(n); }); return Array.from(s).sort(); }, [students, getFormName]);
+  // Form list options
+  const formOptions = useMemo(() => {
+    const s = new Set<string>();
+    forms.forEach((f) => {
+      if (f.form_name) s.add(f.form_name);
+    });
+    return Array.from(s).sort();
+  }, [forms]);
 
-  // ── Filtering + sorting ──
+  // ── Filtered & Sorted Payments ──
   const filtered = useMemo(() => {
     let list = [...payments];
-    if (search) { const q = search.toLowerCase(); list = list.filter(p => { const s = students.find(st => st.id === p.student_id); return (s && `${s.first_name} ${s.last_name}`.toLowerCase().includes(q)) || (p.receipt_number || '').toLowerCase().includes(q) || (s && (s.admission_no || s.admission_number || '').toString().toLowerCase().includes(q)) || (p.mpesa_code || '').toLowerCase().includes(q) || (p.reference_number || '').toLowerCase().includes(q) || (p.bank_name || '').toLowerCase().includes(q); }); }
-    if (filterMethod) list = list.filter(p => p.payment_method === filterMethod);
-    if (filterForm)   list = list.filter(p => { const s = students.find(st => st.id === p.student_id); return s && getFormName(s.form_id) === filterForm; });
-    if (filterTerm)   list = list.filter(p => String(p.term_id) === filterTerm);
-    if (dateFrom)     list = list.filter(p => p.payment_date >= dateFrom);
-    if (dateTo)       list = list.filter(p => p.payment_date <= dateTo);
-    if (amtMin)       list = list.filter(p => Number(p.amount) >= Number(amtMin));
-    if (amtMax)       list = list.filter(p => Number(p.amount) <= Number(amtMax));
+
+    // Search query
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      list = list.filter((p) => {
+        const s = students.find((st) => st.id === p.student_id);
+        const sName = s ? `${s.first_name || ''} ${s.last_name || ''}`.toLowerCase() : '';
+        const adm = (s?.admission_no || s?.admission_number || '').toString().toLowerCase();
+        const rcpt = (p.receipt_number || '').toLowerCase();
+        const mpesa = (p.mpesa_code || '').toLowerCase();
+        const ref = (p.reference_number || '').toLowerCase();
+        const bank = (p.bank_name || '').toLowerCase();
+        return (
+          sName.includes(q) ||
+          adm.includes(q) ||
+          rcpt.includes(q) ||
+          mpesa.includes(q) ||
+          ref.includes(q) ||
+          bank.includes(q)
+        );
+      });
+    }
+
+    // Curriculum track filter
+    if (curriculum !== 'ALL') {
+      list = list.filter((p) => {
+        const s = students.find((st) => st.id === p.student_id);
+        const fName = s ? getFormName(s.form_id) : '';
+        const { track } = detectCurriculum(fName);
+        return track === curriculum;
+      });
+    }
+
+    // Payment Method
+    if (filterMethod) {
+      list = list.filter((p) => p.payment_method === filterMethod);
+    }
+
+    // Form
+    if (filterForm) {
+      list = list.filter((p) => {
+        const s = students.find((st) => st.id === p.student_id);
+        return s && getFormName(s.form_id) === filterForm;
+      });
+    }
+
+    // Term filter using intelligent resolver
+    if (filterTerm) {
+      list = list.filter((p) => {
+        const tInfo = resolvePaymentTerm(p);
+        return String(tInfo.id) === filterTerm;
+      });
+    }
+
+    // Date range
+    if (dateFrom) list = list.filter((p) => p.payment_date >= dateFrom);
+    if (dateTo) list = list.filter((p) => p.payment_date <= dateTo);
+
+    // Amount range
+    if (amtMin) list = list.filter((p) => Number(p.amount) >= Number(amtMin));
+    if (amtMax) list = list.filter((p) => Number(p.amount) <= Number(amtMax));
+
+    // Sort
     list.sort((a, b) => {
-      let av: any, bv: any;
-      if (sortKey === 'amount') { av = Number(a.amount); bv = Number(b.amount); }
-      else if (sortKey === 'student') { const sa = students.find(st => st.id === a.student_id); const sb = students.find(st => st.id === b.student_id); av = sa ? `${sa.first_name} ${sa.last_name}` : ''; bv = sb ? `${sb.first_name} ${sb.last_name}` : ''; }
-      else if (sortKey === 'payment_method') { av = a.payment_method || ''; bv = b.payment_method || ''; }
-      else if (sortKey === 'receipt_number') { av = a.receipt_number || ''; bv = b.receipt_number || ''; }
-      else { av = a.payment_date || ''; bv = b.payment_date || ''; }
+      let av: any = '';
+      let bv: any = '';
+      if (sortKey === 'amount') {
+        av = Number(a.amount || 0);
+        bv = Number(b.amount || 0);
+      } else if (sortKey === 'student') {
+        const sa = students.find((st) => st.id === a.student_id);
+        const sb = students.find((st) => st.id === b.student_id);
+        av = sa ? `${sa.first_name} ${sa.last_name}` : '';
+        bv = sb ? `${sb.first_name} ${sb.last_name}` : '';
+      } else if (sortKey === 'payment_method') {
+        av = a.payment_method || '';
+        bv = b.payment_method || '';
+      } else if (sortKey === 'receipt_number') {
+        av = a.receipt_number || '';
+        bv = b.receipt_number || '';
+      } else {
+        av = a.payment_date || '';
+        bv = b.payment_date || '';
+      }
+
       if (av < bv) return sortDir === 'asc' ? -1 : 1;
       if (av > bv) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
+
     return list;
-  }, [payments, students, search, filterMethod, filterForm, filterTerm, dateFrom, dateTo, amtMin, amtMax, sortKey, sortDir, getFormName]);
+  }, [
+    payments,
+    students,
+    search,
+    curriculum,
+    filterMethod,
+    filterForm,
+    filterTerm,
+    dateFrom,
+    dateTo,
+    amtMin,
+    amtMax,
+    sortKey,
+    sortDir,
+    getFormName,
+    resolvePaymentTerm,
+  ]);
 
+  // Totals & Pagination
   const totalAmount = useMemo(() => filtered.reduce((s, p) => s + Number(p.amount || 0), 0), [filtered]);
-  const totalPages  = Math.ceil(filtered.length / perPage);
-  const paginated   = filtered.slice((page - 1) * perPage, page * perPage);
-  const hasFilters  = !!(search || filterMethod || filterForm || filterTerm || dateFrom || dateTo || amtMin || amtMax);
+  const totalPages = Math.ceil(filtered.length / perPage) || 1;
+  const paginated = useMemo(() => filtered.slice((page - 1) * perPage, page * perPage), [filtered, page, perPage]);
+  const hasFilters = Boolean(
+    search || curriculum !== 'ALL' || filterMethod || filterForm || filterTerm || dateFrom || dateTo || amtMin || amtMax
+  );
 
-  const stats = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayTotal  = payments.filter(p => p.payment_date === today).reduce((s, p) => s + Number(p.amount || 0), 0);
-    const mpesaTotal  = payments.filter(p => p.payment_method === 'M-Pesa').reduce((s, p) => s + Number(p.amount || 0), 0);
-    const grandTotal  = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
-    const avgPayment  = payments.length ? grandTotal / payments.length : 0;
-    return { todayTotal, mpesaTotal, grandTotal, avgPayment, count: payments.length };
+  // ── Executive HUD Metrics ──
+  const hudStats = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    let totalRevenue = 0;
+    let todayVolume = 0;
+    let mpesaVolume = 0;
+    let bankVolume = 0;
+    let cashVolume = 0;
+    let bursaryVolume = 0;
+
+    payments.forEach((p) => {
+      const amt = Number(p.amount || 0);
+      totalRevenue += amt;
+      if (p.payment_date === todayStr) todayVolume += amt;
+
+      const m = (p.payment_method || '').toLowerCase();
+      if (m.includes('pesa')) mpesaVolume += amt;
+      else if (m.includes('bank')) bankVolume += amt;
+      else if (m.includes('cash')) cashVolume += amt;
+      else if (m.includes('burs') || m.includes('grant') || m.includes('capitation') || m.includes('in-kind')) {
+        bursaryVolume += amt;
+      }
+    });
+
+    return {
+      totalRevenue,
+      todayVolume,
+      mpesaVolume,
+      bankVolume,
+      cashVolume,
+      bursaryVolume,
+      count: payments.length,
+    };
   }, [payments]);
 
-  const handleSort = useCallback((k: SortKey) => { if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortKey(k); setSortDir('desc'); } setPage(1); }, [sortKey]);
+  // ── Side-by-Side Chart Data Preparation ──
+  const chartMethodMetrics: MethodMetric[] = useMemo(() => {
+    const map: Record<string, { count: number; total: number }> = {};
+    filtered.forEach((p) => {
+      const m = p.payment_method || 'Cash';
+      if (!map[m]) map[m] = { count: 0, total: 0 };
+      map[m].count += 1;
+      map[m].total += Number(p.amount || 0);
+    });
 
-  const allPageIds     = paginated.map(p => p.id);
-  const allPageSelected = allPageIds.length > 0 && allPageIds.every(id => selected.has(id));
-  const toggleAll = () => { const next = new Set(selected); if (allPageSelected) allPageIds.forEach(id => next.delete(id)); else allPageIds.forEach(id => next.add(id)); setSelected(next); };
-  const toggleOne = (id: number) => { const next = new Set(selected); next.has(id) ? next.delete(id) : next.add(id); setSelected(next); };
+    const totalRev = Object.values(map).reduce((s, v) => s + v.total, 0) || 1;
+    return Object.entries(map).map(([m, data]) => {
+      const meta = getMethodMeta(m);
+      return {
+        method: m,
+        count: data.count,
+        total: data.total,
+        pct: (data.total / totalRev) * 100,
+        color: meta.dot,
+        icon: meta.icon,
+      };
+    });
+  }, [filtered]);
 
-  const printReceipt = (p: any) => {
-    const s = students.find(st => st.id === p.student_id);
-    const fees = s ? getStudentFees(s.id, s.form_id) : null;
-    const formName = s ? getFormName(s.form_id) : '—';
-    const term = terms.find((t: any) => Number(t.id) === Number(p.term_id));
-    const html = buildReceipt(p, s, fees, formName, term?.term_name || '—');
-    const w = window.open('', '_blank', 'width=420,height=700');
-    if (w) { w.document.write(html); w.document.close(); w.focus(); setTimeout(() => w.print(), 500); }
+  const chartDailyTrends: DailyPoint[] = useMemo(() => {
+    const map: Record<string, { amount: number; count: number }> = {};
+    const today = new Date();
+    // Build last 14 days
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const iso = d.toISOString().split('T')[0];
+      map[iso] = { amount: 0, count: 0 };
+    }
+
+    filtered.forEach((p) => {
+      const dt = p.payment_date;
+      if (map[dt]) {
+        map[dt].amount += Number(p.amount || 0);
+        map[dt].count += 1;
+      }
+    });
+
+    return Object.entries(map).map(([iso, v]) => {
+      const d = new Date(iso);
+      return {
+        date: iso,
+        label: d.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }),
+        amount: v.amount,
+        count: v.count,
+      };
+    });
+  }, [filtered]);
+
+  // ── Sorting handler ──
+  const handleSort = useCallback(
+    (k: SortKey) => {
+      if (sortKey === k) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortKey(k);
+        setSortDir('desc');
+      }
+      setPage(1);
+    },
+    [sortKey]
+  );
+
+  // ── Checkbox Selection ──
+  const allPageIds = useMemo(() => paginated.map((p) => p.id), [paginated]);
+  const isAllPageSelected = allPageIds.length > 0 && allPageIds.every((id) => selected.has(id));
+
+  const toggleSelectAll = () => {
+    const next = new Set(selected);
+    if (isAllPageSelected) {
+      allPageIds.forEach((id) => next.delete(id));
+    } else {
+      allPageIds.forEach((id) => next.add(id));
+    }
+    setSelected(next);
   };
 
-  const copyReceipt = (p: any) => {
-    const s = students.find(st => st.id === p.student_id);
-    const txt = `Receipt: ${p.receipt_number}\nStudent: ${s ? `${s.first_name} ${s.last_name}` : '—'}\nAmount: ${fmt(Number(p.amount))}\nDate: ${fmtDate(p.payment_date)}\nMethod: ${p.payment_method}${p.mpesa_code ? `\nM-Pesa: ${p.mpesa_code}` : ''}`;
+  const toggleSelectOne = (id: number) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+
+  // ── Super Premium Thermal 80mm Printing ──
+  const handlePrintThermalReceipt = (p: any) => {
+    const s = students.find((st: any) => st.id === p.student_id);
+    const formName = s ? getFormName(s.form_id) : '—';
+    const streamName = s ? getStreamName(s.stream_id) : '';
+    const fees = s ? getStudentFeeProfile(s.id) : null;
+    const termInfo = resolvePaymentTerm(p);
+
+    printThermalReceipt({
+      receiptNumber: p.receipt_number || `REC-${p.id}`,
+      paymentDate: p.payment_date || new Date().toISOString().split('T')[0],
+      studentName: s ? `${s.first_name} ${s.last_name}` : 'Unknown Student',
+      admissionNo: s?.admission_no || s?.admission_number || '—',
+      formStream: `${formName}${streamName ? ' ' + streamName : ''}`,
+      parentName: s?.parent_name || s?.guardian_name || '',
+      parentPhone: s?.parent_phone || s?.emergency_contact || '',
+      paymentMethod: p.payment_method || 'Cash',
+      reference: p.mpesa_code || p.reference_number || p.bank_name || '',
+      amount: Number(p.amount || 0),
+      totalPaid: fees?.totalPaid || Number(p.amount || 0),
+      termFees: fees?.termTotal || 0,
+      termBalance: fees?.termBalance || 0,
+      annualFees: fees?.annualTotal || 0,
+      annualBalance: fees?.annualBalance || 0,
+      schoolName: settings?.school_name || 'ALPHA PREMIER SCHOOL',
+      schoolAddress: settings?.school_address || 'P.O. Box 000, Nairobi, Kenya',
+      schoolPhone: settings?.school_phone || 'Tel: +254 700 000 000',
+      schoolEmail: settings?.school_email || 'info@alphapremier.ac.ke',
+      cashier: p.received_by || 'Bursar / Cashier',
+    });
+  };
+
+  // ── Super Premium Official A4 Voucher Printing ──
+  const handlePrintA4Receipt = (p: any) => {
+    const s = students.find((st: any) => st.id === p.student_id);
+    const formName = s ? getFormName(s.form_id) : '—';
+    const streamName = s ? getStreamName(s.stream_id) : '';
+    const fees = s ? getStudentFeeProfile(s.id) : null;
+    const termInfo = resolvePaymentTerm(p);
+
+    printA4OfficialReceipt({
+      receiptNumber: p.receipt_number || `REC-${p.id}`,
+      paymentDate: p.payment_date || new Date().toISOString().split('T')[0],
+      studentName: s ? `${s.first_name} ${s.last_name}` : 'Unknown Student',
+      admissionNo: s?.admission_no || s?.admission_number || '—',
+      formStream: `${formName}${streamName ? ' ' + streamName : ''}`,
+      parentName: s?.parent_name || s?.guardian_name || '',
+      parentPhone: s?.parent_phone || s?.emergency_contact || '',
+      paymentMethod: p.payment_method || 'Cash',
+      reference: p.mpesa_code || p.reference_number || p.bank_name || '',
+      amount: Number(p.amount || 0),
+      totalPaid: fees?.totalPaid || Number(p.amount || 0),
+      termFees: fees?.termTotal || 0,
+      termBalance: fees?.termBalance || 0,
+      annualFees: fees?.annualTotal || 0,
+      annualBalance: fees?.annualBalance || 0,
+      schoolName: settings?.school_name || 'ALPHA PREMIER SCHOOL',
+      schoolAddress: settings?.school_address || 'P.O. Box 000, Nairobi, Kenya',
+      schoolPhone: settings?.school_phone || 'Tel: +254 700 000 000',
+      schoolEmail: settings?.school_email || 'finance@alphapremier.ac.ke',
+      cashier: p.received_by || 'Cashier Command Desk',
+    });
+  };
+
+  // ── Super Premium A4 Landscape Accounting Register Report ──
+  const handlePrintRegisterReport = () => {
+    const termLabel = filterTerm
+      ? terms.find((t) => String(t.id) === filterTerm)?.term_name || currentTerm?.term_name || 'All Terms'
+      : currentTerm?.term_name || 'All Terms';
+
+    const reportRows = filtered.map((p) => {
+      const s = students.find((st) => st.id === p.student_id);
+      return {
+        receiptNo: p.receipt_number || `REC-${p.id}`,
+        paymentDate: fmtDate(p.payment_date),
+        studentName: s ? `${s.first_name} ${s.last_name}` : 'Unknown Student',
+        admNo: s?.admission_no || s?.admission_number || '—',
+        formName: s ? getFormName(s.form_id) : '—',
+        paymentMethod: p.payment_method || 'Cash',
+        referenceNo: p.mpesa_code || p.reference_number || p.bank_name || '—',
+        amount: Number(p.amount || 0),
+      };
+    });
+
+    printPaymentsRegisterReport({
+      schoolName: settings?.school_name || 'ALPHA PREMIER SCHOOL',
+      termName: termLabel,
+      payments: reportRows,
+      totalAmount,
+    });
+  };
+
+  // ── WhatsApp Official Receipt Dispatch ──
+  const handleSendWhatsAppReceipt = (p: any) => {
+    const s = students.find((st: any) => st.id === p.student_id);
+    const phone = s?.parent_phone || s?.emergency_contact || s?.guardian_phone || '';
+    if (!phone) {
+      toast.error('No parent phone number found for this student');
+      return;
+    }
+
+    let cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = '254' + cleanPhone.slice(1);
+    if (!cleanPhone.startsWith('254') && cleanPhone.length === 9) cleanPhone = '254' + cleanPhone;
+
+    const termInfo = resolvePaymentTerm(p);
+    const school = settings?.school_name || 'ALPHA PREMIER SCHOOL';
+    const text =
+      `*OFFICIAL FEE RECEIPT - ${school.toUpperCase()}*\n\n` +
+      `Receipt No: *${p.receipt_number || 'N/A'}*\n` +
+      `Student: *${s ? `${s.first_name} ${s.last_name}` : 'Student'}* (Adm: ${s?.admission_no || s?.admission_number || '—'})\n` +
+      `Term: *${termInfo.name}*\n` +
+      `Amount Paid: *KES ${Number(p.amount || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}*\n` +
+      `Payment Date: *${fmtDate(p.payment_date)}*\n` +
+      `Method: *${p.payment_method || 'Cash'}*\n` +
+      (p.mpesa_code ? `M-Pesa Code: *${p.mpesa_code}*\n` : '') +
+      (p.reference_number ? `Ref No: *${p.reference_number}*\n` : '') +
+      (p.bank_name ? `Bank: *${p.bank_name}*\n` : '') +
+      `\n✅ Thank you for your payment. For fee queries, contact our finance desk.`;
+
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+    toast.success(`Opening WhatsApp dispatch for ${s?.first_name || 'Guardian'}...`);
+  };
+
+  const handleCopyReceipt = (p: any) => {
+    const s = students.find((st) => st.id === p.student_id);
+    const termInfo = resolvePaymentTerm(p);
+    const txt =
+      `Receipt: ${p.receipt_number || '—'}\n` +
+      `Student: ${s ? `${s.first_name} ${s.last_name}` : '—'} (${s?.admission_no || s?.admission_number || '—'})\n` +
+      `Term: ${termInfo.name}\n` +
+      `Amount: ${fmt(Number(p.amount || 0))}\n` +
+      `Date: ${fmtDate(p.payment_date)}\n` +
+      `Method: ${p.payment_method || '—'}` +
+      (p.mpesa_code ? `\nM-Pesa: ${p.mpesa_code}` : '') +
+      (p.reference_number ? `\nRef: ${p.reference_number}` : '');
+
     navigator.clipboard.writeText(txt).then(() => toast.success('Receipt details copied!'));
   };
 
-  const exportCSV = () => {
-    const rows = [
-      ['Receipt No','Student','Adm No','Form','Amount','Method','M-Pesa Code','Reference','Bank','Date','Term','Received By','Notes'],
-      ...filtered.map(p => { const s = students.find(st => st.id === p.student_id); const t = terms.find((tm: any) => Number(tm.id) === Number(p.term_id)); return [p.receipt_number, s ? `${s.first_name} ${s.last_name}` : '', s?.admission_no || s?.admission_number || '', s ? getFormName(s.form_id) : '', p.amount, p.payment_method, p.mpesa_code || '', p.reference_number || '', p.bank_name || '', p.payment_date, t?.term_name || '', p.received_by || '', p.notes || '']; }),
-    ];
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    const a = document.createElement('a'); a.href = url; a.download = `fee_payments_${new Date().toISOString().split('T')[0]}.csv`; a.click(); URL.revokeObjectURL(url);
-    toast.success(`Exported ${filtered.length} records`);
-  };
-
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this payment record? This cannot be undone.')) return;
-    const { error } = await supabase.from('school_fee_payments').delete().eq('id', id);
-    if (error) toast.error('Delete failed');
-    else { toast.success('Payment deleted'); fetchAll(); setSelected(s => { const n = new Set(s); n.delete(id); return n; }); }
+    if (!confirm('Are you sure you want to void/delete this payment record? This cannot be undone.')) return;
+    try {
+      await deletePayment(id);
+      toast.success('Payment deleted successfully');
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } catch (err: any) {
+      toast.error('Delete failed: ' + (err?.message || 'Error occurred'));
+    }
   };
 
-  const handleSave = async (data: any) => {
-    const { error } = await supabase.from('school_fee_payments').update({ amount: Number(data.amount), payment_method: data.payment_method, reference_number: data.reference_number, mpesa_code: data.mpesa_code, bank_name: data.bank_name, payment_date: data.payment_date, term_id: data.term_id || null, notes: data.notes, received_by: data.received_by }).eq('id', data.id);
-    if (error) toast.error('Update failed: ' + error.message);
-    else { toast.success('Payment updated ✓'); fetchAll(); setEditModal({ open: false, payment: null }); }
+  const handleSaveEdit = async (data: any) => {
+    try {
+      await updatePayment(data.id, {
+        amount: Number(data.amount),
+        payment_method: data.payment_method,
+        reference_number: data.reference_number || null,
+        mpesa_code: data.mpesa_code || null,
+        bank_name: data.bank_name || null,
+        payment_date: data.payment_date,
+        term_id: data.term_id ? Number(data.term_id) : null,
+        notes: data.notes || null,
+        received_by: data.received_by || null,
+      });
+      toast.success('Payment record updated successfully ✓');
+      setEditModalData({ open: false, payment: null });
+    } catch (err: any) {
+      toast.error('Update failed: ' + (err?.message || 'Error'));
+    }
   };
 
-  const clearFilters = () => { setSearch(''); setFilterMethod(''); setFilterForm(''); setFilterTerm(''); setDateFrom(''); setDateTo(''); setAmtMin(''); setAmtMax(''); setPage(1); };
+  // ── Enterprise 4-Sheet Excel Export ──
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const toastId = toast.loading('Generating enterprise 4-sheet Excel workbook with auto-sized columns...');
 
-  // ── Inline styles ──
-  const inputStyle: React.CSSProperties = { background: T.card, border: `1.5px solid ${T.border}`, borderRadius: 10, padding: '8px 12px', fontSize: 12, fontWeight: 600, color: T.text, outline: 'none', fontFamily: "'Inter',sans-serif" };
+      const exportItems: PaymentExportItem[] = filtered.map((p, idx) => {
+        const s = students.find((st) => st.id === p.student_id);
+        const fName = s ? getFormName(s.form_id) : '—';
+        const stName = s ? getStreamName(s.stream_id) : '—';
+        const termInfo = resolvePaymentTerm(p);
+        const { label: curLabel } = detectCurriculum(fName);
 
-  /* ════════════════════════════════════════════════════════════════════════════
-     RENDER
-  ════════════════════════════════════════════════════════════════════════════ */
+        return {
+          index: idx + 1,
+          receiptNo: p.receipt_number || `REC-${p.id}`,
+          paymentDate: p.payment_date || '',
+          studentName: s ? `${s.first_name} ${s.last_name}` : 'Unknown Student',
+          admNo: s?.admission_no || s?.admission_number || '—',
+          curriculumTrack: curLabel,
+          formName: fName,
+          streamName: stName,
+          paymentMethod: p.payment_method || 'Cash',
+          referenceNo: p.mpesa_code || p.reference_number || p.bank_name || '—',
+          amount: Number(p.amount || 0),
+          receivedBy: p.received_by || 'Cashier Desk',
+          termName: termInfo.name,
+          notes: p.notes || '',
+        };
+      });
+
+      // Method summaries
+      const methodMap: Record<string, { count: number; total: number }> = {};
+      filtered.forEach((p) => {
+        const m = p.payment_method || 'Cash';
+        if (!methodMap[m]) methodMap[m] = { count: 0, total: 0 };
+        methodMap[m].count += 1;
+        methodMap[m].total += Number(p.amount || 0);
+      });
+      const grandTotal = exportItems.reduce((s, p) => s + p.amount, 0);
+
+      const methodSummaries: MethodSummaryExportItem[] = Object.entries(methodMap).map(([m, val]) => ({
+        method: m,
+        transactionCount: val.count,
+        totalAmount: val.total,
+        pctOfTotal: grandTotal > 0 ? (val.total / grandTotal) * 100 : 0,
+      }));
+
+      // Form summaries
+      const formMap: Record<string, { count: number; total: number; track: string }> = {};
+      filtered.forEach((p) => {
+        const s = students.find((st) => st.id === p.student_id);
+        const fName = s ? getFormName(s.form_id) : 'Unknown Form';
+        const { label: curLabel } = detectCurriculum(fName);
+        if (!formMap[fName]) formMap[fName] = { count: 0, total: 0, track: curLabel };
+        formMap[fName].count += 1;
+        formMap[fName].total += Number(p.amount || 0);
+      });
+
+      const formSummaries: FormCollectionExportItem[] = Object.entries(formMap).map(([fn, val]) => ({
+        formName: fn,
+        curriculumTrack: val.track,
+        transactionCount: val.count,
+        totalCollected: val.total,
+      }));
+
+      await exportUltraPaymentsExcel({
+        schoolName: settings?.school_name || 'ALPHA PREMIER SCHOOL',
+        termName: currentTerm?.term_name || 'All Academic Terms',
+        payments: exportItems,
+        methodSummaries,
+        formSummaries,
+        totalRevenue: grandTotal,
+      });
+
+      toast.success(`Exported ${exportItems.length.toLocaleString()} payments to 4-sheet Excel!`, { id: toastId });
+    } catch (err: any) {
+      console.error('Excel export error:', err);
+      toast.error('Export failed: ' + (err?.message || 'Error creating file'));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  // ── Fast Payment Settlement Submission ──
+  const handleFastCollectSubmit = async (pdata: PaymentData) => {
+    try {
+      setIsSubmittingFastPay(true);
+      await recordPayment({
+        studentId: pdata.amount > 0 && students[0] ? students[0].id : 0,
+        amount: pdata.amount,
+        method: pdata.method as any,
+        mpesaCode: pdata.mpesaCode,
+        mpesaPhone: pdata.mpesaPhone,
+        bankSlip: pdata.bankSlip,
+        bankBranch: pdata.bankBranch,
+        bankDate: pdata.bankDate,
+        chequeNo: pdata.chequeNo,
+        chequeBank: pdata.chequeBank,
+        inKindItem: pdata.inKindItem,
+        inKindValue: pdata.inKindValue,
+        bursarySource: pdata.bursarySource,
+        waiverType: pdata.waiverType,
+        notes: pdata.notes,
+        customReceiptNo: pdata.customReceiptNo,
+        paymentDate: pdata.paymentDate,
+        selectedTermIds: pdata.selectedTermIds,
+      });
+
+      toast.success('Fee payment settled and recorded successfully! ✓');
+      setIsFastCollectOpen(false);
+    } catch (err: any) {
+      toast.error('Payment failed: ' + (err?.message || 'Error recording payment'));
+    } finally {
+      setIsSubmittingFastPay(false);
+    }
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setCurriculum('ALL');
+    setFilterMethod('');
+    setFilterForm('');
+    setFilterTerm('');
+    setDateFrom('');
+    setDateTo('');
+    setAmtMin('');
+    setAmtMax('');
+    setPage(1);
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: T.bg, fontFamily: "'Inter','Outfit',system-ui,sans-serif" }}>
+      {/* ── Page Styles ── */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
         a { text-decoration: none; }
         input:focus, select:focus, textarea:focus { border-color: #4f46e5 !important; box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
         tr.pay-row:hover td { background: #f8fafc !important; }
-        .pay-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important; }
+        .pay-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08) !important; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-        .fade-in { animation: fadeIn 0.3s ease forwards; }
+        .fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       `}</style>
 
-      {/* ── PAGE HEADER ── */}
-      <div style={{ background: T.card, borderBottom: `1px solid ${T.border}`, padding: '18px 28px' }}>
+      {/* ══════════════════════════════════════════════════════════════════════
+          1. EXECUTIVE COMMAND HEADER
+         ══════════════════════════════════════════════════════════════════════ */}
+      <header
+        style={{
+          background: T.card,
+          borderBottom: `1px solid ${T.border}`,
+          padding: '16px 28px',
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+          backdropFilter: 'blur(8px)',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <Link href="/dashboard/fees" style={{ fontSize: 11, color: T.sub, fontWeight: 700 }}>← Fees</Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+              <Link href="/dashboard/fees" style={{ fontSize: 11, color: T.sub, fontWeight: 700 }}>
+                ← Fees Desk
+              </Link>
               <span style={{ color: T.muted }}>·</span>
-              <span style={{ fontSize: 11, fontWeight: 800, color: T.indigo }}>Payment History</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: T.indigo }}>Payment Terminal & History</span>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '2px 8px',
+                  borderRadius: 99,
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  color: '#16a34a',
+                  fontSize: 10,
+                  fontWeight: 800,
+                }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+                LIVE GATEWAY
+              </span>
             </div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: T.text, letterSpacing: '-0.025em', fontFamily: "'Outfit',sans-serif" }}>Fee Payment History</h1>
-            <p style={{ margin: '3px 0 0', fontSize: 12, color: T.sub }}>{payments.length.toLocaleString()} total records · AlphaSIMS</p>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 22,
+                fontWeight: 900,
+                color: T.text,
+                letterSpacing: '-0.025em',
+                fontFamily: "'Outfit',sans-serif",
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span>💳</span> Fee Payment & Collection History
+            </h1>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: T.sub }}>
+              {hudStats.count.toLocaleString()} total settlements recorded · Dual-track CBC & 8-4-4 · AlphaSIMS
+            </p>
           </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {/* View toggle */}
-            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 11, padding: 3, gap: 2 }}>
-              {(['table','grid','analytics'] as View[]).map(v => (
-                <button key={v} onClick={() => { setView(v); setPage(1); }} style={{ padding: '6px 14px', borderRadius: 9, border: 'none', fontWeight: 800, fontSize: 11, cursor: 'pointer', fontFamily: "'Inter',sans-serif", background: view === v ? T.card : 'transparent', color: view === v ? T.indigo : T.sub, boxShadow: view === v ? '0 1px 4px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s', textTransform: 'capitalize' }}>{v}</button>
+            {/* View Selector */}
+            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3, gap: 2 }}>
+              {(['table', 'grid', 'analytics'] as ViewMode[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    setView(v);
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    border: 'none',
+                    fontWeight: 800,
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    fontFamily: "'Inter',sans-serif",
+                    background: view === v ? T.card : 'transparent',
+                    color: view === v ? T.indigo : T.sub,
+                    boxShadow: view === v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {v === 'table' ? '📋 Table' : v === 'grid' ? '🗂️ Cards' : '📊 Analytics'}
+                </button>
               ))}
             </div>
-            <button onClick={exportCSV} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>↓ Export</button>
-            <button onClick={fetchAll} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>↺ Refresh</button>
-            <Link href="/dashboard/fees/collect" style={{ background: T.green, color: '#fff', borderRadius: 10, padding: '9px 18px', fontWeight: 800, fontSize: 12, boxShadow: '0 3px 10px rgba(22,163,74,0.3)' }}>+ Record Payment</Link>
+
+            {/* Refresh */}
+            <button
+              onClick={fetchAll}
+              disabled={loading}
+              title="Refresh ledger"
+              style={{
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: `1.5px solid ${T.border}`,
+                background: T.card,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontSize: 12,
+                fontWeight: 700,
+                color: T.sub,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+              <span>Refresh</span>
+            </button>
+
+            {/* Print Official Payments Register */}
+            <button
+              onClick={handlePrintRegisterReport}
+              disabled={filtered.length === 0}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: `1.5px solid ${T.border}`,
+                background: T.card,
+                color: T.indigo,
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+              title="Print official accounting payments register report (A4 Landscape)"
+            >
+              <FiPrinter />
+              <span>Print Register (A4)</span>
+            </button>
+
+            {/* Multi-Sheet Enterprise Excel Export */}
+            <button
+              onClick={handleExportExcel}
+              disabled={isExportingExcel || filtered.length === 0}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 10,
+                border: `1.5px solid #1e3a8a30`,
+                background: '#eff6ff',
+                color: '#1e3a8a',
+                cursor: isExportingExcel ? 'not-allowed' : 'pointer',
+                fontSize: 12,
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 1px 3px rgba(30,58,138,0.1)',
+              }}
+            >
+              <FiDownload />
+              <span>{isExportingExcel ? 'Exporting...' : 'Export Excel (4 Sheets)'}</span>
+            </button>
+
+            {/* Fast Collect Action */}
+            <Link
+              href="/dashboard/fees/collect"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: T.green,
+                color: '#fff',
+                borderRadius: 10,
+                padding: '8px 16px',
+                fontWeight: 800,
+                fontSize: 12,
+                boxShadow: '0 3px 10px rgba(22,163,74,0.3)',
+              }}
+            >
+              <FiPlus />
+              <span>Record Payment</span>
+            </Link>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-        {/* ── KPI CARDS ── */}
-        {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
-            {[...Array(4)].map((_, i) => <div key={i} style={{ height: 110, borderRadius: 16, background: '#f1f5f9', animation: 'pulse 1.5s ease-in-out infinite' }} />)}
+      <main style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {/* ══════════════════════════════════════════════════════════════════════
+            2. DUAL-TRACK CURRICULUM SELECTION BAR
+           ══════════════════════════════════════════════════════════════════════ */}
+        <div
+          style={{
+            background: T.card,
+            border: `1px solid ${T.border}`,
+            borderRadius: 14,
+            padding: '8px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 8,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 900, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Curriculum Track:
+            </span>
           </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }} className="fade-in">
-            <KPICard label="Grand Total Collected" value={fmtK(stats.grandTotal)}  sub={`${stats.count.toLocaleString()} payments`}  icon="💰" color={T.indigo} colorL={T.indigoL} colorBd={T.indigoBd} />
-            <KPICard label="Today's Collections"   value={fmtK(stats.todayTotal)}  sub={new Date().toLocaleDateString('en-KE',{weekday:'long',day:'numeric',month:'short'})} icon="📅" color={T.green}  colorL={T.greenL}  colorBd={T.greenBd} />
-            <KPICard label="M-Pesa Collections"    value={fmtK(stats.mpesaTotal)}  sub={`${((stats.mpesaTotal/(stats.grandTotal||1))*100).toFixed(1)}% of total`} icon="📱" color="#15803d" colorL="#f0fdf4" colorBd="#bbf7d0" />
-            <KPICard label="Average Payment"        value={fmtK(stats.avgPayment)}  sub="Per transaction" icon="📊" color={T.amber} colorL={T.amberL} colorBd="#fde68a" />
-          </div>
-        )}
 
-        {/* ── SEARCH + FILTERS ── */}
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: '1', minWidth: 220 }}>
-              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, pointerEvents: 'none', color: T.muted }}>🔍</span>
-              <input ref={searchRef} value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search student, receipt, M-Pesa code… (Ctrl+F)"
-                style={{ ...inputStyle, width: '100%', paddingLeft: 36 }} />
-              {search && <button onClick={() => { setSearch(''); setPage(1); }} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: T.muted }}>×</button>}
-            </div>
-            {['M-Pesa','Cash','Bank Transfer'].map(m => {
-              const mc = getM(m);
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {[
+              { id: 'ALL', label: 'All Curricula', icon: '🌐', count: payments.length },
+              {
+                id: 'CBC_SENIOR',
+                label: 'CBC Senior School (G10–12)',
+                icon: '🏛️',
+                count: payments.filter((p) => {
+                  const s = students.find((st) => st.id === p.student_id);
+                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'CBC_SENIOR';
+                }).length,
+              },
+              {
+                id: '844_SEC',
+                label: '8-4-4 Secondary (Forms 1–4)',
+                icon: '📚',
+                count: payments.filter((p) => {
+                  const s = students.find((st) => st.id === p.student_id);
+                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === '844_SEC';
+                }).length,
+              },
+              {
+                id: 'JSS',
+                label: 'JSS Junior Secondary (G7–9)',
+                icon: '🎓',
+                count: payments.filter((p) => {
+                  const s = students.find((st) => st.id === p.student_id);
+                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'JSS';
+                }).length,
+              },
+              {
+                id: 'PRIMARY_CBC',
+                label: 'Primary CBC (PP1–G6)',
+                icon: '🎒',
+                count: payments.filter((p) => {
+                  const s = students.find((st) => st.id === p.student_id);
+                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'PRIMARY_CBC';
+                }).length,
+              },
+            ].map((tab) => {
+              const active = curriculum === tab.id;
               return (
-                <button key={m} onClick={() => { setFilterMethod(filterMethod === m ? '' : m); setPage(1); }}
-                  style={{ padding: '8px 14px', borderRadius: 10, border: `1.5px solid ${filterMethod === m ? mc.dot : T.border}`, background: filterMethod === m ? mc.bg : T.card, color: filterMethod === m ? mc.text : T.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                  {mc.icon} {m}
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setCurriculum(tab.id as CurriculumFilter);
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 99,
+                    border: `1.5px solid ${active ? T.indigo : T.border}`,
+                    background: active ? T.indigoL : T.card,
+                    color: active ? T.indigo : T.sub,
+                    fontSize: 11,
+                    fontWeight: active ? 800 : 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  <span
+                    style={{
+                      background: active ? T.indigo : '#e2e8f0',
+                      color: active ? '#fff' : T.sub,
+                      borderRadius: 99,
+                      fontSize: 9,
+                      fontWeight: 900,
+                      padding: '1px 6px',
+                    }}
+                  >
+                    {tab.count}
+                  </span>
                 </button>
               );
             })}
-            <button onClick={() => setShowFilters(s => !s)} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: showFilters || hasFilters ? T.indigo : T.sub, borderColor: showFilters || hasFilters ? T.indigo : T.border }}>
-              ⚙ Filters {hasFilters && <span style={{ width: 16, height: 16, borderRadius: '50%', background: T.indigo, color: '#fff', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>!</span>}
-            </button>
-            {hasFilters && <button onClick={clearFilters} style={{ ...inputStyle, cursor: 'pointer', color: T.red, borderColor: '#fecaca', fontWeight: 700 }}>✕ Clear</button>}
-            <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }} style={{ ...inputStyle, cursor: 'pointer', marginLeft: 'auto' }}>
-              {[10,25,50,100].map(n => <option key={n} value={n}>{n} / page</option>)}
-            </select>
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            3. EXECUTIVE FINANCIAL COMMAND HUD (6 METRICS)
+           ══════════════════════════════════════════════════════════════════════ */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 14 }}>
+          {/* Card 1: Total Revenue */}
+          <div
+            style={{
+              background: T.card,
+              border: `1.5px solid ${T.indigoBd}`,
+              borderRadius: 16,
+              padding: '16px 18px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: T.indigoL,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18,
+                  color: T.indigo,
+                }}
+              >
+                💰
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 800, color: T.indigo, background: T.indigoL, padding: '2px 8px', borderRadius: 99 }}>
+                100% REVENUE
+              </span>
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Total Revenue Collected
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: T.text, marginTop: 4, letterSpacing: '-0.02em' }}>
+              {fmtK(hudStats.totalRevenue)}
+            </div>
+            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
+              From {hudStats.count.toLocaleString()} transactions
+            </div>
           </div>
 
+          {/* Card 2: Today's Intake */}
+          <div
+            style={{
+              background: T.card,
+              border: `1.5px solid ${T.greenBd}`,
+              borderRadius: 16,
+              padding: '16px 18px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: T.greenL,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18,
+                  color: T.green,
+                }}
+              >
+                📅
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 800, color: T.green, background: T.greenL, padding: '2px 8px', borderRadius: 99 }}>
+                TODAY
+              </span>
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Today's Collections
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#15803d', marginTop: 4, letterSpacing: '-0.02em' }}>
+              {fmtK(hudStats.todayVolume)}
+            </div>
+            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
+              {new Date().toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </div>
+          </div>
+
+          {/* Card 3: M-Pesa Total */}
+          <div
+            style={{
+              background: T.card,
+              border: `1.5px solid #bbf7d0`,
+              borderRadius: 16,
+              padding: '16px 18px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: '#f0fdf4',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18,
+                }}
+              >
+                📱
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#15803d', background: '#f0fdf4', padding: '2px 8px', borderRadius: 99 }}>
+                {hudStats.totalRevenue > 0 ? ((hudStats.mpesaVolume / hudStats.totalRevenue) * 100).toFixed(0) : 0}% SHARE
+              </span>
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              M-Pesa Volume
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#15803d', marginTop: 4, letterSpacing: '-0.02em' }}>
+              {fmtK(hudStats.mpesaVolume)}
+            </div>
+            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
+              Direct Paybill & STK Push
+            </div>
+          </div>
+
+          {/* Card 4: Bank Transfers & Slips */}
+          <div
+            style={{
+              background: T.card,
+              border: `1.5px solid ${T.blueBd}`,
+              borderRadius: 16,
+              padding: '16px 18px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: T.blueL,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18,
+                }}
+              >
+                🏦
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 800, color: T.blue, background: T.blueL, padding: '2px 8px', borderRadius: 99 }}>
+                BANK RAILS
+              </span>
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Bank Transfers & Slips
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: T.blue, marginTop: 4, letterSpacing: '-0.02em' }}>
+              {fmtK(hudStats.bankVolume)}
+            </div>
+            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
+              KCB, Equity, Co-op, Absa
+            </div>
+          </div>
+
+          {/* Card 5: Cashier Drawer */}
+          <div
+            style={{
+              background: T.card,
+              border: `1.5px solid ${T.amberBd}`,
+              borderRadius: 16,
+              padding: '16px 18px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: T.amberL,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18,
+                }}
+              >
+                💵
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 800, color: T.amber, background: T.amberL, padding: '2px 8px', borderRadius: 99 }}>
+                DRAWER
+              </span>
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Cashier Cash Drawer
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#b45309', marginTop: 4, letterSpacing: '-0.02em' }}>
+              {fmtK(hudStats.cashVolume)}
+            </div>
+            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
+              Physical counter settlements
+            </div>
+          </div>
+
+          {/* Card 6: Bursaries & Subsidies */}
+          <div
+            style={{
+              background: T.card,
+              border: `1.5px solid ${T.tealBd}`,
+              borderRadius: 16,
+              padding: '16px 18px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: T.tealL,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18,
+                }}
+              >
+                🏛️
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 800, color: T.teal, background: T.tealL, padding: '2px 8px', borderRadius: 99 }}>
+                GRANTS
+              </span>
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Bursaries & Subsidies
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#0f766e', marginTop: 4, letterSpacing: '-0.02em' }}>
+              {fmtK(hudStats.bursaryVolume)}
+            </div>
+            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
+              CDF, County, SNE, In-Kind
+            </div>
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            4. SIDE-BY-SIDE ANALYTICS CHARTS (Channel Bar + Spline Curve)
+           ══════════════════════════════════════════════════════════════════════ */}
+        <UltraPaymentsCharts
+          methodMetrics={chartMethodMetrics}
+          dailyTrends={chartDailyTrends}
+          grandTotal={totalAmount}
+          totalCount={filtered.length}
+        />
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            5. ADVANCED QUERY & FILTER MATRIX
+           ══════════════════════════════════════════════════════════════════════ */}
+        <div
+          style={{
+            background: T.card,
+            border: `1px solid ${T.border}`,
+            borderRadius: 16,
+            padding: '16px 18px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Search Input */}
+            <div style={{ position: 'relative', flex: '1', minWidth: 240 }}>
+              <span
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: 14,
+                  pointerEvents: 'none',
+                  color: T.muted,
+                }}
+              >
+                🔍
+              </span>
+              <input
+                ref={searchRef}
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search student, adm no, receipt #, M-Pesa code, bank… (Ctrl+F)"
+                style={{
+                  width: '100%',
+                  padding: '9px 36px 9px 34px',
+                  borderRadius: 10,
+                  border: `1.5px solid ${T.border}`,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: T.text,
+                  background: T.bg,
+                  outline: 'none',
+                }}
+              />
+              {search && (
+                <button
+                  onClick={() => {
+                    setSearch('');
+                    setPage(1);
+                  }}
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 16,
+                    color: T.muted,
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            {/* Quick Channel Pills */}
+            {['M-Pesa', 'Cash', 'Bank Transfer', 'Cheque'].map((m) => {
+              const meta = getMethodMeta(m);
+              const active = filterMethod === m;
+              return (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setFilterMethod(active ? '' : m);
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 10,
+                    border: `1.5px solid ${active ? meta.dot : T.border}`,
+                    background: active ? meta.bg : T.card,
+                    color: active ? meta.text : T.sub,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
+                >
+                  <span>{meta.icon}</span>
+                  <span>{m}</span>
+                </button>
+              );
+            })}
+
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters((s) => !s)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: `1.5px solid ${showFilters || hasFilters ? T.indigo : T.border}`,
+                background: showFilters || hasFilters ? T.indigoL : T.card,
+                color: showFilters || hasFilters ? T.indigo : T.sub,
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <FiFilter />
+              <span>More Filters</span>
+              {hasFilters && (
+                <span
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    background: T.indigo,
+                    color: '#fff',
+                    fontSize: 9,
+                    fontWeight: 900,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  !
+                </span>
+              )}
+            </button>
+
+            {hasFilters && (
+              <button
+                onClick={clearFilters}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  border: `1.5px solid #fecaca`,
+                  background: '#fef2f2',
+                  color: T.red,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <FiX />
+                <span>Reset</span>
+              </button>
+            )}
+
+            {/* Reduced Row Count Selector */}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: T.sub }}>Rows:</span>
+              <select
+                value={perPage}
+                onChange={(e) => {
+                  setPerPage(Number(e.target.value));
+                  setPage(1);
+                }}
+                style={{
+                  padding: '7px 10px',
+                  borderRadius: 10,
+                  border: `1.5px solid ${T.border}`,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: T.text,
+                  background: T.card,
+                  cursor: 'pointer',
+                }}
+              >
+                {[10, 15, 25, 50].map((n) => (
+                  <option key={n} value={n}>
+                    {n} rows / page
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Expandable Advanced Options */}
           {showFilters && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 8, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
-              <select value={filterForm} onChange={e => { setFilterForm(e.target.value); setPage(1); }} style={inputStyle}>
-                <option value="">All Forms</option>
-                {formOptions.map(f => <option key={f}>{f}</option>)}
-              </select>
-              <select value={filterTerm} onChange={e => { setFilterTerm(e.target.value); setPage(1); }} style={inputStyle}>
-                <option value="">All Terms</option>
-                {terms.map((t: any) => <option key={t.id} value={t.id}>{t.term_name}</option>)}
-              </select>
-              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} style={inputStyle} placeholder="From" />
-              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} style={inputStyle} placeholder="To" />
-              <input type="number" value={amtMin} onChange={e => { setAmtMin(e.target.value); setPage(1); }} style={inputStyle} placeholder="Min amount" />
-              <input type="number" value={amtMax} onChange={e => { setAmtMax(e.target.value); setPage(1); }} style={inputStyle} placeholder="Max amount" />
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill,minmax(145px,1fr))',
+                gap: 10,
+                marginTop: 12,
+                paddingTop: 12,
+                borderTop: `1px solid ${T.border}`,
+              }}
+            >
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
+                  Form / Class
+                </label>
+                <select
+                  value={filterForm}
+                  onChange={(e) => {
+                    setFilterForm(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
+                >
+                  <option value="">All Classes</option>
+                  {formOptions.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
+                  Academic Term
+                </label>
+                <select
+                  value={filterTerm}
+                  onChange={(e) => {
+                    setFilterTerm(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
+                >
+                  <option value="">All Terms</option>
+                  {terms.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.term_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
+                  From Date
+                </label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    setDateFrom(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
+                  To Date
+                </label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    setDateTo(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
+                  Min Amount (KES)
+                </label>
+                <input
+                  type="number"
+                  placeholder="Min KES"
+                  value={amtMin}
+                  onChange={(e) => {
+                    setAmtMin(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
+                  Max Amount (KES)
+                </label>
+                <input
+                  type="number"
+                  placeholder="Max KES"
+                  value={amtMax}
+                  onChange={(e) => {
+                    setAmtMax(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
+                />
+              </div>
             </div>
           )}
         </div>
 
-        {/* ── Results summary ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* ── Results Bar & Bulk Actions ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>{filtered.length.toLocaleString()} results {hasFilters && <span style={{ color: T.indigo }}>(filtered)</span>}</span>
+            <span style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>
+              Showing {filtered.length === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of{' '}
+              <strong style={{ color: T.text }}>{filtered.length.toLocaleString()}</strong> records{' '}
+              {hasFilters && <span style={{ color: T.indigo }}>(filtered)</span>}
+            </span>
+
             {selected.size > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.indigoL, border: `1px solid ${T.indigoBd}`, borderRadius: 8, padding: '4px 12px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: T.indigoL,
+                  border: `1px solid ${T.indigoBd}`,
+                  borderRadius: 8,
+                  padding: '3px 10px',
+                }}
+              >
                 <span style={{ fontSize: 11, fontWeight: 800, color: T.indigo }}>{selected.size} selected</span>
-                <button onClick={() => setSelected(new Set())} style={{ fontSize: 10, color: T.muted, background: 'none', border: 'none', cursor: 'pointer' }}>✕ clear</button>
+                <button
+                  onClick={() => setSelected(new Set())}
+                  style={{ fontSize: 10, color: T.muted, background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  ✕ clear
+                </button>
               </div>
             )}
           </div>
-          <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>{fmt(totalAmount)}</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>Page Volume:</span>
+            <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>
+              {fmt(paginated.reduce((s, p) => s + Number(p.amount || 0), 0))}
+            </span>
+            <span style={{ color: T.muted }}>·</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>Filtered Total:</span>
+            <span style={{ fontSize: 14, fontWeight: 900, color: T.indigo }}>{fmt(totalAmount)}</span>
+          </div>
         </div>
 
-        {/* ── Loading skeleton ── */}
-        {loading && (
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, overflow: 'hidden' }}>
-            {[...Array(8)].map((_, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 20px', borderBottom: `1px solid ${T.border}`, animation: 'pulse 1.5s ease-in-out infinite' }}>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: '#f1f5f9' }} />
-                <div style={{ flex: 1, height: 12, borderRadius: 8, background: '#f1f5f9', maxWidth: '40%' }} />
-                <div style={{ width: 80, height: 12, borderRadius: 8, background: '#f1f5f9' }} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════
-            TABLE VIEW
-        ══════════════════════════════════════════════════════════════════ */}
-        {!loading && view === 'table' && (
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 18, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }} className="fade-in">
+        {/* ══════════════════════════════════════════════════════════════════════
+            6. COMPACT & RESPONSIVE DATAGRID (TABLE VIEW)
+           ══════════════════════════════════════════════════════════════════════ */}
+        {view === 'table' && (
+          <div
+            style={{
+              background: T.card,
+              border: `1px solid ${T.border}`,
+              borderRadius: 16,
+              overflow: 'hidden',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
+            }}
+            className="fade-in"
+          >
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: "'Inter',sans-serif" }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: "'Inter',sans-serif" }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: `2px solid ${T.border}` }}>
-                    <th style={{ padding: '11px 14px', width: 40 }}>
-                      <input type="checkbox" checked={allPageSelected} onChange={toggleAll} style={{ width: 14, height: 14, accentColor: T.indigo, cursor: 'pointer' }} />
+                    <th style={{ padding: '10px 12px', width: 38 }}>
+                      <input
+                        type="checkbox"
+                        checked={isAllPageSelected}
+                        onChange={toggleSelectAll}
+                        style={{ width: 14, height: 14, accentColor: T.indigo, cursor: 'pointer' }}
+                      />
                     </th>
-                    <ColH label="Receipt #"  sk="receipt_number"  current={sortKey} dir={sortDir} onSort={handleSort} />
-                    <ColH label="Student"    sk="student"         current={sortKey} dir={sortDir} onSort={handleSort} />
-                    <th style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.sub }}>Form</th>
-                    <ColH label="Amount"     sk="amount"          current={sortKey} dir={sortDir} onSort={handleSort} />
-                    <ColH label="Method"     sk="payment_method"  current={sortKey} dir={sortDir} onSort={handleSort} />
-                    <th style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.sub }}>Ref / Code</th>
-                    <ColH label="Date"       sk="payment_date"    current={sortKey} dir={sortDir} onSort={handleSort} />
-                    <th style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.sub }}>Term</th>
-                    <th style={{ padding: '11px 14px', textAlign: 'right', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.sub }}>Actions</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left' }}>
+                      <button
+                        onClick={() => handleSort('receipt_number')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 10,
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          color: sortKey === 'receipt_number' ? T.indigo : T.sub,
+                        }}
+                      >
+                        Receipt # {sortKey === 'receipt_number' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </button>
+                    </th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left' }}>
+                      <button
+                        onClick={() => handleSort('student')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 10,
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          color: sortKey === 'student' ? T.indigo : T.sub,
+                        }}
+                      >
+                        Student / Adm {sortKey === 'student' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </button>
+                    </th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>
+                      Track & Class
+                    </th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => handleSort('amount')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 10,
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          marginLeft: 'auto',
+                          color: sortKey === 'amount' ? T.indigo : T.sub,
+                        }}
+                      >
+                        Amount (KES) {sortKey === 'amount' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </button>
+                    </th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left' }}>
+                      <button
+                        onClick={() => handleSort('payment_method')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 10,
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          color: sortKey === 'payment_method' ? T.indigo : T.sub,
+                        }}
+                      >
+                        Method {sortKey === 'payment_method' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </button>
+                    </th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>
+                      Ref / Slip / Code
+                    </th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left' }}>
+                      <button
+                        onClick={() => handleSort('payment_date')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 10,
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          color: sortKey === 'payment_date' ? T.indigo : T.sub,
+                        }}
+                      >
+                        Date {sortKey === 'payment_date' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </button>
+                    </th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>
+                      Term
+                    </th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.length === 0 && (
-                    <tr><td colSpan={10} style={{ padding: '60px 20px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
-                      <p style={{ fontWeight: 700, color: T.sub }}>No payments found</p>
-                      <p style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>Try adjusting your filters</p>
-                    </td></tr>
-                  )}
-                  {paginated.map((p, i) => {
-                    const s = students.find(st => st.id === p.student_id);
-                    const t = terms.find((tm: any) => Number(tm.id) === Number(p.term_id));
-                    const isSel = selected.has(p.id);
-                    const COLORS = ['#4f46e5','#16a34a','#0ea5e9','#d97706','#8b5cf6','#ef4444','#0d9488'];
-                    const avatarColor = COLORS[i % COLORS.length];
-                    const initials = s ? `${s.first_name?.[0]||''}${s.last_name?.[0]||''}`.toUpperCase() : '?';
-                    return (
-                      <tr key={p.id} className="pay-row" onClick={() => setPreviewPayment(p)} style={{ borderBottom: `1px solid ${T.border}`, background: isSel ? T.indigoL : '#fff', cursor: 'pointer', transition: 'background 0.12s' }}>
-                        <td style={{ padding: '10px 14px' }} onClick={e => e.stopPropagation()}>
-                          <input type="checkbox" checked={isSel} onChange={() => toggleOne(p.id)} style={{ width: 14, height: 14, accentColor: T.indigo, cursor: 'pointer' }} />
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: T.indigo, background: T.indigoL, padding: '2px 7px', borderRadius: 6 }}>{p.receipt_number || '—'}</span>
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 30, height: 30, borderRadius: 9, background: `${avatarColor}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: avatarColor, flexShrink: 0 }}>{initials}</div>
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: 12, color: T.text }}>{s ? `${s.first_name} ${s.last_name}` : <span style={{ color: T.muted }}>Unknown</span>}</div>
-                              <div style={{ fontSize: 10, color: T.muted, fontFamily: 'monospace', marginTop: 1 }}>{s?.admission_no || s?.admission_number || '—'}</div>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={10} style={{ padding: '40px 20px', textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: T.indigo, fontWeight: 700 }}>
+                          <FiRefreshCw className="animate-spin" />
+                          <span>Loading financial transactions from live database...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : paginated.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} style={{ padding: '50px 20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 32, marginBottom: 6 }}>🔍</div>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: T.text }}>No payment records found</div>
+                        <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>
+                          Try clearing or adjusting search filters to locate transactions.
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    paginated.map((p, idx) => {
+                      const s = students.find((st) => st.id === p.student_id);
+                      const fName = s ? getFormName(s.form_id) : '—';
+                      const stName = s ? getStreamName(s.stream_id) : '';
+                      const { label: curLabel, badgeColor } = detectCurriculum(fName);
+                      const termInfo = resolvePaymentTerm(p);
+                      const isSel = selected.has(p.id);
+                      const meta = getMethodMeta(p.payment_method);
+                      const initials = s ? `${s.first_name?.[0] || ''}${s.last_name?.[0] || ''}`.toUpperCase() : '?';
+
+                      return (
+                        <tr
+                          key={p.id}
+                          className="pay-row"
+                          onClick={() => setPreviewPayment(p)}
+                          style={{
+                            borderBottom: `1px solid ${T.border}`,
+                            background: isSel ? T.indigoL : '#fff',
+                            cursor: 'pointer',
+                            transition: 'background 0.12s',
+                          }}
+                        >
+                          {/* Checkbox */}
+                          <td style={{ padding: '8px 12px' }} onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSel}
+                              onChange={() => toggleSelectOne(p.id)}
+                              style={{ width: 14, height: 14, accentColor: T.indigo, cursor: 'pointer' }}
+                            />
+                          </td>
+
+                          {/* Receipt # */}
+                          <td style={{ padding: '8px 12px' }}>
+                            <span
+                              style={{
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                color: T.indigo,
+                                background: T.indigoL,
+                                border: `1px solid ${T.indigoBd}`,
+                                padding: '2px 7px',
+                                borderRadius: 6,
+                              }}
+                            >
+                              {p.receipt_number || `REC-${p.id}`}
+                            </span>
+                          </td>
+
+                          {/* Student Info */}
+                          <td style={{ padding: '8px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div
+                                style={{
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: 8,
+                                  background: '#e0e7ff',
+                                  color: '#3730a3',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: 10,
+                                  fontWeight: 900,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {initials}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: 12, color: T.text }}>
+                                  {s ? `${s.first_name} ${s.last_name}` : <span style={{ color: T.muted }}>Unknown Student</span>}
+                                </div>
+                                <div style={{ fontSize: 10, color: T.muted, fontFamily: 'monospace', marginTop: 1 }}>
+                                  Adm: {s?.admission_no || s?.admission_number || '—'}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: T.sub, background: '#f8fafc', padding: '2px 8px', borderRadius: 6 }}>{s ? getFormName(s.form_id) : '—'}</span>
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>{fmt(Number(p.amount || 0))}</span>
-                        </td>
-                        <td style={{ padding: '10px 14px' }}><MethodPill method={p.payment_method} /></td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <span style={{ fontFamily: 'monospace', fontSize: 11, color: T.sub }}>{p.mpesa_code || p.reference_number || p.bank_name || '—'}</span>
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: T.sub, whiteSpace: 'nowrap' }}>{fmtDate(p.payment_date)}</span>
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          {t ? (
-                            <span style={{ fontSize: 11, fontWeight: 700, color: '#6d28d9', background: '#faf5ff', border: '1px solid #ddd6fe', padding: '2px 8px', borderRadius: 6 }}>{t.term_name}</span>
-                          ) : <span style={{ color: T.muted, fontSize: 11 }}>—</span>}
-                        </td>
-                        <td style={{ padding: '10px 14px' }} onClick={e => e.stopPropagation()}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
-                            {[
-                              { icon: '👁', title: 'Preview', fn: () => setPreviewPayment(p), color: T.indigo },
-                              { icon: '🖨', title: 'Print',   fn: () => printReceipt(p),       color: T.green },
-                              { icon: '📋', title: 'Copy',    fn: () => copyReceipt(p),         color: T.blue },
-                              { icon: '✏',  title: 'Edit',   fn: () => setEditModal({ open: true, payment: p }), color: T.amber },
-                              { icon: '🗑', title: 'Delete',  fn: () => handleDelete(p.id),     color: T.red },
-                            ].map(btn => (
-                              <button key={btn.title} onClick={btn.fn} title={btn.title} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${T.border}`, background: T.card, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.sub, transition: 'all 0.12s' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${btn.color}12`; (e.currentTarget as HTMLElement).style.borderColor = `${btn.color}50`; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = T.card; (e.currentTarget as HTMLElement).style.borderColor = T.border; }}>
-                                {btn.icon}
+                          </td>
+
+                          {/* Curriculum Track & Class */}
+                          <td style={{ padding: '8px 12px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: T.text }}>
+                                {fName} {stName}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 800,
+                                  padding: '1px 6px',
+                                  borderRadius: 99,
+                                  width: 'fit-content',
+                                  border: '1px solid',
+                                }}
+                                className={badgeColor}
+                              >
+                                {curLabel}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Amount */}
+                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                            <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>
+                              {fmt(Number(p.amount || 0))}
+                            </span>
+                          </td>
+
+                          {/* Method */}
+                          <td style={{ padding: '8px 12px' }}>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                padding: '2px 8px',
+                                borderRadius: 99,
+                                background: meta.bg,
+                                color: meta.text,
+                                fontSize: 10,
+                                fontWeight: 800,
+                                border: `1px solid ${meta.dot}40`,
+                              }}
+                            >
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: meta.dot }} />
+                              <span>{meta.icon}</span>
+                              <span>{p.payment_method || 'Cash'}</span>
+                            </span>
+                          </td>
+
+                          {/* Ref / Code */}
+                          <td style={{ padding: '8px 12px' }}>
+                            <span style={{ fontFamily: 'monospace', fontSize: 11, color: T.sub }}>
+                              {p.mpesa_code || p.reference_number || p.bank_name || '—'}
+                            </span>
+                          </td>
+
+                          {/* Date */}
+                          <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: T.sub }}>{fmtDate(p.payment_date)}</span>
+                          </td>
+
+                          {/* Term (Intelligently resolved, NEVER blank) */}
+                          <td style={{ padding: '8px 12px' }}>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                color: '#6d28d9',
+                                background: '#faf5ff',
+                                border: '1px solid #ddd6fe',
+                                padding: '2px 7px',
+                                borderRadius: 6,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {termInfo.name}
+                            </span>
+                          </td>
+
+                          {/* Actions */}
+                          <td style={{ padding: '8px 12px' }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                              {/* Thermal Print */}
+                              <button
+                                onClick={() => handlePrintThermalReceipt(p)}
+                                title="Print 80mm Cashier Thermal Receipt"
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: 7,
+                                  border: `1px solid ${T.border}`,
+                                  background: T.card,
+                                  color: T.green,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <FiPrinter size={13} />
                               </button>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+
+                              {/* Official A4 Voucher Print */}
+                              <button
+                                onClick={() => handlePrintA4Receipt(p)}
+                                title="Print Official A4 Voucher Receipt"
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: 7,
+                                  border: `1px solid #bfdbfe`,
+                                  background: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <FiFileText size={13} />
+                              </button>
+
+                              {/* WhatsApp Dispatch */}
+                              <button
+                                onClick={() => handleSendWhatsAppReceipt(p)}
+                                title="Send Official Receipt via WhatsApp"
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: 7,
+                                  border: `1px solid #bbf7d0`,
+                                  background: '#f0fdf4',
+                                  color: '#15803d',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <FiShare2 size={13} />
+                              </button>
+
+                              {/* Preview Details */}
+                              <button
+                                onClick={() => setPreviewPayment(p)}
+                                title="View Full Receipt Details"
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: 7,
+                                  border: `1px solid ${T.border}`,
+                                  background: T.card,
+                                  color: T.indigo,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <FiEye size={13} />
+                              </button>
+
+                              {/* Edit Modal */}
+                              <button
+                                onClick={() => setEditModalData({ open: true, payment: p })}
+                                title="Edit Payment"
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: 7,
+                                  border: `1px solid ${T.border}`,
+                                  background: T.card,
+                                  color: T.amber,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <FiEdit2 size={13} />
+                              </button>
+
+                              {/* Void / Delete */}
+                              <button
+                                onClick={() => handleDelete(p.id)}
+                                title="Void/Delete Payment"
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: 7,
+                                  border: `1px solid ${T.border}`,
+                                  background: T.card,
+                                  color: T.red,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <FiTrash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
-                <tfoot>
-                  <tr style={{ background: '#f8fafc', borderTop: `2px solid ${T.border}` }}>
-                    <td colSpan={4} style={{ padding: '10px 14px' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>{filtered.length.toLocaleString()} payments {selected.size > 0 && <span style={{ color: T.indigo }}>· {selected.size} selected</span>}</span>
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>{fmt(totalAmount)}</span>
-                    </td>
-                    <td colSpan={5} />
-                  </tr>
-                </tfoot>
+
+                {/* Sticky Summary Footer */}
+                {paginated.length > 0 && (
+                  <tfoot>
+                    <tr style={{ background: '#f8fafc', borderTop: `2px solid ${T.border}` }}>
+                      <td colSpan={4} style={{ padding: '10px 12px' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>
+                          Page Subtotal ({paginated.length} records):
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                        <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>
+                          {fmt(paginated.reduce((s, p) => s + Number(p.amount || 0), 0))}
+                        </span>
+                      </td>
+                      <td colSpan={5} style={{ padding: '10px 12px', textAlign: 'right' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>
+                          Ledger Total: <strong style={{ color: T.indigo }}>{fmt(totalAmount)}</strong>
+                        </span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
 
-            {/* Pagination */}
+            {/* ── Compact Pagination Bar ── */}
             {totalPages > 1 && (
-              <div style={{ padding: '12px 20px', borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p style={{ fontSize: 11, color: T.sub, fontWeight: 600 }}>Showing {(page-1)*perPage+1}–{Math.min(page*perPage, filtered.length)} of {filtered.length.toLocaleString()}</p>
+              <div
+                style={{
+                  padding: '10px 18px',
+                  borderTop: `1px solid ${T.border}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: '#ffffff',
+                }}
+              >
+                <div style={{ fontSize: 11, color: T.sub, fontWeight: 600 }}>
+                  Page <strong>{page}</strong> of <strong>{totalPages}</strong>
+                </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {[{ label: '«', action: () => setPage(1), dis: page === 1 }, { label: '‹', action: () => setPage(p => Math.max(1, p-1)), dis: page === 1 }].map(({ label, action, dis }) => (
-                    <button key={label} onClick={action} disabled={dis} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${T.border}`, background: T.card, cursor: dis ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 800, color: T.sub, opacity: dis ? 0.4 : 1 }}>{label}</button>
-                  ))}
-                  {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-                    let pg: number;
-                    if (totalPages <= 7) pg = i + 1;
-                    else if (page <= 4) pg = i + 1;
-                    else if (page >= totalPages - 3) pg = totalPages - 6 + i;
-                    else pg = page - 3 + i;
+                  <button
+                    onClick={() => setPage(1)}
+                    disabled={page === 1}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 7,
+                      border: `1px solid ${T.border}`,
+                      background: T.card,
+                      cursor: page === 1 ? 'not-allowed' : 'pointer',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: T.sub,
+                      opacity: page === 1 ? 0.4 : 1,
+                    }}
+                  >
+                    «
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 7,
+                      border: `1px solid ${T.border}`,
+                      background: T.card,
+                      cursor: page === 1 ? 'not-allowed' : 'pointer',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: T.sub,
+                      opacity: page === 1 ? 0.4 : 1,
+                    }}
+                  >
+                    ‹
+                  </button>
+
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pg = i + 1;
+                    if (totalPages > 5 && page > 3) {
+                      pg = Math.min(page - 2 + i, totalPages - 4 + i);
+                    }
                     return (
-                      <button key={pg} onClick={() => setPage(pg)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${page === pg ? T.indigo : T.border}`, background: page === pg ? T.indigo : T.card, color: page === pg ? '#fff' : T.sub, cursor: 'pointer', fontSize: 12, fontWeight: 800 }}>{pg}</button>
+                      <button
+                        key={pg}
+                        onClick={() => setPage(pg)}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 7,
+                          border: `1px solid ${page === pg ? T.indigo : T.border}`,
+                          background: page === pg ? T.indigo : T.card,
+                          color: page === pg ? '#fff' : T.sub,
+                          fontSize: 11,
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {pg}
+                      </button>
                     );
                   })}
-                  {[{ label: '›', action: () => setPage(p => Math.min(totalPages, p+1)), dis: page === totalPages }, { label: '»', action: () => setPage(totalPages), dis: page === totalPages }].map(({ label, action, dis }) => (
-                    <button key={label} onClick={action} disabled={dis} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${T.border}`, background: T.card, cursor: dis ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 800, color: T.sub, opacity: dis ? 0.4 : 1 }}>{label}</button>
-                  ))}
+
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 7,
+                      border: `1px solid ${T.border}`,
+                      background: T.card,
+                      cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: T.sub,
+                      opacity: page === totalPages ? 0.4 : 1,
+                    }}
+                  >
+                    ›
+                  </button>
+                  <button
+                    onClick={() => setPage(totalPages)}
+                    disabled={page === totalPages}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 7,
+                      border: `1px solid ${T.border}`,
+                      background: T.card,
+                      cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: T.sub,
+                      opacity: page === totalPages ? 0.4 : 1,
+                    }}
+                  >
+                    »
+                  </button>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            CARD / GRID VIEW
-        ══════════════════════════════════════════════════════════════════ */}
-        {!loading && view === 'grid' && (
+        {/* ══════════════════════════════════════════════════════════════════════
+            7. CARD / GRID VIEW
+           ══════════════════════════════════════════════════════════════════════ */}
+        {view === 'grid' && (
           <div className="fade-in">
             {paginated.length === 0 ? (
-              <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 18, padding: 60, textAlign: 'center' }}>
-                <div style={{ fontSize: 40, marginBottom: 10 }}>🔍</div>
-                <p style={{ fontWeight: 700, color: T.sub }}>No payments match your filters</p>
+              <div
+                style={{
+                  background: T.card,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 16,
+                  padding: 40,
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ fontSize: 36, marginBottom: 8 }}>🔍</div>
+                <div style={{ fontWeight: 800, color: T.text }}>No payment cards found</div>
               </div>
             ) : (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 14 }}>
-                  {paginated.map(p => {
-                    const s = students.find(st => st.id === p.student_id);
-                    const t = terms.find((tm: any) => Number(tm.id) === Number(p.term_id));
-                    const mc = getM(p.payment_method);
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))', gap: 14 }}>
+                  {paginated.map((p) => {
+                    const s = students.find((st) => st.id === p.student_id);
+                    const fName = s ? getFormName(s.form_id) : '—';
+                    const { label: curLabel, badgeColor } = detectCurriculum(fName);
+                    const termInfo = resolvePaymentTerm(p);
+                    const meta = getMethodMeta(p.payment_method);
                     const isSel = selected.has(p.id);
+
                     return (
-                      <div key={p.id} className="pay-card" onClick={() => setPreviewPayment(p)} style={{ background: T.card, border: `1.5px solid ${isSel ? T.indigo : T.border}`, borderRadius: 18, overflow: 'hidden', cursor: 'pointer', position: 'relative', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', transition: 'all 0.18s' }}>
-                        <div style={{ height: 4, background: mc.dot, borderRadius: '18px 18px 0 0' }} />
-                        <div style={{ padding: '14px 16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 11, background: mc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{mc.icon}</div>
-                            <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                              {[
-                                { icon: '🖨', fn: () => printReceipt(p) },
-                                { icon: '✏', fn: () => setEditModal({ open: true, payment: p }) },
-                                { icon: '🗑', fn: () => handleDelete(p.id) },
-                              ].map((btn, bi) => (
-                                <button key={bi} onClick={btn.fn} style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid ${T.border}`, background: T.bg, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{btn.icon}</button>
-                              ))}
+                      <div
+                        key={p.id}
+                        className="pay-card"
+                        onClick={() => setPreviewPayment(p)}
+                        style={{
+                          background: T.card,
+                          border: `1.5px solid ${isSel ? T.indigo : T.border}`,
+                          borderRadius: 16,
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                          transition: 'all 0.16s ease',
+                        }}
+                      >
+                        <div style={{ height: 4, background: meta.dot }} />
+                        <div style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <div
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 9,
+                                background: meta.bg,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 16,
+                              }}
+                            >
+                              {meta.icon}
+                            </div>
+                            <div style={{ display: 'flex', gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => handlePrintThermalReceipt(p)}
+                                title="Print Thermal Receipt"
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: 6,
+                                  border: `1px solid ${T.border}`,
+                                  background: T.bg,
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                }}
+                              >
+                                🖨️
+                              </button>
+                              <button
+                                onClick={() => handlePrintA4Receipt(p)}
+                                title="Print Official A4 Voucher"
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: 6,
+                                  border: `1px solid #bfdbfe`,
+                                  background: '#eff6ff',
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                }}
+                              >
+                                📄
+                              </button>
+                              <button
+                                onClick={() => handleSendWhatsAppReceipt(p)}
+                                title="WhatsApp Receipt"
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: 6,
+                                  border: `1px solid ${T.border}`,
+                                  background: T.bg,
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                }}
+                              >
+                                💬
+                              </button>
+                              <button
+                                onClick={() => setEditModalData({ open: true, payment: p })}
+                                title="Edit"
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: 6,
+                                  border: `1px solid ${T.border}`,
+                                  background: T.bg,
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                }}
+                              >
+                                ✏️
+                              </button>
                             </div>
                           </div>
-                          <div style={{ fontSize: 20, fontWeight: 900, color: T.green, letterSpacing: '-0.02em', lineHeight: 1 }}>{fmt(Number(p.amount || 0))}</div>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s ? `${s.first_name} ${s.last_name}` : <span style={{ color: T.muted }}>Unknown</span>}</div>
-                          <div style={{ fontSize: 10, color: T.muted, fontFamily: 'monospace', marginTop: 2 }}>{s?.admission_no || s?.admission_number || '—'} · {s ? getFormName(s.form_id) : '—'}</div>
-                          <div style={{ borderTop: `1px solid ${T.border}`, marginTop: 10, paddingTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <MethodPill method={p.payment_method} />
+
+                          <div style={{ fontSize: 18, fontWeight: 900, color: T.green, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                            {fmt(Number(p.amount || 0))}
+                          </div>
+
+                          <div style={{ fontSize: 12, fontWeight: 800, color: T.text, marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {s ? `${s.first_name} ${s.last_name}` : 'Unknown Student'}
+                          </div>
+                          <div style={{ fontSize: 10, color: T.muted, fontFamily: 'monospace', marginTop: 1 }}>
+                            {s?.admission_no || s?.admission_number || '—'} · {fName}
+                          </div>
+
+                          <div
+                            style={{
+                              borderTop: `1px solid ${T.border}`,
+                              marginTop: 10,
+                              paddingTop: 8,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 800,
+                                padding: '1px 6px',
+                                borderRadius: 99,
+                                border: '1px solid',
+                              }}
+                              className={badgeColor}
+                            >
+                              {curLabel}
+                            </span>
                             <span style={{ fontSize: 10, color: T.muted, fontWeight: 600 }}>{fmtDate(p.payment_date)}</span>
                           </div>
+
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                            <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.indigo, fontWeight: 700, background: T.indigoL, padding: '1px 6px', borderRadius: 5 }}>{p.receipt_number || '—'}</span>
-                            <span style={{ fontSize: 10, color: '#6d28d9', fontWeight: 700 }}>{t?.term_name || '—'}</span>
-                          </div>
-                          {p.mpesa_code && <div style={{ marginTop: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, padding: '4px 8px', fontSize: 10, fontFamily: 'monospace', color: '#15803d' }}>📱 {p.mpesa_code}</div>}
-                        </div>
-                        <div style={{ position: 'absolute', top: 10, right: 10 }} onClick={e => { e.stopPropagation(); toggleOne(p.id); }}>
-                          <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isSel ? T.indigo : T.border}`, background: isSel ? T.indigo : T.card, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                            {isSel && <span style={{ fontSize: 8, color: '#fff', fontWeight: 900 }}>✓</span>}
+                            <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.indigo, fontWeight: 700, background: T.indigoL, padding: '1px 6px', borderRadius: 5 }}>
+                              {p.receipt_number || `REC-${p.id}`}
+                            </span>
+                            <span style={{ fontSize: 10, color: '#6d28d9', fontWeight: 700 }}>
+                              {termInfo.name}
+                            </span>
                           </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
+
                 {totalPages > 1 && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 16 }}>
-                    <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} style={{ padding: '8px 18px', borderRadius: 10, border: `1px solid ${T.border}`, background: T.card, color: T.sub, fontWeight: 800, fontSize: 12, cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1 }}>← Prev</button>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: T.sub }}>{page} / {totalPages}</span>
-                    <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} style={{ padding: '8px 18px', borderRadius: 10, border: `1px solid ${T.border}`, background: T.card, color: T.sub, fontWeight: 800, fontSize: 12, cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1 }}>Next →</button>
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 8,
+                        border: `1px solid ${T.border}`,
+                        background: T.card,
+                        color: T.sub,
+                        fontWeight: 800,
+                        fontSize: 11,
+                        cursor: page === 1 ? 'not-allowed' : 'pointer',
+                        opacity: page === 1 ? 0.4 : 1,
+                      }}
+                    >
+                      ← Prev
+                    </button>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>
+                      {page} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 8,
+                        border: `1px solid ${T.border}`,
+                        background: T.card,
+                        color: T.sub,
+                        fontWeight: 800,
+                        fontSize: 11,
+                        cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                        opacity: page === totalPages ? 0.4 : 1,
+                      }}
+                    >
+                      Next →
+                    </button>
                   </div>
                 )}
               </>
@@ -799,88 +2535,670 @@ export default function PaymentHistoryPage() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            ANALYTICS VIEW
-        ══════════════════════════════════════════════════════════════════ */}
-        {!loading && view === 'analytics' && (
+        {/* ══════════════════════════════════════════════════════════════════════
+            8. ANALYTICS FULL VIEW
+           ══════════════════════════════════════════════════════════════════════ */}
+        {view === 'analytics' && (
           <div className="fade-in">
-            <AnalyticsView payments={filtered} students={students} terms={terms} getFormName={getFormName} />
-          </div>
-        )}
-      </div>
+            <div
+              style={{
+                background: T.card,
+                border: `1px solid ${T.border}`,
+                borderRadius: 16,
+                padding: '20px 24px',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
+              }}
+            >
+              <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 900, color: T.text, fontFamily: "'Outfit',sans-serif" }}>
+                Class & Form Collections Summary
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12 }}>
+                {forms.map((f) => {
+                  const formPays = payments.filter((p) => {
+                    const s = students.find((st) => st.id === p.student_id);
+                    return s && s.form_id === f.id;
+                  });
+                  const sum = formPays.reduce((acc, p) => acc + Number(p.amount || 0), 0);
+                  const { label: curLabel, badgeColor } = detectCurriculum(f.form_name);
 
-      {/* ── EDIT MODAL ── */}
-      <EditModal modal={editModal} onClose={() => setEditModal({ open: false, payment: null })} onSave={handleSave} students={students} terms={terms} getFormName={getFormName} />
-
-      {/* ── RECEIPT PREVIEW MODAL ── */}
-      {previewPayment && (() => {
-        const p = previewPayment;
-        const s = students.find((st: any) => st.id === p.student_id);
-        const fees = s ? getStudentFees(s.id, s.form_id) : null;
-        const mc = getM(p.payment_method);
-        const term = terms.find((t: any) => Number(t.id) === Number(p.term_id));
-        return (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(8px)' }} onClick={() => setPreviewPayment(null)}>
-            <div style={{ width: '100%', maxWidth: 400, borderRadius: 22, background: T.card, border: `1px solid ${T.border}`, boxShadow: '0 24px 80px rgba(0,0,0,0.18)', overflow: 'hidden', fontFamily: "'Inter','Outfit',sans-serif" }} onClick={e => e.stopPropagation()}>
-              {/* Coloured header */}
-              <div style={{ background: mc.bg, borderBottom: `2px solid ${mc.dot}30`, padding: '24px 20px 20px', textAlign: 'center', position: 'relative' }}>
-                <div style={{ width: 54, height: 54, borderRadius: 16, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto 10px', boxShadow: `0 4px 14px ${mc.dot}40` }}>{mc.icon}</div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: T.text, fontFamily: "'Outfit',sans-serif" }}>Payment Receipt</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: T.sub, marginTop: 3 }}>{p.receipt_number}</div>
-                <button onClick={() => setPreviewPayment(null)} style={{ position: 'absolute', top: 12, right: 14, width: 28, height: 28, borderRadius: 8, border: `1px solid ${T.border}`, background: T.card, cursor: 'pointer', fontSize: 16, color: T.sub, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-              </div>
-
-              <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {/* Big amount */}
-                <div style={{ background: T.greenL, border: `1.5px solid ${T.greenBd}`, borderRadius: 14, padding: '14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: T.green, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Amount Paid</div>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: '#14532d', letterSpacing: '-0.03em' }}>{fmt(Number(p.amount))}</div>
-                </div>
-
-                {/* Details list */}
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {([
-                    ['Student',    s ? `${s.first_name} ${s.last_name}` : '—'],
-                    ['Adm No',     s?.admission_no || s?.admission_number || '—'],
-                    ['Form',       s ? getFormName(s.form_id) : '—'],
-                    ['Date',       fmtDateLong(p.payment_date)],
-                    ['Method',     p.payment_method],
-                    ...(p.mpesa_code      ? [['M-Pesa Code', p.mpesa_code]]         : []),
-                    ...(p.bank_name      ? [['Bank', p.bank_name]]                   : []),
-                    ...(p.reference_number ? [['Reference', p.reference_number]]     : []),
-                    ...(term             ? [['Term', term.term_name]]                 : []),
-                    ...(p.received_by    ? [['Received By', p.received_by]]           : []),
-                  ] as [string, string][]).map(([k, v]) => (
-                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${T.border}` }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{k}</span>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: k === 'M-Pesa Code' ? T.green : T.text, fontFamily: k === 'M-Pesa Code' ? 'monospace' : "'Inter',sans-serif", textAlign: 'right', maxWidth: '55%' }}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Fee summary */}
-                {fees && (
-                  <div style={{ background: T.redL, border: `1.5px solid ${T.redBd}`, borderRadius: 12, padding: 12 }}>
-                    <div style={{ fontSize: 10, fontWeight: 800, color: T.red, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Outstanding Balance</div>
-                    {[['Term Balance', fees.termBalance], ['Annual Balance', fees.annualBalance], ['Total Paid', fees.totalPaid]].map(([k, v]: any) => (
-                      <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, color: T.sub, fontWeight: 600 }}>{k}</span>
-                        <span style={{ fontSize: 11, fontWeight: 900, color: k === 'Total Paid' ? T.green : T.red }}>KES {v.toLocaleString()}</span>
+                  return (
+                    <div
+                      key={f.id}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 12,
+                        border: `1px solid ${T.border}`,
+                        background: '#f8fafc',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: T.text }}>{f.form_name}</span>
+                        <span
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 800,
+                            padding: '1px 6px',
+                            borderRadius: 99,
+                            border: '1px solid',
+                          }}
+                          className={badgeColor}
+                        >
+                          {curLabel}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ padding: '0 20px 20px', display: 'flex', gap: 8 }}>
-                <button onClick={() => copyReceipt(p)} style={{ flex: 1, padding: '10px', borderRadius: 12, border: `1.5px solid ${T.border}`, background: T.card, color: T.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>📋 Copy</button>
-                <button onClick={() => { printReceipt(p); setPreviewPayment(null); }} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', background: T.indigo, color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>🖨 Print</button>
-                <button onClick={() => { setEditModal({ open: true, payment: p }); setPreviewPayment(null); }} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', background: T.amber, color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>✏ Edit</button>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: T.green }}>{fmt(sum)}</div>
+                      <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>{formPays.length} recorded payments</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
-        );
-      })()}
+        )}
+      </main>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          9. EDIT PAYMENT MODAL
+         ══════════════════════════════════════════════════════════════════════ */}
+      {editModalData.open && editModalData.payment && (
+        <EditPaymentModal
+          payment={editModalData.payment}
+          onClose={() => setEditModalData({ open: false, payment: null })}
+          onSave={handleSaveEdit}
+          terms={terms}
+          students={students}
+          getFormName={getFormName}
+        />
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          10. RECEIPT PREVIEW MODAL
+         ══════════════════════════════════════════════════════════════════════ */}
+      {previewPayment && (
+        <ReceiptPreviewModal
+          payment={previewPayment}
+          student={students.find((st) => st.id === previewPayment.student_id)}
+          fees={getStudentFeeProfile(previewPayment.student_id)}
+          term={resolvePaymentTerm(previewPayment)}
+          getFormName={getFormName}
+          onClose={() => setPreviewPayment(null)}
+          onPrintThermal={() => {
+            handlePrintThermalReceipt(previewPayment);
+            setPreviewPayment(null);
+          }}
+          onPrintA4={() => {
+            handlePrintA4Receipt(previewPayment);
+            setPreviewPayment(null);
+          }}
+          onWhatsApp={() => {
+            handleSendWhatsAppReceipt(previewPayment);
+            setPreviewPayment(null);
+          }}
+          onCopy={() => handleCopyReceipt(previewPayment)}
+        />
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          11. FAST PAYMENT SETTLEMENT MODAL
+         ══════════════════════════════════════════════════════════════════════ */}
+      {isFastCollectOpen && (
+        <UltraPaymentModal
+          isOpen={isFastCollectOpen}
+          onClose={() => setIsFastCollectOpen(false)}
+          student={students[0] || null}
+          fees={students[0] ? getStudentFeeProfile(students[0].id) : ({} as any)}
+          receiptNo={`REC-${Date.now().toString().slice(-6)}`}
+          getFormName={getFormName}
+          getStreamName={getStreamName}
+          onSubmit={handleFastCollectSubmit}
+          isSubmitting={isSubmittingFastPay}
+          terms={terms}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SUBCOMPONENT: EDIT PAYMENT MODAL
+   ══════════════════════════════════════════════════════════════════════════════ */
+function EditPaymentModal({
+  payment,
+  onClose,
+  onSave,
+  terms,
+  students,
+  getFormName,
+}: {
+  payment: any;
+  onClose: () => void;
+  onSave: (data: any) => void;
+  terms: any[];
+  students: any[];
+  getFormName: (id: number) => string;
+}) {
+  const s = students.find((st) => st.id === payment.student_id);
+  const [form, setForm] = useState({
+    amount: payment.amount || '',
+    payment_method: payment.payment_method || 'Cash',
+    reference_number: payment.reference_number || '',
+    mpesa_code: payment.mpesa_code || '',
+    bank_name: payment.bank_name || '',
+    payment_date: payment.payment_date || '',
+    term_id: payment.term_id || '',
+    notes: payment.notes || '',
+    received_by: payment.received_by || '',
+  });
+
+  const inpStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '8px 12px',
+    borderRadius: 8,
+    border: '1.5px solid #e2e8f0',
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#0f172a',
+    background: '#f8fafc',
+    outline: 'none',
+  };
+
+  const lblStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 10,
+    fontWeight: 800,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        background: 'rgba(15,23,42,0.4)',
+        backdropFilter: 'blur(6px)',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 480,
+          background: '#ffffff',
+          borderRadius: 20,
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.12)',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            padding: '16px 20px',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', fontFamily: "'Outfit',sans-serif" }}>
+              Edit Payment Record
+            </div>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+              {s ? `${s.first_name} ${s.last_name}` : 'Student'} · {payment.receipt_number || `REC-${payment.id}`}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              border: '1px solid #e2e8f0',
+              background: '#f8fafc',
+              cursor: 'pointer',
+              fontSize: 16,
+              color: '#64748b',
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={lblStyle}>Amount (KES)</label>
+              <input
+                type="number"
+                style={inpStyle}
+                value={form.amount}
+                onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label style={lblStyle}>Payment Date</label>
+              <input
+                type="date"
+                style={inpStyle}
+                value={form.payment_date}
+                onChange={(e) => setForm((f) => ({ ...f, payment_date: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={lblStyle}>Payment Method</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {['Cash', 'M-Pesa', 'Bank Transfer', 'Cheque', 'In-Kind'].map((m) => {
+                const active = form.payment_method === m;
+                const meta = getMethodMeta(m);
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, payment_method: m }))}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 8,
+                      border: `1.5px solid ${active ? meta.dot : '#e2e8f0'}`,
+                      background: active ? meta.bg : '#ffffff',
+                      color: active ? meta.text : '#64748b',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {meta.icon} {m}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {form.payment_method === 'M-Pesa' && (
+            <div>
+              <label style={lblStyle}>M-Pesa Confirmation Code</label>
+              <input
+                style={inpStyle}
+                placeholder="e.g. SLK89X42A"
+                value={form.mpesa_code}
+                onChange={(e) => setForm((f) => ({ ...f, mpesa_code: e.target.value.toUpperCase() }))}
+              />
+            </div>
+          )}
+
+          {(form.payment_method === 'Bank Transfer' || form.payment_method === 'Bank') && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={lblStyle}>Bank Name</label>
+                <input
+                  style={inpStyle}
+                  placeholder="KCB, Equity, Co-op..."
+                  value={form.bank_name}
+                  onChange={(e) => setForm((f) => ({ ...f, bank_name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label style={lblStyle}>Slip Reference #</label>
+                <input
+                  style={inpStyle}
+                  placeholder="Deposit ref"
+                  value={form.reference_number}
+                  onChange={(e) => setForm((f) => ({ ...f, reference_number: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={lblStyle}>Academic Term</label>
+              <select
+                style={{ ...inpStyle, cursor: 'pointer' }}
+                value={form.term_id}
+                onChange={(e) => setForm((f) => ({ ...f, term_id: e.target.value }))}
+              >
+                <option value="">— Select Term —</option>
+                {terms.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.term_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={lblStyle}>Received By</label>
+              <input
+                style={inpStyle}
+                placeholder="Bursar name"
+                value={form.received_by}
+                onChange={(e) => setForm((f) => ({ ...f, received_by: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={lblStyle}>Notes / Remarks</label>
+            <textarea
+              style={{ ...inpStyle, resize: 'none', height: 60 }}
+              placeholder="Additional cashier details..."
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div style={{ padding: '0 20px 20px', display: 'flex', gap: 10 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: '10px',
+              borderRadius: 10,
+              border: '1.5px solid #e2e8f0',
+              background: '#ffffff',
+              color: '#64748b',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onSave({ ...payment, ...form })}
+            style={{
+              flex: 1,
+              padding: '10px',
+              borderRadius: 10,
+              border: 'none',
+              background: '#4f46e5',
+              color: '#ffffff',
+              fontSize: 12,
+              fontWeight: 900,
+              cursor: 'pointer',
+              boxShadow: '0 3px 10px rgba(79,70,229,0.3)',
+            }}
+          >
+            Save Changes ✓
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SUBCOMPONENT: RECEIPT PREVIEW MODAL
+   ══════════════════════════════════════════════════════════════════════════════ */
+function ReceiptPreviewModal({
+  payment,
+  student,
+  fees,
+  term,
+  getFormName,
+  onClose,
+  onPrintThermal,
+  onPrintA4,
+  onWhatsApp,
+  onCopy,
+}: {
+  payment: any;
+  student: any;
+  fees: StudentFeeProfile | null;
+  term: { id: number; name: string };
+  getFormName: (id: number) => string;
+  onClose: () => void;
+  onPrintThermal: () => void;
+  onPrintA4: () => void;
+  onWhatsApp: () => void;
+  onCopy: () => void;
+}) {
+  const meta = getMethodMeta(payment.payment_method);
+  const formName = student ? getFormName(student.form_id) : '—';
+  const { label: curLabel } = detectCurriculum(formName);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        background: 'rgba(15,23,42,0.4)',
+        backdropFilter: 'blur(8px)',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 440,
+          borderRadius: 22,
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
+          overflow: 'hidden',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header with channel color */}
+        <div
+          style={{
+            background: meta.bg,
+            borderBottom: `2px solid ${meta.dot}30`,
+            padding: '20px 20px 16px',
+            textAlign: 'center',
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 14,
+              background: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 24,
+              margin: '0 auto 8px',
+              boxShadow: `0 4px 12px ${meta.dot}30`,
+            }}
+          >
+            {meta.icon}
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: '#0f172a', fontFamily: "'Outfit',sans-serif" }}>
+            Official Fee Payment Receipt
+          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 800, color: '#4f46e5', marginTop: 2 }}>
+            {payment.receipt_number || `REC-${payment.id}`}
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              position: 'absolute',
+              top: 12,
+              right: 12,
+              width: 26,
+              height: 26,
+              borderRadius: 8,
+              border: '1px solid #e2e8f0',
+              background: '#ffffff',
+              cursor: 'pointer',
+              fontSize: 16,
+              color: '#64748b',
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Big Amount Card */}
+          <div
+            style={{
+              background: '#f0fdf4',
+              border: '1.5px solid #bbf7d0',
+              borderRadius: 14,
+              padding: '12px',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 9, fontWeight: 800, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Amount Received
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: '#14532d', letterSpacing: '-0.02em', marginTop: 2 }}>
+              {fmt(Number(payment.amount || 0))}
+            </div>
+          </div>
+
+          {/* Key Facts */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {[
+              ['Student', student ? `${student.first_name} ${student.last_name}` : '—'],
+              ['Admission #', student?.admission_no || student?.admission_number || '—'],
+              ['Curriculum / Class', `${curLabel} · ${formName}`],
+              ['Academic Term', term.name],
+              ['Payment Date', fmtDateLong(payment.payment_date)],
+              ['Method', payment.payment_method || 'Cash'],
+              ...(payment.mpesa_code ? [['M-Pesa Code', payment.mpesa_code]] : []),
+              ...(payment.bank_name ? [['Bank Name', payment.bank_name]] : []),
+              ...(payment.reference_number ? [['Reference #', payment.reference_number]] : []),
+              ...(payment.received_by ? [['Received By', payment.received_by]] : []),
+            ].map(([k, v]) => (
+              <div
+                key={k}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '6px 0',
+                  borderBottom: '1px solid #f1f5f9',
+                }}
+              >
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>{k}</span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: k === 'M-Pesa Code' ? '#15803d' : '#0f172a',
+                    fontFamily: k === 'M-Pesa Code' ? 'monospace' : "'Inter',sans-serif",
+                    textAlign: 'right',
+                    maxWidth: '60%',
+                  }}
+                >
+                  {v}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Fee Position Snapshot */}
+          {fees && (
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
+              <div style={{ fontSize: 9, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>
+                Student Fee Balance Summary
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+                <span style={{ color: '#64748b' }}>Term Balance Due:</span>
+                <span style={{ fontWeight: 800, color: fees.termBalance > 0 ? '#dc2626' : '#16a34a' }}>
+                  {fmt(fees.termBalance)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: '#64748b' }}>Cumulative Paid (Year):</span>
+                <span style={{ fontWeight: 800, color: '#16a34a' }}>{fmt(fees.totalPaid)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Action Controls */}
+        <div style={{ padding: '0 20px 20px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <button
+            onClick={onCopy}
+            style={{
+              flex: 1,
+              minWidth: 70,
+              padding: '9px',
+              borderRadius: 10,
+              border: '1.5px solid #e2e8f0',
+              background: '#ffffff',
+              color: '#64748b',
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            📋 Copy
+          </button>
+          <button
+            onClick={onWhatsApp}
+            style={{
+              flex: 1,
+              minWidth: 90,
+              padding: '9px',
+              borderRadius: 10,
+              border: '1.5px solid #bbf7d0',
+              background: '#f0fdf4',
+              color: '#15803d',
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            💬 WhatsApp
+          </button>
+          <button
+            onClick={onPrintThermal}
+            style={{
+              flex: 1,
+              minWidth: 100,
+              padding: '9px',
+              borderRadius: 10,
+              border: 'none',
+              background: '#16a34a',
+              color: '#ffffff',
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(22,163,74,0.3)',
+            }}
+          >
+            🖨️ Thermal 80mm
+          </button>
+          <button
+            onClick={onPrintA4}
+            style={{
+              flex: 1,
+              minWidth: 100,
+              padding: '9px',
+              borderRadius: 10,
+              border: 'none',
+              background: '#1e3a8a',
+              color: '#ffffff',
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(30,58,138,0.3)',
+            }}
+          >
+            📄 Official A4
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
