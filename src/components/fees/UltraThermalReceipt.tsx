@@ -822,3 +822,165 @@ export function printPaymentsRegisterReport({
   setTimeout(() => { w.print(); }, 400);
 }
 
+/**
+ * Super Premium Bulk Thermal 80mm Receipts Batch Stream
+ */
+export function printBulkThermalReceipts(receiptsList: ReceiptData[]) {
+  if (!receiptsList || receiptsList.length === 0) return;
+  const w = window.open('', '_blank');
+  if (!w) return;
+
+  const htmlSections = receiptsList.map((data, idx) => {
+    const school = data.schoolName || 'ALPHA PREMIER SCHOOL';
+    const addr = data.schoolAddress || 'P.O. Box 000, Nairobi';
+    const phone = data.schoolPhone || 'Tel: 0700 000 000';
+    const dateStr = new Date(data.paymentDate).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' });
+    const pctPaid = data.annualFees > 0 ? Math.round((data.totalPaid / data.annualFees) * 100) : 0;
+
+    return `
+    <div style="page-break-after: always; padding: 4mm 3mm; max-width: 80mm; margin: 0 auto; font-family: 'Consolas', monospace; font-size: 11px;">
+      <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 5px;">
+        <div style="font-size: 14px; font-weight: 900; text-transform: uppercase;">${school}</div>
+        <div style="font-size: 9px; color: #555;">${addr} | ${phone}</div>
+        <div style="display: inline-block; background: #000; color: #fff; padding: 2px 8px; font-size: 9px; font-weight: 700; margin-top: 3px;">FEE RECEIPT: ${data.receiptNumber}</div>
+      </div>
+
+      <div style="margin: 4px 0; font-size: 10px;">
+        <div><strong>Date:</strong> ${dateStr}</div>
+        <div><strong>Student:</strong> ${data.studentName} (${data.admissionNo})</div>
+        <div><strong>Class:</strong> ${data.formStream}</div>
+        <div><strong>Payment Rail:</strong> ${data.paymentMethod} ${data.reference ? `(${data.reference})` : ''}</div>
+      </div>
+
+      <div style="border: 2px solid #000; background: #f5f5f5; text-align: center; padding: 6px; margin: 5px 0;">
+        <div style="font-size: 8px; font-weight: 800; text-transform: uppercase;">Amount Received</div>
+        <div style="font-size: 18px; font-weight: 900;">KES ${Number(data.amount || 0).toLocaleString('en-KE')}</div>
+      </div>
+
+      <div style="font-size: 9.5px; border-top: 1px dashed #000; padding-top: 4px; margin-top: 4px;">
+        <div style="display:flex; justify-content:space-between;"><span>Term Balance Due:</span><strong>KES ${Number(data.termBalance || 0).toLocaleString('en-KE')}</strong></div>
+        <div style="display:flex; justify-content:space-between;"><span>Total Paid to Date:</span><strong>KES ${Number(data.totalPaid || 0).toLocaleString('en-KE')}</strong></div>
+        <div style="display:flex; justify-content:space-between;"><span>Payment Progress:</span><strong>${pctPaid}%</strong></div>
+      </div>
+
+      <div style="text-align: center; font-size: 8px; color: #666; margin-top: 8px; border-top: 1px solid #000; padding-top: 4px;">
+        <div>Cashier: ${data.cashier || 'Cashier Desk'} | APSIMS™ Official</div>
+        <div style="margin-top: 4px;">✂ - - - - - - - - - - - - - - - - ✂</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Batch Thermal Receipts (${receiptsList.length})</title>
+<style>
+  @page { size: 80mm auto; margin: 0; }
+  @media print { .no-print { display: none !important; } body { margin: 0; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fff; color: #000; }
+</style></head><body>
+${htmlSections}
+<div class="no-print" style="text-align:center;padding:20px;">
+  <button onclick="window.print()" style="padding:10px 24px;background:#000;color:#fff;font-weight:900;cursor:pointer;border:none;border-radius:4px;">🖨️ PRINT ALL ${receiptsList.length} THERMAL RECEIPTS</button>
+</div>
+</body></html>`);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 400);
+}
+
+/**
+ * Super Premium Bulk Official A4 Receipts Batch Stream
+ */
+export function printBulkA4Receipts(receiptsList: ReceiptData[]) {
+  if (!receiptsList || receiptsList.length === 0) return;
+  const w = window.open('', '_blank');
+  if (!w) return;
+
+  const htmlSections = receiptsList.map((data) => {
+    const school = data.schoolName || 'ALPHA PREMIER SCHOOL';
+    const addr = data.schoolAddress || 'P.O. Box 000, Nairobi, Kenya';
+    const phone = data.schoolPhone || 'Tel: +254 700 000 000';
+    const dateStr = new Date(data.paymentDate).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+
+    return `
+    <div style="page-break-after: always; max-width: 780px; margin: 0 auto; padding: 24px; border: 2px solid #1e3a8a; border-radius: 12px; font-family: 'Segoe UI', sans-serif; position: relative; background: #fff; margin-bottom: 20px;">
+      <!-- Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 16px;">
+        <div>
+          <div style="font-size: 20px; font-weight: 900; color: #1e3a8a; text-transform: uppercase;">${school}</div>
+          <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${addr} • ${phone}</div>
+        </div>
+        <div style="background: #1e3a8a; color: #fff; padding: 6px 14px; border-radius: 6px; text-align: right;">
+          <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">OFFICIAL RECEIPT</div>
+          <div style="font-size: 13px; font-weight: 800; font-family: monospace;">${data.receiptNumber}</div>
+        </div>
+      </div>
+
+      <!-- Info Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; font-size: 11.5px;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+          <div style="font-size: 10px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-bottom: 4px;">Student Biodata</div>
+          <div><strong>Name:</strong> ${data.studentName}</div>
+          <div><strong>Adm No:</strong> ${data.admissionNo}</div>
+          <div><strong>Class:</strong> ${data.formStream}</div>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+          <div style="font-size: 10px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-bottom: 4px;">Transaction Record</div>
+          <div><strong>Date:</strong> ${dateStr}</div>
+          <div><strong>Method:</strong> ${data.paymentMethod}</div>
+          <div><strong>Reference:</strong> ${data.reference || '—'}</div>
+        </div>
+      </div>
+
+      <!-- Amount Banner -->
+      <div style="background: #eff6ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="font-size: 11px; font-weight: 800; color: #1e40af; text-transform: uppercase;">Amount Paid</div>
+        <div style="font-size: 24px; font-weight: 900; color: #1e3a8a; font-family: monospace;">KES ${Number(data.amount || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}</div>
+      </div>
+
+      <!-- Fee Position -->
+      <div style="margin-bottom: 18px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+          <thead>
+            <tr style="background: #1e3a8a; color: #fff;">
+              <th style="padding: 6px 8px; text-align: left;">Obligation Term</th>
+              <th style="padding: 6px 8px; text-align: right;">Billed Total (KES)</th>
+              <th style="padding: 6px 8px; text-align: right;">Paid to Date (KES)</th>
+              <th style="padding: 6px 8px; text-align: right;">Term Balance (KES)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 6px 8px;"><strong>Current Term</strong></td>
+              <td style="padding: 6px 8px; text-align: right;">${Number(data.termFees || 0).toLocaleString('en-KE')}</td>
+              <td style="padding: 6px 8px; text-align: right; color: #15803d; font-weight: 700;">${Number(data.totalPaid || 0).toLocaleString('en-KE')}</td>
+              <td style="padding: 6px 8px; text-align: right; font-weight: 800; color: ${(data.termBalance || 0) > 0 ? '#dc2626' : '#15803d'};">${Number(data.termBalance || 0).toLocaleString('en-KE')}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Signatures & Stamp -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; text-align: center; font-size: 10px; margin-top: 24px;">
+        <div style="border: 2px dashed #94a3b8; height: 50px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #94a3b8; border-radius: 6px;">OFFICIAL STAMP</div>
+        <div><div style="border-top: 1px solid #0f172a; margin-top: 36px; padding-top: 3px; font-weight: 700;">Received By: ${data.cashier || 'Cashier Desk'}</div></div>
+        <div><div style="border-top: 1px solid #0f172a; margin-top: 36px; padding-top: 3px; font-weight: 700;">Authorized Signatory</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Batch Official A4 Receipts (${receiptsList.length})</title>
+<style>
+  @page { size: A4 portrait; margin: 12mm; }
+  @media print { .no-print { display: none !important; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fff; padding: 10px; }
+</style></head><body>
+${htmlSections}
+<div class="no-print" style="text-align:center;padding:20px;">
+  <button onclick="window.print()" style="padding:10px 24px;background:#1e3a8a;color:#fff;font-weight:900;cursor:pointer;border:none;border-radius:6px;">🖨️ PRINT ALL ${receiptsList.length} A4 RECEIPTS</button>
+</div>
+</body></html>`);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 400);
+}
+
+
