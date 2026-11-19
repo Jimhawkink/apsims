@@ -793,7 +793,7 @@ export default function FeeReceiptsPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: T.bg, fontFamily: "'Inter','Outfit',system-ui,sans-serif" }}>
+    <div className="space-y-3.5 pb-10 max-w-[1400px] mx-auto text-slate-800">
       {/* ── Page Styles ── */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap');
@@ -806,117 +806,69 @@ export default function FeeReceiptsPage() {
         .fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       `}</style>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          1. EXECUTIVE COMMAND HEADER
-         ══════════════════════════════════════════════════════════════════════ */}
-      <header
-        style={{
-          background: T.card,
-          borderBottom: `1px solid ${T.border}`,
-          padding: '16px 28px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 30,
-          backdropFilter: 'blur(8px)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-              <Link href="/dashboard/fees" style={{ fontSize: 11, color: T.sub, fontWeight: 700 }}>
-                ← Fees Desk
-              </Link>
-              <span style={{ color: T.muted }}>·</span>
-              <span style={{ fontSize: 11, fontWeight: 800, color: T.indigo }}>Receipts & PDF Document Center</span>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: '2px 8px',
-                  borderRadius: 99,
-                  background: '#f0fdf4',
-                  border: '1px solid #bbf7d0',
-                  color: '#16a34a',
-                  fontSize: 10,
-                  fontWeight: 800,
-                }}
-              >
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
-                OFFICIAL DOCUMENT DISPATCH
-              </span>
+      {/* ═══ 1. COMPACT EXECUTIVE COMMAND HEADER (Light & Tight Like Fee Structure) ═══ */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          {/* Left: Branding & Status */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-black text-lg shrink-0">
+              🧾
             </div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 22,
-                fontWeight: 900,
-                color: T.text,
-                letterSpacing: '-0.025em',
-                fontFamily: "'Outfit',sans-serif",
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <span>🧾</span> Official Fee Receipts & Document Center
-            </h1>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: T.sub }}>
-              {hudStats.count.toLocaleString()} issued receipts · Multi-mode 80mm POS, Executive A4 & 2-in-1 Dual A5 · AlphaSIMS
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base font-extrabold text-slate-900 tracking-tight">
+                  Official Fee Receipts &amp; Document Center
+                </h1>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                  🏫 {schoolDetails?.school_name || 'SUNSHINE ACADEMY'}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                  {hudStats.count.toLocaleString()} Receipts
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                Multi-mode 80mm POS, Executive A4 &amp; 2-in-1 Dual A5 · AlphaSIMS Document Engine
+              </p>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* Right: Actions & Workspace Switcher */}
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Workspace Tab Switcher */}
-            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3, gap: 2 }}>
+            <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200/80 gap-0.5">
               {[
-                { id: 'ledger', label: '🧾 Receipts Ledger', icon: '📋' },
-                { id: 'studio', label: '⚡ Receipt Studio', icon: '🎨' },
-                { id: 'batch', label: '📦 Batch Printing', icon: '🖨️' },
-                { id: 'handover', label: '📋 Shift Handover', icon: '⚖️' },
+                { id: 'ledger', label: '🧾 Ledger' },
+                { id: 'studio', label: '⚡ Studio' },
+                { id: 'batch', label: '📦 Batch Print' },
+                { id: 'handover', label: '📋 Shift Handover' },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as MainTab)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    fontWeight: 800,
-                    fontSize: 11,
-                    cursor: 'pointer',
-                    fontFamily: "'Inter',sans-serif",
-                    background: activeTab === tab.id ? T.card : 'transparent',
-                    color: activeTab === tab.id ? T.indigo : T.sub,
-                    boxShadow: activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    transition: 'all 0.15s',
-                  }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
+                    activeTab === tab.id ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
                   {tab.label}
                 </button>
               ))}
             </div>
 
+            <Link
+              href="/dashboard/fees"
+              className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition flex items-center gap-1"
+            >
+              ← Fees Desk
+            </Link>
+
             {/* Refresh */}
             <button
               onClick={fetchAll}
               disabled={loading}
               title="Refresh ledger"
-              style={{
-                padding: '8px 12px',
-                borderRadius: 10,
-                border: `1.5px solid ${T.border}`,
-                background: T.card,
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontSize: 12,
-                fontWeight: 700,
-                color: T.sub,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
+              className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
             >
-              <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+              <FiRefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
 
@@ -924,75 +876,36 @@ export default function FeeReceiptsPage() {
             <button
               onClick={handleBulkPrintThermal}
               disabled={filtered.length === 0}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 10,
-                border: `1.5px solid #bbf7d0`,
-                background: '#f0fdf4',
-                color: '#15803d',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
+              className="px-2.5 py-1.5 rounded-xl border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
               title="Print selected or all receipts on 80mm thermal paper"
             >
-              <FiPrinter />
-              <span>{selected.size > 0 ? `Thermal (${selected.size})` : 'Batch Thermal (80mm)'}</span>
+              <FiPrinter size={12} />
+              <span>{selected.size > 0 ? `Thermal (${selected.size})` : '80mm Thermal'}</span>
             </button>
 
             {/* Batch A4 Print */}
             <button
               onClick={handleBulkPrintA4}
               disabled={filtered.length === 0}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 10,
-                border: `1.5px solid #bfdbfe`,
-                background: '#eff6ff',
-                color: '#1d4ed8',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
+              className="px-2.5 py-1.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
               title="Print selected or all receipts as official A4 vouchers"
             >
-              <FiFileText />
-              <span>{selected.size > 0 ? `A4 Vouchers (${selected.size})` : 'Batch A4 Vouchers'}</span>
+              <FiFileText size={12} />
+              <span>{selected.size > 0 ? `A4 (${selected.size})` : 'A4 Vouchers'}</span>
             </button>
 
             {/* Multi-Sheet Enterprise Excel Export */}
             <button
               onClick={handleExportExcel}
               disabled={isExportingExcel || filtered.length === 0}
-              style={{
-                padding: '8px 14px',
-                borderRadius: 10,
-                border: `1.5px solid #1e3a8a30`,
-                background: '#eff6ff',
-                color: '#1e3a8a',
-                cursor: isExportingExcel ? 'not-allowed' : 'pointer',
-                fontSize: 12,
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                boxShadow: '0 1px 3px rgba(30,58,138,0.1)',
-              }}
+              className="px-3 py-1.5 rounded-xl border border-blue-300/80 bg-blue-50/80 hover:bg-blue-100/80 text-blue-900 text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
             >
-              <FiDownload />
-              <span>{isExportingExcel ? 'Exporting...' : 'Export Excel (4 Sheets)'}</span>
+              <FiDownload size={12} />
+              <span>{isExportingExcel ? 'Exporting...' : 'Export Excel'}</span>
             </button>
           </div>
         </div>
-      </header>
-
-      <main style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      </div>
         {/* ══════════════════════════════════════════════════════════════════════
             TAB 1: RECEIPTS LEDGER & DISPATCH
            ══════════════════════════════════════════════════════════════════════ */}
@@ -1102,73 +1015,80 @@ export default function FeeReceiptsPage() {
               </div>
             </div>
 
-            {/* 6-Card Executive HUD */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 14 }}>
-              {/* Card 1: Total Receipts Issued */}
-              <div style={{ background: T.card, border: `1.5px solid ${T.indigoBd}`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.indigoL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: T.indigo }}>🧾</div>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: T.indigo, background: T.indigoL, padding: '2px 8px', borderRadius: 99 }}>AUDIT LEDGER</span>
+            {/* 6-Card Executive HUD (Fine Like Fee Structure Cards) */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+              {[
+                {
+                  label: 'Issued Receipts',
+                  value: hudStats.count.toLocaleString(),
+                  sub: '100% verified computer receipts',
+                  color: 'text-indigo-700',
+                  bg: 'bg-indigo-50/70',
+                  border: 'border-indigo-100',
+                  icon: <FiFileText size={14} className="text-indigo-600" />,
+                },
+                {
+                  label: 'Total Value',
+                  value: fmtK(hudStats.totalRevenue),
+                  sub: 'Cumulative reconciled intake',
+                  color: 'text-emerald-700',
+                  bg: 'bg-emerald-50/70',
+                  border: 'border-emerald-100',
+                  icon: <FiDollarSign size={14} className="text-emerald-600" />,
+                },
+                {
+                  label: "Today's Receipts",
+                  value: fmtK(hudStats.todayVolume),
+                  sub: `${hudStats.todayCount} issued today`,
+                  color: 'text-amber-700',
+                  bg: 'bg-amber-50/70',
+                  border: 'border-amber-100',
+                  icon: <FiCalendar size={14} className="text-amber-600" />,
+                },
+                {
+                  label: 'M-Pesa Receipts',
+                  value: fmtK(hudStats.mpesaVolume),
+                  sub: `${hudStats.mpesaCount} digital slips`,
+                  color: 'text-green-700',
+                  bg: 'bg-green-50/70',
+                  border: 'border-green-100',
+                  icon: <FiSmartphone size={14} className="text-green-600" />,
+                },
+                {
+                  label: 'Bank Slips',
+                  value: fmtK(hudStats.bankVolume),
+                  sub: `${hudStats.bankCount} verified slips`,
+                  color: 'text-sky-700',
+                  bg: 'bg-sky-50/70',
+                  border: 'border-sky-100',
+                  icon: <FiCreditCard size={14} className="text-sky-600" />,
+                },
+                {
+                  label: 'Counter Drawer',
+                  value: fmtK(hudStats.cashVolume),
+                  sub: `${hudStats.cashCount} cash settlements`,
+                  color: 'text-teal-700',
+                  bg: 'bg-teal-50/70',
+                  border: 'border-teal-100',
+                  icon: <FiDollarSign size={14} className="text-teal-600" />,
+                },
+              ].map((k, i) => (
+                <div
+                  key={i}
+                  className={`bg-white border ${k.border} rounded-xl p-2.5 shadow-2xs flex flex-col justify-between`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{k.label}</span>
+                    <div className={`w-6 h-6 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}>
+                      {k.icon}
+                    </div>
+                  </div>
+                  <div className="mt-1">
+                    <p className={`text-sm font-extrabold font-mono ${k.color} tracking-tight`}>{k.value}</p>
+                    <p className="text-[9.5px] text-slate-400 font-medium truncate">{k.sub}</p>
+                  </div>
                 </div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Receipts Issued</div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: T.text, marginTop: 4, letterSpacing: '-0.02em' }}>{hudStats.count.toLocaleString()}</div>
-                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>100% verified computer receipts</div>
-              </div>
-
-              {/* Card 2: Cumulative Receipts Value */}
-              <div style={{ background: T.card, border: `1.5px solid ${T.greenBd}`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.greenL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: T.green }}>💰</div>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: T.green, background: T.greenL, padding: '2px 8px', borderRadius: 99 }}>TOTAL VALUE</span>
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Receipts Value</div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: '#15803d', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtK(hudStats.totalRevenue)}</div>
-                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>Cumulative reconciled revenue</div>
-              </div>
-
-              {/* Card 3: Today's Receipts */}
-              <div style={{ background: T.card, border: `1.5px solid ${T.amberBd}`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.amberL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📅</div>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: T.amber, background: T.amberL, padding: '2px 8px', borderRadius: 99 }}>TODAY</span>
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Today's Receipts</div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: '#b45309', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtK(hudStats.todayVolume)}</div>
-                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>{hudStats.todayCount} receipts today</div>
-              </div>
-
-              {/* Card 4: M-Pesa Digital Receipts */}
-              <div style={{ background: T.card, border: `1.5px solid #bbf7d0`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📱</div>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: '#15803d', background: '#f0fdf4', padding: '2px 8px', borderRadius: 99 }}>PAYBILL</span>
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>M-Pesa Receipts</div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: '#15803d', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtK(hudStats.mpesaVolume)}</div>
-                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>{hudStats.mpesaCount} digital slips</div>
-              </div>
-
-              {/* Card 5: Bank Transfers & Slips */}
-              <div style={{ background: T.card, border: `1.5px solid ${T.blueBd}`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.blueL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🏦</div>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: T.blue, background: T.blueL, padding: '2px 8px', borderRadius: 99 }}>BANK SLIPS</span>
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Bank Receipts</div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: T.blue, marginTop: 4, letterSpacing: '-0.02em' }}>{fmtK(hudStats.bankVolume)}</div>
-                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>{hudStats.bankCount} verified slips</div>
-              </div>
-
-              {/* Card 6: Cash Counter Drawer */}
-              <div style={{ background: T.card, border: `1.5px solid ${T.tealBd}`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.tealL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💵</div>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: T.teal, background: T.tealL, padding: '2px 8px', borderRadius: 99 }}>COUNTER</span>
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cashier Counter Slips</div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: '#0f766e', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtK(hudStats.cashVolume)}</div>
-                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>{hudStats.cashCount} counter drawer receipts</div>
-              </div>
+              ))}
             </div>
 
             {/* Side-by-Side SVG Charts */}
@@ -2077,7 +1997,6 @@ export default function FeeReceiptsPage() {
             </div>
           </div>
         )}
-      </main>
 
       {/* ══════════════════════════════════════════════════════════════════════
           INTERACTIVE RECEIPT PREVIEW MODAL
