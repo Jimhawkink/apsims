@@ -4,6 +4,7 @@ import { useFeeData, fmt } from './useFeeData';
 import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import toast, { Toaster } from 'react-hot-toast';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement,
   LineElement, PointElement, Title, Tooltip, Legend, Filler, RadialLinearScale,
@@ -13,18 +14,25 @@ import {
   FiTrendingUp, FiTrendingDown, FiCreditCard, FiUsers, FiAlertTriangle,
   FiArrowRight, FiRefreshCw, FiActivity, FiCheckCircle, FiZap,
   FiDollarSign, FiBarChart2, FiPieChart, FiCalendar, FiClock,
-  FiAward, FiTarget, FiShield, FiBookOpen, FiStar, FiThumbsUp,
+  FiAward, FiTarget, FiShield, FiBookOpen, FiStar, FiPrinter,
+  FiDownload, FiFilter, FiSearch, FiChevronLeft, FiChevronRight,
+  FiX, FiFileText, FiPhone, FiCheck, FiLayers, FiSliders,
 } from 'react-icons/fi';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, LineElement, PointElement, Title, Tooltip, Legend, Filler, RadialLinearScale);
 
-/* ═══════════════ HELPERS ═══════════════ */
+/* ══════════════════════════════════════════════════════════════
+   HELPERS & FORMATTERS
+══════════════════════════════════════════════════════════════ */
 const KES   = (n: number) => `KES ${Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 0 })}`;
-const KESM  = (n: number) => { if (n >= 1_000_000) return `KES ${(n / 1_000_000).toFixed(2)}M`; if (n >= 1_000) return `KES ${(n / 1_000).toFixed(1)}K`; return `KES ${n.toLocaleString()}`; };
+const KESM  = (n: number) => {
+  if (n >= 1_000_000) return `KES ${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `KES ${(n / 1_000).toFixed(1)}K`;
+  return `KES ${Math.round(n || 0).toLocaleString()}`;
+};
 const pct   = (a: number, b: number) => b > 0 ? Math.round((a / b) * 100) : 0;
 const today = new Date().toISOString().split('T')[0];
 
-/* ═══════════════ COLOUR SYSTEM ═══════════════ */
 const C = {
   indigo: '#4f46e5', indigoL: '#eef2ff', indigoBd: '#c7d2fe',
   green:  '#16a34a', greenL:  '#f0fdf4', greenBd:  '#bbf7d0',
@@ -36,33 +44,62 @@ const C = {
   pink:   '#db2777', pinkL:   '#fdf4ff', pinkBd:   '#f5d0fe',
   slate:  '#64748b', slateL:  '#f8fafc', slateBd:  '#e2e8f0',
 };
-const CHART_PALETTE = ['#4f46e5','#16a34a','#0ea5e9','#d97706','#8b5cf6','#ef4444','#0d9488','#db2777'];
+const CHART_PALETTE = ['#4f46e5', '#16a34a', '#0ea5e9', '#d97706', '#8b5cf6', '#ef4444', '#0d9488', '#db2777'];
 
-/* ═══════════════ MINI COMPONENTS ═══════════════ */
+/* ══════════════════════════════════════════════════════════════
+   MINI UI COMPONENTS
+══════════════════════════════════════════════════════════════ */
 function KPICard({ label, value, sub, color, colorL, colorBd, icon, trend, onClick }: any) {
   return (
-    <div onClick={onClick} style={{ background:'#fff', border:`1.5px solid ${colorBd}`, borderRadius:18, padding:'20px 22px', position:'relative', overflow:'hidden', fontFamily:"'Inter','Outfit',sans-serif", cursor: onClick ? 'pointer' : 'default' }}
-      className="fee-kpi-card">
-      <div style={{ position:'absolute', top:-18, right:-18, width:80, height:80, borderRadius:'50%', background:color, opacity:0.06 }} />
-      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:12 }}>
-        <div style={{ width:40, height:40, borderRadius:12, background:colorL, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>{icon}</div>
-        {trend !== undefined && <span style={{ fontSize:10, fontWeight:800, padding:'3px 9px', borderRadius:99, background:trend>=0?C.greenL:C.redL, color:trend>=0?C.green:C.red }}>{trend>=0?'▲':'▼'} {Math.abs(trend)}%</span>}
+    <div
+      onClick={onClick}
+      style={{
+        background: '#fff',
+        border: `1.5px solid ${colorBd}`,
+        borderRadius: 18,
+        padding: '18px 20px',
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: "'Inter','Outfit',sans-serif",
+        cursor: onClick ? 'pointer' : 'default',
+        boxShadow: '0 4px 20px rgba(20,50,120,0.04)',
+      }}
+      className="fee-kpi-card transition-all hover:-translate-y-1 hover:shadow-md"
+    >
+      <div style={{ position: 'absolute', top: -16, right: -16, width: 75, height: 75, borderRadius: '50%', background: color, opacity: 0.05 }} />
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ width: 38, height: 38, borderRadius: 12, background: colorL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+          {icon}
+        </div>
+        {trend !== undefined && (
+          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 99, background: trend >= 0 ? C.greenL : C.redL, color: trend >= 0 ? C.green : C.red }}>
+            {trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}%
+          </span>
+        )}
       </div>
-      <div style={{ fontSize:11, fontWeight:800, color, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:5 }}>{label}</div>
-      <div style={{ fontSize:24, fontWeight:900, color:'#0f172a', lineHeight:1, letterSpacing:'-0.025em' }}>{value}</div>
-      {sub && <div style={{ fontSize:11, color:C.slate, marginTop:6 }}>{sub}</div>}
+      <div style={{ fontSize: 10, fontWeight: 800, color, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', lineHeight: 1.1, letterSpacing: '-0.025em', fontFamily: "'Outfit',sans-serif" }}>
+        {value}
+      </div>
+      {sub && <div style={{ fontSize: 10, color: C.slate, marginTop: 5, fontWeight: 500 }}>{sub}</div>}
     </div>
   );
 }
 
-function SectionHead({ icon, title, sub, right, accent = C.indigo }: any) {
+function SectionHead({ icon, title, sub, right }: any) {
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-        <div style={{ width:34, height:34, borderRadius:10, background:C.indigoL, display:'flex', alignItems:'center', justifyContent:'center' }}>{icon}</div>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 10, background: C.indigoL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {icon}
+        </div>
         <div>
-          <div style={{ fontWeight:900, fontSize:15, color:'#0f172a', fontFamily:"'Outfit',sans-serif" }}>{title}</div>
-          {sub && <div style={{ fontSize:11, color:C.slate, marginTop:1 }}>{sub}</div>}
+          <div style={{ fontWeight: 900, fontSize: 14, color: '#0f172a', fontFamily: "'Outfit',sans-serif", letterSpacing: '-0.01em' }}>
+            {title}
+          </div>
+          {sub && <div style={{ fontSize: 10, color: C.slate, marginTop: 1, fontWeight: 500 }}>{sub}</div>}
         </div>
       </div>
       {right}
@@ -70,539 +107,788 @@ function SectionHead({ icon, title, sub, right, accent = C.indigo }: any) {
   );
 }
 
-function PBar({ value, color, height = 7 }: { value:number; color:string; height?:number }) {
+function PBar({ value, color, height = 6 }: { value: number; color: string; height?: number }) {
   return (
-    <div style={{ height, background:'#f1f5f9', borderRadius:99, overflow:'hidden' }}>
-      <div style={{ height, width:`${Math.min(100,value)}%`, background:color, borderRadius:99, transition:'width 1s ease' }} />
+    <div style={{ height, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+      <div style={{ height, width: `${Math.min(100, Math.max(0, value))}%`, background: color, borderRadius: 99, transition: 'width 0.8s ease' }} />
     </div>
   );
 }
 
-function Badge({ label, color, bg }: { label:string; color:string; bg:string }) {
-  return <span style={{ fontSize:10, fontWeight:900, color, background:bg, padding:'3px 9px', borderRadius:99, textTransform:'uppercase', letterSpacing:'0.07em' }}>{label}</span>;
+function Badge({ label, color, bg }: { label: string; color: string; bg: string }) {
+  return (
+    <span style={{ fontSize: 9, fontWeight: 800, color, background: bg, padding: '2px 8px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+      {label}
+    </span>
+  );
 }
 
-/* ═══════════════ HEALTH SCORE RING ═══════════════ */
-function HealthRing({ score }: { score:number }) {
+function HealthRing({ score }: { score: number }) {
   const color = score >= 75 ? C.green : score >= 50 ? C.amber : C.red;
   const label = score >= 75 ? 'EXCELLENT' : score >= 50 ? 'FAIR' : 'CRITICAL';
-  const r = 50, circ = 2 * Math.PI * r;
+  const r = 48, circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
   return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
-      <svg width="120" height="120" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r={r} fill="none" stroke="#f1f5f9" strokeWidth="10" />
-        <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="10"
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      <svg width="115" height="115" viewBox="0 0 115 115">
+        <circle cx="57.5" cy="57.5" r={r} fill="none" stroke="#f1f5f9" strokeWidth="9" />
+        <circle
+          cx="57.5" cy="57.5" r={r} fill="none" stroke={color} strokeWidth="9"
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-          transform="rotate(-90 60 60)" style={{ transition:'stroke-dashoffset 1.5s ease' }} />
-        <text x="60" y="56" textAnchor="middle" fontSize="20" fontWeight="900" fill="#0f172a" fontFamily="Outfit,sans-serif">{score}</text>
-        <text x="60" y="72" textAnchor="middle" fontSize="9" fontWeight="700" fill={C.slate} fontFamily="Inter,sans-serif">/ 100</text>
+          transform="rotate(-90 57.5 57.5)" style={{ transition: 'stroke-dashoffset 1.2s ease' }}
+        />
+        <text x="57.5" y="54" textAnchor="middle" fontSize="20" fontWeight="900" fill="#0f172a" fontFamily="Outfit,sans-serif">{score}</text>
+        <text x="57.5" y="69" textAnchor="middle" fontSize="8" fontWeight="700" fill={C.slate} fontFamily="Inter,sans-serif">/ 100</text>
       </svg>
-      <div style={{ fontSize:11, fontWeight:900, color, textTransform:'uppercase', letterSpacing:'0.09em' }}>{label}</div>
-      <div style={{ fontSize:10, color:C.slate, textAlign:'center', maxWidth:120 }}>Financial Health Score</div>
+      <div style={{ fontSize: 10, fontWeight: 900, color, textTransform: 'uppercase', letterSpacing: '0.09em' }}>{label}</div>
+      <div style={{ fontSize: 9, color: C.slate, textAlign: 'center' }}>Fiscal Health Score</div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   MAIN PAGE
-═══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════════════════════ */
 export default function FeeDashboardPage() {
-  const { forms, students, payments, structures, terms, loading, fetchAll, currentTerm, getStudentFees, getFormName } = useFeeData();
+  const { forms, streams, students, payments, structures, terms, loading, fetchAll, currentTerm, getStudentFees, getFormName, getStreamName } = useFeeData();
   const currentYear = new Date().getFullYear();
 
-  const [totalIncome,    setTotalIncome]    = useState(0);
-  const [totalExpenses,  setTotalExpenses]  = useState(0);
-  const [schoolName,     setSchoolName]     = useState('APSIMS School');
-  const [activeTab,      setActiveTab]      = useState<'overview'|'forms'|'analysis'|'students'|'modules'>('overview');
-  const [refreshing,     setRefreshing]     = useState(false);
-  const [topStudentsN,   setTopStudentsN]   = useState(10);
+  const [totalIncome, setTotalIncome] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [schoolDetails, setSchoolDetails] = useState<any>({ school_name: 'APSIMS School', school_motto: 'Strive for Excellence' });
+  const [activeTab, setActiveTab] = useState<'overview' | 'curriculum' | 'ledger' | 'structures' | 'transactions' | 'defaulters' | 'modules'>('overview');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Curriculum Filter: 'all' | '8-4-4' | 'cbc' | 'jss'
+  const [curriculumFilter, setCurriculumFilter] = useState<'all' | '8-4-4' | 'cbc' | 'jss'>('all');
+
+  // Ledger Search & Pagination
+  const [ledgerSearch, setLedgerSearch] = useState('');
+  const [ledgerStatusFilter, setLedgerStatusFilter] = useState<'all' | 'cleared' | 'partial' | 'owing'>('all');
+  const [ledgerFormFilter, setLedgerFormFilter] = useState<string>('all');
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const pageSize = 10;
+
+  // Clearance Voucher Modal State
+  const [voucherStudent, setVoucherStudent] = useState<any>(null);
 
   useEffect(() => {
-    const go = async () => {
-      const [{ data:inc }, { data:exp }, { data:det }] = await Promise.all([
+    const fetchAux = async () => {
+      const [{ data: inc }, { data: exp }, { data: det }] = await Promise.all([
         supabase.from('school_income').select('amount').eq('year', currentYear),
         supabase.from('school_expenses').select('amount,status').eq('year', currentYear),
-        supabase.from('school_details').select('school_name').single(),
+        supabase.from('school_details').select('*').single(),
       ]);
-      setTotalIncome((inc||[]).reduce((s:number,i:any)=>s+Number(i.amount||0),0));
-      setTotalExpenses((exp||[]).filter((e:any)=>(e.status||'approved')==='approved').reduce((s:number,e:any)=>s+Number(e.amount||0),0));
-      setSchoolName((det as any)?.school_name || 'APSIMS School');
+      setTotalIncome((inc || []).reduce((s: number, i: any) => s + Number(i.amount || 0), 0));
+      setTotalExpenses((exp || []).filter((e: any) => (e.status || 'approved') === 'approved').reduce((s: number, e: any) => s + Number(e.amount || 0), 0));
+      if (det) setSchoolDetails(det);
     };
-    go();
+    fetchAux();
   }, [currentYear]);
 
-  const handleRefresh = async () => { setRefreshing(true); await fetchAll(); setRefreshing(false); };
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+    toast.success('Fee database synchronized! 🔄');
+  };
 
-  /* ─── Core Metrics ─── */
-  const activeStudents   = useMemo(() => students.filter(s=>s.status==='Active'), [students]);
-  const totalCollected   = useMemo(() => payments.reduce((s,p)=>s+Number(p.amount||0),0), [payments]);
-  const totalExpected    = useMemo(() => activeStudents.reduce((s,st)=>s+getStudentFees(st.id,st.form_id).annualTotal,0), [activeStudents,getStudentFees]);
+  /* ─── Active Students & Curriculum Segments ─── */
+  const activeStudents = useMemo(() => students.filter(s => s.status === 'Active'), [students]);
+
+  // Tag each student with system
+  const studentsWithCurriculum = useMemo(() => {
+    return activeStudents.map(st => {
+      const f = forms.find(fm => fm.id === st.form_id);
+      const isCbcSenior = f?.education_system === 'CBC_Senior_School' || f?.form_name?.toLowerCase().includes('grade 10') || f?.form_name?.toLowerCase().includes('grade 11') || f?.form_name?.toLowerCase().includes('grade 12');
+      const isJss = f?.education_system === 'Junior_Secondary' || f?.form_name?.toLowerCase().includes('grade 7') || f?.form_name?.toLowerCase().includes('grade 8') || f?.form_name?.toLowerCase().includes('grade 9');
+      const isPrimary = f?.section === 'primary' || f?.education_system?.toLowerCase().includes('primary');
+      const systemTag: '8-4-4' | 'CBC Senior' | 'JSS' | 'Primary CBC' = isCbcSenior ? 'CBC Senior' : isJss ? 'JSS' : isPrimary ? 'Primary CBC' : '8-4-4';
+      
+      const fees = getStudentFees(st.id, st.form_id);
+      const totalPaid = payments.filter(p => p.student_id === st.id).reduce((s, p) => s + Number(p.amount || 0), 0);
+      const balance = fees.annualBalance;
+      const rate = pct(totalPaid, fees.annualTotal);
+      const status: 'cleared' | 'partial' | 'owing' = balance === 0 ? 'cleared' : totalPaid > 0 ? 'partial' : 'owing';
+
+      return {
+        ...st,
+        formName: f?.form_name || 'Unassigned',
+        streamName: getStreamName(st.stream_id),
+        systemTag,
+        totalPaid,
+        annualTotal: fees.annualTotal,
+        balance,
+        rate,
+        status,
+      };
+    });
+  }, [activeStudents, forms, payments, getStudentFees, getStreamName]);
+
+  // Filtered by top Curriculum Segment
+  const filteredStudents = useMemo(() => {
+    if (curriculumFilter === '8-4-4') return studentsWithCurriculum.filter(s => s.systemTag === '8-4-4');
+    if (curriculumFilter === 'cbc') return studentsWithCurriculum.filter(s => s.systemTag === 'CBC Senior');
+    if (curriculumFilter === 'jss') return studentsWithCurriculum.filter(s => s.systemTag === 'JSS');
+    return studentsWithCurriculum;
+  }, [studentsWithCurriculum, curriculumFilter]);
+
+  /* ─── Core Filtered Metrics ─── */
+  const totalCollected = useMemo(() => {
+    const studentIds = new Set(filteredStudents.map(s => s.id));
+    return payments.filter(p => studentIds.has(p.student_id)).reduce((s, p) => s + Number(p.amount || 0), 0);
+  }, [payments, filteredStudents]);
+
+  const totalExpected = useMemo(() => {
+    return filteredStudents.reduce((s, st) => s + st.annualTotal, 0);
+  }, [filteredStudents]);
+
   const totalOutstanding = Math.max(0, totalExpected - totalCollected);
-  const collectionRate   = pct(totalCollected, totalExpected);
-  const studentsOwing    = useMemo(() => activeStudents.filter(s=>getStudentFees(s.id,s.form_id).annualBalance>0).length, [activeStudents,getStudentFees]);
-  const studentsCleared  = activeStudents.length - studentsOwing;
-  const netPosition      = (totalCollected + totalIncome) - totalExpenses;
+  const collectionRate = pct(totalCollected, totalExpected);
+  const studentsOwing = useMemo(() => filteredStudents.filter(s => s.balance > 0).length, [filteredStudents]);
+  const studentsCleared = filteredStudents.length - studentsOwing;
+  const netPosition = (totalCollected + totalIncome) - totalExpenses;
 
-  /* ─── Time-scoped ─── */
-  const todayPays    = payments.filter(p=>p.payment_date===today);
-  const todayTotal   = todayPays.reduce((s,p)=>s+Number(p.amount||0),0);
-  const weekStart    = new Date(); weekStart.setDate(weekStart.getDate()-weekStart.getDay());
-  const weekTotal    = payments.filter(p=>new Date(p.payment_date)>=weekStart).reduce((s,p)=>s+Number(p.amount||0),0);
-  const monthStart   = new Date(currentYear, new Date().getMonth(), 1);
-  const monthPays    = payments.filter(p=>new Date(p.payment_date)>=monthStart);
-  const monthTotal   = monthPays.reduce((s,p)=>s+Number(p.amount||0),0);
-  const daysElapsed  = new Date().getDate();
-  const velocity     = daysElapsed > 0 ? Math.round(monthTotal / daysElapsed) : 0;
-  const daysInMonth  = new Date(currentYear, new Date().getMonth()+1, 0).getDate();
-  const projected    = velocity * daysInMonth;
+  // Curriculum breakdown metrics
+  const cbcTotalCollected = useMemo(() => {
+    const cbcIds = new Set(studentsWithCurriculum.filter(s => s.systemTag.includes('CBC') || s.systemTag === 'JSS').map(s => s.id));
+    return payments.filter(p => cbcIds.has(p.student_id)).reduce((s, p) => s + Number(p.amount || 0), 0);
+  }, [payments, studentsWithCurriculum]);
 
-  /* ─── 12-month trend ─── */
-  const monthly12 = useMemo(() => Array.from({length:12},(_,i)=>{
-    const d=new Date(); d.setMonth(d.getMonth()-(11-i));
-    const m=d.getMonth(), y=d.getFullYear();
-    const amt=payments.filter(p=>{const pd=new Date(p.payment_date);return pd.getMonth()===m&&pd.getFullYear()===y;}).reduce((s,p)=>s+Number(p.amount||0),0);
-    return { month:d.toLocaleString('en',{month:'short'}), year:String(y).slice(2), amount:amt };
+  const eightFourTotalCollected = useMemo(() => {
+    const eightIds = new Set(studentsWithCurriculum.filter(s => s.systemTag === '8-4-4').map(s => s.id));
+    return payments.filter(p => eightIds.has(p.student_id)).reduce((s, p) => s + Number(p.amount || 0), 0);
+  }, [payments, studentsWithCurriculum]);
+
+  /* ─── Time-scoped Intake ─── */
+  const todayPays = payments.filter(p => p.payment_date === today);
+  const todayTotal = todayPays.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const monthStart = new Date(currentYear, new Date().getMonth(), 1);
+  const monthPays = payments.filter(p => new Date(p.payment_date) >= monthStart);
+  const monthTotal = monthPays.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const daysElapsed = new Date().getDate();
+  const velocity = daysElapsed > 0 ? Math.round(monthTotal / daysElapsed) : 0;
+  const daysInMonth = new Date(currentYear, new Date().getMonth() + 1, 0).getDate();
+  const projected = velocity * daysInMonth;
+
+  /* ─── 12-Month Trend Line ─── */
+  const monthly12 = useMemo(() => Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(); d.setMonth(d.getMonth() - (11 - i));
+    const m = d.getMonth(), y = d.getFullYear();
+    const amt = payments.filter(p => { const pd = new Date(p.payment_date); return pd.getMonth() === m && pd.getFullYear() === y; }).reduce((s, p) => s + Number(p.amount || 0), 0);
+    return { month: d.toLocaleString('en', { month: 'short' }), year: String(y).slice(2), amount: amt };
   }), [payments]);
 
-  /* ─── Daily 30 days ─── */
-  const daily30 = useMemo(() => Array.from({length:30},(_,i)=>{
-    const d=new Date(); d.setDate(d.getDate()-(29-i));
-    const ds=d.toISOString().split('T')[0];
-    const amt=payments.filter(p=>p.payment_date===ds).reduce((s,p)=>s+Number(p.amount||0),0);
-    return { day:d.toLocaleDateString('en',{month:'short',day:'numeric'}), amount:amt, isToday:ds===today };
-  }), [payments, today]);
-
-  /* ─── Method breakdown ─── */
+  /* ─── Method Breakdown ─── */
   const methodMap = useMemo(() => {
-    const r: Record<string,{count:number;total:number}> = {};
-    payments.forEach(p=>{const m=(p.payment_method||'Other').replace(/\s*\(.+\)/,''); if(!r[m])r[m]={count:0,total:0}; r[m].count++; r[m].total+=Number(p.amount||0);});
-    return Object.entries(r).sort((a,b)=>b[1].total-a[1].total);
+    const r: Record<string, { count: number; total: number }> = {};
+    payments.forEach(p => {
+      const m = (p.payment_method || 'Other').replace(/\s*\(.+\)/, '');
+      if (!r[m]) r[m] = { count: 0, total: 0 };
+      r[m].count++;
+      r[m].total += Number(p.amount || 0);
+    });
+    return Object.entries(r).sort((a, b) => b[1].total - a[1].total);
   }, [payments]);
 
-  /* ─── Term breakdown ─── */
-  const termMap = useMemo(() => {
-    const r: Record<string,{count:number;total:number}> = {};
-    payments.forEach(p=>{const t=terms.find((tm:any)=>Number(tm.id)===Number(p.term_id)); const tn=t?.term_name||'No Term'; if(!r[tn])r[tn]={count:0,total:0}; r[tn].count++; r[tn].total+=Number(p.amount||0);});
-    return Object.entries(r).sort((a,b)=>b[1].total-a[1].total);
-  }, [payments, terms]);
+  /* ─── Daily 30 days ─── */
+  const daily30 = useMemo(() => Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (29 - i));
+    const ds = d.toISOString().split('T')[0];
+    const amt = payments.filter(p => p.payment_date === ds).reduce((s, p) => s + Number(p.amount || 0), 0);
+    return { day: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }), amount: amt, isToday: ds === today };
+  }), [payments]);
 
-  /* ─── Per-form collection ─── */
-  const formCollection = useMemo(() => forms.map(form=>{
-    const fSts=activeStudents.filter(s=>s.form_id===form.id);
-    const collected=fSts.reduce((s,st)=>s+payments.filter(p=>p.student_id===st.id).reduce((s2,p)=>s2+Number(p.amount||0),0),0);
-    const expected=fSts.reduce((s,st)=>s+getStudentFees(st.id,st.form_id).annualTotal,0);
-    const rate=pct(collected,expected);
-    const owing=fSts.filter(st=>getStudentFees(st.id,st.form_id).annualBalance>0).length;
-    return { name:form.form_name, collected, expected, balance:Math.max(0,expected-collected), students:fSts.length, rate, owing };
-  }).sort((a,b)=>b.rate-a.rate), [forms,activeStudents,payments,getStudentFees]);
+  /* ─── Per-Form Collection Summary (CBC + 8-4-4) ─── */
+  const formCollection = useMemo(() => forms.map(form => {
+    const fSts = studentsWithCurriculum.filter(s => s.form_id === form.id);
+    const collected = fSts.reduce((s, st) => s + st.totalPaid, 0);
+    const expected = fSts.reduce((s, st) => s + st.annualTotal, 0);
+    const rate = pct(collected, expected);
+    const owing = fSts.filter(st => st.balance > 0).length;
+    return {
+      id: form.id,
+      name: form.form_name,
+      system: form.education_system || '8-4-4',
+      isCbc: form.education_system?.includes('CBC') || form.form_name.includes('Grade'),
+      collected,
+      expected,
+      balance: Math.max(0, expected - collected),
+      students: fSts.length,
+      rate,
+      owing,
+    };
+  }).filter(f => f.students > 0).sort((a, b) => b.rate - a.rate), [forms, studentsWithCurriculum]);
 
-  /* ─── Aging buckets ─── */
-  const aging = useMemo(()=>{
-    const buckets={d0:0, d30:0, d60:0, d90:0, d180:0};
-    const now=new Date();
-    activeStudents.forEach(st=>{
-      const balance=getStudentFees(st.id,st.form_id).annualBalance;
-      if(balance<=0)return;
-      const lastPay=payments.filter(p=>p.student_id===st.id).sort((a,b)=>new Date(b.payment_date).getTime()-new Date(a.payment_date).getTime())[0];
-      const days=lastPay?Math.floor((now.getTime()-new Date(lastPay.payment_date).getTime())/86400000):999;
-      if(days<=30)buckets.d0+=balance;
-      else if(days<=60)buckets.d30+=balance;
-      else if(days<=90)buckets.d60+=balance;
-      else if(days<=180)buckets.d90+=balance;
-      else buckets.d180+=balance;
+  /* ─── Aging Buckets ─── */
+  const aging = useMemo(() => {
+    const buckets = { d0: 0, d30: 0, d60: 0, d90: 0, d180: 0 };
+    const now = new Date();
+    filteredStudents.forEach(st => {
+      if (st.balance <= 0) return;
+      const lastPay = payments.filter(p => p.student_id === st.id).sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())[0];
+      const days = lastPay ? Math.floor((now.getTime() - new Date(lastPay.payment_date).getTime()) / 86400000) : 999;
+      if (days <= 30) buckets.d0 += st.balance;
+      else if (days <= 60) buckets.d30 += st.balance;
+      else if (days <= 90) buckets.d60 += st.balance;
+      else if (days <= 180) buckets.d90 += st.balance;
+      else buckets.d180 += st.balance;
     });
     return buckets;
-  }, [activeStudents,payments,getStudentFees]);
+  }, [filteredStudents, payments]);
 
-  /* ─── Top payers ─── */
-  const studentPaySummary = useMemo(() => activeStudents.map(st=>{
-    const paid=payments.filter(p=>p.student_id===st.id).reduce((s,p)=>s+Number(p.amount||0),0);
-    const fees=getStudentFees(st.id,st.form_id);
-    return { ...st, paid, balance:fees.annualBalance, rate:pct(paid,fees.annualTotal), formName:getFormName(st.form_id) };
-  }).sort((a,b)=>b.paid-a.paid), [activeStudents,payments,getStudentFees,getFormName]);
+  /* ─── Health Score (0-100) ─── */
+  const healthScore = useMemo(() => {
+    let score = 0;
+    score += Math.min(40, collectionRate * 0.4);
+    score += studentsCleared / Math.max(filteredStudents.length, 1) * 20;
+    score += netPosition >= 0 ? 20 : 0;
+    score += Math.min(20, pct(monthTotal, projected) * 0.2);
+    return Math.round(Math.min(100, Math.max(10, score)));
+  }, [collectionRate, studentsCleared, filteredStudents.length, netPosition, monthTotal, projected]);
 
-  /* ─── Defaulters (worst balance) ─── */
-  const worstDefaulters = useMemo(() => [...studentPaySummary].sort((a,b)=>b.balance-a.balance).filter(s=>s.balance>0), [studentPaySummary]);
+  /* ─── Paginated & Filtered Student Ledger ─── */
+  const ledgerFiltered = useMemo(() => {
+    return filteredStudents.filter(st => {
+      const matchSearch = ledgerSearch === '' ||
+        `${st.first_name} ${st.last_name}`.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
+        String(st.admission_number || st.admission_no || '').includes(ledgerSearch) ||
+        String(st.guardian_phone || '').includes(ledgerSearch);
 
-  /* ─── Financial Health Score (0-100) ─── */
-  const healthScore = useMemo(()=>{
-    let score=0;
-    score += Math.min(40, collectionRate * 0.4);               // 40pts: collection rate
-    score += studentsCleared/Math.max(activeStudents.length,1)*20; // 20pts: cleared ratio
-    score += netPosition>=0 ? 20 : 0;                          // 20pts: surplus
-    score += Math.min(20, pct(monthTotal, projected) * 0.2);   // 20pts: monthly velocity
-    return Math.round(Math.min(100, score));
-  }, [collectionRate,studentsCleared,activeStudents.length,netPosition,monthTotal,projected]);
+      const matchStatus = ledgerStatusFilter === 'all' || st.status === ledgerStatusFilter;
+      const matchForm = ledgerFormFilter === 'all' || String(st.form_id) === ledgerFormFilter;
 
-  /* ─── YoY comparison (prev year) ─── */
-  const prevYearTotal = useMemo(()=>{
-    return payments.filter(p=>{ const y=new Date(p.payment_date).getFullYear(); return y===currentYear-1; }).reduce((s,p)=>s+Number(p.amount||0),0);
-  }, [payments, currentYear]);
-  const yoyChange = prevYearTotal > 0 ? Math.round(((totalCollected-prevYearTotal)/prevYearTotal)*100) : null;
+      return matchSearch && matchStatus && matchForm;
+    });
+  }, [filteredStudents, ledgerSearch, ledgerStatusFilter, ledgerFormFilter]);
 
-  /* ─── Modules ─── */
-  const allModules = [
-    {label:'Collect Fee',     href:'/dashboard/fees/collect',            icon:'💵',color:C.green,  tier:'Core'},
-    {label:'Outstanding',     href:'/dashboard/fees/outstanding',         icon:'⏳',color:C.amber,  tier:'Core'},
-    {label:'Payments List',   href:'/dashboard/fees/payments',            icon:'📋',color:C.blue,   tier:'Core'},
-    {label:'Fee Structure',   href:'/dashboard/fees/structure',           icon:'🏗️',color:C.purple, tier:'Core'},
-    {label:'Statements',      href:'/dashboard/fees/statements',          icon:'📄',color:'#0891b2', tier:'Core'},
-    {label:'Receipts',        href:'/dashboard/fees/receipts',            icon:'🧾',color:C.amber,  tier:'Core'},
-    {label:'KCB Buni Push',   href:'/dashboard/fees/mpesa-push',          icon:'📱',color:C.green,  tier:'Ultra'},
-    {label:'Fee Defaulters',  href:'/dashboard/fees/defaulters',          icon:'🚨',color:C.red,    tier:'Ultra'},
-    {label:'Budget Module',   href:'/dashboard/fees/budget',              icon:'📊',color:C.blue,   tier:'Ultra'},
-    {label:'Projections',     href:'/dashboard/fees/projections',         icon:'🔮',color:C.purple, tier:'Ultra'},
-    {label:'Board Report',    href:'/dashboard/fees/reports/board',       icon:'👔',color:'#0f172a', tier:'Ultra'},
-    {label:'Export Centre',   href:'/dashboard/fees/exports',             icon:'📤',color:C.slate,  tier:'Ultra'},
-    {label:'Bank Recon',      href:'/dashboard/fees/bank-reconciliation', icon:'🏦',color:'#0c4a6e', tier:'Ultra'},
-    {label:'Vote Ledger',     href:'/dashboard/fees/vote-heads/ledger',   icon:'📒',color:C.purple, tier:'Ultra'},
-    {label:'Capitation',      href:'/dashboard/fees/capitation',          icon:'🏫',color:C.green,  tier:'Ultra'},
-    {label:'Notifications',   href:'/dashboard/fees/notifications',       icon:'🔔',color:'#713f12', tier:'Ultra'},
-    {label:'P&L Statement',   href:'/dashboard/fees/pl-statement',        icon:'📈',color:C.red,    tier:'Finance'},
-    {label:'Trial Balance',   href:'/dashboard/fees/trial-balance',       icon:'⚖️',color:C.indigo, tier:'Finance'},
-    {label:'Balance Sheet',   href:'/dashboard/fees/balance-sheet',       icon:'🏛️',color:C.blue,   tier:'Finance'},
-    {label:'Cash Book',       href:'/dashboard/fees/cashbook',            icon:'📒',color:C.teal,   tier:'Finance'},
-    {label:'Fee Analytics',   href:'/dashboard/fees/analytics',           icon:'🔬',color:C.indigo, tier:'Finance'},
-    {label:'Bursary',         href:'/dashboard/fees/bursary',             icon:'🎓',color:C.pink,   tier:'Finance'},
-    {label:'Fee Waiver',      href:'/dashboard/fees/fee-waiver',          icon:'🎁',color:'#c026d3', tier:'Finance'},
-    {label:'Approvals',       href:'/dashboard/fees/approval-workflow',   icon:'✅',color:C.amber,  tier:'Finance'},
-    {label:'Audit Trail',     href:'/dashboard/fees/audit',               icon:'🔒',color:C.slate,  tier:'Compliance'},
-    {label:'Demand Letters',  href:'/dashboard/fees/demand-letters',      icon:'✉️',color:C.red,    tier:'Compliance'},
-    {label:'Reminders',       href:'/dashboard/fees/reminder-scheduler',  icon:'⏰',color:C.purple, tier:'Compliance'},
-    {label:'Govt Returns',    href:'/dashboard/fees/government-returns',  icon:'🏛️',color:'#1e293b', tier:'Compliance'},
-    {label:'Bulk SMS/WA',     href:'/dashboard/fees/bulk-reminders',      icon:'📢',color:C.purple, tier:'Compliance'},
-    {label:'Aging Buckets',   href:'/dashboard/fees/arrears-aging',       icon:'📅',color:'#ea580c', tier:'Compliance'},
-  ];
-  const tierMeta: Record<string,{bg:string;badge:string;icon:string}> = {
-    Core:       {bg:C.greenL,  badge:C.green,  icon:'⚡'},
-    Ultra:      {bg:C.purpleL, badge:C.purple, icon:'🚀'},
-    Finance:    {bg:C.blueL,   badge:C.blue,   icon:'📈'},
-    Compliance: {bg:C.redL,    badge:C.red,    icon:'🛡️'},
+  const totalLedgerPages = Math.max(1, Math.ceil(ledgerFiltered.length / pageSize));
+  const paginatedLedger = useMemo(() => {
+    const start = (ledgerPage - 1) * pageSize;
+    return ledgerFiltered.slice(start, start + pageSize);
+  }, [ledgerFiltered, ledgerPage]);
+
+  /* ─── Defaulters Sorted ─── */
+  const worstDefaulters = useMemo(() => {
+    return [...filteredStudents].filter(s => s.balance > 0).sort((a, b) => b.balance - a.balance);
+  }, [filteredStudents]);
+
+  /* ══════════════════════════════════════════════════════════════
+     EXCEL EXPORT (CSV UTF-8 BOM for perfect Excel compatibility)
+  ══════════════════════════════════════════════════════════════ */
+  const handleExportExcel = () => {
+    try {
+      const headers = ['Adm No', 'Student Name', 'Curriculum System', 'Class / Grade', 'Stream', 'Annual Expected (KES)', 'Total Paid (KES)', 'Balance Owed (KES)', 'Recovery Rate (%)', 'Status', 'Guardian Phone'];
+      const rows = ledgerFiltered.map(s => [
+        `"${s.admission_number || s.admission_no || ''}"`,
+        `"${s.first_name || ''} ${s.last_name || ''}"`,
+        `"${s.systemTag}"`,
+        `"${s.formName}"`,
+        `"${s.streamName}"`,
+        s.annualTotal,
+        s.totalPaid,
+        s.balance,
+        `${s.rate}%`,
+        s.status.toUpperCase(),
+        `"${s.guardian_phone || ''}"`,
+      ]);
+
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `APSIMS_Fee_Ledger_${currentYear}_${curriculumFilter.toUpperCase()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Fee Ledger exported to Excel (.csv) successfully! 📊');
+    } catch (err: any) {
+      toast.error('Failed to export ledger: ' + err.message);
+    }
   };
 
-  const rateColor = collectionRate>=70?C.green:collectionRate>=40?C.amber:C.red;
-  const rateGrad  = collectionRate>=70?'linear-gradient(90deg,#22c55e,#10b981)':collectionRate>=40?'linear-gradient(90deg,#f59e0b,#fb923c)':'linear-gradient(90deg,#ef4444,#f87171)';
+  /* ══════════════════════════════════════════════════════════════
+     PRINT SUMMARY & CLEARANCE ACTIONS
+  ══════════════════════════════════════════════════════════════ */
+  const handlePrintSummary = () => {
+    window.print();
+  };
 
-  if (loading) return (
-    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'60vh',gap:16,background:'#f8fafc'}}>
-      <div style={{width:64,height:64,borderRadius:20,background:'linear-gradient(135deg,#4f46e5,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,boxShadow:'0 8px 32px rgba(79,70,229,0.3)'}}>💰</div>
-      <p style={{fontWeight:800,color:C.indigo,fontSize:14,letterSpacing:'0.06em',fontFamily:"'Outfit',sans-serif"}}>Loading Financial Command Centre…</p>
-      <style>{`@keyframes pulse2{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
-    </div>
-  );
+  const openClearanceVoucher = (st: any) => {
+    setVoucherStudent(st);
+  };
 
-  /* ═══ CHART DATA ═══ */
+  /* ─── Chart Data ─── */
   const lineData = {
-    labels: monthly12.map(m=>`${m.month}'${m.year}`),
+    labels: monthly12.map(m => `${m.month}'${m.year}`),
     datasets: [{
-      label:'Collections', data:monthly12.map(m=>m.amount),
-      borderColor:C.indigo, backgroundColor:'rgba(79,70,229,0.07)',
-      fill:true, tension:0.45, pointRadius:4, pointBackgroundColor:'#fff',
-      pointBorderColor:C.indigo, pointBorderWidth:2,
+      label: 'Collections',
+      data: monthly12.map(m => m.amount),
+      borderColor: C.indigo,
+      backgroundColor: 'rgba(79,70,229,0.08)',
+      fill: true,
+      tension: 0.35,
+      borderWidth: 2.5,
+      pointRadius: 4,
+      pointBackgroundColor: '#fff',
+      pointBorderColor: C.indigo,
+      pointBorderWidth: 2,
     }],
   };
-  const barDaily = {
-    labels: daily30.map(d=>d.day),
-    datasets:[{
-      label:'KES', data:daily30.map(d=>d.amount),
-      backgroundColor:daily30.map(d=>d.isToday?C.indigo:'rgba(99,102,241,0.35)'),
-      borderRadius:5, hoverBackgroundColor:C.indigo,
-    }],
-  };
+
   const doughnutData = {
-    labels: methodMap.map(([m])=>m),
-    datasets:[{data:methodMap.map(([,v])=>v.total), backgroundColor:CHART_PALETTE, borderWidth:2, borderColor:'#fff'}],
+    labels: methodMap.map(([m]) => m),
+    datasets: [{
+      data: methodMap.map(([, v]) => v.total),
+      backgroundColor: CHART_PALETTE,
+      borderWidth: 2,
+      borderColor: '#fff',
+    }],
   };
+
+  const barDaily = {
+    labels: daily30.map(d => d.day),
+    datasets: [{
+      label: 'Intake (KES)',
+      data: daily30.map(d => d.amount),
+      backgroundColor: daily30.map(d => d.isToday ? C.indigo : 'rgba(99,102,241,0.35)'),
+      borderRadius: 4,
+      hoverBackgroundColor: C.indigo,
+    }],
+  };
+
   const formBarData = {
-    labels: formCollection.map(f=>f.name),
-    datasets:[
-      {label:'Expected', data:formCollection.map(f=>f.expected), backgroundColor:'rgba(79,70,229,0.2)', borderColor:C.indigo, borderWidth:2, borderRadius:6},
-      {label:'Collected',data:formCollection.map(f=>f.collected),backgroundColor:'rgba(22,163,74,0.7)',  borderColor:C.green,  borderWidth:2, borderRadius:6},
+    labels: formCollection.map(f => f.name),
+    datasets: [
+      { label: 'Expected', data: formCollection.map(f => f.expected), backgroundColor: 'rgba(79,70,229,0.2)', borderColor: C.indigo, borderWidth: 1.5, borderRadius: 5 },
+      { label: 'Collected', data: formCollection.map(f => f.collected), backgroundColor: 'rgba(22,163,74,0.7)', borderColor: C.green, borderWidth: 1.5, borderRadius: 5 },
     ],
   };
+
   const agingBarData = {
-    labels:['0–30 days','31–60 days','61–90 days','91–180 days','180+ days'],
-    datasets:[{
-      label:'Outstanding KES',
-      data:[aging.d0,aging.d30,aging.d60,aging.d90,aging.d180],
-      backgroundColor:['rgba(22,163,74,0.7)','rgba(217,119,6,0.7)','rgba(234,88,12,0.7)','rgba(220,38,38,0.7)','rgba(127,29,29,0.8)'],
-      borderRadius:7,
+    labels: ['0–30 days', '31–60 days', '61–90 days', '91–180 days', '180+ days'],
+    datasets: [{
+      label: 'Outstanding KES',
+      data: [aging.d0, aging.d30, aging.d60, aging.d90, aging.d180],
+      backgroundColor: ['rgba(22,163,74,0.7)', 'rgba(217,119,6,0.7)', 'rgba(234,88,12,0.7)', 'rgba(220,38,38,0.7)', 'rgba(127,29,29,0.85)'],
+      borderRadius: 6,
     }],
   };
-  const termBarData = {
-    labels: termMap.map(([t])=>t),
-    datasets:[{label:'KES Collected', data:termMap.map(([,v])=>v.total), backgroundColor:CHART_PALETTE.map(c=>`${c}cc`), borderRadius:8}],
-  };
 
-  const chartOpts = (label='KES'): any => ({
-    responsive:true, maintainAspectRatio:false,
-    plugins:{legend:{display:false}, tooltip:{callbacks:{label:(c:any)=>`KES ${Number(c.raw).toLocaleString()}`}}},
-    scales:{
-      y:{beginAtZero:true, grid:{color:'#f1f5f9'}, ticks:{callback:(v:any)=>`${(Number(v)/1000).toFixed(0)}K`,font:{size:10}}},
-      x:{grid:{display:false}, ticks:{font:{size:10}}},
+  const chartOpts = (label = 'KES'): any => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        titleFont: { size: 10, weight: 'bold' as const },
+        bodyFont: { size: 10 },
+        padding: 7,
+        cornerRadius: 8,
+        callbacks: {
+          label: (c: any) => `KES ${Number(c.raw).toLocaleString()}`,
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: '#f1f5f9' },
+        ticks: {
+          callback: (v: any) => `${(Number(v) / 1000).toFixed(0)}K`,
+          font: { size: 9, family: 'monospace' },
+          color: '#94a3b8',
+        },
+      },
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 9, weight: 'bold' as const }, color: '#64748b' },
+      },
     },
   });
 
-  /* ═══════════════════════════════════════════════════════════════════
-     RENDER
-  ═══════════════════════════════════════════════════════════════════ */
-  return (
-    <div style={{fontFamily:"'Inter','Outfit',system-ui,sans-serif", background:'#f8fafc', minHeight:'100vh', paddingBottom:48}}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap');
-        * { box-sizing:border-box; }
-        a { text-decoration:none; transition:all 0.18s; }
-        .fee-kpi-card { transition:all 0.18s; }
-        .fee-kpi-card:hover { transform:translateY(-3px); box-shadow:0 10px 30px rgba(0,0,0,0.1) !important; }
-        .fee-mod-card { transition:all 0.18s; }
-        .fee-mod-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,0.1) !important; }
-        .fee-tab-btn { transition:all 0.15s; }
-        @keyframes slideUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-        .slide-up { animation:slideUp 0.32s ease forwards; }
-        @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
-      `}</style>
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[65vh] gap-3 bg-[#edf3fb]">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg animate-bounce">
+          <FiDollarSign size={24} />
+        </div>
+        <p className="font-bold text-xs text-slate-600 tracking-wider uppercase font-mono">
+          Connecting Financial Command Centre &amp; Live Ledgers...
+        </p>
+      </div>
+    );
+  }
 
-      {/* ══════════════════════ COMPACT PREMIUM BANNER ══════════════════════ */}
-      <div style={{background:'#fff', borderBottom:'1px solid #e2e8f0', padding:'20px 28px 0'}}>
-        {/* Top row */}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16, paddingBottom:18}}>
-          {/* Brand */}
-          <div style={{display:'flex',alignItems:'center',gap:14}}>
-            <div style={{width:50,height:50,borderRadius:15,background:'linear-gradient(135deg,#4f46e5,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,boxShadow:'0 6px 18px rgba(79,70,229,0.35)',flexShrink:0}}>💰</div>
+  return (
+    <div className="min-h-screen bg-[#edf3fb] pb-14 text-slate-800" style={{ fontFamily: "'Inter','Outfit',system-ui,sans-serif" }}>
+      <Toaster position="top-right" />
+
+      {/* ══════════════════════════════════════════════════════════════
+          PRINT-ONLY WATERMARK & HEADER
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="hidden print:block p-8 bg-white border-b-2 border-slate-800 mb-6">
+        <div className="text-center space-y-1">
+          <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">{schoolDetails.school_name || 'APSIMS School'}</h1>
+          <p className="text-xs font-bold text-slate-500 italic uppercase">"{schoolDetails.school_motto || 'Strive for Excellence'}"</p>
+          <p className="text-xs font-mono text-slate-700">P.O. BOX {schoolDetails.postal_address || '10100'}, {schoolDetails.county || 'KENYA'}</p>
+          <div className="border-t border-slate-300 pt-2 mt-2 flex justify-between text-xs font-bold text-slate-600">
+            <span>OFFICIAL FINANCIAL LEDGER &amp; REVENUE SUMMARY</span>
+            <span>ACADEMIC YEAR: {currentYear} · {currentTerm?.term_name || 'Term 3'}</span>
+            <span>DATE: {new Date().toLocaleDateString('en-KE')}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          TOP BANNER: EXECUTIVE CONTROLS, EXPORT & PRINT
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="bg-white/90 backdrop-blur-xl border-b border-white/95 px-6 pt-5 pb-0 shadow-[0_4px_24px_rgba(20,50,120,0.06)] print:hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4">
+          {/* Brand & Context */}
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white flex items-center justify-center text-2xl shadow-md flex-shrink-0">
+              💰
+            </div>
             <div>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <h1 style={{margin:0,fontSize:22,fontWeight:900,color:'#0f172a',letterSpacing:'-0.028em',fontFamily:"'Outfit',sans-serif"}}>Financial Command Centre</h1>
-                <span style={{background:'linear-gradient(135deg,#4f46e5,#7c3aed)',color:'#fff',fontSize:9,fontWeight:900,padding:'3px 9px',borderRadius:99,letterSpacing:'0.12em',textTransform:'uppercase'}}>ULTRA</span>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-black text-slate-900 tracking-tight font-sans">
+                  Financial Command Centre
+                </h1>
+                <span className="px-2 py-0.5 text-[9px] font-black bg-blue-50 text-blue-700 border border-blue-200 rounded-full uppercase tracking-wider">
+                  Enterprise Fee Hub
+                </span>
+                <span className="px-2 py-0.5 text-[9px] font-black bg-purple-50 text-purple-700 border border-purple-200 rounded-full uppercase">
+                  CBC &amp; 8-4-4 Ready
+                </span>
               </div>
-              <div style={{display:'flex',alignItems:'center',gap:10,marginTop:5,flexWrap:'wrap'}}>
-                <span style={{fontSize:12,color:C.slate}}>{schoolName} · {currentYear} Financial Year</span>
+              <div className="flex items-center gap-2.5 mt-1 text-[11px] font-medium text-slate-500 flex-wrap">
+                <span>{schoolDetails.school_name} · {currentYear} Financial Year</span>
                 {currentTerm && (
-                  <span style={{display:'flex',alignItems:'center',gap:5,background:C.greenL,border:`1px solid ${C.greenBd}`,borderRadius:99,padding:'2px 11px',fontSize:11,color:C.green,fontWeight:700}}>
-                    <span style={{width:7,height:7,borderRadius:'50%',background:C.green,display:'inline-block'}} /> {currentTerm.term_name} {currentTerm.year||''}
+                  <span className="flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span>{currentTerm.term_name}</span>
                   </span>
                 )}
-                <span style={{background:C.indigoL,border:`1px solid ${C.indigoBd}`,borderRadius:99,padding:'2px 11px',fontSize:11,color:C.indigo,fontWeight:700}}>👥 {activeStudents.length} Active Students</span>
-                <span style={{background:healthScore>=75?C.greenL:healthScore>=50?C.amberL:C.redL,border:`1px solid ${healthScore>=75?C.greenBd:healthScore>=50?C.amberBd:C.redBd}`,borderRadius:99,padding:'2px 11px',fontSize:11,color:healthScore>=75?C.green:healthScore>=50?C.amber:C.red,fontWeight:700}}>
-                  ❤️ Health: {healthScore}/100
+                <span className="text-slate-400">·</span>
+                <span>👥 {activeStudents.length} Active Learners</span>
+                <span className="text-slate-400">·</span>
+                <span className={`px-2 py-0.5 rounded-full font-bold ${healthScore >= 75 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                  Fiscal Health: {healthScore}/100
                 </span>
               </div>
             </div>
           </div>
 
-          {/* 4 KPI tiles */}
-          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          {/* Super Premium Action Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Quick Actions */}
+            <Link
+              href="/dashboard/fees/collect"
+              className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 transition-all"
+            >
+              <FiDollarSign size={13} />
+              <span>Collect Fee</span>
+            </Link>
+
+            <Link
+              href="/dashboard/fees/mpesa-push"
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center gap-1.5 transition-all"
+            >
+              <FiCreditCard size={13} />
+              <span>KCB / M-Pesa</span>
+            </Link>
+
+            {/* Export Excel Button */}
+            <button
+              onClick={handleExportExcel}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 shadow-xs flex items-center gap-1.5 transition-all"
+              title="Export complete fee ledger to Excel"
+            >
+              <FiDownload size={13} className="text-emerald-600" />
+              <span>Export Excel</span>
+            </button>
+
+            {/* PDF Summary Print */}
+            <button
+              onClick={handlePrintSummary}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 shadow-xs flex items-center gap-1.5 transition-all"
+              title="Print official fee summary sheet"
+            >
+              <FiPrinter size={13} className="text-blue-600" />
+              <span>Print Sheet</span>
+            </button>
+
+            {/* Live Sync */}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 shadow-xs transition-all disabled:opacity-50"
+              title="Refresh database"
+            >
+              <FiRefreshCw size={13} className={refreshing ? 'animate-spin text-blue-600' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════
+            CURRICULUM FILTER SWITCHER (GLOBAL DUAL-TRACK CONTROLLER)
+        ══════════════════════════════════════════════════════════════ */}
+        <div className="py-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-[10px] font-black uppercase text-slate-400 mr-1 flex items-center gap-1">
+              <FiFilter size={10} /> Track:
+            </span>
             {[
-              {label:"Today's Intake",   val:KESM(todayTotal),            sub:`${todayPays.length} payments`, color:C.green,  bg:C.greenL},
-              {label:'Total Collected',  val:KESM(totalCollected),         sub:`${payments.length} transactions`, color:C.indigo, bg:C.indigoL},
-              {label:'Outstanding',      val:KESM(totalOutstanding),       sub:`${studentsOwing} students owing`, color:totalOutstanding>0?C.red:C.green, bg:totalOutstanding>0?C.redL:C.greenL},
-              {label:'Net Position',     val:KESM(Math.abs(netPosition)),  sub:netPosition>=0?'Surplus ✅':'Deficit ⚠️', color:netPosition>=0?C.green:C.red, bg:netPosition>=0?C.greenL:C.redL},
-            ].map((k,i)=>(
-              <div key={i} style={{background:k.bg,border:`1px solid ${k.color}25`,borderRadius:14,padding:'10px 16px',minWidth:132}}>
-                <div style={{fontSize:19,fontWeight:900,color:k.color,letterSpacing:'-0.025em',lineHeight:1.1}}>{k.val}</div>
-                <div style={{fontSize:9,fontWeight:800,color:k.color,textTransform:'uppercase',letterSpacing:'0.09em',marginTop:3}}>{k.label}</div>
-                <div style={{fontSize:10,color:C.slate,marginTop:2}}>{k.sub}</div>
-              </div>
+              { id: 'all', label: 'All Curricula', count: activeStudents.length, sum: totalCollected },
+              { id: '8-4-4', label: '8-4-4 System', count: studentsWithCurriculum.filter(s => s.systemTag === '8-4-4').length, sum: eightFourTotalCollected },
+              { id: 'cbc', label: 'CBC Senior School', count: studentsWithCurriculum.filter(s => s.systemTag === 'CBC Senior').length, sum: cbcTotalCollected },
+              { id: 'jss', label: 'Junior Secondary (JSS)', count: studentsWithCurriculum.filter(s => s.systemTag === 'JSS').length, sum: 0 },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => { setCurriculumFilter(tab.id as any); setLedgerPage(1); }}
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                  curriculumFilter === tab.id
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${curriculumFilter === tab.id ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  {tab.count}
+                </span>
+              </button>
             ))}
           </div>
-        </div>
 
-        {/* Collection rate bar */}
-        <div style={{background:C.slateL,border:`1px solid ${C.slateBd}`,borderRadius:12,padding:'10px 18px',marginBottom:16}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:7}}>
-            <span style={{fontSize:12,fontWeight:700,color:'#475569',display:'flex',alignItems:'center',gap:6}}><FiBarChart2 size={13} color={C.indigo} /> Annual Fee Collection Rate</span>
-            <div style={{display:'flex',alignItems:'center',gap:12}}>
-              {yoyChange !== null && <span style={{fontSize:11,fontWeight:700,color:yoyChange>=0?C.green:C.red}}>{yoyChange>=0?'▲':'▼'} {Math.abs(yoyChange)}% YoY</span>}
-              <span style={{fontSize:20,fontWeight:900,color:rateColor}}>{collectionRate}%</span>
-            </div>
-          </div>
-          <PBar value={collectionRate} color={rateGrad} height={9} />
-          <div style={{display:'flex',justifyContent:'space-between',marginTop:6}}>
-            <span style={{fontSize:10,color:C.slate}}>{KES(totalCollected)} collected · {studentsCleared} students cleared</span>
-            <span style={{fontSize:10,color:C.slate}}>{KES(totalExpected)} expected · {studentsOwing} defaulters</span>
+          <div className="text-[11px] font-bold text-slate-600 flex items-center gap-3">
+            <span>8-4-4 Intake: <strong className="text-emerald-600 font-mono">{KESM(eightFourTotalCollected)}</strong></span>
+            <span>·</span>
+            <span>CBC Intake: <strong className="text-purple-600 font-mono">{KESM(cbcTotalCollected)}</strong></span>
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div style={{display:'flex',gap:8,paddingBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+        {/* ══════════════════════════════════════════════════════════════
+            ROUNDED PILL TABS STRIP
+        ══════════════════════════════════════════════════════════════ */}
+        <div className="flex gap-1 overflow-x-auto pt-2 border-t border-slate-100 text-xs font-bold">
           {[
-            {label:'💵 Collect Fee',  href:'/dashboard/fees/collect',    bg:C.green,  sh:'0 3px 10px rgba(22,163,74,0.3)'},
-            {label:'📱 KCB Push',     href:'/dashboard/fees/mpesa-push', bg:'#059669', sh:'0 3px 10px rgba(5,150,105,0.3)'},
-            {label:'🚨 Defaulters',   href:'/dashboard/fees/defaulters', bg:C.red,    sh:'0 3px 10px rgba(220,38,38,0.3)'},
-            {label:'📊 Budget',       href:'/dashboard/fees/budget',     bg:C.blue,   sh:'0 3px 10px rgba(37,99,235,0.25)'},
-            {label:'👔 Board Report', href:'/dashboard/fees/reports/board', bg:'#1e293b', sh:'none'},
-            {label:'📈 P&L',          href:'/dashboard/fees/pl-statement', bg:C.purple, sh:'none'},
-            {label:'📤 Export',       href:'/dashboard/fees/exports',    bg:C.teal,   sh:'none'},
-          ].map((b,i)=>(
-            <Link key={i} href={b.href} style={{background:b.bg,color:'#fff',borderRadius:10,padding:'8px 16px',fontWeight:800,fontSize:12,display:'flex',alignItems:'center',gap:5,boxShadow:b.sh}}>
-              {b.label}
-            </Link>
-          ))}
-          <button onClick={handleRefresh} disabled={refreshing} style={{background:'#fff',border:`1.5px solid ${C.slateBd}`,borderRadius:10,padding:'8px 14px',color:'#475569',cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:700}}>
-            <FiRefreshCw size={13} style={{animation:refreshing?'spin 1s linear infinite':'none'}} /> Refresh
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div style={{display:'flex',gap:0,background:'transparent',overflowX:'auto'}}>
-          {[
-            {key:'overview',  label:'📊 Overview'},
-            {key:'forms',     label:'📚 Form Analysis'},
-            {key:'analysis',  label:'🔬 Deep Analysis'},
-            {key:'students',  label:'👤 Student Ledger'},
-            {key:'modules',   label:'🗂️ All Modules'},
-          ].map(t=>(
-            <button key={t.key} className="fee-tab-btn" onClick={()=>setActiveTab(t.key as any)} style={{
-              border:'none', borderRadius:0, padding:'11px 20px', fontWeight:800, fontSize:12, cursor:'pointer',
-              fontFamily:"'Inter',sans-serif", whiteSpace:'nowrap', background:'transparent',
-              color: activeTab===t.key?C.indigo:C.slate,
-              borderBottom: activeTab===t.key?`2.5px solid ${C.indigo}`:'2.5px solid transparent',
-              marginBottom: -1,
-            }}>{t.label}</button>
+            { key: 'overview', label: '📊 Overview & Velocity' },
+            { key: 'curriculum', label: '🏫 CBC & 8-4-4 Analysis' },
+            { key: 'ledger', label: '📋 Student Fee Ledger' },
+            { key: 'structures', label: '🏗️ Fee Structures' },
+            { key: 'transactions', label: '📲 Live Transactions' },
+            { key: 'defaulters', label: '🚨 Defaulters Recovery' },
+            { key: 'modules', label: '🗂️ All 30 Modules' },
+          ].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key as any)}
+              className={`px-4 py-2.5 rounded-t-xl transition-all whitespace-nowrap text-xs font-bold border-b-2 ${
+                activeTab === t.key
+                  ? 'text-blue-700 border-blue-600 bg-blue-50/50 font-black'
+                  : 'text-slate-500 border-transparent hover:text-slate-800'
+              }`}
+            >
+              {t.label}
+            </button>
           ))}
         </div>
       </div>
 
-      <div style={{padding:'24px 28px'}}>
+      {/* ══════════════════════════════════════════════════════════════
+          BODY CONTENT
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="p-6 max-w-[1600px] mx-auto space-y-6">
 
-        {/* ─── Alert strip ─── */}
-        {(totalOutstanding>500000||studentsOwing>10)&&(
-          <div style={{background:'#fff',border:`1.5px solid ${C.redBd}`,borderLeft:`4px solid ${C.red}`,borderRadius:14,padding:'13px 20px',marginBottom:22,display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} className="slide-up">
-            <FiAlertTriangle size={18} color={C.red}/>
-            <div style={{flex:1}}>
-              <span style={{color:'#991b1b',fontWeight:800,fontSize:13}}>ALERT: </span>
-              <span style={{color:'#b91c1c',fontSize:13}}>{studentsOwing} students have outstanding fees totalling {KES(totalOutstanding)}. Collection rate {collectionRate}% — {collectionRate<40?'CRITICAL':collectionRate<70?'NEEDS ATTENTION':'ON TRACK'}.</span>
+        {/* Alert strip for outstanding arrears */}
+        {totalOutstanding > 500000 && (
+          <div className="bg-white/90 backdrop-blur-xl border border-rose-200 border-l-4 border-l-rose-500 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4 flex-wrap print:hidden">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                <FiAlertTriangle size={18} />
+              </div>
+              <div>
+                <span className="text-xs font-black text-rose-900 uppercase">Attention Required: </span>
+                <span className="text-xs text-rose-800">
+                  {studentsOwing} students currently hold outstanding arrears totalling <strong className="font-mono">{KES(totalOutstanding)}</strong>. Current recovery rate is <strong className="font-mono">{collectionRate}%</strong>.
+                </span>
+              </div>
             </div>
-            <Link href="/dashboard/fees/defaulters" style={{background:C.red,color:'#fff',borderRadius:9,padding:'7px 16px',fontWeight:800,fontSize:12}}>View Defaulters →</Link>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('defaulters')}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+              >
+                Launch Defaulter Recovery →
+              </button>
+            </div>
           </div>
         )}
 
-        {/* ════════════ OVERVIEW ════════════ */}
-        {activeTab==='overview'&&(
-          <div style={{display:'flex',flexDirection:'column',gap:22}} className="slide-up">
-            {/* Row 1: 8 KPI cards */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(195px,1fr))',gap:14}}>
-              <KPICard label="Fee Revenue"       value={KES(totalCollected)}             icon="💰" color={C.green}  colorL={C.greenL}  colorBd={C.greenBd}  sub={`${payments.length} transactions`} />
-              <KPICard label="Other Income"      value={KES(totalIncome)}                icon="📈" color={C.blue}   colorL={C.blueL}   colorBd={C.blueBd}   sub="Grants & miscellaneous" />
-              <KPICard label="Total Expenses"    value={KES(totalExpenses)}              icon="📉" color={C.red}    colorL={C.redL}    colorBd={C.redBd}    sub="Approved expenditure" />
-              <KPICard label="Net Position"      value={KES(Math.abs(netPosition))}      icon={netPosition>=0?'🏆':'⚠️'} color={netPosition>=0?C.green:C.red} colorL={netPosition>=0?C.greenL:C.redL} colorBd={netPosition>=0?C.greenBd:C.redBd} sub={netPosition>=0?'School is in surplus':'School has deficit'} />
-              <KPICard label="Outstanding Fees"  value={KES(totalOutstanding)}           icon="⏳" color={C.amber}  colorL={C.amberL}  colorBd={C.amberBd}  sub={`${studentsOwing} students owing`} />
-              <KPICard label="This Month"        value={KES(monthTotal)}                 icon="🗓️" color={C.teal}   colorL={C.tealL}   colorBd={C.tealBd}   sub={`${daysElapsed} days collected`} />
-              <KPICard label="Daily Velocity"    value={KES(velocity)}                   icon="⚡" color={C.indigo} colorL={C.indigoL} colorBd={C.indigoBd} sub={`Projected: ${KESM(projected)}/mo`} />
-              <KPICard label="Students Cleared"  value={`${studentsCleared} / ${activeStudents.length}`} icon="✅" color={C.green} colorL={C.greenL} colorBd={C.greenBd} sub={`${pct(studentsCleared,activeStudents.length)}% compliance rate`} />
+        {/* ══════════════════════════════════════════════════════════════
+            TAB 1: OVERVIEW & INTAKE VELOCITY
+        ══════════════════════════════════════════════════════════════ */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* 8 Metric KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <KPICard
+                label="Fee Revenue"
+                value={KES(totalCollected)}
+                icon="💰"
+                color={C.green}
+                colorL={C.greenL}
+                colorBd={C.greenBd}
+                sub={`${payments.length} verified transactions`}
+              />
+              <KPICard
+                label="Annual Expected"
+                value={KES(totalExpected)}
+                icon="🎯"
+                color={C.indigo}
+                colorL={C.indigoL}
+                colorBd={C.indigoBd}
+                sub={`${filteredStudents.length} active registered learners`}
+              />
+              <KPICard
+                label="Outstanding Arrears"
+                value={KES(totalOutstanding)}
+                icon="⏳"
+                color={totalOutstanding > 0 ? C.red : C.green}
+                colorL={totalOutstanding > 0 ? C.redL : C.greenL}
+                colorBd={totalOutstanding > 0 ? C.redBd : C.greenBd}
+                sub={`${studentsOwing} students with balance due`}
+              />
+              <KPICard
+                label="Collection Rate"
+                value={`${collectionRate}%`}
+                icon="⚡"
+                color={collectionRate >= 70 ? C.green : collectionRate >= 40 ? C.amber : C.red}
+                colorL={collectionRate >= 70 ? C.greenL : collectionRate >= 40 ? C.amberL : C.redL}
+                colorBd={collectionRate >= 70 ? C.greenBd : collectionRate >= 40 ? C.amberBd : C.redBd}
+                sub={`${studentsCleared} students 100% cleared`}
+              />
+              <KPICard
+                label="Today's Intake"
+                value={KES(todayTotal)}
+                icon="📅"
+                color={C.teal}
+                colorL={C.tealL}
+                colorBd={C.tealBd}
+                sub={`${todayPays.length} payments recorded today`}
+              />
+              <KPICard
+                label="Daily Velocity"
+                value={KES(velocity)}
+                icon="⚡"
+                color={C.blue}
+                colorL={C.blueL}
+                colorBd={C.blueBd}
+                sub={`Projected: ${KESM(projected)} / month`}
+              />
+              <KPICard
+                label="CBC Senior Intake"
+                value={KES(cbcTotalCollected)}
+                icon="📚"
+                color={C.purple}
+                colorL={C.purpleL}
+                colorBd={C.purpleBd}
+                sub="Grade 10 Senior School fees"
+              />
+              <KPICard
+                label="8-4-4 Secondary Intake"
+                value={KES(eightFourTotalCollected)}
+                icon="🎓"
+                color={C.green}
+                colorL={C.greenL}
+                colorBd={C.greenBd}
+                sub="Form 1 - Form 4 secondary fees"
+              />
             </div>
 
-            {/* Row 2: 12-month line chart + health ring */}
-            <div style={{display:'grid',gridTemplateColumns:'2.5fr 1fr',gap:18}}>
-              <div style={{background:'#fff',borderRadius:20,padding:26,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-                <SectionHead icon={<FiTrendingUp size={15} color={C.indigo}/>} title="12-Month Collection Trend" sub="Monthly fee collections vs prior periods" right={yoyChange!==null&&<Badge label={`${yoyChange>=0?'+':''}${yoyChange}% vs last year`} color={yoyChange>=0?C.green:C.red} bg={yoyChange>=0?C.greenL:C.redL}/>} />
-                <div style={{height:240}}>
-                  <Line data={lineData} options={{...chartOpts(), plugins:{legend:{display:false},tooltip:{callbacks:{label:(c:any)=>`KES ${Number(c.raw).toLocaleString()}`}}}}} />
-                </div>
-              </div>
-              <div style={{background:'#fff',borderRadius:20,padding:26,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20}}>
-                <HealthRing score={healthScore}/>
-                <div style={{width:'100%',display:'flex',flexDirection:'column',gap:8}}>
-                  {[
-                    {label:'Collection Rate', val:`${collectionRate}%`,  color:rateColor},
-                    {label:'Cleared Students',val:`${studentsCleared}`,  color:C.green},
-                    {label:'Net Position',    val:netPosition>=0?'Surplus':'Deficit', color:netPosition>=0?C.green:C.red},
-                  ].map((r,i)=>(
-                    <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:`1px solid ${C.slateBd}`}}>
-                      <span style={{fontSize:11,color:C.slate,fontWeight:600}}>{r.label}</span>
-                      <span style={{fontSize:12,fontWeight:900,color:r.color}}>{r.val}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Row 3: Daily bars + Doughnut + Method breakdown */}
-            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:18}}>
-              <div style={{background:'#fff',borderRadius:20,padding:26,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-                <SectionHead icon={<FiBarChart2 size={15} color={C.purple}/>} title="Daily Collections — Last 30 Days" sub="Indigo bar = today"/>
-                <div style={{height:220}}>
-                  <Bar data={barDaily} options={{...chartOpts(), scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:(v:any)=>`${(Number(v)/1000).toFixed(0)}K`,font:{size:9}}},x:{grid:{display:false},ticks:{font:{size:8},maxRotation:45,maxTicksLimit:10}}}}} />
-                </div>
-              </div>
-              <div style={{background:'#fff',borderRadius:20,padding:26,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-                <SectionHead icon={<FiPieChart size={15} color={C.green}/>} title="Payment Methods"/>
-                <div style={{height:180}}>
-                  {methodMap.length>0?(
-                    <Doughnut data={doughnutData} options={{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:(c:any)=>`KES ${Number(c.raw).toLocaleString()}`}}}}}/>
-                  ):<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.slate}}>No data</div>}
-                </div>
-                <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:6}}>
-                  {methodMap.slice(0,5).map(([m,v],i)=>(
-                    <div key={m} style={{display:'flex',alignItems:'center',gap:8}}>
-                      <div style={{width:9,height:9,borderRadius:2,background:CHART_PALETTE[i%CHART_PALETTE.length],flexShrink:0}}/>
-                      <span style={{fontSize:11,fontWeight:700,color:'#374151',flex:1}}>{m}</span>
-                      <span style={{fontSize:11,fontWeight:900,color:'#0f172a'}}>{KESM(v.total)}</span>
-                      <span style={{fontSize:10,color:C.slate}}>({v.count})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Row 4: Recent payments + Quick Reports */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18}}>
-              {/* Recent payments */}
-              <div style={{background:'#fff',borderRadius:20,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)',overflow:'hidden'}}>
-                <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.slateBd}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}><FiActivity size={14} color={C.green}/><span style={{fontWeight:900,fontSize:13,color:'#0f172a',fontFamily:"'Outfit',sans-serif"}}>Recent Payments</span></div>
-                  <Link href="/dashboard/fees/payments" style={{fontSize:11,color:C.indigo,fontWeight:800,display:'flex',alignItems:'center',gap:3}}>View All <FiArrowRight size={11}/></Link>
-                </div>
-                <div style={{overflow:'auto',maxHeight:280}}>
-                  {payments.slice(0,10).length===0?<div style={{padding:40,textAlign:'center',color:C.slate}}>No payments yet</div>:
-                  payments.slice(0,10).map((p,i)=>{
-                    const s=students.find(st=>st.id===p.student_id);
-                    const col=CHART_PALETTE[i%CHART_PALETTE.length];
-                    const initials=s?`${s.first_name?.[0]||''}${s.last_name?.[0]||''}`.toUpperCase():'?';
-                    return(
-                      <div key={p.id} style={{padding:'10px 20px',display:'flex',alignItems:'center',gap:10,borderBottom:`1px solid ${C.slateL}`}}>
-                        <div style={{width:32,height:32,borderRadius:10,background:`${col}18`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,color:col,flexShrink:0}}>{initials}</div>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontWeight:700,fontSize:12,color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s?`${s.first_name} ${s.last_name}`:'—'}</div>
-                          <div style={{fontSize:10,color:'#94a3b8',marginTop:1}}>{p.payment_date?new Date(p.payment_date).toLocaleDateString('en-KE',{day:'numeric',month:'short'}):'—'} · {p.payment_method||'—'}</div>
-                        </div>
-                        <span style={{fontWeight:900,fontSize:13,color:C.green,flexShrink:0}}>{KESM(Number(p.amount))}</span>
-                      </div>
-                    );
-                  })}
+            {/* Row 2: 12-Month Line Trend + Health Ring */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-8 bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-5 shadow-[0_4px_24px_rgba(20,50,120,0.06)]">
+                <SectionHead
+                  icon={<FiTrendingUp size={15} className="text-indigo-600" />}
+                  title="12-Month Revenue & Collection Momentum"
+                  sub="Monthly fee intake velocity across all payment channels"
+                  right={
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Live Stream
+                    </span>
+                  }
+                />
+                <div className="relative w-full h-[220px]">
+                  <Line data={lineData} options={chartOpts()} />
                 </div>
               </div>
 
-              {/* Quick reports + term breakdown */}
-              <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                <div style={{background:'#fff',border:`1px solid ${C.indigoBd}`,borderRadius:16,padding:'16px 20px',flex:1}}>
-                  <div style={{fontSize:11,fontWeight:900,color:C.indigo,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:12}}>⚡ Finance Reports</div>
-                  <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
-                    {[
-                      {label:'📈 P&L',          href:'/dashboard/fees/pl-statement',   color:C.red},
-                      {label:'⚖️ Trial Balance', href:'/dashboard/fees/trial-balance',  color:C.indigo},
-                      {label:'🏛️ Balance Sheet', href:'/dashboard/fees/balance-sheet',  color:C.blue},
-                      {label:'📒 Cash Book',     href:'/dashboard/fees/cashbook',       color:C.teal},
-                      {label:'👔 Board Report',  href:'/dashboard/fees/reports/board',  color:'#1e293b'},
-                      {label:'📤 Export',        href:'/dashboard/fees/exports',        color:C.slate},
-                      {label:'🔬 Analytics',     href:'/dashboard/fees/analytics',      color:C.purple},
-                      {label:'📅 Aging',         href:'/dashboard/fees/arrears-aging',  color:'#ea580c'},
-                    ].map((l,i)=>(
-                      <Link key={i} href={l.href} style={{background:`${l.color}0d`,border:`1.5px solid ${l.color}30`,borderRadius:8,padding:'5px 12px',fontSize:11,fontWeight:800,color:l.color}}>{l.label}</Link>
-                    ))}
+              <div className="lg:col-span-4 bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-5 shadow-[0_4px_24px_rgba(20,50,120,0.06)] flex flex-col justify-between items-center text-center">
+                <HealthRing score={healthScore} />
+                <div className="w-full space-y-2 mt-3 pt-3 border-t border-slate-100 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Compliance Rate:</span>
+                    <strong className="text-emerald-600 font-mono">{pct(studentsCleared, filteredStudents.length)}%</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Net Fiscal Status:</span>
+                    <strong className={netPosition >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                      {netPosition >= 0 ? 'Surplus' : 'Deficit'}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Average Paid / Student:</span>
+                    <strong className="text-slate-800 font-mono">
+                      {KES(filteredStudents.length > 0 ? Math.round(totalCollected / filteredStudents.length) : 0)}
+                    </strong>
                   </div>
                 </div>
-                {/* Term collection summary */}
-                <div style={{background:'#fff',border:`1px solid ${C.slateBd}`,borderRadius:16,padding:'16px 20px'}}>
-                  <div style={{fontSize:13,fontWeight:900,color:'#0f172a',marginBottom:12,fontFamily:"'Outfit',sans-serif"}}>📅 By Term</div>
-                  {termMap.slice(0,4).map(([t,v],i)=>(
-                    <div key={t} style={{marginBottom:10}}>
-                      <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
-                        <span style={{fontSize:12,fontWeight:700,color:'#374151'}}>{t}</span>
-                        <span style={{fontSize:12,fontWeight:900,color:'#0f172a'}}>{KES(v.total)}</span>
+              </div>
+            </div>
+
+            {/* Row 3: Daily Collections + Payment Methods */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-7 bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-5 shadow-[0_4px_24px_rgba(20,50,120,0.06)]">
+                <SectionHead
+                  icon={<FiBarChart2 size={15} className="text-purple-600" />}
+                  title="Daily Collections — Last 30 Days"
+                  sub="Dark pill indicates today's intake"
+                />
+                <div className="relative w-full h-[200px]">
+                  <Bar data={barDaily} options={chartOpts()} />
+                </div>
+              </div>
+
+              <div className="lg:col-span-5 bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-5 shadow-[0_4px_24px_rgba(20,50,120,0.06)]">
+                <SectionHead
+                  icon={<FiPieChart size={15} className="text-emerald-600" />}
+                  title="Payment Channel Distribution"
+                  sub="M-Pesa, Bank, and Cash breakdown"
+                />
+                <div className="relative w-full h-[150px]">
+                  {methodMap.length > 0 ? (
+                    <Doughnut data={doughnutData} options={{ responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } } }} />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-slate-400 text-xs">No payment methods recorded</div>
+                  )}
+                </div>
+                <div className="mt-3 space-y-1.5 text-xs">
+                  {methodMap.slice(0, 4).map(([m, v], i) => (
+                    <div key={m} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: CHART_PALETTE[i % CHART_PALETTE.length] }} />
+                        <span className="font-bold text-slate-700 text-xs">{m}</span>
                       </div>
-                      <PBar value={pct(v.total,totalCollected)} color={CHART_PALETTE[i%CHART_PALETTE.length]} height={5}/>
-                      <span style={{fontSize:10,color:C.slate}}>{v.count} payments</span>
+                      <div className="flex items-center gap-2 font-mono text-xs">
+                        <span className="text-slate-400 font-normal">({v.count})</span>
+                        <strong className="text-slate-900">{KESM(v.total)}</strong>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -611,207 +897,404 @@ export default function FeeDashboardPage() {
           </div>
         )}
 
-        {/* ════════════ FORM ANALYSIS ════════════ */}
-        {activeTab==='forms'&&(
-          <div style={{display:'flex',flexDirection:'column',gap:20}} className="slide-up">
-            {/* Leaderboard */}
-            <div style={{background:'#fff',borderRadius:20,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)',overflow:'hidden'}}>
-              <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.slateBd}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:22}}>🏆</span><div><div style={{fontWeight:900,fontSize:16,color:'#0f172a',fontFamily:"'Outfit',sans-serif"}}>Form-wise Fee Collection Leaderboard</div><div style={{fontSize:11,color:C.slate}}>Ranked by collection rate · {currentYear} Financial Year</div></div></div>
-                <Badge label="LIVE DATA" color={C.indigo} bg={C.indigoL}/>
+        {/* ══════════════════════════════════════════════════════════════
+            TAB 2: CBC & 8-4-4 DUAL-TRACK ANALYSIS
+        ══════════════════════════════════════════════════════════════ */}
+        {activeTab === 'curriculum' && (
+          <div className="space-y-6">
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                    <FiLayers size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                      Dual-Track Curriculum Fee Performance (CBC vs 8-4-4)
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-medium">
+                      Comparative breakdown of collection rates, expected totals, and balance arrears across all classes
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleExportExcel}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5"
+                  >
+                    <FiDownload size={12} />
+                    <span>Export Breakdown</span>
+                  </button>
+                </div>
               </div>
-              <div style={{overflowX:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,fontFamily:"'Inter',sans-serif"}}>
-                  <thead><tr style={{background:'#f8fafc',borderBottom:`2px solid ${C.slateBd}`}}>
-                    {['Rank','Form','Students','Expected','Collected','Balance','Owing','Rate','Progress'].map(h=>(
-                      <th key={h} style={{padding:'11px 16px',textAlign:['Expected','Collected','Balance'].includes(h)?'right':['Rank','Students','Owing','Rate'].includes(h)?'center':'left',fontWeight:800,fontSize:10,color:C.slate,textTransform:'uppercase',letterSpacing:'0.07em'}}>{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {formCollection.map((f,i)=>{
-                      const medals=['🥇','🥈','🥉'];
-                      const rc=f.rate>=70?C.green:f.rate>=40?C.amber:C.red;
-                      return(
-                        <tr key={f.name} style={{borderBottom:`1px solid ${C.slateL}`,background:i===0?'#fffbeb':i%2===0?'#fff':'#fafafa'}}>
-                          <td style={{padding:'14px 16px',textAlign:'center',fontSize:20}}>{medals[i]||i+1}</td>
-                          <td style={{padding:'14px 16px',fontWeight:900,color:'#0f172a',fontFamily:"'Outfit',sans-serif"}}>{f.name}</td>
-                          <td style={{padding:'14px 16px',textAlign:'center'}}><Badge label={String(f.students)} color={C.purple} bg={C.purpleL}/></td>
-                          <td style={{padding:'14px 16px',textAlign:'right',fontWeight:700,color:'#374151'}}>{KES(f.expected)}</td>
-                          <td style={{padding:'14px 16px',textAlign:'right',fontWeight:900,color:C.green}}>{KES(f.collected)}</td>
-                          <td style={{padding:'14px 16px',textAlign:'right',fontWeight:900,color:f.balance>0?C.red:C.green}}>{KES(f.balance)}</td>
-                          <td style={{padding:'14px 16px',textAlign:'center'}}><Badge label={String(f.owing)} color={f.owing>0?C.red:C.green} bg={f.owing>0?C.redL:C.greenL}/></td>
-                          <td style={{padding:'14px 16px',textAlign:'center',fontSize:15,fontWeight:900,color:rc}}>{f.rate}%</td>
-                          <td style={{padding:'14px 16px',minWidth:160}}><PBar value={f.rate} color={rc}/></td>
-                        </tr>
-                      );
-                    })}
-                    <tr style={{background:C.indigo,fontWeight:900}}>
-                      <td style={{padding:'13px 16px',textAlign:'center',color:'#fff',fontSize:16}}>∑</td>
-                      <td style={{padding:'13px 16px',fontWeight:900,color:'#fff',fontFamily:"'Outfit',sans-serif"}}>ALL FORMS</td>
-                      <td style={{padding:'13px 16px',textAlign:'center',color:'#c7d2fe',fontWeight:900}}>{activeStudents.length}</td>
-                      <td style={{padding:'13px 16px',textAlign:'right',color:'#c7d2fe',fontWeight:900}}>{KES(totalExpected)}</td>
-                      <td style={{padding:'13px 16px',textAlign:'right',color:'#bbf7d0',fontWeight:900}}>{KES(totalCollected)}</td>
-                      <td style={{padding:'13px 16px',textAlign:'right',color:'#fca5a5',fontWeight:900}}>{KES(totalOutstanding)}</td>
-                      <td style={{padding:'13px 16px',textAlign:'center',color:'#fca5a5',fontWeight:900}}>{studentsOwing}</td>
-                      <td style={{padding:'13px 16px',textAlign:'center',color:'#fff',fontWeight:900,fontSize:16}}>{collectionRate}%</td>
-                      <td/>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                      <th className="py-3 px-4">Class / Grade</th>
+                      <th className="py-3 px-4">Track</th>
+                      <th className="py-3 px-4 text-center">Active Students</th>
+                      <th className="py-3 px-4 text-right">Expected (KES)</th>
+                      <th className="py-3 px-4 text-right">Collected (KES)</th>
+                      <th className="py-3 px-4 text-right">Arrears (KES)</th>
+                      <th className="py-3 px-4 text-center">Owing Count</th>
+                      <th className="py-3 px-4 text-center">Recovery Rate</th>
+                      <th className="py-3 px-4 min-w-[140px]">Progress</th>
                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {formCollection.map(f => {
+                      const rc = f.rate >= 70 ? C.green : f.rate >= 40 ? C.amber : C.red;
+                      return (
+                        <tr key={f.id} className="hover:bg-blue-50/30 transition-colors">
+                          <td className="py-3 px-4 font-black text-slate-800 font-sans">
+                            {f.name}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${
+                              f.isCbc ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {f.system}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center font-bold text-slate-700">
+                            {f.students}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-700">
+                            {KES(f.expected)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-emerald-600">
+                            {KES(f.collected)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-rose-600">
+                            {KES(f.balance)}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              f.owing > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              {f.owing} defaulters
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center font-black font-mono" style={{ color: rc }}>
+                            {f.rate}%
+                          </td>
+                          <td className="py-3 px-4">
+                            <PBar value={f.rate} color={rc} height={7} />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-900 text-white font-black text-xs">
+                      <td className="py-3 px-4 font-mono">∑ TOTALS</td>
+                      <td className="py-3 px-4 text-slate-300">DUAL TRACK</td>
+                      <td className="py-3 px-4 text-center">{filteredStudents.length}</td>
+                      <td className="py-3 px-4 text-right font-mono">{KES(totalExpected)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-emerald-400">{KES(totalCollected)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-rose-400">{KES(totalOutstanding)}</td>
+                      <td className="py-3 px-4 text-center text-rose-300">{studentsOwing}</td>
+                      <td className="py-3 px-4 text-center font-mono">{collectionRate}%</td>
+                      <td className="py-3 px-4" />
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
 
-            {/* Form grouped bar chart */}
-            <div style={{background:'#fff',borderRadius:20,padding:26,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-              <SectionHead icon={<FiBarChart2 size={15} color={C.indigo}/>} title="Expected vs Collected by Form" sub="Side-by-side across all forms"/>
-              <div style={{height:280}}><Bar data={formBarData} options={{...chartOpts(),plugins:{legend:{position:'top' as const},tooltip:{callbacks:{label:(c:any)=>`${c.dataset.label}: KES ${Number(c.raw).toLocaleString()}`}}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:(v:any)=>`KES ${(Number(v)/1000).toFixed(0)}K`,font:{size:10}}},x:{grid:{display:false}}}}}/></div>
-            </div>
-
-            {/* Term bar chart */}
-            <div style={{background:'#fff',borderRadius:20,padding:26,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-              <SectionHead icon={<FiCalendar size={15} color={C.purple}/>} title="Collections by Term" sub="All-time fee collections per academic term"/>
-              <div style={{height:220}}><Bar data={termBarData} options={{...chartOpts(),scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:(v:any)=>`${(Number(v)/1000).toFixed(0)}K`,font:{size:10}}},x:{grid:{display:false}}}}}/></div>
-            </div>
-          </div>
-        )}
-
-        {/* ════════════ DEEP ANALYSIS ════════════ */}
-        {activeTab==='analysis'&&(
-          <div style={{display:'flex',flexDirection:'column',gap:20}} className="slide-up">
-            {/* Aging buckets */}
-            <div style={{background:'#fff',borderRadius:20,padding:26,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-              <SectionHead icon={<FiClock size={15} color={C.amber}/>} title="Arrears Aging Analysis" sub="Outstanding balances grouped by days since last payment"/>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:14,marginBottom:22}}>
-                {[
-                  {label:'Current (0–30d)',  val:aging.d0,   color:C.green,     bg:C.greenL},
-                  {label:'Overdue 31–60d',   val:aging.d30,  color:C.amber,     bg:C.amberL},
-                  {label:'Overdue 61–90d',   val:aging.d60,  color:'#ea580c',   bg:'#fff7ed'},
-                  {label:'Overdue 91–180d',  val:aging.d90,  color:C.red,       bg:C.redL},
-                  {label:'Overdue 180d+',    val:aging.d180, color:'#7f1d1d',   bg:'#fef2f2'},
-                ].map((b,i)=>(
-                  <div key={i} style={{background:b.bg,border:`1.5px solid ${b.color}30`,borderRadius:16,padding:'16px 18px'}}>
-                    <div style={{fontSize:10,fontWeight:800,color:b.color,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>{b.label}</div>
-                    <div style={{fontSize:20,fontWeight:900,color:'#0f172a',fontFamily:"'Outfit',sans-serif"}}>{KES(b.val)}</div>
-                    <div style={{fontSize:10,color:C.slate,marginTop:4}}>{b.val>0?`${pct(b.val,totalOutstanding)}% of total outstanding`:'All clear'}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{height:180}}><Bar data={agingBarData} options={{responsive:true,maintainAspectRatio:false,indexAxis:'y' as const,plugins:{legend:{display:false},tooltip:{callbacks:{label:(c:any)=>`KES ${Number(c.raw).toLocaleString()}`}}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:(v:any)=>`${(Number(v)/1000).toFixed(0)}K`,font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:11}}}}}}/></div>
-            </div>
-
-            {/* Collection velocity + Full P&L */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18}}>
-              {/* Velocity */}
-              <div style={{background:'#fff',borderRadius:20,padding:26,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-                <SectionHead icon={<FiZap size={15} color={C.indigo}/>} title="Collection Velocity" sub="This month's pace and projection"/>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:18}}>
-                  {[
-                    {label:'Avg/Day this month', val:KES(velocity),   color:C.indigo},
-                    {label:'Month-to-date',       val:KES(monthTotal), color:C.green},
-                    {label:'Projected full month',val:KES(projected),  color:C.blue},
-                    {label:'Payments this month', val:String(monthPays.length), color:C.purple},
-                  ].map((m,i)=>(
-                    <div key={i} style={{background:C.slateL,borderRadius:12,padding:'12px 14px'}}>
-                      <div style={{fontSize:10,fontWeight:700,color:C.slate,textTransform:'uppercase',letterSpacing:'0.07em'}}>{m.label}</div>
-                      <div style={{fontSize:18,fontWeight:900,color:m.color,marginTop:4,fontFamily:"'Outfit',sans-serif"}}>{m.val}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{height:110}}><Line data={{labels:monthly12.map(m=>`${m.month}'${m.year}`),datasets:[{label:'Collections',data:monthly12.map(m=>m.amount),borderColor:C.indigo,backgroundColor:'rgba(79,70,229,0.06)',fill:true,tension:0.45,pointRadius:3,pointBackgroundColor:C.indigo}]}} options={{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{display:false,beginAtZero:true},x:{grid:{display:false},ticks:{font:{size:9}}}}}}/></div>
-              </div>
-
-              {/* Full P&L */}
-              <div style={{background:'#fff',borderRadius:20,padding:26,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-                <SectionHead icon={<FiAward size={15} color={C.purple}/>} title="P&L Summary" sub="Income vs expenditure breakdown"/>
-                <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                  {[
-                    {label:'Fee Collections', val:totalCollected, color:C.green,  bg:C.greenL, type:'INCOME'},
-                    {label:'Other Income',    val:totalIncome,    color:C.blue,   bg:C.blueL,  type:'INCOME'},
-                    {label:'Total Expenses',  val:totalExpenses,  color:C.red,    bg:C.redL,   type:'EXPENSE'},
-                    {label:'Outstanding',     val:totalOutstanding,color:C.amber, bg:C.amberL, type:'PENDING'},
-                  ].map((r,i)=>(
-                    <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:r.bg,borderRadius:10}}>
-                      <div>
-                        <div style={{fontSize:10,fontWeight:800,color:r.color,textTransform:'uppercase',letterSpacing:'0.07em'}}>{r.type}</div>
-                        <div style={{fontSize:13,fontWeight:700,color:'#374151'}}>{r.label}</div>
-                      </div>
-                      <div style={{fontSize:16,fontWeight:900,color:r.color,fontFamily:"'Outfit',sans-serif"}}>{KES(r.val)}</div>
-                    </div>
-                  ))}
-                  <div style={{display:'flex',justifyContent:'space-between',padding:'12px 14px',background:netPosition>=0?C.green:C.red,borderRadius:12,marginTop:4}}>
-                    <span style={{fontSize:13,fontWeight:900,color:'#fff'}}>{netPosition>=0?'NET SURPLUS':'NET DEFICIT'}</span>
-                    <span style={{fontSize:16,fontWeight:900,color:'#fff',fontFamily:"'Outfit',sans-serif"}}>{KES(Math.abs(netPosition))}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Method deep-dive */}
-            <div style={{background:'#fff',borderRadius:20,padding:26,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-              <SectionHead icon={<FiCreditCard size={15} color={C.green}/>} title="Payment Method Deep-Dive" sub="Breakdown by volume, value and share"/>
-              <div style={{display:'flex',flexDirection:'column',gap:12}}>
-                {methodMap.map(([m,v],i)=>(
-                  <div key={m}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
-                      <div style={{display:'flex',alignItems:'center',gap:8}}>
-                        <div style={{width:10,height:10,borderRadius:3,background:CHART_PALETTE[i%CHART_PALETTE.length],flexShrink:0}}/>
-                        <span style={{fontSize:13,fontWeight:700,color:'#374151'}}>{m}</span>
-                        <Badge label={`${v.count} txns`} color={C.slate} bg={C.slateL}/>
-                      </div>
-                      <div style={{display:'flex',alignItems:'center',gap:10}}>
-                        <span style={{fontSize:12,color:C.slate}}>{pct(v.total,totalCollected)}%</span>
-                        <span style={{fontSize:13,fontWeight:900,color:'#0f172a'}}>{KES(v.total)}</span>
-                      </div>
-                    </div>
-                    <PBar value={pct(v.total,totalCollected)} color={CHART_PALETTE[i%CHART_PALETTE.length]}/>
-                  </div>
-                ))}
-                {methodMap.length===0&&<div style={{textAlign:'center',color:C.slate,padding:30}}>No payments recorded</div>}
+            {/* Side by side chart */}
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-5 shadow-[0_4px_24px_rgba(20,50,120,0.06)]">
+              <SectionHead
+                icon={<FiBarChart2 size={15} className="text-blue-600" />}
+                title="Expected vs Collected by Class (KES)"
+                sub="Comparing fee recovery performance across all 8-4-4 Forms and CBC Grades"
+              />
+              <div className="relative w-full h-[240px]">
+                <Bar data={formBarData} options={chartOpts()} />
               </div>
             </div>
           </div>
         )}
 
-        {/* ════════════ STUDENT LEDGER ════════════ */}
-        {activeTab==='students'&&(
-          <div style={{display:'flex',flexDirection:'column',gap:20}} className="slide-up">
-            {/* Top payers */}
-            <div style={{background:'#fff',borderRadius:20,border:`1px solid ${C.slateBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)',overflow:'hidden'}}>
-              <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.slateBd}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:22}}>🏅</span><div><div style={{fontWeight:900,fontSize:15,color:'#0f172a',fontFamily:"'Outfit',sans-serif"}}>Top Fee Payers</div><div style={{fontSize:11,color:C.slate}}>Students ranked by total amount paid</div></div></div>
-                <select value={topStudentsN} onChange={e=>setTopStudentsN(Number(e.target.value))} style={{background:C.slateL,border:`1px solid ${C.slateBd}`,borderRadius:9,padding:'5px 10px',fontSize:12,fontWeight:700,color:'#374151',cursor:'pointer'}}>
-                  {[5,10,20,50].map(n=><option key={n} value={n}>Top {n}</option>)}
-                </select>
-              </div>
-              <div style={{overflowX:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,fontFamily:"'Inter',sans-serif"}}>
-                  <thead><tr style={{background:'#f8fafc',borderBottom:`2px solid ${C.slateBd}`}}>
-                    {['#','Student','Adm No','Form','Total Paid','Balance','Rate','Status'].map(h=>(
-                      <th key={h} style={{padding:'10px 16px',textAlign:h==='#'?'center':['Total Paid','Balance'].includes(h)?'right':'left',fontWeight:800,fontSize:10,color:C.slate,textTransform:'uppercase',letterSpacing:'0.07em'}}>{h}</th>
+        {/* ══════════════════════════════════════════════════════════════
+            TAB 3: SEARCHABLE & PAGINATED STUDENT FEE LEDGER
+        ══════════════════════════════════════════════════════════════ */}
+        {activeTab === 'ledger' && (
+          <div className="space-y-4">
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
+              {/* Filter controls */}
+              <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5 flex-1 min-w-[240px]">
+                  <div className="relative flex-1">
+                    <FiSearch className="absolute left-3.5 top-3 text-slate-400" size={13} />
+                    <input
+                      type="text"
+                      placeholder="Search student by name, admission no, or phone..."
+                      value={ledgerSearch}
+                      onChange={e => { setLedgerSearch(e.target.value); setLedgerPage(1); }}
+                      className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:border-blue-400 focus:ring-2 focus:ring-blue-50 outline-none transition-all placeholder:text-slate-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Status filter */}
+                  <select
+                    value={ledgerStatusFilter}
+                    onChange={e => { setLedgerStatusFilter(e.target.value as any); setLedgerPage(1); }}
+                    className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white outline-none cursor-pointer"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="cleared">✅ Cleared (Paid in Full)</option>
+                    <option value="partial">⚠️ Partial Payments</option>
+                    <option value="owing">🚨 In Arrears (Owing)</option>
+                  </select>
+
+                  {/* Form filter */}
+                  <select
+                    value={ledgerFormFilter}
+                    onChange={e => { setLedgerFormFilter(e.target.value); setLedgerPage(1); }}
+                    className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white outline-none cursor-pointer"
+                  >
+                    <option value="all">All Classes</option>
+                    {forms.map(f => (
+                      <option key={f.id} value={String(f.id)}>
+                        {f.form_name} ({f.education_system || '8-4-4'})
+                      </option>
                     ))}
-                  </tr></thead>
-                  <tbody>
-                    {studentPaySummary.slice(0,topStudentsN).map((st,i)=>{
-                      const statusColor=st.balance===0?C.green:st.rate>=50?C.amber:C.red;
-                      const statusLabel=st.balance===0?'CLEARED':st.rate>=50?'PARTIAL':'DEFAULTER';
-                      const medals=['🥇','🥈','🥉'];
-                      return(
-                        <tr key={st.id} style={{borderBottom:`1px solid ${C.slateL}`,background:i<3?'#fffbeb':'#fff'}}>
-                          <td style={{padding:'12px 16px',textAlign:'center',fontSize:18}}>{medals[i]||i+1}</td>
-                          <td style={{padding:'12px 16px'}}>
-                            <div style={{fontWeight:800,fontSize:13,color:'#0f172a'}}>{st.first_name} {st.last_name}</div>
+                  </select>
+
+                  {/* Export Excel */}
+                  <button
+                    onClick={handleExportExcel}
+                    className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 flex items-center gap-1.5 transition-all"
+                  >
+                    <FiDownload size={12} />
+                    <span>Export Excel</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Data Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                      <th className="py-3 px-4">Adm No</th>
+                      <th className="py-3 px-4">Student Name</th>
+                      <th className="py-3 px-4">Class &amp; Track</th>
+                      <th className="py-3 px-4 text-right">Expected (KES)</th>
+                      <th className="py-3 px-4 text-right">Paid (KES)</th>
+                      <th className="py-3 px-4 text-right">Balance Due</th>
+                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-center print:hidden">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedLedger.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-slate-400 text-xs">
+                          No students matching your filter criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedLedger.map(st => {
+                        const statusColor = st.balance === 0 ? 'bg-emerald-100 text-emerald-800' : st.totalPaid > 0 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800';
+                        const statusLabel = st.balance === 0 ? 'CLEARED' : st.totalPaid > 0 ? 'PARTIAL' : 'IN ARREARS';
+                        return (
+                          <tr key={st.id} className="hover:bg-blue-50/30 transition-colors">
+                            <td className="py-3 px-4 font-mono font-bold text-slate-600">
+                              {st.admission_number || st.admission_no || '—'}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="font-black text-slate-900 text-xs">
+                                {st.first_name} {st.last_name}
+                              </div>
+                              {st.guardian_phone && (
+                                <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                                  <FiPhone size={9} /> {st.guardian_phone}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="font-bold text-slate-700">{st.formName}</div>
+                              <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded">
+                                {st.systemTag}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-bold text-slate-600">
+                              {KES(st.annualTotal)}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-black text-emerald-600">
+                              {KES(st.totalPaid)}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-black" style={{ color: st.balance > 0 ? C.red : C.green }}>
+                              {KES(st.balance)}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${statusColor}`}>
+                                {statusLabel}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center print:hidden">
+                              <button
+                                onClick={() => openClearanceVoucher(st)}
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white border border-slate-200 hover:border-blue-300 text-blue-600 hover:bg-blue-50 transition-all shadow-xs flex items-center gap-1 mx-auto"
+                                title="Print Official Fee Clearance Voucher"
+                              >
+                                <FiPrinter size={11} />
+                                <span>Voucher</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Bar */}
+              <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>
+                  Showing {ledgerFiltered.length > 0 ? (ledgerPage - 1) * pageSize + 1 : 0} to {Math.min(ledgerPage * pageSize, ledgerFiltered.length)} of {ledgerFiltered.length} students
+                </span>
+
+                <div className="flex items-center gap-1.5 font-bold">
+                  <button
+                    onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
+                    disabled={ledgerPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition-all"
+                  >
+                    <FiChevronLeft size={13} />
+                  </button>
+                  <span className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono">
+                    Page {ledgerPage} / {totalLedgerPages}
+                  </span>
+                  <button
+                    onClick={() => setLedgerPage(p => Math.min(totalLedgerPages, p + 1))}
+                    disabled={ledgerPage === totalLedgerPages}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition-all"
+                  >
+                    <FiChevronRight size={13} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════
+            TAB 4: FEE STRUCTURES (CBC & 8-4-4)
+        ══════════════════════════════════════════════════════════════ */}
+        {activeTab === 'structures' && (
+          <div className="space-y-4">
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-5 shadow-[0_4px_24px_rgba(20,50,120,0.06)]">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                    Vote-Head Fee Structures (KICD &amp; MoE Aligned)
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Active vote heads, capitation deductions, and term levies for 8-4-4 and CBC Senior School
+                  </p>
+                </div>
+                <Link
+                  href="/dashboard/fees/structure"
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-xs"
+                >
+                  Manage Structures →
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {structures.map(fs => {
+                  const f = forms.find(fm => fm.id === fs.form_id);
+                  const isCbc = f?.education_system?.includes('CBC') || f?.form_name?.includes('Grade');
+                  return (
+                    <div key={fs.id} className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200 hover:bg-slate-50 transition-all">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-black text-slate-900 text-xs font-sans">
+                          {fs.vote_head_name || fs.category || 'Tuition'}
+                        </span>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${isCbc ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {f ? `${f.form_name}` : 'All Classes'}
+                        </span>
+                      </div>
+                      <div className="text-xl font-black text-slate-900 font-mono mt-2">
+                        {KES(fs.amount)}
+                      </div>
+                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-200 text-[10px] text-slate-500">
+                        <span>Term {fs.term_id || 'All'} · Year {fs.year || currentYear}</span>
+                        <span className="font-bold text-slate-700">{isCbc ? 'CBC Levies' : '8-4-4 Standard'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════
+            TAB 5: LIVE TRANSACTIONS & M-PESA
+        ══════════════════════════════════════════════════════════════ */}
+        {activeTab === 'transactions' && (
+          <div className="space-y-4">
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                    Verified Fee Payment Stream
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Audit log of real receipts and electronic M-Pesa STK push entries
+                  </p>
+                </div>
+                <Link
+                  href="/dashboard/fees/payments"
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-all"
+                >
+                  Full Transaction Hub →
+                </Link>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                      <th className="py-3 px-4">Receipt No</th>
+                      <th className="py-3 px-4">Student</th>
+                      <th className="py-3 px-4">Method</th>
+                      <th className="py-3 px-4">Payment Date</th>
+                      <th className="py-3 px-4 text-right">Amount (KES)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {payments.slice(0, 20).map(p => {
+                      const st = students.find(s => s.id === p.student_id);
+                      return (
+                        <tr key={p.id} className="hover:bg-blue-50/30 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-blue-600">
+                            {p.receipt_number || `REC-${p.id}`}
                           </td>
-                          <td style={{padding:'12px 16px',fontFamily:'monospace',fontSize:11,color:C.slate}}>{st.admission_no||st.admission_number||'—'}</td>
-                          <td style={{padding:'12px 16px'}}><Badge label={st.formName} color={C.indigo} bg={C.indigoL}/></td>
-                          <td style={{padding:'12px 16px',textAlign:'right',fontWeight:900,color:C.green,fontSize:14}}>{KES(st.paid)}</td>
-                          <td style={{padding:'12px 16px',textAlign:'right',fontWeight:900,color:st.balance>0?C.red:C.green}}>{KES(st.balance)}</td>
-                          <td style={{padding:'12px 16px',minWidth:120}}>
-                            <div style={{display:'flex',alignItems:'center',gap:8}}>
-                              <span style={{fontSize:12,fontWeight:900,color:statusColor,minWidth:30}}>{st.rate}%</span>
-                              <div style={{flex:1}}><PBar value={st.rate} color={statusColor} height={5}/></div>
-                            </div>
+                          <td className="py-3 px-4 font-black text-slate-800">
+                            {st ? `${st.first_name} ${st.last_name}` : 'Unknown Student'}
                           </td>
-                          <td style={{padding:'12px 16px'}}><Badge label={statusLabel} color={statusColor} bg={st.balance===0?C.greenL:st.rate>=50?C.amberL:C.redL}/></td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-700">
+                              {p.payment_method || 'Cash'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-500">
+                            {p.payment_date}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-emerald-600">
+                            {KES(p.amount)}
+                          </td>
                         </tr>
                       );
                     })}
@@ -819,36 +1302,95 @@ export default function FeeDashboardPage() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
 
-            {/* Worst defaulters */}
-            <div style={{background:'#fff',borderRadius:20,border:`1px solid ${C.redBd}`,boxShadow:'0 1px 6px rgba(0,0,0,0.05)',overflow:'hidden'}}>
-              <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.redBd}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:22}}>🚨</span><div><div style={{fontWeight:900,fontSize:15,color:'#0f172a',fontFamily:"'Outfit',sans-serif"}}>Top Defaulters — Highest Outstanding</div><div style={{fontSize:11,color:C.slate}}>Students with largest unpaid fee balances</div></div></div>
-                <Link href="/dashboard/fees/defaulters" style={{background:C.red,color:'#fff',borderRadius:9,padding:'7px 16px',fontWeight:800,fontSize:12}}>Manage All →</Link>
+        {/* ══════════════════════════════════════════════════════════════
+            TAB 6: DEFAULTERS RECOVERY ENGINE
+        ══════════════════════════════════════════════════════════════ */}
+        {activeTab === 'defaulters' && (
+          <div className="space-y-6">
+            {/* Aging Risk Buckets */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+              {[
+                { label: 'Current (0–30d)', val: aging.d0, color: C.green, bg: C.greenL },
+                { label: 'Overdue 31–60d', val: aging.d30, color: C.amber, bg: C.amberL },
+                { label: 'Overdue 61–90d', val: aging.d60, color: '#ea580c', bg: '#fff7ed' },
+                { label: 'Overdue 91–180d', val: aging.d90, color: C.red, bg: C.redL },
+                { label: 'Critical 180d+', val: aging.d180, color: '#7f1d1d', bg: '#fef2f2' },
+              ].map((b, i) => (
+                <div key={i} className="p-4 rounded-2xl border" style={{ background: b.bg, borderColor: `${b.color}35` }}>
+                  <span className="text-[10px] font-black uppercase tracking-wider block mb-1" style={{ color: b.color }}>
+                    {b.label}
+                  </span>
+                  <div className="text-xl font-black font-mono text-slate-900">{KES(b.val)}</div>
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    {b.val > 0 ? `${pct(b.val, totalOutstanding)}% of arrears` : 'Cleared'}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Worst Defaulters List */}
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-black text-rose-900 tracking-tight flex items-center gap-2">
+                    <FiAlertTriangle className="text-rose-600" />
+                    <span>Prioritized Defaulters Clearance Ledger</span>
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Highest outstanding fee balances requiring immediate parent follow-up
+                  </p>
+                </div>
+                <button
+                  onClick={handleExportExcel}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-all"
+                >
+                  Export Defaulters →
+                </button>
               </div>
-              <div style={{overflowX:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,fontFamily:"'Inter',sans-serif"}}>
-                  <thead><tr style={{background:'#fef2f2',borderBottom:`2px solid ${C.redBd}`}}>
-                    {['#','Student','Form','Amount Paid','Balance Due','Rate','Action'].map(h=>(
-                      <th key={h} style={{padding:'10px 16px',textAlign:['Amount Paid','Balance Due'].includes(h)?'right':'left',fontWeight:800,fontSize:10,color:C.red,textTransform:'uppercase',letterSpacing:'0.07em'}}>{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {worstDefaulters.slice(0,10).map((st,i)=>(
-                      <tr key={st.id} style={{borderBottom:`1px solid ${C.slateL}`,background:i%2===0?'#fff':'#fafafa'}}>
-                        <td style={{padding:'12px 16px',fontWeight:900,color:C.red,fontSize:14}}>{i+1}</td>
-                        <td style={{padding:'12px 16px',fontWeight:800,color:'#0f172a'}}>{st.first_name} {st.last_name}</td>
-                        <td style={{padding:'12px 16px'}}><Badge label={st.formName} color={C.indigo} bg={C.indigoL}/></td>
-                        <td style={{padding:'12px 16px',textAlign:'right',fontWeight:700,color:C.green}}>{KES(st.paid)}</td>
-                        <td style={{padding:'12px 16px',textAlign:'right',fontWeight:900,color:C.red,fontSize:14}}>{KES(st.balance)}</td>
-                        <td style={{padding:'12px 16px',minWidth:120}}>
-                          <div style={{display:'flex',alignItems:'center',gap:8}}>
-                            <span style={{fontSize:12,fontWeight:900,color:C.red,minWidth:30}}>{st.rate}%</span>
-                            <div style={{flex:1}}><PBar value={st.rate} color={C.red} height={5}/></div>
-                          </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-rose-50/50 border-b border-rose-100 text-[10px] font-black uppercase text-rose-700 tracking-wider">
+                      <th className="py-3 px-4">#</th>
+                      <th className="py-3 px-4">Student</th>
+                      <th className="py-3 px-4">Track &amp; Form</th>
+                      <th className="py-3 px-4 text-right">Paid</th>
+                      <th className="py-3 px-4 text-right">Balance Due</th>
+                      <th className="py-3 px-4 text-center">Parent Contact</th>
+                      <th className="py-3 px-4 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {worstDefaulters.slice(0, 15).map((st, i) => (
+                      <tr key={st.id} className="hover:bg-rose-50/20 transition-colors">
+                        <td className="py-3 px-4 font-mono font-black text-rose-600">{i + 1}</td>
+                        <td className="py-3 px-4">
+                          <div className="font-black text-slate-900">{st.first_name} {st.last_name}</div>
+                          <span className="text-[10px] text-slate-400 font-mono">Adm: {st.admission_number || st.admission_no || '—'}</span>
                         </td>
-                        <td style={{padding:'12px 16px'}}>
-                          <Link href={`/dashboard/fees/statements?student=${st.id}`} style={{background:C.amberL,color:C.amber,border:`1px solid ${C.amberBd}`,borderRadius:8,padding:'5px 12px',fontSize:11,fontWeight:800}}>Statement</Link>
+                        <td className="py-3 px-4 font-bold text-slate-700">
+                          {st.formName} ({st.systemTag})
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-emerald-600 font-bold">{KES(st.totalPaid)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-rose-600 font-black text-sm">{KES(st.balance)}</td>
+                        <td className="py-3 px-4 text-center font-mono text-xs">
+                          {st.guardian_phone ? (
+                            <a href={`tel:${st.guardian_phone}`} className="text-blue-600 hover:underline flex items-center justify-center gap-1">
+                              <FiPhone size={10} /> {st.guardian_phone}
+                            </a>
+                          ) : '—'}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={() => openClearanceVoucher(st)}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50"
+                          >
+                            Notice
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -859,38 +1401,185 @@ export default function FeeDashboardPage() {
           </div>
         )}
 
-        {/* ════════════ ALL MODULES ════════════ */}
-        {activeTab==='modules'&&(
-          <div style={{display:'flex',flexDirection:'column',gap:26}} className="slide-up">
-            {(['Core','Ultra','Finance','Compliance'] as const).map(tier=>{
-              const mods=allModules.filter(m=>m.tier===tier);
-              const tm=tierMeta[tier];
-              return(
-                <div key={tier}>
-                  <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
-                    <span style={{background:tm.bg,color:tm.badge,fontSize:11,fontWeight:900,padding:'5px 14px',borderRadius:99,textTransform:'uppercase',letterSpacing:'0.08em'}}>{tm.icon} {tier}</span>
-                    <div style={{flex:1,height:1,background:C.slateBd}}/>
-                    <span style={{fontSize:11,color:C.slate,fontWeight:700}}>{mods.length} modules</span>
-                  </div>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(165px,1fr))',gap:12}}>
-                    {mods.map((m,i)=>(
-                      <Link key={i} href={m.href} className="fee-mod-card" style={{background:'#fff',borderRadius:16,padding:'18px 16px',border:`1.5px solid ${m.color}20`,display:'flex',flexDirection:'column',gap:8,boxShadow:'0 1px 4px rgba(0,0,0,0.05)',position:'relative',overflow:'hidden',color:'inherit'}}>
-                        <div style={{position:'absolute',top:-12,right:-12,width:50,height:50,borderRadius:'50%',background:m.color,opacity:0.07}}/>
-                        <div style={{width:40,height:40,borderRadius:12,background:`${m.color}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{m.icon}</div>
-                        <div style={{fontWeight:800,fontSize:13,color:'#0f172a',lineHeight:1.2,fontFamily:"'Inter',sans-serif"}}>{m.label}</div>
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:2}}>
-                          <Badge label={tier} color={tm.badge} bg={tm.bg}/>
-                          <FiArrowRight size={11} color={m.color}/>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+        {/* ══════════════════════════════════════════════════════════════
+            TAB 7: ALL 30 FINANCIAL MODULES HUB
+        ══════════════════════════════════════════════════════════════ */}
+        {activeTab === 'modules' && (
+          <div className="space-y-4">
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-5 shadow-[0_4px_24px_rgba(20,50,120,0.06)]">
+              <div className="mb-4">
+                <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                  APSIMS Financial Suite — All 30 Integrated Modules
+                </h3>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  Direct navigation to specialized billing, ledger, capitation, auditing, and accounting sub-systems
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {[
+                  { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💵', color: C.green },
+                  { label: 'Outstanding', href: '/dashboard/fees/outstanding', icon: '⏳', color: C.amber },
+                  { label: 'Payments List', href: '/dashboard/fees/payments', icon: '📋', color: C.blue },
+                  { label: 'Fee Structure', href: '/dashboard/fees/structure', icon: '🏗️', color: C.purple },
+                  { label: 'Statements', href: '/dashboard/fees/statements', icon: '📄', color: '#0891b2' },
+                  { label: 'Receipts', href: '/dashboard/fees/receipts', icon: '🧾', color: C.amber },
+                  { label: 'KCB Buni Push', href: '/dashboard/fees/mpesa-push', icon: '📱', color: C.green },
+                  { label: 'Fee Defaulters', href: '/dashboard/fees/defaulters', icon: '🚨', color: C.red },
+                  { label: 'Budget Module', href: '/dashboard/fees/budget', icon: '📊', color: C.blue },
+                  { label: 'Projections', href: '/dashboard/fees/projections', icon: '🔮', color: C.purple },
+                  { label: 'Board Report', href: '/dashboard/fees/reports/board', icon: '👔', color: '#0f172a' },
+                  { label: 'Export Centre', href: '/dashboard/fees/exports', icon: '📤', color: C.slate },
+                  { label: 'Bank Recon', href: '/dashboard/fees/bank-reconciliation', icon: '🏦', color: '#0c4a6e' },
+                  { label: 'Vote Ledger', href: '/dashboard/fees/vote-heads/ledger', icon: '📓', color: C.purple },
+                  { label: 'Capitation', href: '/dashboard/fees/capitation', icon: '🏫', color: C.green },
+                  { label: 'Notifications', href: '/dashboard/fees/notifications', icon: '🔔', color: '#713f12' },
+                  { label: 'P&L Statement', href: '/dashboard/fees/pl-statement', icon: '📈', color: C.red },
+                  { label: 'Trial Balance', href: '/dashboard/fees/trial-balance', icon: '⚖️', color: C.indigo },
+                  { label: 'Balance Sheet', href: '/dashboard/fees/balance-sheet', icon: '🏛️', color: C.blue },
+                  { label: 'Cash Book', href: '/dashboard/fees/cashbook', icon: '📓', color: C.teal },
+                  { label: 'Fee Analytics', href: '/dashboard/fees/analytics', icon: '🔬', color: C.indigo },
+                  { label: 'Bursary', href: '/dashboard/fees/bursary', icon: '🎓', color: C.pink },
+                  { label: 'Fee Waiver', href: '/dashboard/fees/fee-waiver', icon: '🎁', color: '#c026d3' },
+                  { label: 'Approvals', href: '/dashboard/fees/approval-workflow', icon: '✅', color: C.amber },
+                  { label: 'Audit Trail', href: '/dashboard/fees/audit', icon: '🔒', color: C.slate },
+                  { label: 'Demand Letters', href: '/dashboard/fees/demand-letters', icon: '✉️', color: C.red },
+                  { label: 'Reminders', href: '/dashboard/fees/reminder-scheduler', icon: '⏰', color: C.purple },
+                  { label: 'Govt Returns', href: '/dashboard/fees/government-returns', icon: '🏛️', color: '#1e293b' },
+                  { label: 'Bulk SMS/WA', href: '/dashboard/fees/bulk-reminders', icon: '📢', color: C.purple },
+                  { label: 'Aging Buckets', href: '/dashboard/fees/arrears-aging', icon: '📅', color: '#ea580c' },
+                ].map((m, i) => (
+                  <Link
+                    key={i}
+                    href={m.href}
+                    className="p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-blue-300 hover:shadow-md transition-all flex flex-col items-center text-center gap-2 group"
+                  >
+                    <span className="text-2xl group-hover:scale-110 transition-transform">{m.icon}</span>
+                    <span className="text-[11px] font-bold text-slate-700 leading-tight group-hover:text-blue-700">
+                      {m.label}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          OFFICIAL STUDENT FEE CLEARANCE VOUCHER MODAL
+      ══════════════════════════════════════════════════════════════ */}
+      {voucherStudent && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FiPrinter size={16} className="text-blue-400" />
+                <span className="text-xs font-black uppercase tracking-wider">Official Fee Clearance Voucher</span>
+              </div>
+              <button
+                onClick={() => setVoucherStudent(null)}
+                className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center"
+              >
+                <FiX size={14} />
+              </button>
+            </div>
+
+            {/* Printable Voucher Body */}
+            <div className="p-6 space-y-4 text-xs font-sans" id="clearance-voucher-print">
+              <div className="text-center pb-3 border-b border-slate-200 space-y-1">
+                <h2 className="text-base font-black uppercase text-slate-900 tracking-tight">{schoolDetails.school_name}</h2>
+                <p className="text-[10px] text-slate-500 italic">"{schoolDetails.school_motto}"</p>
+                <span className="inline-block px-3 py-0.5 rounded-full text-[9px] font-black bg-blue-50 text-blue-800 uppercase border border-blue-200">
+                  Republic of Kenya · Ministry of Education
+                </span>
+              </div>
+
+              {/* Student Details */}
+              <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div>
+                  <span className="text-[9px] font-black uppercase text-slate-400 block">Student Name</span>
+                  <strong className="text-slate-800 text-xs">{voucherStudent.first_name} {voucherStudent.last_name}</strong>
+                </div>
+                <div>
+                  <span className="text-[9px] font-black uppercase text-slate-400 block">Admission Number</span>
+                  <strong className="text-slate-800 font-mono text-xs">{voucherStudent.admission_number || voucherStudent.admission_no}</strong>
+                </div>
+                <div>
+                  <span className="text-[9px] font-black uppercase text-slate-400 block">Class &amp; Track</span>
+                  <strong className="text-slate-800 text-xs">{voucherStudent.formName} ({voucherStudent.systemTag})</strong>
+                </div>
+                <div>
+                  <span className="text-[9px] font-black uppercase text-slate-400 block">Academic Term</span>
+                  <strong className="text-slate-800 text-xs">{currentTerm?.term_name || 'Term 3'} · {currentYear}</strong>
+                </div>
+              </div>
+
+              {/* Fee Breakdown */}
+              <div className="space-y-2 border-t border-b border-slate-200 py-3">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Annual Tuition &amp; Levies Charged:</span>
+                  <strong className="font-mono text-slate-800">{KES(voucherStudent.annualTotal)}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total Payments Recorded:</span>
+                  <strong className="font-mono text-emerald-600">{KES(voucherStudent.totalPaid)}</strong>
+                </div>
+                <div className="flex justify-between text-sm pt-2 border-t border-slate-100">
+                  <span className="font-black text-slate-800">Current Outstanding Balance:</span>
+                  <strong className="font-mono font-black" style={{ color: voucherStudent.balance > 0 ? C.red : C.green }}>
+                    {KES(voucherStudent.balance)}
+                  </strong>
+                </div>
+              </div>
+
+              {/* Clearance Status Stamp */}
+              <div className="p-3 rounded-xl border flex items-center justify-between" style={{
+                background: voucherStudent.balance === 0 ? C.greenL : C.amberL,
+                borderColor: voucherStudent.balance === 0 ? C.greenBd : C.amberBd,
+              }}>
+                <div>
+                  <span className="text-[9px] font-black uppercase block" style={{ color: voucherStudent.balance === 0 ? C.green : C.amber }}>
+                    Official Clearance Status
+                  </span>
+                  <strong className="text-xs font-black uppercase" style={{ color: voucherStudent.balance === 0 ? C.green : C.amber }}>
+                    {voucherStudent.balance === 0 ? 'CLEARED FOR ACADEMIC TERM' : 'PROVISIONAL CLEARANCE / ARREARS PENDING'}
+                  </strong>
+                </div>
+                <span className="text-2xl">{voucherStudent.balance === 0 ? '✅' : '⚠️'}</span>
+              </div>
+
+              {/* Signature lines */}
+              <div className="grid grid-cols-2 gap-4 pt-4 text-[10px] text-slate-500">
+                <div className="border-t border-slate-300 pt-1 text-center">
+                  Bursar / Accounts Clerk
+                </div>
+                <div className="border-t border-slate-300 pt-1 text-center">
+                  Principal / Official Stamp
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                onClick={() => setVoucherStudent(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-all"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center gap-1.5 transition-all"
+              >
+                <FiPrinter size={13} />
+                <span>Print Official Voucher</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
