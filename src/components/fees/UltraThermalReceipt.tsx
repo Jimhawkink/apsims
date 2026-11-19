@@ -983,4 +983,212 @@ ${htmlSections}
   setTimeout(() => { w.print(); }, 400);
 }
 
+/**
+ * Super Premium A5 Dual Copy Receipt (Top: School Copy, Bottom: Student/Parent Copy)
+ * Perfect for Kenyan school accountants who need an official file copy and student copy on a single page!
+ */
+export function printA5DualReceipt(data: ReceiptData) {
+  const w = window.open('', '_blank');
+  if (!w) return;
+
+  const school = data.schoolName || 'ALPHA PREMIER SCHOOL';
+  const addr = data.schoolAddress || 'P.O. Box 000, Nairobi, Kenya';
+  const phone = data.schoolPhone || 'Tel: +254 700 000 000';
+  const dateStr = new Date(data.paymentDate).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const renderSingleVoucher = (copyTitle: string) => `
+    <div style="border: 1.5px solid #1e3a8a; border-radius: 8px; padding: 14px 18px; position: relative; background: #fff; font-family: 'Segoe UI', sans-serif;">
+      <div style="position: absolute; top: 12px; right: 14px; background: #1e3a8a; color: #fff; padding: 2px 8px; font-size: 8.5px; font-weight: 800; border-radius: 4px; text-transform: uppercase;">
+        ${copyTitle}
+      </div>
+
+      <div style="display: flex; gap: 12px; align-items: center; border-bottom: 1.5px solid #1e3a8a; padding-bottom: 8px; margin-bottom: 8px;">
+        <div>
+          <div style="font-size: 15px; font-weight: 900; color: #1e3a8a; text-transform: uppercase;">${school}</div>
+          <div style="font-size: 9.5px; color: #64748b;">${addr} | ${phone}</div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 8px; font-size: 10.5px;">
+        <div>
+          <div>Student: <strong>${data.studentName}</strong> (Adm: <strong>${data.admissionNo}</strong>)</div>
+          <div>Class / Stream: <strong>${data.formStream}</strong></div>
+        </div>
+        <div style="text-align: right;">
+          <div>Receipt No: <strong style="font-family: monospace; color: #1e3a8a;">${data.receiptNumber}</strong></div>
+          <div>Date: <strong>${dateStr}</strong></div>
+        </div>
+      </div>
+
+      <div style="background: #eff6ff; border: 1.5px solid #3b82f6; border-radius: 6px; padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div style="font-size: 9.5px; font-weight: 800; color: #1e40af; text-transform: uppercase;">
+          Amount Paid: ${data.paymentMethod} ${data.reference ? `(${data.reference})` : ''}
+        </div>
+        <div style="font-size: 18px; font-weight: 900; color: #1e3a8a; font-family: monospace;">
+          KES ${Number(data.amount || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; font-size: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; margin-bottom: 6px;">
+        <span>Term Balance Due: <strong style="color: ${(data.termBalance || 0) > 0 ? '#dc2626' : '#15803d'}">KES ${Number(data.termBalance || 0).toLocaleString('en-KE')}</strong></span>
+        <span>Total Paid (Cumulative): <strong style="color: #15803d;">KES ${Number(data.totalPaid || 0).toLocaleString('en-KE')}</strong></span>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; font-size: 9px; color: #64748b; margin-top: 6px;">
+        <div>Cashier: <strong>${data.cashier || 'Accounts Desk'}</strong></div>
+        <div>Official Stamp / Signature: _______________________</div>
+      </div>
+    </div>
+  `;
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Dual A5 Fee Receipt - ${data.receiptNumber}</title>
+<style>
+  @page { size: A4 portrait; margin: 10mm; }
+  @media print { .no-print { display: none !important; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fff; padding: 6px; }
+  .cut-divider {
+    text-align: center;
+    font-size: 10px;
+    color: #94a3b8;
+    margin: 14px 0;
+    border-top: 1.5px dashed #94a3b8;
+    position: relative;
+    padding-top: 4px;
+  }
+</style></head><body>
+${renderSingleVoucher('Original - School Accounts Copy')}
+<div class="cut-divider">✂ - - - - - - - - - - - - CUT HERE - - - - - - - - - - - - ✂</div>
+${renderSingleVoucher('Duplicate - Student / Parent Copy')}
+
+<div class="no-print" style="text-align: center; margin-top: 20px;">
+  <button onclick="window.print()" style="padding: 10px 24px; background: #1e3a8a; color: #fff; font-weight: 800; border: none; border-radius: 4px; cursor: pointer;">🖨️ PRINT DUAL A5 VOUCHERS</button>
+</div>
+</body></html>`);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 400);
+}
+
+export interface CashierShiftData {
+  cashierName: string;
+  date: string;
+  shiftNumber: string;
+  totalReceipts: number;
+  totalVolume: number;
+  mpesaVolume: number;
+  bankVolume: number;
+  cashVolume: number;
+  otherVolume: number;
+  payments: {
+    receiptNo: string;
+    studentName: string;
+    paymentMethod: string;
+    referenceNo: string;
+    amount: number;
+  }[];
+  schoolName: string;
+}
+
+/**
+ * Super Premium Official Cashier Shift Handover & Reconciliation Certificate
+ */
+export function printCashierShiftHandover(data: CashierShiftData) {
+  const w = window.open('', '_blank');
+  if (!w) return;
+
+  const dateStr = new Date(data.date).toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  const rows = data.payments.slice(0, 40).map((p, i) => `
+    <tr style="background: ${i % 2 === 1 ? '#f8fafc' : '#ffffff'}; font-size: 10px;">
+      <td style="padding: 4px 6px; text-align: center; border-bottom: 1px solid #e2e8f0;">${i + 1}</td>
+      <td style="padding: 4px 6px; font-family: monospace; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${p.receiptNo}</td>
+      <td style="padding: 4px 6px; border-bottom: 1px solid #e2e8f0;">${p.studentName}</td>
+      <td style="padding: 4px 6px; text-align: center; border-bottom: 1px solid #e2e8f0;">${p.paymentMethod}</td>
+      <td style="padding: 4px 6px; font-family: monospace; border-bottom: 1px solid #e2e8f0;">${p.referenceNo}</td>
+      <td style="padding: 4px 6px; text-align: right; font-weight: 700; color: #15803d; border-bottom: 1px solid #e2e8f0;">KES ${Number(p.amount || 0).toLocaleString('en-KE')}</td>
+    </tr>
+  `).join('');
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Cashier Shift Reconciliation - ${data.date}</title>
+<style>
+  @page { size: A4 portrait; margin: 12mm; }
+  @media print { .no-print { display: none !important; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #fff; padding: 16px; color: #0f172a; font-size: 11px; }
+  .header { border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 12px; }
+  .title { font-size: 18px; font-weight: 900; color: #1e3a8a; text-transform: uppercase; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .kpi-card { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; }
+  .kpi-lbl { font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase; }
+  .kpi-val { font-size: 15px; font-weight: 900; color: #1e3a8a; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #1e3a8a; color: #fff; padding: 5px 6px; font-size: 9.5px; text-transform: uppercase; }
+  .sign-grid { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .sign-line { border-top: 1.5px solid #0f172a; margin-top: 36px; padding-top: 4px; font-size: 10px; font-weight: 700; text-align: center; }
+</style></head><body>
+<div class="header">
+  <div class="title">${data.schoolName} — CASHIER SHIFT RECONCILIATION</div>
+  <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
+    Cashier: <strong>${data.cashierName}</strong> | Shift: <strong>#${data.shiftNumber}</strong> | Date: <strong>${dateStr}</strong>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-lbl">Total Shift Volume</div>
+    <div class="kpi-val">KES ${Number(data.totalVolume).toLocaleString('en-KE')}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-lbl">M-Pesa Digital Volume</div>
+    <div class="kpi-val" style="color:#15803d;">KES ${Number(data.mpesaVolume).toLocaleString('en-KE')}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-lbl">Counter Cash Volume</div>
+    <div class="kpi-val" style="color:#b45309;">KES ${Number(data.cashVolume).toLocaleString('en-KE')}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-lbl">Total Receipts Issued</div>
+    <div class="kpi-val">${data.totalReceipts} Receipts</div>
+  </div>
+</div>
+
+<div style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin-bottom: 6px; text-transform: uppercase;">
+  Shift Receipts Ledger (Sample First ${Math.min(40, data.payments.length)} of ${data.payments.length})
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 24px;">#</th>
+      <th>Receipt No</th>
+      <th style="text-align: left;">Student Name</th>
+      <th>Method</th>
+      <th>Reference</th>
+      <th style="text-align: right;">Amount (KES)</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rows}
+  </tbody>
+</table>
+
+<div class="sign-grid">
+  <div>
+    <div style="font-size: 9.5px; color: #64748b;">I certify that the above receipts and cash drawer match all settlements taken during my shift.</div>
+    <div class="sign-line">Outgoing Cashier: ${data.cashierName}</div>
+  </div>
+  <div>
+    <div style="font-size: 9.5px; color: #64748b;">Verified and accepted into school vault / main financial account.</div>
+    <div class="sign-line">Senior Bursar / Head of Finance</div>
+  </div>
+</div>
+
+<div class="no-print" style="text-align: center; margin-top: 20px;">
+  <button onclick="window.print()" style="padding: 8px 24px; background: #1e3a8a; color: #fff; font-weight: 800; border: none; border-radius: 4px; cursor: pointer;">🖨️ PRINT SHIFT HANDOVER</button>
+</div>
+</body></html>`);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 400);
+}
+
 

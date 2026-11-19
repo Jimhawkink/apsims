@@ -137,7 +137,7 @@ export default function SchemesPage() {
                                 <span className="text-[10px] font-bold text-amber-600">{s.total_weeks||0} weeks</span>
                                 {/* Coverage tracker */}
                                 {(s.total_lessons||0) > 0 && (() => {
-                                    const taught = s.lessons_taught || 0;
+                                    const taught = (s as any).lessons_taught || 0;
                                     const pct = Math.round((taught / (s.total_lessons||1)) * 100);
                                     return (
                                         <div className="flex-1 ml-2">
@@ -161,7 +161,7 @@ export default function SchemesPage() {
                                     e.stopPropagation();
                                     await supabase.from('school_schemes_of_work').update({ status: 'HOD Review' }).eq('id', s.id);
                                     toast.success('Submitted to HOD!');
-                                    loadSchemes();
+                                    load();
                                 }} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 transition">
                                     📤 Share to HOD
                                 </button>

@@ -348,7 +348,7 @@ export async function exportUltraPaymentsExcel({
     let maxLength = 0;
     column.eachCell?.({ includeEmpty: false }, (cell) => {
       const val = cell.value ? cell.value.toString() : '';
-      if (val.length > maxLength && cell.row > 3) maxLength = val.length;
+      if (val.length > maxLength && Number(cell.row) > 3) maxLength = val.length;
     });
     column.width = Math.max(maxLength + 4, 12);
   });

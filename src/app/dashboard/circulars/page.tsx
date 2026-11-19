@@ -243,7 +243,7 @@ export default function CircularsPage() {
                 </div>
               )}
               <div className="px-6 py-4 border-t border-gray-100 flex gap-2">
-                <button onClick={printStatement} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition">
+                <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition">
                   🖨️ Print
                 </button>
                 <button onClick={() => setSelected(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition">

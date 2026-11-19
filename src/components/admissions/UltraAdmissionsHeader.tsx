@@ -13,7 +13,6 @@ import {
   FiRefreshCw,
   FiGlobe,
   FiShield,
-  FiSparkles,
   FiSend,
 } from 'react-icons/fi';
 

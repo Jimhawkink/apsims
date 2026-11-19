@@ -15,9 +15,11 @@ import {
 import {
   printThermalReceipt,
   printA4OfficialReceipt,
+  printA5DualReceipt,
   printBulkThermalReceipts,
   printBulkA4Receipts,
   printPaymentsRegisterReport,
+  printCashierShiftHandover,
 } from '@/components/fees/UltraThermalReceipt';
 import {
   FiDollarSign,
@@ -43,6 +45,10 @@ import {
   FiCheckCircle,
   FiShield,
   FiSend,
+  FiScissors,
+  FiClock,
+  FiPlus,
+  FiCopy,
 } from 'react-icons/fi';
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -50,7 +56,7 @@ import {
    ══════════════════════════════════════════════════════════════════════════════ */
 type SortKey = 'payment_date' | 'amount' | 'student' | 'receipt_number' | 'payment_method';
 type SortDir = 'asc' | 'desc';
-type ViewMode = 'table' | 'grid' | 'analytics';
+type MainTab = 'ledger' | 'studio' | 'batch' | 'handover';
 type CurriculumFilter = 'ALL' | 'CBC_SENIOR' | '844_SEC' | 'JSS' | 'PRIMARY_CBC';
 
 const T = {
@@ -146,6 +152,9 @@ export default function FeeReceiptsPage() {
     fetchAll,
   } = useUltraFeeCollect();
 
+  // ── Workspaces & Tabs ──
+  const [activeTab, setActiveTab] = useState<MainTab>('ledger');
+
   // ── Intelligent Term Resolver (Guarantees Term is Never Blank!) ──
   const resolvePaymentTerm = useCallback(
     (p: any): { id: number; name: string } => {
@@ -194,17 +203,26 @@ export default function FeeReceiptsPage() {
   const [amtMax, setAmtMax] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // ── View, Sorting & Reduced Pagination ──
-  const [view, setView] = useState<ViewMode>('table');
+  // ── Sorting & Reduced Pagination ──
   const [sortKey, setSortKey] = useState<SortKey>('payment_date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10); // Reduced default row loading per user request
+  const [perPage, setPerPage] = useState(10); // Default reduced row loading per user request
 
   // ── Selections & Modals ──
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [previewPayment, setPreviewPayment] = useState<any>(null);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  // ── On-The-Fly Studio State ──
+  const [studioStudentId, setStudioStudentId] = useState<number | ''>('');
+  const [studioPaymentId, setStudioPaymentId] = useState<number | ''>('');
+  const [studioCustomNotes, setStudioCustomNotes] = useState('');
+  const [studioCashierName, setStudioCashierName] = useState('');
+
+  // ── Cashier Shift Handover State ──
+  const [handoverDate, setHandoverDate] = useState(new Date().toISOString().split('T')[0]);
+  const [handoverCashier, setHandoverCashier] = useState('Senior Bursar');
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -220,7 +238,7 @@ export default function FeeReceiptsPage() {
     return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
-  // Form list options
+  // Form options
   const formOptions = useMemo(() => {
     const s = new Set<string>();
     forms.forEach((f) => {
@@ -354,21 +372,34 @@ export default function FeeReceiptsPage() {
     const todayStr = new Date().toISOString().split('T')[0];
     let totalRevenue = 0;
     let todayVolume = 0;
+    let todayCount = 0;
     let mpesaVolume = 0;
+    let mpesaCount = 0;
     let bankVolume = 0;
+    let bankCount = 0;
     let cashVolume = 0;
+    let cashCount = 0;
     let bursaryVolume = 0;
 
     payments.forEach((p) => {
       const amt = Number(p.amount || 0);
       totalRevenue += amt;
-      if (p.payment_date === todayStr) todayVolume += amt;
+      if (p.payment_date === todayStr) {
+        todayVolume += amt;
+        todayCount += 1;
+      }
 
       const m = (p.payment_method || '').toLowerCase();
-      if (m.includes('pesa')) mpesaVolume += amt;
-      else if (m.includes('bank')) bankVolume += amt;
-      else if (m.includes('cash')) cashVolume += amt;
-      else if (m.includes('burs') || m.includes('grant') || m.includes('capitation') || m.includes('in-kind')) {
+      if (m.includes('pesa')) {
+        mpesaVolume += amt;
+        mpesaCount += 1;
+      } else if (m.includes('bank')) {
+        bankVolume += amt;
+        bankCount += 1;
+      } else if (m.includes('cash')) {
+        cashVolume += amt;
+        cashCount += 1;
+      } else {
         bursaryVolume += amt;
       }
     });
@@ -376,9 +407,13 @@ export default function FeeReceiptsPage() {
     return {
       totalRevenue,
       todayVolume,
+      todayCount,
       mpesaVolume,
+      mpesaCount,
       bankVolume,
+      bankCount,
       cashVolume,
+      cashCount,
       bursaryVolume,
       count: payments.length,
     };
@@ -473,44 +508,51 @@ export default function FeeReceiptsPage() {
   };
 
   // Helper to construct receipt payload
-  const buildReceiptData = (p: any) => {
-    const s = students.find((st: any) => st.id === p.student_id);
-    const formName = s ? getFormName(s.form_id) : '—';
-    const streamName = s ? getStreamName(s.stream_id) : '';
-    const fees = s ? getStudentFeeProfile(s.id) : null;
-    const termInfo = resolvePaymentTerm(p);
+  const buildReceiptData = useCallback(
+    (p: any) => {
+      const s = students.find((st: any) => st.id === p.student_id);
+      const formName = s ? getFormName(s.form_id) : '—';
+      const streamName = s ? getStreamName(s.stream_id) : '';
+      const fees = s ? getStudentFeeProfile(s.id) : null;
+      const termInfo = resolvePaymentTerm(p);
 
-    return {
-      receiptNumber: p.receipt_number || `REC-${p.id}`,
-      paymentDate: p.payment_date || new Date().toISOString().split('T')[0],
-      studentName: s ? `${s.first_name} ${s.last_name}` : 'Unknown Student',
-      admissionNo: s?.admission_no || s?.admission_number || '—',
-      formStream: `${formName}${streamName ? ' ' + streamName : ''}`,
-      parentName: s?.parent_name || s?.guardian_name || '',
-      parentPhone: s?.parent_phone || s?.emergency_contact || '',
-      paymentMethod: p.payment_method || 'Cash',
-      reference: p.mpesa_code || p.reference_number || p.bank_name || '',
-      amount: Number(p.amount || 0),
-      totalPaid: fees?.totalPaid || Number(p.amount || 0),
-      termFees: fees?.termTotal || 0,
-      termBalance: fees?.termBalance || 0,
-      annualFees: fees?.annualTotal || 0,
-      annualBalance: fees?.annualBalance || 0,
-      schoolName: settings?.school_name || 'ALPHA PREMIER SCHOOL',
-      schoolAddress: settings?.school_address || 'P.O. Box 000, Nairobi, Kenya',
-      schoolPhone: settings?.school_phone || 'Tel: +254 700 000 000',
-      schoolEmail: settings?.school_email || 'finance@alphapremier.ac.ke',
-      cashier: p.received_by || 'Cashier Command Desk',
-    };
-  };
+      return {
+        receiptNumber: p.receipt_number || `REC-${p.id}`,
+        paymentDate: p.payment_date || new Date().toISOString().split('T')[0],
+        studentName: s ? `${s.first_name} ${s.last_name}` : 'Unknown Student',
+        admissionNo: s?.admission_no || s?.admission_number || '—',
+        formStream: `${formName}${streamName ? ' ' + streamName : ''}`,
+        parentName: s?.parent_name || s?.guardian_name || '',
+        parentPhone: s?.parent_phone || s?.emergency_contact || '',
+        paymentMethod: p.payment_method || 'Cash',
+        reference: p.mpesa_code || p.reference_number || p.bank_name || '',
+        amount: Number(p.amount || 0),
+        totalPaid: fees?.totalPaid || Number(p.amount || 0),
+        termFees: fees?.termTotal || 0,
+        termBalance: fees?.termBalance || 0,
+        annualFees: fees?.annualTotal || 0,
+        annualBalance: fees?.annualBalance || 0,
+        schoolName: settings?.school_name || 'ALPHA PREMIER SCHOOL',
+        schoolAddress: settings?.school_address || 'P.O. Box 000, Nairobi, Kenya',
+        schoolPhone: settings?.school_phone || 'Tel: +254 700 000 000',
+        schoolEmail: settings?.school_email || 'finance@alphapremier.ac.ke',
+        cashier: p.received_by || studioCashierName || 'Cashier Command Desk',
+      };
+    },
+    [students, getFormName, getStreamName, getStudentFeeProfile, resolvePaymentTerm, settings, studioCashierName]
+  );
 
-  // Single Thermal & A4 Print Handlers
+  // Single Thermal, A4, and Dual A5 Print Handlers
   const handlePrintThermalReceipt = (p: any) => {
     printThermalReceipt(buildReceiptData(p));
   };
 
   const handlePrintA4Receipt = (p: any) => {
     printA4OfficialReceipt(buildReceiptData(p));
+  };
+
+  const handlePrintA5DualReceipt = (p: any) => {
+    printA5DualReceipt(buildReceiptData(p));
   };
 
   // Batch Print Handlers
@@ -522,7 +564,7 @@ export default function FeeReceiptsPage() {
     }
     const payloads = targets.map((p) => buildReceiptData(p));
     printBulkThermalReceipts(payloads);
-    toast.success(`Printing ${payloads.length} thermal receipts...`);
+    toast.success(`Batch streaming ${payloads.length} thermal receipts...`);
   };
 
   const handleBulkPrintA4 = () => {
@@ -533,7 +575,7 @@ export default function FeeReceiptsPage() {
     }
     const payloads = targets.map((p) => buildReceiptData(p));
     printBulkA4Receipts(payloads);
-    toast.success(`Printing ${payloads.length} official A4 vouchers...`);
+    toast.success(`Batch streaming ${payloads.length} official A4 vouchers...`);
   };
 
   const handlePrintRegister = () => {
@@ -560,6 +602,49 @@ export default function FeeReceiptsPage() {
       termName: termLabel,
       payments: reportRows,
       totalAmount,
+    });
+  };
+
+  // Cashier Handover Action
+  const handlePrintHandover = () => {
+    const dayPayments = payments.filter((p) => p.payment_date === handoverDate);
+    let totalVol = 0;
+    let mpesaVol = 0;
+    let bankVol = 0;
+    let cashVol = 0;
+    let otherVol = 0;
+
+    dayPayments.forEach((p) => {
+      const a = Number(p.amount || 0);
+      totalVol += a;
+      const m = (p.payment_method || '').toLowerCase();
+      if (m.includes('pesa')) mpesaVol += a;
+      else if (m.includes('bank')) bankVol += a;
+      else if (m.includes('cash')) cashVol += a;
+      else otherVol += a;
+    });
+
+    printCashierShiftHandover({
+      cashierName: handoverCashier || 'Bursar',
+      date: handoverDate,
+      shiftNumber: '1',
+      totalReceipts: dayPayments.length,
+      totalVolume: totalVol,
+      mpesaVolume: mpesaVol,
+      bankVolume: bankVol,
+      cashVolume: cashVol,
+      otherVolume: otherVol,
+      payments: dayPayments.map((p) => {
+        const s = students.find((st) => st.id === p.student_id);
+        return {
+          receiptNo: p.receipt_number || `REC-${p.id}`,
+          studentName: s ? `${s.first_name} ${s.last_name}` : 'Student',
+          paymentMethod: p.payment_method || 'Cash',
+          referenceNo: p.mpesa_code || p.reference_number || '—',
+          amount: p.amount,
+        };
+      }),
+      schoolName: settings?.school_name || 'ALPHA PREMIER SCHOOL',
     });
   };
 
@@ -742,7 +827,7 @@ export default function FeeReceiptsPage() {
                 ← Fees Desk
               </Link>
               <span style={{ color: T.muted }}>·</span>
-              <span style={{ fontSize: 11, fontWeight: 800, color: T.indigo }}>Receipts & PDF Vouchers</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: T.indigo }}>Receipts & PDF Document Center</span>
               <span
                 style={{
                   display: 'inline-flex',
@@ -758,7 +843,7 @@ export default function FeeReceiptsPage() {
                 }}
               >
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
-                OFFICIAL DISPATCH TERMINAL
+                OFFICIAL DOCUMENT DISPATCH
               </span>
             </div>
             <h1
@@ -774,23 +859,25 @@ export default function FeeReceiptsPage() {
                 gap: 8,
               }}
             >
-              <span>🧾</span> Official Fee Receipts & PDF Terminal
+              <span>🧾</span> Official Fee Receipts & Document Center
             </h1>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: T.sub }}>
-              {hudStats.count.toLocaleString()} receipts generated · Instant 80mm POS Thermal, Official A4 & WhatsApp · AlphaSIMS
+              {hudStats.count.toLocaleString()} issued receipts · Multi-mode 80mm POS, Executive A4 & 2-in-1 Dual A5 · AlphaSIMS
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {/* View Selector */}
+            {/* Workspace Tab Switcher */}
             <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3, gap: 2 }}>
-              {(['table', 'grid', 'analytics'] as ViewMode[]).map((v) => (
+              {[
+                { id: 'ledger', label: '🧾 Receipts Ledger', icon: '📋' },
+                { id: 'studio', label: '⚡ Receipt Studio', icon: '🎨' },
+                { id: 'batch', label: '📦 Batch Printing', icon: '🖨️' },
+                { id: 'handover', label: '📋 Shift Handover', icon: '⚖️' },
+              ].map((tab) => (
                 <button
-                  key={v}
-                  onClick={() => {
-                    setView(v);
-                    setPage(1);
-                  }}
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as MainTab)}
                   style={{
                     padding: '6px 12px',
                     borderRadius: 8,
@@ -799,14 +886,13 @@ export default function FeeReceiptsPage() {
                     fontSize: 11,
                     cursor: 'pointer',
                     fontFamily: "'Inter',sans-serif",
-                    background: view === v ? T.card : 'transparent',
-                    color: view === v ? T.indigo : T.sub,
-                    boxShadow: view === v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    background: activeTab === tab.id ? T.card : 'transparent',
+                    color: activeTab === tab.id ? T.indigo : T.sub,
+                    boxShadow: activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                     transition: 'all 0.15s',
-                    textTransform: 'capitalize',
                   }}
                 >
-                  {v === 'table' ? '📋 Table' : v === 'grid' ? '🗂️ Cards' : '📊 Analytics'}
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -908,1572 +994,1093 @@ export default function FeeReceiptsPage() {
 
       <main style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* ══════════════════════════════════════════════════════════════════════
-            2. DUAL-TRACK CURRICULUM SELECTION BAR
+            TAB 1: RECEIPTS LEDGER & DISPATCH
            ══════════════════════════════════════════════════════════════════════ */}
-        <div
-          style={{
-            background: T.card,
-            border: `1px solid ${T.border}`,
-            borderRadius: 14,
-            padding: '8px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 8,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 900, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Curriculum Track:
-            </span>
-          </div>
+        {activeTab === 'ledger' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }} className="fade-in">
+            {/* Dual-Track Curriculum Filter Bar */}
+            <div
+              style={{
+                background: T.card,
+                border: `1px solid ${T.border}`,
+                borderRadius: 14,
+                padding: '8px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 8,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 900, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Curriculum Track:
+                </span>
+              </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            {[
-              { id: 'ALL', label: 'All Curricula', icon: '🌐', count: payments.length },
-              {
-                id: 'CBC_SENIOR',
-                label: 'CBC Senior School (G10–12)',
-                icon: '🏛️',
-                count: payments.filter((p) => {
-                  const s = students.find((st) => st.id === p.student_id);
-                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'CBC_SENIOR';
-                }).length,
-              },
-              {
-                id: '844_SEC',
-                label: '8-4-4 Secondary (Forms 1–4)',
-                icon: '📚',
-                count: payments.filter((p) => {
-                  const s = students.find((st) => st.id === p.student_id);
-                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === '844_SEC';
-                }).length,
-              },
-              {
-                id: 'JSS',
-                label: 'JSS Junior Secondary (G7–9)',
-                icon: '🎓',
-                count: payments.filter((p) => {
-                  const s = students.find((st) => st.id === p.student_id);
-                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'JSS';
-                }).length,
-              },
-              {
-                id: 'PRIMARY_CBC',
-                label: 'Primary CBC (PP1–G6)',
-                icon: '🎒',
-                count: payments.filter((p) => {
-                  const s = students.find((st) => st.id === p.student_id);
-                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'PRIMARY_CBC';
-                }).length,
-              },
-            ].map((tab) => {
-              const active = curriculum === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setCurriculum(tab.id as CurriculumFilter);
-                    setPage(1);
-                  }}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 99,
-                    border: `1.5px solid ${active ? T.indigo : T.border}`,
-                    background: active ? T.indigoL : T.card,
-                    color: active ? T.indigo : T.sub,
-                    fontSize: 11,
-                    fontWeight: active ? 800 : 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <span>{tab.icon}</span>
-                  <span>{tab.label}</span>
-                  <span
-                    style={{
-                      background: active ? T.indigo : '#e2e8f0',
-                      color: active ? '#fff' : T.sub,
-                      borderRadius: 99,
-                      fontSize: 9,
-                      fontWeight: 900,
-                      padding: '1px 6px',
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { id: 'ALL', label: 'All Curricula', icon: '🌐', count: payments.length },
+                  {
+                    id: 'CBC_SENIOR',
+                    label: 'CBC Senior School (G10–12)',
+                    icon: '🏛️',
+                    count: payments.filter((p) => {
+                      const s = students.find((st) => st.id === p.student_id);
+                      return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'CBC_SENIOR';
+                    }).length,
+                  },
+                  {
+                    id: '844_SEC',
+                    label: '8-4-4 Secondary (Forms 1–4)',
+                    icon: '📚',
+                    count: payments.filter((p) => {
+                      const s = students.find((st) => st.id === p.student_id);
+                      return detectCurriculum(s ? getFormName(s.form_id) : '').track === '844_SEC';
+                    }).length,
+                  },
+                  {
+                    id: 'JSS',
+                    label: 'JSS Junior Secondary (G7–9)',
+                    icon: '🎓',
+                    count: payments.filter((p) => {
+                      const s = students.find((st) => st.id === p.student_id);
+                      return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'JSS';
+                    }).length,
+                  },
+                  {
+                    id: 'PRIMARY_CBC',
+                    label: 'Primary CBC (PP1–G6)',
+                    icon: '🎒',
+                    count: payments.filter((p) => {
+                      const s = students.find((st) => st.id === p.student_id);
+                      return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'PRIMARY_CBC';
+                    }).length,
+                  },
+                ].map((tab) => {
+                  const active = curriculum === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setCurriculum(tab.id as CurriculumFilter);
+                        setPage(1);
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 99,
+                        border: `1.5px solid ${active ? T.indigo : T.border}`,
+                        background: active ? T.indigoL : T.card,
+                        color: active ? T.indigo : T.sub,
+                        fontSize: 11,
+                        fontWeight: active ? 800 : 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span>{tab.icon}</span>
+                      <span>{tab.label}</span>
+                      <span
+                        style={{
+                          background: active ? T.indigo : '#e2e8f0',
+                          color: active ? '#fff' : T.sub,
+                          borderRadius: 99,
+                          fontSize: 9,
+                          fontWeight: 900,
+                          padding: '1px 6px',
+                        }}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 6-Card Executive HUD */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 14 }}>
+              {/* Card 1: Total Receipts Issued */}
+              <div style={{ background: T.card, border: `1.5px solid ${T.indigoBd}`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.indigoL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: T.indigo }}>🧾</div>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: T.indigo, background: T.indigoL, padding: '2px 8px', borderRadius: 99 }}>AUDIT LEDGER</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Receipts Issued</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: T.text, marginTop: 4, letterSpacing: '-0.02em' }}>{hudStats.count.toLocaleString()}</div>
+                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>100% verified computer receipts</div>
+              </div>
+
+              {/* Card 2: Cumulative Receipts Value */}
+              <div style={{ background: T.card, border: `1.5px solid ${T.greenBd}`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.greenL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: T.green }}>💰</div>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: T.green, background: T.greenL, padding: '2px 8px', borderRadius: 99 }}>TOTAL VALUE</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Receipts Value</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#15803d', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtK(hudStats.totalRevenue)}</div>
+                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>Cumulative reconciled revenue</div>
+              </div>
+
+              {/* Card 3: Today's Receipts */}
+              <div style={{ background: T.card, border: `1.5px solid ${T.amberBd}`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.amberL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📅</div>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: T.amber, background: T.amberL, padding: '2px 8px', borderRadius: 99 }}>TODAY</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Today's Receipts</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#b45309', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtK(hudStats.todayVolume)}</div>
+                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>{hudStats.todayCount} receipts today</div>
+              </div>
+
+              {/* Card 4: M-Pesa Digital Receipts */}
+              <div style={{ background: T.card, border: `1.5px solid #bbf7d0`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📱</div>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: '#15803d', background: '#f0fdf4', padding: '2px 8px', borderRadius: 99 }}>PAYBILL</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>M-Pesa Receipts</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#15803d', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtK(hudStats.mpesaVolume)}</div>
+                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>{hudStats.mpesaCount} digital slips</div>
+              </div>
+
+              {/* Card 5: Bank Transfers & Slips */}
+              <div style={{ background: T.card, border: `1.5px solid ${T.blueBd}`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.blueL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🏦</div>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: T.blue, background: T.blueL, padding: '2px 8px', borderRadius: 99 }}>BANK SLIPS</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Bank Receipts</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: T.blue, marginTop: 4, letterSpacing: '-0.02em' }}>{fmtK(hudStats.bankVolume)}</div>
+                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>{hudStats.bankCount} verified slips</div>
+              </div>
+
+              {/* Card 6: Cash Counter Drawer */}
+              <div style={{ background: T.card, border: `1.5px solid ${T.tealBd}`, borderRadius: 16, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.tealL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💵</div>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: T.teal, background: T.tealL, padding: '2px 8px', borderRadius: 99 }}>COUNTER</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cashier Counter Slips</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#0f766e', marginTop: 4, letterSpacing: '-0.02em' }}>{fmtK(hudStats.cashVolume)}</div>
+                <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>{hudStats.cashCount} counter drawer receipts</div>
+              </div>
+            </div>
+
+            {/* Side-by-Side SVG Charts */}
+            <UltraPaymentsCharts
+              methodMetrics={chartMethodMetrics}
+              dailyTrends={chartDailyTrends}
+              grandTotal={totalAmount}
+              totalCount={filtered.length}
+            />
+
+            {/* Filter Matrix */}
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: '1', minWidth: 240 }}>
+                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, pointerEvents: 'none', color: T.muted }}>🔍</span>
+                  <input
+                    ref={searchRef}
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
                     }}
-                  >
-                    {tab.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                    placeholder="Search receipt #, student name, adm no, M-Pesa code… (Ctrl+F)"
+                    style={{
+                      width: '100%',
+                      padding: '9px 36px 9px 34px',
+                      borderRadius: 10,
+                      border: `1.5px solid ${T.border}`,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: T.text,
+                      background: T.bg,
+                      outline: 'none',
+                    }}
+                  />
+                  {search && (
+                    <button
+                      onClick={() => {
+                        setSearch('');
+                        setPage(1);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: 10,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: 16,
+                        color: T.muted,
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            3. EXECUTIVE FINANCIAL & RECEIPT HUD (6 METRICS)
-           ══════════════════════════════════════════════════════════════════════ */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 14 }}>
-          {/* Card 1: Total Receipts Issued */}
-          <div
-            style={{
-              background: T.card,
-              border: `1.5px solid ${T.indigoBd}`,
-              borderRadius: 16,
-              padding: '16px 18px',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: T.indigoL,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                  color: T.indigo,
-                }}
-              >
-                🧾
-              </div>
-              <span style={{ fontSize: 10, fontWeight: 800, color: T.indigo, background: T.indigoL, padding: '2px 8px', borderRadius: 99 }}>
-                LEDGER
-              </span>
-            </div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Total Receipts Issued
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: T.text, marginTop: 4, letterSpacing: '-0.02em' }}>
-              {hudStats.count.toLocaleString()}
-            </div>
-            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
-              100% verified computer receipts
-            </div>
-          </div>
+                {['M-Pesa', 'Cash', 'Bank Transfer', 'Cheque'].map((m) => {
+                  const meta = getMethodMeta(m);
+                  const active = filterMethod === m;
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setFilterMethod(active ? '' : m);
+                        setPage(1);
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: 10,
+                        border: `1.5px solid ${active ? meta.dot : T.border}`,
+                        background: active ? meta.bg : T.card,
+                        color: active ? meta.text : T.sub,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 5,
+                      }}
+                    >
+                      <span>{meta.icon}</span>
+                      <span>{m}</span>
+                    </button>
+                  );
+                })}
 
-          {/* Card 2: Cumulative Receipts Value */}
-          <div
-            style={{
-              background: T.card,
-              border: `1.5px solid ${T.greenBd}`,
-              borderRadius: 16,
-              padding: '16px 18px',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: T.greenL,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                  color: T.green,
-                }}
-              >
-                💰
-              </div>
-              <span style={{ fontSize: 10, fontWeight: 800, color: T.green, background: T.greenL, padding: '2px 8px', borderRadius: 99 }}>
-                TOTAL VALUE
-              </span>
-            </div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Total Receipts Value
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: '#15803d', marginTop: 4, letterSpacing: '-0.02em' }}>
-              {fmtK(hudStats.totalRevenue)}
-            </div>
-            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
-              Cumulative reconciled revenue
-            </div>
-          </div>
-
-          {/* Card 3: Today's Collections */}
-          <div
-            style={{
-              background: T.card,
-              border: `1.5px solid ${T.amberBd}`,
-              borderRadius: 16,
-              padding: '16px 18px',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: T.amberL,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                }}
-              >
-                📅
-              </div>
-              <span style={{ fontSize: 10, fontWeight: 800, color: T.amber, background: T.amberL, padding: '2px 8px', borderRadius: 99 }}>
-                TODAY
-              </span>
-            </div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Today's Receipts
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: '#b45309', marginTop: 4, letterSpacing: '-0.02em' }}>
-              {fmtK(hudStats.todayVolume)}
-            </div>
-            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
-              Dispatched today
-            </div>
-          </div>
-
-          {/* Card 4: M-Pesa Digital Receipts */}
-          <div
-            style={{
-              background: T.card,
-              border: `1.5px solid #bbf7d0`,
-              borderRadius: 16,
-              padding: '16px 18px',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: '#f0fdf4',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                }}
-              >
-                📱
-              </div>
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#15803d', background: '#f0fdf4', padding: '2px 8px', borderRadius: 99 }}>
-                PAYBILL
-              </span>
-            </div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              M-Pesa Receipts
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: '#15803d', marginTop: 4, letterSpacing: '-0.02em' }}>
-              {fmtK(hudStats.mpesaVolume)}
-            </div>
-            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
-              Automated M-Pesa receipts
-            </div>
-          </div>
-
-          {/* Card 5: Bank Slips & Transfers */}
-          <div
-            style={{
-              background: T.card,
-              border: `1.5px solid ${T.blueBd}`,
-              borderRadius: 16,
-              padding: '16px 18px',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: T.blueL,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                }}
-              >
-                🏦
-              </div>
-              <span style={{ fontSize: 10, fontWeight: 800, color: T.blue, background: T.blueL, padding: '2px 8px', borderRadius: 99 }}>
-                BANK SLIPS
-              </span>
-            </div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Bank Receipts
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: T.blue, marginTop: 4, letterSpacing: '-0.02em' }}>
-              {fmtK(hudStats.bankVolume)}
-            </div>
-            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
-              KCB, Equity, Co-op transfers
-            </div>
-          </div>
-
-          {/* Card 6: Cash Counter Drawer */}
-          <div
-            style={{
-              background: T.card,
-              border: `1.5px solid ${T.tealBd}`,
-              borderRadius: 16,
-              padding: '16px 18px',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: T.tealL,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                }}
-              >
-                💵
-              </div>
-              <span style={{ fontSize: 10, fontWeight: 800, color: T.teal, background: T.tealL, padding: '2px 8px', borderRadius: 99 }}>
-                CASH COUNTER
-              </span>
-            </div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Cashier Slips
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: '#0f766e', marginTop: 4, letterSpacing: '-0.02em' }}>
-              {fmtK(hudStats.cashVolume)}
-            </div>
-            <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>
-              Counter receipts & drawer
-            </div>
-          </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            4. SIDE-BY-SIDE ANALYTICS CHARTS (Channel Bar + Spline Curve)
-           ══════════════════════════════════════════════════════════════════════ */}
-        <UltraPaymentsCharts
-          methodMetrics={chartMethodMetrics}
-          dailyTrends={chartDailyTrends}
-          grandTotal={totalAmount}
-          totalCount={filtered.length}
-        />
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            5. ADVANCED QUERY & FILTER MATRIX
-           ══════════════════════════════════════════════════════════════════════ */}
-        <div
-          style={{
-            background: T.card,
-            border: `1px solid ${T.border}`,
-            borderRadius: 16,
-            padding: '16px 18px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-          }}
-        >
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {/* Search Input */}
-            <div style={{ position: 'relative', flex: '1', minWidth: 240 }}>
-              <span
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontSize: 14,
-                  pointerEvents: 'none',
-                  color: T.muted,
-                }}
-              >
-                🔍
-              </span>
-              <input
-                ref={searchRef}
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                placeholder="Search receipt #, student name, adm no, M-Pesa code… (Ctrl+F)"
-                style={{
-                  width: '100%',
-                  padding: '9px 36px 9px 34px',
-                  borderRadius: 10,
-                  border: `1.5px solid ${T.border}`,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: T.text,
-                  background: T.bg,
-                  outline: 'none',
-                }}
-              />
-              {search && (
                 <button
-                  onClick={() => {
-                    setSearch('');
-                    setPage(1);
-                  }}
-                  style={{
-                    position: 'absolute',
-                    right: 10,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: 16,
-                    color: T.muted,
-                  }}
-                >
-                  ×
-                </button>
-              )}
-            </div>
-
-            {/* Quick Channel Pills */}
-            {['M-Pesa', 'Cash', 'Bank Transfer', 'Cheque'].map((m) => {
-              const meta = getMethodMeta(m);
-              const active = filterMethod === m;
-              return (
-                <button
-                  key={m}
-                  onClick={() => {
-                    setFilterMethod(active ? '' : m);
-                    setPage(1);
-                  }}
+                  onClick={() => setShowFilters((s) => !s)}
                   style={{
                     padding: '8px 12px',
                     borderRadius: 10,
-                    border: `1.5px solid ${active ? meta.dot : T.border}`,
-                    background: active ? meta.bg : T.card,
-                    color: active ? meta.text : T.sub,
+                    border: `1.5px solid ${showFilters || hasFilters ? T.indigo : T.border}`,
+                    background: showFilters || hasFilters ? T.indigoL : T.card,
+                    color: showFilters || hasFilters ? T.indigo : T.sub,
                     fontSize: 11,
                     fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 5,
+                    gap: 6,
                   }}
                 >
-                  <span>{meta.icon}</span>
-                  <span>{m}</span>
-                </button>
-              );
-            })}
-
-            {/* Filter Toggle */}
-            <button
-              onClick={() => setShowFilters((s) => !s)}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 10,
-                border: `1.5px solid ${showFilters || hasFilters ? T.indigo : T.border}`,
-                background: showFilters || hasFilters ? T.indigoL : T.card,
-                color: showFilters || hasFilters ? T.indigo : T.sub,
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <FiFilter />
-              <span>More Filters</span>
-              {hasFilters && (
-                <span
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: '50%',
-                    background: T.indigo,
-                    color: '#fff',
-                    fontSize: 9,
-                    fontWeight: 900,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  !
-                </span>
-              )}
-            </button>
-
-            {hasFilters && (
-              <button
-                onClick={clearFilters}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 10,
-                  border: `1.5px solid #fecaca`,
-                  background: '#fef2f2',
-                  color: T.red,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-              >
-                <FiX />
-                <span>Reset</span>
-              </button>
-            )}
-
-            {/* Reduced Row Count Selector */}
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: T.sub }}>Rows:</span>
-              <select
-                value={perPage}
-                onChange={(e) => {
-                  setPerPage(Number(e.target.value));
-                  setPage(1);
-                }}
-                style={{
-                  padding: '7px 10px',
-                  borderRadius: 10,
-                  border: `1.5px solid ${T.border}`,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: T.text,
-                  background: T.card,
-                  cursor: 'pointer',
-                }}
-              >
-                {[10, 15, 25, 50].map((n) => (
-                  <option key={n} value={n}>
-                    {n} rows / page
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Expandable Advanced Options */}
-          {showFilters && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill,minmax(145px,1fr))',
-                gap: 10,
-                marginTop: 12,
-                paddingTop: 12,
-                borderTop: `1px solid ${T.border}`,
-              }}
-            >
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  Form / Class
-                </label>
-                <select
-                  value={filterForm}
-                  onChange={(e) => {
-                    setFilterForm(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
-                >
-                  <option value="">All Classes</option>
-                  {formOptions.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  Academic Term
-                </label>
-                <select
-                  value={filterTerm}
-                  onChange={(e) => {
-                    setFilterTerm(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
-                >
-                  <option value="">All Terms</option>
-                  {terms.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.term_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  From Date
-                </label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => {
-                    setDateFrom(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  To Date
-                </label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => {
-                    setDateTo(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  Min Amount (KES)
-                </label>
-                <input
-                  type="number"
-                  placeholder="Min KES"
-                  value={amtMin}
-                  onChange={(e) => {
-                    setAmtMin(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  Max Amount (KES)
-                </label>
-                <input
-                  type="number"
-                  placeholder="Max KES"
-                  value={amtMax}
-                  onChange={(e) => {
-                    setAmtMax(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ── Results Bar & Bulk Actions ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>
-              Showing {filtered.length === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of{' '}
-              <strong style={{ color: T.text }}>{filtered.length.toLocaleString()}</strong> receipts{' '}
-              {hasFilters && <span style={{ color: T.indigo }}>(filtered)</span>}
-            </span>
-
-            {selected.size > 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  background: T.indigoL,
-                  border: `1px solid ${T.indigoBd}`,
-                  borderRadius: 8,
-                  padding: '3px 10px',
-                }}
-              >
-                <span style={{ fontSize: 11, fontWeight: 800, color: T.indigo }}>{selected.size} selected</span>
-                <button
-                  onClick={() => setSelected(new Set())}
-                  style={{ fontSize: 10, color: T.muted, background: 'none', border: 'none', cursor: 'pointer' }}
-                >
-                  ✕ clear
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button
-              onClick={handlePrintRegister}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: T.indigo,
-                cursor: 'pointer',
-                fontSize: 11,
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <FiPrinter /> Print Register (A4 Landscape)
-            </button>
-            <span style={{ color: T.muted }}>·</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>Page Volume:</span>
-            <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>
-              {fmt(paginated.reduce((s, p) => s + Number(p.amount || 0), 0))}
-            </span>
-            <span style={{ color: T.muted }}>·</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>Total:</span>
-            <span style={{ fontSize: 14, fontWeight: 900, color: T.indigo }}>{fmt(totalAmount)}</span>
-          </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            6. COMPACT & RESPONSIVE DATAGRID (TABLE VIEW)
-           ══════════════════════════════════════════════════════════════════════ */}
-        {view === 'table' && (
-          <div
-            style={{
-              background: T.card,
-              border: `1px solid ${T.border}`,
-              borderRadius: 16,
-              overflow: 'hidden',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
-            }}
-            className="fade-in"
-          >
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: "'Inter',sans-serif" }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: `2px solid ${T.border}` }}>
-                    <th style={{ padding: '10px 12px', width: 38 }}>
-                      <input
-                        type="checkbox"
-                        checked={isAllPageSelected}
-                        onChange={toggleSelectAll}
-                        style={{ width: 14, height: 14, accentColor: T.indigo, cursor: 'pointer' }}
-                      />
-                    </th>
-                    <th style={{ padding: '10px 12px', textAlign: 'left' }}>
-                      <button
-                        onClick={() => handleSort('receipt_number')}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          fontSize: 10,
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          color: sortKey === 'receipt_number' ? T.indigo : T.sub,
-                        }}
-                      >
-                        Receipt # {sortKey === 'receipt_number' && (sortDir === 'asc' ? '↑' : '↓')}
-                      </button>
-                    </th>
-                    <th style={{ padding: '10px 12px', textAlign: 'left' }}>
-                      <button
-                        onClick={() => handleSort('student')}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          fontSize: 10,
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          color: sortKey === 'student' ? T.indigo : T.sub,
-                        }}
-                      >
-                        Student / Adm {sortKey === 'student' && (sortDir === 'asc' ? '↑' : '↓')}
-                      </button>
-                    </th>
-                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>
-                      Track & Class
-                    </th>
-                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>
-                      <button
-                        onClick={() => handleSort('amount')}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          fontSize: 10,
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          marginLeft: 'auto',
-                          color: sortKey === 'amount' ? T.indigo : T.sub,
-                        }}
-                      >
-                        Amount (KES) {sortKey === 'amount' && (sortDir === 'asc' ? '↑' : '↓')}
-                      </button>
-                    </th>
-                    <th style={{ padding: '10px 12px', textAlign: 'left' }}>
-                      <button
-                        onClick={() => handleSort('payment_method')}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          fontSize: 10,
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          color: sortKey === 'payment_method' ? T.indigo : T.sub,
-                        }}
-                      >
-                        Method {sortKey === 'payment_method' && (sortDir === 'asc' ? '↑' : '↓')}
-                      </button>
-                    </th>
-                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>
-                      Ref / Slip / Code
-                    </th>
-                    <th style={{ padding: '10px 12px', textAlign: 'left' }}>
-                      <button
-                        onClick={() => handleSort('payment_date')}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          fontSize: 10,
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          color: sortKey === 'payment_date' ? T.indigo : T.sub,
-                        }}
-                      >
-                        Date {sortKey === 'payment_date' && (sortDir === 'asc' ? '↑' : '↓')}
-                      </button>
-                    </th>
-                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>
-                      Term
-                    </th>
-                    <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>
-                      Receipt Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={10} style={{ padding: '40px 20px', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: T.indigo, fontWeight: 700 }}>
-                          <FiRefreshCw className="animate-spin" />
-                          <span>Loading receipts from database...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : paginated.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} style={{ padding: '50px 20px', textAlign: 'center' }}>
-                        <div style={{ fontSize: 32, marginBottom: 6 }}>🧾</div>
-                        <div style={{ fontWeight: 800, fontSize: 14, color: T.text }}>No receipts found</div>
-                        <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>
-                          Try clearing filters or adjusting your date range.
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    paginated.map((p) => {
-                      const s = students.find((st) => st.id === p.student_id);
-                      const fName = s ? getFormName(s.form_id) : '—';
-                      const stName = s ? getStreamName(s.stream_id) : '';
-                      const { label: curLabel, badgeColor } = detectCurriculum(fName);
-                      const termInfo = resolvePaymentTerm(p);
-                      const isSel = selected.has(p.id);
-                      const meta = getMethodMeta(p.payment_method);
-                      const initials = s ? `${s.first_name?.[0] || ''}${s.last_name?.[0] || ''}`.toUpperCase() : '?';
-
-                      return (
-                        <tr
-                          key={p.id}
-                          className="pay-row"
-                          onClick={() => setPreviewPayment(p)}
-                          style={{
-                            borderBottom: `1px solid ${T.border}`,
-                            background: isSel ? T.indigoL : '#fff',
-                            cursor: 'pointer',
-                            transition: 'background 0.12s',
-                          }}
-                        >
-                          {/* Checkbox */}
-                          <td style={{ padding: '8px 12px' }} onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={isSel}
-                              onChange={() => toggleSelectOne(p.id)}
-                              style={{ width: 14, height: 14, accentColor: T.indigo, cursor: 'pointer' }}
-                            />
-                          </td>
-
-                          {/* Receipt # */}
-                          <td style={{ padding: '8px 12px' }}>
-                            <span
-                              style={{
-                                fontFamily: 'monospace',
-                                fontSize: 11,
-                                fontWeight: 800,
-                                color: T.indigo,
-                                background: T.indigoL,
-                                border: `1px solid ${T.indigoBd}`,
-                                padding: '2px 7px',
-                                borderRadius: 6,
-                              }}
-                            >
-                              {p.receipt_number || `REC-${p.id}`}
-                            </span>
-                          </td>
-
-                          {/* Student Info */}
-                          <td style={{ padding: '8px 12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div
-                                style={{
-                                  width: 28,
-                                  height: 28,
-                                  borderRadius: 8,
-                                  background: '#e0e7ff',
-                                  color: '#3730a3',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: 10,
-                                  fontWeight: 900,
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {initials}
-                              </div>
-                              <div>
-                                <div style={{ fontWeight: 800, fontSize: 12, color: T.text }}>
-                                  {s ? `${s.first_name} ${s.last_name}` : <span style={{ color: T.muted }}>Unknown Student</span>}
-                                </div>
-                                <div style={{ fontSize: 10, color: T.muted, fontFamily: 'monospace', marginTop: 1 }}>
-                                  Adm: {s?.admission_no || s?.admission_number || '—'}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Curriculum Track & Class */}
-                          <td style={{ padding: '8px 12px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: T.text }}>
-                                {fName} {stName}
-                              </span>
-                              <span
-                                style={{
-                                  fontSize: 9,
-                                  fontWeight: 800,
-                                  padding: '1px 6px',
-                                  borderRadius: 99,
-                                  width: 'fit-content',
-                                  border: '1px solid',
-                                }}
-                                className={badgeColor}
-                              >
-                                {curLabel}
-                              </span>
-                            </div>
-                          </td>
-
-                          {/* Amount */}
-                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                            <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>
-                              {fmt(Number(p.amount || 0))}
-                            </span>
-                          </td>
-
-                          {/* Method */}
-                          <td style={{ padding: '8px 12px' }}>
-                            <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                padding: '2px 8px',
-                                borderRadius: 99,
-                                background: meta.bg,
-                                color: meta.text,
-                                fontSize: 10,
-                                fontWeight: 800,
-                                border: `1px solid ${meta.dot}40`,
-                              }}
-                            >
-                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: meta.dot }} />
-                              <span>{meta.icon}</span>
-                              <span>{p.payment_method || 'Cash'}</span>
-                            </span>
-                          </td>
-
-                          {/* Ref / Code */}
-                          <td style={{ padding: '8px 12px' }}>
-                            <span style={{ fontFamily: 'monospace', fontSize: 11, color: T.sub }}>
-                              {p.mpesa_code || p.reference_number || p.bank_name || '—'}
-                            </span>
-                          </td>
-
-                          {/* Date */}
-                          <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: T.sub }}>{fmtDate(p.payment_date)}</span>
-                          </td>
-
-                          {/* Term */}
-                          <td style={{ padding: '8px 12px' }}>
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 800,
-                                color: '#6d28d9',
-                                background: '#faf5ff',
-                                border: '1px solid #ddd6fe',
-                                padding: '2px 7px',
-                                borderRadius: 6,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {termInfo.name}
-                            </span>
-                          </td>
-
-                          {/* Actions */}
-                          <td style={{ padding: '8px 12px' }} onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                              {/* Thermal Print */}
-                              <button
-                                onClick={() => handlePrintThermalReceipt(p)}
-                                title="Print 80mm Cashier Thermal Receipt"
-                                style={{
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: 7,
-                                  border: `1px solid ${T.border}`,
-                                  background: T.card,
-                                  color: T.green,
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                }}
-                              >
-                                <FiPrinter size={13} />
-                              </button>
-
-                              {/* Official A4 Voucher Print */}
-                              <button
-                                onClick={() => handlePrintA4Receipt(p)}
-                                title="Print Official A4 Voucher Receipt"
-                                style={{
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: 7,
-                                  border: `1px solid #bfdbfe`,
-                                  background: '#eff6ff',
-                                  color: '#1d4ed8',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                }}
-                              >
-                                <FiFileText size={13} />
-                              </button>
-
-                              {/* WhatsApp Dispatch */}
-                              <button
-                                onClick={() => handleSendWhatsAppReceipt(p)}
-                                title="Send Official Receipt via WhatsApp"
-                                style={{
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: 7,
-                                  border: `1px solid #bbf7d0`,
-                                  background: '#f0fdf4',
-                                  color: '#15803d',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                }}
-                              >
-                                <FiShare2 size={13} />
-                              </button>
-
-                              {/* Preview Details */}
-                              <button
-                                onClick={() => setPreviewPayment(p)}
-                                title="View Full Receipt Details"
-                                style={{
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: 7,
-                                  border: `1px solid ${T.border}`,
-                                  background: T.card,
-                                  color: T.indigo,
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                }}
-                              >
-                                <FiEye size={13} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-
-                {/* Sticky Summary Footer */}
-                {paginated.length > 0 && (
-                  <tfoot>
-                    <tr style={{ background: '#f8fafc', borderTop: `2px solid ${T.border}` }}>
-                      <td colSpan={4} style={{ padding: '10px 12px' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>
-                          Page Subtotal ({paginated.length} records):
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                        <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>
-                          {fmt(paginated.reduce((s, p) => s + Number(p.amount || 0), 0))}
-                        </span>
-                      </td>
-                      <td colSpan={5} style={{ padding: '10px 12px', textAlign: 'right' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>
-                          Total Receipts Volume: <strong style={{ color: T.indigo }}>{fmt(totalAmount)}</strong>
-                        </span>
-                      </td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-
-            {/* ── Compact Pagination Bar ── */}
-            {totalPages > 1 && (
-              <div
-                style={{
-                  padding: '10px 18px',
-                  borderTop: `1px solid ${T.border}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: '#ffffff',
-                }}
-              >
-                <div style={{ fontSize: 11, color: T.sub, fontWeight: 600 }}>
-                  Page <strong>{page}</strong> of <strong>{totalPages}</strong>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <button
-                    onClick={() => setPage(1)}
-                    disabled={page === 1}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 7,
-                      border: `1px solid ${T.border}`,
-                      background: T.card,
-                      cursor: page === 1 ? 'not-allowed' : 'pointer',
-                      fontSize: 11,
-                      fontWeight: 800,
-                      color: T.sub,
-                      opacity: page === 1 ? 0.4 : 1,
-                    }}
-                  >
-                    «
-                  </button>
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 7,
-                      border: `1px solid ${T.border}`,
-                      background: T.card,
-                      cursor: page === 1 ? 'not-allowed' : 'pointer',
-                      fontSize: 11,
-                      fontWeight: 800,
-                      color: T.sub,
-                      opacity: page === 1 ? 0.4 : 1,
-                    }}
-                  >
-                    ‹
-                  </button>
-
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pg = i + 1;
-                    if (totalPages > 5 && page > 3) {
-                      pg = Math.min(page - 2 + i, totalPages - 4 + i);
-                    }
-                    return (
-                      <button
-                        key={pg}
-                        onClick={() => setPage(pg)}
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 7,
-                          border: `1px solid ${page === pg ? T.indigo : T.border}`,
-                          background: page === pg ? T.indigo : T.card,
-                          color: page === pg ? '#fff' : T.sub,
-                          fontSize: 11,
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {pg}
-                      </button>
-                    );
-                  })}
-
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 7,
-                      border: `1px solid ${T.border}`,
-                      background: T.card,
-                      cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                      fontSize: 11,
-                      fontWeight: 800,
-                      color: T.sub,
-                      opacity: page === totalPages ? 0.4 : 1,
-                    }}
-                  >
-                    ›
-                  </button>
-                  <button
-                    onClick={() => setPage(totalPages)}
-                    disabled={page === totalPages}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 7,
-                      border: `1px solid ${T.border}`,
-                      background: T.card,
-                      cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                      fontSize: 11,
-                      fontWeight: 800,
-                      color: T.sub,
-                      opacity: page === totalPages ? 0.4 : 1,
-                    }}
-                  >
-                    »
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            7. CARD / GRID VIEW
-           ══════════════════════════════════════════════════════════════════════ */}
-        {view === 'grid' && (
-          <div className="fade-in">
-            {paginated.length === 0 ? (
-              <div
-                style={{
-                  background: T.card,
-                  border: `1px solid ${T.border}`,
-                  borderRadius: 16,
-                  padding: 40,
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{ fontSize: 36, marginBottom: 8 }}>🧾</div>
-                <div style={{ fontWeight: 800, color: T.text }}>No receipts found</div>
-              </div>
-            ) : (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))', gap: 14 }}>
-                  {paginated.map((p) => {
-                    const s = students.find((st) => st.id === p.student_id);
-                    const fName = s ? getFormName(s.form_id) : '—';
-                    const { label: curLabel, badgeColor } = detectCurriculum(fName);
-                    const termInfo = resolvePaymentTerm(p);
-                    const meta = getMethodMeta(p.payment_method);
-                    const isSel = selected.has(p.id);
-
-                    return (
-                      <div
-                        key={p.id}
-                        className="pay-card"
-                        onClick={() => setPreviewPayment(p)}
-                        style={{
-                          background: T.card,
-                          border: `1.5px solid ${isSel ? T.indigo : T.border}`,
-                          borderRadius: 16,
-                          overflow: 'hidden',
-                          cursor: 'pointer',
-                          position: 'relative',
-                          boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                          transition: 'all 0.16s ease',
-                        }}
-                      >
-                        <div style={{ height: 4, background: meta.dot }} />
-                        <div style={{ padding: '12px 14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <div
-                              style={{
-                                width: 32,
-                                height: 32,
-                                borderRadius: 9,
-                                background: meta.bg,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 16,
-                              }}
-                            >
-                              {meta.icon}
-                            </div>
-                            <div style={{ display: 'flex', gap: 4 }} onClick={(e) => e.stopPropagation()}>
-                              <button
-                                onClick={() => handlePrintThermalReceipt(p)}
-                                title="Print Thermal Receipt"
-                                style={{
-                                  width: 24,
-                                  height: 24,
-                                  borderRadius: 6,
-                                  border: `1px solid ${T.border}`,
-                                  background: T.bg,
-                                  cursor: 'pointer',
-                                  fontSize: 11,
-                                }}
-                              >
-                                🖨️
-                              </button>
-                              <button
-                                onClick={() => handlePrintA4Receipt(p)}
-                                title="Print Official A4 Voucher"
-                                style={{
-                                  width: 24,
-                                  height: 24,
-                                  borderRadius: 6,
-                                  border: `1px solid #bfdbfe`,
-                                  background: '#eff6ff',
-                                  cursor: 'pointer',
-                                  fontSize: 11,
-                                }}
-                              >
-                                📄
-                              </button>
-                              <button
-                                onClick={() => handleSendWhatsAppReceipt(p)}
-                                title="WhatsApp Receipt"
-                                style={{
-                                  width: 24,
-                                  height: 24,
-                                  borderRadius: 6,
-                                  border: `1px solid ${T.border}`,
-                                  background: T.bg,
-                                  cursor: 'pointer',
-                                  fontSize: 11,
-                                }}
-                              >
-                                💬
-                              </button>
-                            </div>
-                          </div>
-
-                          <div style={{ fontSize: 18, fontWeight: 900, color: T.green, letterSpacing: '-0.02em', lineHeight: 1 }}>
-                            {fmt(Number(p.amount || 0))}
-                          </div>
-
-                          <div style={{ fontSize: 12, fontWeight: 800, color: T.text, marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {s ? `${s.first_name} ${s.last_name}` : 'Unknown Student'}
-                          </div>
-                          <div style={{ fontSize: 10, color: T.muted, fontFamily: 'monospace', marginTop: 1 }}>
-                            {s?.admission_no || s?.admission_number || '—'} · {fName}
-                          </div>
-
-                          <div
-                            style={{
-                              borderTop: `1px solid ${T.border}`,
-                              marginTop: 10,
-                              paddingTop: 8,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: 9,
-                                fontWeight: 800,
-                                padding: '1px 6px',
-                                borderRadius: 99,
-                                border: '1px solid',
-                              }}
-                              className={badgeColor}
-                            >
-                              {curLabel}
-                            </span>
-                            <span style={{ fontSize: 10, color: T.muted, fontWeight: 600 }}>{fmtDate(p.payment_date)}</span>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                            <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.indigo, fontWeight: 700, background: T.indigoL, padding: '1px 6px', borderRadius: 5 }}>
-                              {p.receipt_number || `REC-${p.id}`}
-                            </span>
-                            <span style={{ fontSize: 10, color: '#6d28d9', fontWeight: 700 }}>
-                              {termInfo.name}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {totalPages > 1 && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 16 }}>
-                    <button
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: 8,
-                        border: `1px solid ${T.border}`,
-                        background: T.card,
-                        color: T.sub,
-                        fontWeight: 800,
-                        fontSize: 11,
-                        cursor: page === 1 ? 'not-allowed' : 'pointer',
-                        opacity: page === 1 ? 0.4 : 1,
-                      }}
-                    >
-                      ← Prev
-                    </button>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>
-                      {page} / {totalPages}
+                  <FiFilter />
+                  <span>More Filters</span>
+                  {hasFilters && (
+                    <span style={{ width: 16, height: 16, borderRadius: '50%', background: T.indigo, color: '#fff', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      !
                     </span>
-                    <button
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: 8,
-                        border: `1px solid ${T.border}`,
-                        background: T.card,
-                        color: T.sub,
-                        fontWeight: 800,
-                        fontSize: 11,
-                        cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                        opacity: page === totalPages ? 0.4 : 1,
-                      }}
-                    >
-                      Next →
+                  )}
+                </button>
+
+                {hasFilters && (
+                  <button
+                    onClick={clearFilters}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      border: `1.5px solid #fecaca`,
+                      background: '#fef2f2',
+                      color: T.red,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <FiX />
+                    <span>Reset</span>
+                  </button>
+                )}
+
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: T.sub }}>Rows:</span>
+                  <select
+                    value={perPage}
+                    onChange={(e) => {
+                      setPerPage(Number(e.target.value));
+                      setPage(1);
+                    }}
+                    style={{
+                      padding: '7px 10px',
+                      borderRadius: 10,
+                      border: `1.5px solid ${T.border}`,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: T.text,
+                      background: T.card,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {[10, 15, 25, 50].map((n) => (
+                      <option key={n} value={n}>
+                        {n} rows / page
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {showFilters && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(145px,1fr))', gap: 10, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>Form / Class</label>
+                    <select value={filterForm} onChange={(e) => { setFilterForm(e.target.value); setPage(1); }} style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}>
+                      <option value="">All Classes</option>
+                      {formOptions.map((f) => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>Academic Term</label>
+                    <select value={filterTerm} onChange={(e) => { setFilterTerm(e.target.value); setPage(1); }} style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}>
+                      <option value="">All Terms</option>
+                      {terms.map((t) => <option key={t.id} value={t.id}>{t.term_name}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>From Date</label>
+                    <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }} />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>To Date</label>
+                    <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }} />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>Min Amount (KES)</label>
+                    <input type="number" placeholder="Min KES" value={amtMin} onChange={(e) => { setAmtMin(e.target.value); setPage(1); }} style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }} />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>Max Amount (KES)</label>
+                    <input type="number" placeholder="Max KES" value={amtMax} onChange={(e) => { setAmtMax(e.target.value); setPage(1); }} style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Results bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>
+                  Showing {filtered.length === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of{' '}
+                  <strong style={{ color: T.text }}>{filtered.length.toLocaleString()}</strong> receipts{' '}
+                  {hasFilters && <span style={{ color: T.indigo }}>(filtered)</span>}
+                </span>
+
+                {selected.size > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.indigoL, border: `1px solid ${T.indigoBd}`, borderRadius: 8, padding: '3px 10px' }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: T.indigo }}>{selected.size} selected</span>
+                    <button onClick={() => setSelected(new Set())} style={{ fontSize: 10, color: T.muted, background: 'none', border: 'none', cursor: 'pointer' }}>
+                      ✕ clear
                     </button>
                   </div>
                 )}
-              </>
-            )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button onClick={handlePrintRegister} style={{ background: 'none', border: 'none', color: T.indigo, cursor: 'pointer', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <FiPrinter /> Print Register (A4 Landscape)
+                </button>
+                <span style={{ color: T.muted }}>·</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>Page Volume:</span>
+                <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>{fmt(paginated.reduce((s, p) => s + Number(p.amount || 0), 0))}</span>
+                <span style={{ color: T.muted }}>·</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>Total:</span>
+                <span style={{ fontSize: 14, fontWeight: 900, color: T.indigo }}>{fmt(totalAmount)}</span>
+              </div>
+            </div>
+
+            {/* Datagrid Table */}
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: "'Inter',sans-serif" }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: `2px solid ${T.border}` }}>
+                      <th style={{ padding: '10px 12px', width: 38 }}>
+                        <input type="checkbox" checked={isAllPageSelected} onChange={toggleSelectAll} style={{ width: 14, height: 14, accentColor: T.indigo, cursor: 'pointer' }} />
+                      </th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left' }}>
+                        <button onClick={() => handleSort('receipt_number')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: sortKey === 'receipt_number' ? T.indigo : T.sub }}>
+                          Receipt # {sortKey === 'receipt_number' && (sortDir === 'asc' ? '↑' : '↓')}
+                        </button>
+                      </th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left' }}>
+                        <button onClick={() => handleSort('student')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: sortKey === 'student' ? T.indigo : T.sub }}>
+                          Student / Adm {sortKey === 'student' && (sortDir === 'asc' ? '↑' : '↓')}
+                        </button>
+                      </th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>Track & Class</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>
+                        <button onClick={() => handleSort('amount')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', marginLeft: 'auto', color: sortKey === 'amount' ? T.indigo : T.sub }}>
+                          Amount (KES) {sortKey === 'amount' && (sortDir === 'asc' ? '↑' : '↓')}
+                        </button>
+                      </th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left' }}>
+                        <button onClick={() => handleSort('payment_method')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: sortKey === 'payment_method' ? T.indigo : T.sub }}>
+                          Method {sortKey === 'payment_method' && (sortDir === 'asc' ? '↑' : '↓')}
+                        </button>
+                      </th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>Ref / Slip / Code</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left' }}>
+                        <button onClick={() => handleSort('payment_date')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: sortKey === 'payment_date' ? T.indigo : T.sub }}>
+                          Date {sortKey === 'payment_date' && (sortDir === 'asc' ? '↑' : '↓')}
+                        </button>
+                      </th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>Term</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: T.sub }}>Receipt Formats & Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td colSpan={10} style={{ padding: '40px 20px', textAlign: 'center' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: T.indigo, fontWeight: 700 }}>
+                            <FiRefreshCw className="animate-spin" />
+                            <span>Loading fee receipts from live database...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : paginated.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} style={{ padding: '50px 20px', textAlign: 'center' }}>
+                          <div style={{ fontSize: 32, marginBottom: 6 }}>🧾</div>
+                          <div style={{ fontWeight: 800, fontSize: 14, color: T.text }}>No receipts found</div>
+                          <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>Try clearing or adjusting search filters.</div>
+                        </td>
+                      </tr>
+                    ) : (
+                      paginated.map((p) => {
+                        const s = students.find((st) => st.id === p.student_id);
+                        const fName = s ? getFormName(s.form_id) : '—';
+                        const stName = s ? getStreamName(s.stream_id) : '';
+                        const { label: curLabel, badgeColor } = detectCurriculum(fName);
+                        const termInfo = resolvePaymentTerm(p);
+                        const isSel = selected.has(p.id);
+                        const meta = getMethodMeta(p.payment_method);
+                        const initials = s ? `${s.first_name?.[0] || ''}${s.last_name?.[0] || ''}`.toUpperCase() : '?';
+
+                        return (
+                          <tr
+                            key={p.id}
+                            className="pay-row"
+                            onClick={() => setPreviewPayment(p)}
+                            style={{
+                              borderBottom: `1px solid ${T.border}`,
+                              background: isSel ? T.indigoL : '#fff',
+                              cursor: 'pointer',
+                              transition: 'background 0.12s',
+                            }}
+                          >
+                            <td style={{ padding: '8px 12px' }} onClick={(e) => e.stopPropagation()}>
+                              <input type="checkbox" checked={isSel} onChange={() => toggleSelectOne(p.id)} style={{ width: 14, height: 14, accentColor: T.indigo, cursor: 'pointer' }} />
+                            </td>
+
+                            <td style={{ padding: '8px 12px' }}>
+                              <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 800, color: T.indigo, background: T.indigoL, border: `1px solid ${T.indigoBd}`, padding: '2px 7px', borderRadius: 6 }}>
+                                {p.receipt_number || `REC-${p.id}`}
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '8px 12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#e0e7ff', color: '#3730a3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, flexShrink: 0 }}>
+                                  {initials}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 800, fontSize: 12, color: T.text }}>
+                                    {s ? `${s.first_name} ${s.last_name}` : <span style={{ color: T.muted }}>Unknown Student</span>}
+                                  </div>
+                                  <div style={{ fontSize: 10, color: T.muted, fontFamily: 'monospace', marginTop: 1 }}>
+                                    Adm: {s?.admission_no || s?.admission_number || '—'}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '8px 12px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: T.text }}>{fName} {stName}</span>
+                                <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 99, width: 'fit-content', border: '1px solid' }} className={badgeColor}>
+                                  {curLabel}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                              <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>{fmt(Number(p.amount || 0))}</span>
+                            </td>
+
+                            <td style={{ padding: '8px 12px' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 99, background: meta.bg, color: meta.text, fontSize: 10, fontWeight: 800, border: `1px solid ${meta.dot}40` }}>
+                                <span style={{ width: 5, height: 5, borderRadius: '50%', background: meta.dot }} />
+                                <span>{meta.icon}</span>
+                                <span>{p.payment_method || 'Cash'}</span>
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '8px 12px' }}>
+                              <span style={{ fontFamily: 'monospace', fontSize: 11, color: T.sub }}>
+                                {p.mpesa_code || p.reference_number || p.bank_name || '—'}
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: T.sub }}>{fmtDate(p.payment_date)}</span>
+                            </td>
+
+                            <td style={{ padding: '8px 12px' }}>
+                              <span style={{ fontSize: 10, fontWeight: 800, color: '#6d28d9', background: '#faf5ff', border: '1px solid #ddd6fe', padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                                {termInfo.name}
+                              </span>
+                            </td>
+
+                            {/* In-Grid Multi-Action Controls */}
+                            <td style={{ padding: '8px 12px' }} onClick={(e) => e.stopPropagation()}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                                {/* Thermal 80mm */}
+                                <button
+                                  onClick={() => handlePrintThermalReceipt(p)}
+                                  title="Print 80mm Cashier Thermal Receipt"
+                                  style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid ${T.border}`, background: T.card, color: T.green, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                  <FiPrinter size={13} />
+                                </button>
+
+                                {/* Official A4 Voucher */}
+                                <button
+                                  onClick={() => handlePrintA4Receipt(p)}
+                                  title="Print Official A4 Voucher"
+                                  style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid #bfdbfe`, background: '#eff6ff', color: '#1d4ed8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                  <FiFileText size={13} />
+                                </button>
+
+                                {/* Dual A5 Cut Voucher */}
+                                <button
+                                  onClick={() => handlePrintA5DualReceipt(p)}
+                                  title="Print 2-in-1 Dual A5 Cut Receipt (School + Student copy)"
+                                  style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid #ddd6fe`, background: '#faf5ff', color: '#7c3aed', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                  <FiScissors size={13} />
+                                </button>
+
+                                {/* WhatsApp Dispatch */}
+                                <button
+                                  onClick={() => handleSendWhatsAppReceipt(p)}
+                                  title="Dispatch Official Receipt to Parent WhatsApp"
+                                  style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid #bbf7d0`, background: '#f0fdf4', color: '#15803d', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                  <FiShare2 size={13} />
+                                </button>
+
+                                {/* Interactive Preview */}
+                                <button
+                                  onClick={() => setPreviewPayment(p)}
+                                  title="Full Interactive Receipt Preview"
+                                  style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid ${T.border}`, background: T.card, color: T.indigo, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                  <FiEye size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+
+                  {paginated.length > 0 && (
+                    <tfoot>
+                      <tr style={{ background: '#f8fafc', borderTop: `2px solid ${T.border}` }}>
+                        <td colSpan={4} style={{ padding: '10px 12px' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>
+                            Page Subtotal ({paginated.length} records):
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                          <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>
+                            {fmt(paginated.reduce((s, p) => s + Number(p.amount || 0), 0))}
+                          </span>
+                        </td>
+                        <td colSpan={5} style={{ padding: '10px 12px', textAlign: 'right' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>
+                            Total Receipts Volume: <strong style={{ color: T.indigo }}>{fmt(totalAmount)}</strong>
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+
+              {/* Pagination Bar */}
+              {totalPages > 1 && (
+                <div style={{ padding: '10px 18px', borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ffffff' }}>
+                  <div style={{ fontSize: 11, color: T.sub, fontWeight: 600 }}>
+                    Page <strong>{page}</strong> of <strong>{totalPages}</strong>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button onClick={() => setPage(1)} disabled={page === 1} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${T.border}`, background: T.card, cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 800, color: T.sub, opacity: page === 1 ? 0.4 : 1 }}>
+                      «
+                    </button>
+                    <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${T.border}`, background: T.card, cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 800, color: T.sub, opacity: page === 1 ? 0.4 : 1 }}>
+                      ‹
+                    </button>
+
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pg = i + 1;
+                      if (totalPages > 5 && page > 3) {
+                        pg = Math.min(page - 2 + i, totalPages - 4 + i);
+                      }
+                      return (
+                        <button
+                          key={pg}
+                          onClick={() => setPage(pg)}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 7,
+                            border: `1.5px solid ${page === pg ? T.indigo : T.border}`,
+                            background: page === pg ? T.indigo : T.card,
+                            color: page === pg ? '#fff' : T.sub,
+                            fontSize: 11,
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {pg}
+                        </button>
+                      );
+                    })}
+
+                    <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${T.border}`, background: T.card, cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 800, color: T.sub, opacity: page === totalPages ? 0.4 : 1 }}>
+                      ›
+                    </button>
+                    <button onClick={() => setPage(totalPages)} disabled={page === totalPages} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${T.border}`, background: T.card, cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 800, color: T.sub, opacity: page === totalPages ? 0.4 : 1 }}>
+                      »
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
-            8. ANALYTICS FULL VIEW
+            TAB 2: ON-THE-FLY RECEIPT STUDIO
            ══════════════════════════════════════════════════════════════════════ */}
-        {view === 'analytics' && (
-          <div className="fade-in">
-            <div
-              style={{
-                background: T.card,
-                border: `1px solid ${T.border}`,
-                borderRadius: 16,
-                padding: '20px 24px',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
-              }}
-            >
-              <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 900, color: T.text, fontFamily: "'Outfit',sans-serif" }}>
-                Class & Form Receipt Collections
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12 }}>
-                {forms.map((f) => {
-                  const formPays = payments.filter((p) => {
-                    const s = students.find((st) => st.id === p.student_id);
-                    return s && s.form_id === f.id;
-                  });
-                  const sum = formPays.reduce((acc, p) => acc + Number(p.amount || 0), 0);
-                  const { label: curLabel, badgeColor } = detectCurriculum(f.form_name);
+        {activeTab === 'studio' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: 20 }} className="fade-in">
+            {/* Control Panel */}
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: T.text, fontFamily: "'Outfit',sans-serif" }}>
+                  Instant Receipt Customizer Studio
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: T.sub }}>
+                  Pick any student & settled transaction to dispatch customized official documents.
+                </p>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 6 }}>
+                  Select Enrolled Student
+                </label>
+                <select
+                  value={studioStudentId}
+                  onChange={(e) => {
+                    const sid = e.target.value ? Number(e.target.value) : '';
+                    setStudioStudentId(sid);
+                    const matchPays = payments.filter((p) => p.student_id === sid);
+                    setStudioPaymentId(matchPays[0]?.id || '');
+                  }}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1.5px solid ${T.border}`, fontSize: 12, background: T.bg, fontWeight: 600 }}
+                >
+                  <option value="">— Choose Student —</option>
+                  {students.map((st) => (
+                    <option key={st.id} value={st.id}>
+                      {st.first_name} {st.last_name} ({st.admission_no || st.admission_number || 'No Adm'}) — {getFormName(st.form_id)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {studioStudentId && (
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 6 }}>
+                    Select Fee Payment Transaction
+                  </label>
+                  <select
+                    value={studioPaymentId}
+                    onChange={(e) => setStudioPaymentId(e.target.value ? Number(e.target.value) : '')}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1.5px solid ${T.border}`, fontSize: 12, background: T.bg, fontWeight: 600 }}
+                  >
+                    {payments
+                      .filter((p) => p.student_id === studioStudentId)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.receipt_number || `REC-${p.id}`} • KES {Number(p.amount || 0).toLocaleString()} • {p.payment_method} ({fmtDate(p.payment_date)})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 6 }}>
+                  Cashier Name / Issuer Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Bursar J. Kiprono"
+                  value={studioCashierName}
+                  onChange={(e) => setStudioCashierName(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1.5px solid ${T.border}`, fontSize: 12, background: T.bg }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 6 }}>
+                  Custom Remarks / Audit Note
+                </label>
+                <textarea
+                  placeholder="Special fee clearance notes or conditions..."
+                  value={studioCustomNotes}
+                  onChange={(e) => setStudioCustomNotes(e.target.value)}
+                  style={{ width: '100%', height: 70, padding: '9px 12px', borderRadius: 10, border: `1.5px solid ${T.border}`, fontSize: 12, background: T.bg, resize: 'none' }}
+                />
+              </div>
+
+              {/* Direct Print Triggers */}
+              {studioPaymentId && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                  <button
+                    onClick={() => {
+                      const p = payments.find((pm) => pm.id === studioPaymentId);
+                      if (p) handlePrintA4Receipt(p);
+                    }}
+                    style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#1e3a8a', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  >
+                    <FiFileText /> Print Official A4 Voucher
+                  </button>
+                  <button
+                    onClick={() => {
+                      const p = payments.find((pm) => pm.id === studioPaymentId);
+                      if (p) handlePrintThermalReceipt(p);
+                    }}
+                    style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#16a34a', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  >
+                    <FiPrinter /> Print 80mm POS Thermal Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      const p = payments.find((pm) => pm.id === studioPaymentId);
+                      if (p) handlePrintA5DualReceipt(p);
+                    }}
+                    style={{ padding: '10px 16px', borderRadius: 10, border: '1.5px solid #ddd6fe', background: '#faf5ff', color: '#7c3aed', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  >
+                    <FiScissors /> Print 2-in-1 Dual A5 Cut Voucher
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Live Document Preview Pane */}
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 22 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Live Document Preview</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: T.indigo, background: T.indigoL, padding: '2px 8px', borderRadius: 99 }}>
+                  REAL-TIME RENDER
+                </span>
+              </div>
+
+              {studioPaymentId ? (
+                (() => {
+                  const p = payments.find((pm) => pm.id === studioPaymentId);
+                  const st = students.find((s) => s.id === p?.student_id);
+                  const fees = st ? getStudentFeeProfile(st.id) : null;
+                  const termInfo = p ? resolvePaymentTerm(p) : { id: 1, name: 'Term 1' };
+                  const fName = st ? getFormName(st.form_id) : '—';
+                  const { label: curLabel } = detectCurriculum(fName);
 
                   return (
-                    <div
-                      key={f.id}
-                      style={{
-                        padding: '12px 14px',
-                        borderRadius: 12,
-                        border: `1px solid ${T.border}`,
-                        background: '#f8fafc',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 12, fontWeight: 800, color: T.text }}>{f.form_name}</span>
-                        <span
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 800,
-                            padding: '1px 6px',
-                            borderRadius: 99,
-                            border: '1px solid',
-                          }}
-                          className={badgeColor}
-                        >
-                          {curLabel}
-                        </span>
+                    <div style={{ border: '2px solid #1e3a8a', borderRadius: 12, padding: 20, background: '#ffffff', fontFamily: "'Segoe UI', sans-serif" }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #1e3a8a', paddingBottom: 10, marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: '#1e3a8a' }}>{settings?.school_name || 'ALPHA PREMIER SCHOOL'}</div>
+                          <div style={{ fontSize: 11, color: '#64748b' }}>P.O. Box 000, Nairobi • Tel: +254 700 000 000</div>
+                        </div>
+                        <div style={{ background: '#1e3a8a', color: '#fff', padding: '4px 12px', borderRadius: 6, textAlign: 'right' }}>
+                          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '1px' }}>OFFICIAL RECEIPT</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'monospace' }}>{p?.receipt_number || `REC-${p?.id}`}</div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 16, fontWeight: 900, color: T.green }}>{fmt(sum)}</div>
-                      <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>{formPays.length} recorded receipts</div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12, fontSize: 11.5 }}>
+                        <div style={{ background: '#f8fafc', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                          <div>Student: <strong>{st?.first_name} {st?.last_name}</strong></div>
+                          <div>Adm: <strong>{st?.admission_no || st?.admission_number}</strong></div>
+                          <div>Class: <strong>{curLabel} · {fName}</strong></div>
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                          <div>Date: <strong>{fmtDateLong(p?.payment_date)}</strong></div>
+                          <div>Method: <strong>{p?.payment_method}</strong></div>
+                          <div>Term: <strong>{termInfo.name}</strong></div>
+                        </div>
+                      </div>
+
+                      <div style={{ background: '#eff6ff', border: '1.5px solid #3b82f6', borderRadius: 8, padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#1e40af', textTransform: 'uppercase' }}>Amount Cleared</div>
+                        <div style={{ fontSize: 24, fontWeight: 900, color: '#1e3a8a', fontFamily: 'monospace' }}>{fmt(Number(p?.amount || 0))}</div>
+                      </div>
+
+                      {fees && (
+                        <div style={{ fontSize: 11, borderTop: '1px dashed #cbd5e1', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Term Balance Due: <strong style={{ color: fees.termBalance > 0 ? '#dc2626' : '#16a34a' }}>{fmt(fees.termBalance)}</strong></span>
+                          <span>Total Paid to Date: <strong style={{ color: '#15803d' }}>{fmt(fees.totalPaid)}</strong></span>
+                        </div>
+                      )}
+
+                      {studioCustomNotes && (
+                        <div style={{ marginTop: 10, padding: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, fontSize: 10, color: '#92400e' }}>
+                          <strong>Audit Remarks:</strong> {studioCustomNotes}
+                        </div>
+                      )}
                     </div>
                   );
-                })}
+                })()
+              ) : (
+                <div style={{ padding: 60, textAlign: 'center', color: T.muted }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>🎨</div>
+                  <div style={{ fontWeight: 700 }}>Choose a student from the left panel to begin customization.</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            TAB 3: BATCH PRINTING & PDF MERGE CENTER
+           ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'batch' && (
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24 }} className="fade-in">
+            <div style={{ maxWidth: 700, margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: T.indigoL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto' }}>
+                📦
               </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: T.text, fontFamily: "'Outfit',sans-serif" }}>
+                  High-Capacity Batch Receipt Printing Engine
+                </h3>
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: T.sub }}>
+                  Streamline end-of-term and cashier closing by batch generating all receipts into a single unified print stream.
+                </p>
+              </div>
+
+              <div style={{ background: '#f8fafc', border: `1.5px solid ${T.border}`, borderRadius: 14, padding: 18, textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: T.text }}>Selected Receipts for Batch Processing</div>
+                  <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>
+                    {selected.size > 0 ? `${selected.size} specific receipts selected from ledger` : `All ${filtered.length} currently filtered receipts`}
+                  </div>
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: T.indigo }}>
+                  {fmt(selected.size > 0 ? payments.filter((p) => selected.has(p.id)).reduce((s, p) => s + Number(p.amount || 0), 0) : totalAmount)}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 8 }}>
+                {/* Option 1: 80mm POS Thermal */}
+                <div style={{ border: `1.5px solid #bbf7d0`, borderRadius: 14, padding: 16, background: '#f0fdf4', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontSize: 24 }}>🖨️</div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: '#166534' }}>POS Thermal (80mm)</div>
+                    <div style={{ fontSize: 10.5, color: '#15803d', marginTop: 2 }}>Roll feed printer stream with cut-lines</div>
+                  </div>
+                  <button
+                    onClick={handleBulkPrintThermal}
+                    style={{ marginTop: 'auto', padding: '9px 14px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    Print 80mm Thermal
+                  </button>
+                </div>
+
+                {/* Option 2: Executive A4 Full Page */}
+                <div style={{ border: `1.5px solid #bfdbfe`, borderRadius: 14, padding: 16, background: '#eff6ff', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontSize: 24 }}>📄</div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: '#1e40af' }}>Official A4 Vouchers</div>
+                    <div style={{ fontSize: 10.5, color: '#1d4ed8', marginTop: 2 }}>Formal full-page certificates with crest & seals</div>
+                  </div>
+                  <button
+                    onClick={handleBulkPrintA4}
+                    style={{ marginTop: 'auto', padding: '9px 14px', borderRadius: 8, border: 'none', background: '#1e3a8a', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    Print A4 Vouchers
+                  </button>
+                </div>
+
+                {/* Option 3: Accounting Register */}
+                <div style={{ border: `1.5px solid ${T.indigoBd}`, borderRadius: 14, padding: 16, background: T.indigoL, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontSize: 24 }}>📊</div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: T.indigo }}>Audit Register (A4)</div>
+                    <div style={{ fontSize: 10.5, color: '#4338ca', marginTop: 2 }}>Landscape certified master table for auditors</div>
+                  </div>
+                  <button
+                    onClick={handlePrintRegister}
+                    style={{ marginTop: 'auto', padding: '9px 14px', borderRadius: 8, border: 'none', background: T.indigo, color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    Print Audit Register
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            TAB 4: CASHIER DAILY SHIFT HANDOVER & RECONCILIATION
+           ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'handover' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: 20 }} className="fade-in">
+            {/* Reconciliation Setup */}
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: T.text, fontFamily: "'Outfit',sans-serif" }}>
+                  Cashier Shift Handover Terminal
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: T.sub }}>
+                  Generate certified end-of-shift handover certificates reconciling cash drawer, M-Pesa, and bank deposits.
+                </p>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
+                  Shift Handover Date
+                </label>
+                <input
+                  type="date"
+                  value={handoverDate}
+                  onChange={(e) => setHandoverDate(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1.5px solid ${T.border}`, fontSize: 12, background: T.bg }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
+                  Outgoing Cashier / Bursar Name
+                </label>
+                <input
+                  type="text"
+                  value={handoverCashier}
+                  onChange={(e) => setHandoverCashier(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1.5px solid ${T.border}`, fontSize: 12, background: T.bg }}
+                />
+              </div>
+
+              <div style={{ background: '#f8fafc', border: `1px solid ${T.border}`, borderRadius: 12, padding: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: T.text, marginBottom: 8, textTransform: 'uppercase' }}>
+                  Shift Summary Breakdown ({handoverDate})
+                </div>
+                {(() => {
+                  const dayPayments = payments.filter((p) => p.payment_date === handoverDate);
+                  const tot = dayPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+                  const mpesa = dayPayments.filter((p) => (p.payment_method || '').toLowerCase().includes('pesa')).reduce((s, p) => s + Number(p.amount || 0), 0);
+                  const cash = dayPayments.filter((p) => (p.payment_method || '').toLowerCase().includes('cash')).reduce((s, p) => s + Number(p.amount || 0), 0);
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11.5 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: T.sub }}>Total Receipts Issued:</span>
+                        <strong>{dayPayments.length}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: T.sub }}>M-Pesa Collections:</span>
+                        <strong style={{ color: '#15803d' }}>{fmt(mpesa)}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: T.sub }}>Physical Cash in Drawer:</span>
+                        <strong style={{ color: '#b45309' }}>{fmt(cash)}</strong>
+                      </div>
+                      <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 900 }}>
+                        <span>Total Handover:</span>
+                        <span style={{ color: T.indigo }}>{fmt(tot)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <button
+                onClick={handlePrintHandover}
+                style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: '#1e3a8a', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              >
+                <FiPrinter /> Print Official Handover Certificate
+              </button>
+            </div>
+
+            {/* Shift Items List */}
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 22, overflow: 'hidden' }}>
+              <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 900, color: T.text, textTransform: 'uppercase' }}>
+                Itemized Shift Settlements ({handoverDate})
+              </h3>
+              {(() => {
+                const dayPayments = payments.filter((p) => p.payment_date === handoverDate);
+                if (dayPayments.length === 0) {
+                  return <div style={{ color: T.muted, padding: 40, textAlign: 'center' }}>No payments logged on this date.</div>;
+                }
+                return (
+                  <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: `1.5px solid ${T.border}` }}>
+                          <th style={{ padding: '6px 8px', textAlign: 'left' }}>Receipt #</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'left' }}>Student</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'left' }}>Method</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'right' }}>Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dayPayments.map((p) => {
+                          const s = students.find((st) => st.id === p.student_id);
+                          return (
+                            <tr key={p.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                              <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontWeight: 800, color: T.indigo }}>{p.receipt_number || `REC-${p.id}`}</td>
+                              <td style={{ padding: '6px 8px' }}>{s ? `${s.first_name} ${s.last_name}` : 'Student'}</td>
+                              <td style={{ padding: '6px 8px' }}>{p.payment_method}</td>
+                              <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 800, color: T.green }}>{fmt(Number(p.amount || 0))}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
       </main>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          9. RECEIPT PREVIEW MODAL
+          INTERACTIVE RECEIPT PREVIEW MODAL
          ══════════════════════════════════════════════════════════════════════ */}
       {previewPayment && (
         <ReceiptPreviewModal
@@ -2491,6 +2098,10 @@ export default function FeeReceiptsPage() {
             handlePrintA4Receipt(previewPayment);
             setPreviewPayment(null);
           }}
+          onPrintA5Dual={() => {
+            handlePrintA5DualReceipt(previewPayment);
+            setPreviewPayment(null);
+          }}
           onWhatsApp={() => {
             handleSendWhatsAppReceipt(previewPayment);
             setPreviewPayment(null);
@@ -2503,7 +2114,7 @@ export default function FeeReceiptsPage() {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   SUBCOMPONENT: RECEIPT PREVIEW MODAL (Interactive A4 & Thermal)
+   SUBCOMPONENT: RECEIPT PREVIEW MODAL (Interactive A4, Thermal & A5 Dual)
    ══════════════════════════════════════════════════════════════════════════════ */
 function ReceiptPreviewModal({
   payment,
@@ -2514,6 +2125,7 @@ function ReceiptPreviewModal({
   onClose,
   onPrintThermal,
   onPrintA4,
+  onPrintA5Dual,
   onWhatsApp,
   onCopy,
 }: {
@@ -2525,10 +2137,11 @@ function ReceiptPreviewModal({
   onClose: () => void;
   onPrintThermal: () => void;
   onPrintA4: () => void;
+  onPrintA5Dual: () => void;
   onWhatsApp: () => void;
   onCopy: () => void;
 }) {
-  const [previewTab, setPreviewTab] = useState<'a4' | 'thermal'>('a4');
+  const [previewTab, setPreviewTab] = useState<'a4' | 'thermal' | 'a5'>('a4');
   const meta = getMethodMeta(payment.payment_method);
   const formName = student ? getFormName(student.form_id) : '—';
   const { label: curLabel } = detectCurriculum(formName);
@@ -2551,13 +2164,13 @@ function ReceiptPreviewModal({
       <div
         style={{
           width: '100%',
-          maxWidth: 480,
+          maxWidth: 500,
           borderRadius: 22,
           background: '#ffffff',
           border: '1px solid #e2e8f0',
           boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
           overflow: 'hidden',
-          maxHeight: '90vh',
+          maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -2616,7 +2229,22 @@ function ReceiptPreviewModal({
                   color: previewTab === 'a4' ? '#ffffff' : '#64748b',
                 }}
               >
-                A4 Voucher
+                A4
+              </button>
+              <button
+                onClick={() => setPreviewTab('a5')}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  border: 'none',
+                  fontSize: 10,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  background: previewTab === 'a5' ? '#7c3aed' : 'transparent',
+                  color: previewTab === 'a5' ? '#ffffff' : '#64748b',
+                }}
+              >
+                2-in-1
               </button>
               <button
                 onClick={() => setPreviewTab('thermal')}
@@ -2631,7 +2259,7 @@ function ReceiptPreviewModal({
                   color: previewTab === 'thermal' ? '#ffffff' : '#64748b',
                 }}
               >
-                80mm Thermal
+                80mm
               </button>
             </div>
 
@@ -2740,7 +2368,7 @@ function ReceiptPreviewModal({
             onClick={onCopy}
             style={{
               flex: 1,
-              minWidth: 70,
+              minWidth: 60,
               padding: '9px',
               borderRadius: 10,
               border: '1.5px solid #e2e8f0',
@@ -2757,7 +2385,7 @@ function ReceiptPreviewModal({
             onClick={onWhatsApp}
             style={{
               flex: 1,
-              minWidth: 90,
+              minWidth: 80,
               padding: '9px',
               borderRadius: 10,
               border: '1.5px solid #bbf7d0',
@@ -2774,7 +2402,7 @@ function ReceiptPreviewModal({
             onClick={onPrintThermal}
             style={{
               flex: 1,
-              minWidth: 100,
+              minWidth: 80,
               padding: '9px',
               borderRadius: 10,
               border: 'none',
@@ -2786,13 +2414,31 @@ function ReceiptPreviewModal({
               boxShadow: '0 2px 8px rgba(22,163,74,0.3)',
             }}
           >
-            🖨️ Thermal 80mm
+            🖨️ 80mm
+          </button>
+          <button
+            onClick={onPrintA5Dual}
+            style={{
+              flex: 1,
+              minWidth: 80,
+              padding: '9px',
+              borderRadius: 10,
+              border: 'none',
+              background: '#7c3aed',
+              color: '#ffffff',
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(124,58,237,0.3)',
+            }}
+          >
+            ✂️ 2-in-1
           </button>
           <button
             onClick={onPrintA4}
             style={{
               flex: 1,
-              minWidth: 100,
+              minWidth: 80,
               padding: '9px',
               borderRadius: 10,
               border: 'none',
@@ -2804,7 +2450,7 @@ function ReceiptPreviewModal({
               boxShadow: '0 2px 8px rgba(30,58,138,0.3)',
             }}
           >
-            📄 Official A4
+            📄 A4
           </button>
         </div>
       </div>

@@ -300,18 +300,30 @@ export function useUltraFeeCollect() {
     mpesaPhone?: string;
     mpesaCode?: string;
     bankRef?: string;
+    bankSlip?: string;
+    bankBranch?: string;
+    bankDate?: string;
     chequeNo?: string;
+    chequeBank?: string;
     inKindItem?: string;
     inKindValue?: number;
     allocationHead?: string;
     bursarySource?: string;
     waiverType?: string;
     notes?: string;
+    termId?: number;
   }) => {
     // ── Get next receipt number atomically from DB ──────────────────
     const receiptNo = await getNextReceiptNumber(supabase);
     const method = data.method === 'In-Kind' ? `In-Kind (${data.inKindItem || 'Other'})` : data.method;
-    const ref = data.method === 'M-Pesa' ? data.mpesaCode : data.method === 'Bank Transfer' ? data.bankRef : data.method === 'Cheque' ? data.chequeNo : data.reference;
+    const bankReference = data.bankRef || [data.bankSlip, data.bankBranch].filter(Boolean).join(' - ') || undefined;
+    const ref = data.method === 'M-Pesa' 
+      ? data.mpesaCode 
+      : (data.method === 'Bank' || data.method === 'Bank Transfer' || data.method === 'Bank Deposit' || data.method === 'Direct Deposit') 
+        ? bankReference 
+        : data.method === 'Cheque' 
+          ? (data.chequeNo ? `${data.chequeNo}${data.chequeBank ? ' (' + data.chequeBank + ')' : ''}` : undefined) 
+          : data.reference;
     const amount = data.method === 'In-Kind' ? (data.inKindValue || data.amount) : data.amount;
 
     let notes = data.notes || '';
@@ -327,7 +339,7 @@ export function useUltraFeeCollect() {
       payment_method: method,
       receipt_number: receiptNo,
       reference_number: ref || null,
-      term_id: currentTerm?.id || null,
+      term_id: data.termId || currentTerm?.id || null,
       year: currentYear,
       notes: notes.trim() || null,
     };
