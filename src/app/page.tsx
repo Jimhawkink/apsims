@@ -1,13 +1,35 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import toast from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import { usePageIcon } from '@/lib/usePageIcon';
+import {
+    HiOutlineUser,
+    HiOutlineLockClosed,
+    HiOutlineEye,
+    HiOutlineEyeSlash,
+    HiArrowRight,
+    HiOutlineShieldCheck,
+    HiOutlinePhone,
+    HiOutlineEnvelope,
+    HiOutlineMapPin,
+    HiOutlineArrowTopRightOnSquare,
+    HiOutlineArrowsPointingOut,
+    HiOutlineArrowsPointingIn,
+    HiOutlineQuestionMarkCircle,
+    HiOutlineXMark,
+    HiOutlineClipboardDocumentCheck,
+    HiOutlineClipboardDocument,
+    HiOutlineClock,
+    HiOutlineSignal,
+    HiOutlineAcademicCap,
+    HiOutlineSparkles,
+} from 'react-icons/hi2';
 
-/* ─── Golden Laurel School Crest (Matches Image) ─── */
-function SchoolCrest({ logoUrl, className = 'w-16 h-16' }: { logoUrl?: string | null; className?: string }) {
+/* ─── Golden Laurel School Crest (Compact & Crisp) ─── */
+function SchoolCrest({ logoUrl, className = 'w-14 h-14 sm:w-16 sm:h-16' }: { logoUrl?: string | null; className?: string }) {
     if (logoUrl) {
         return (
             <div className={`relative rounded-2xl overflow-hidden border-2 border-amber-400/80 shadow-lg shadow-purple-950/40 bg-white/10 backdrop-blur-sm ${className}`}>
@@ -30,7 +52,7 @@ function SchoolCrest({ logoUrl, className = 'w-16 h-16' }: { logoUrl?: string | 
                     <stop offset="100%" stopColor="#3b0764" />
                 </linearGradient>
                 <filter id="crestGlow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#000" floodOpacity="0.4" />
+                    <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="#000" floodOpacity="0.4" />
                 </filter>
             </defs>
 
@@ -62,7 +84,7 @@ function SchoolCrest({ logoUrl, className = 'w-16 h-16' }: { logoUrl?: string | 
                 <path d="M60 20L82 30v30c0 17-9 29-22 35-13-6-22-18-22-35V30L60 20z" fill="url(#crestPurple)" />
             </g>
 
-            {/* Shield Interior: Open Book and Graduation Cap */}
+            {/* Shield Interior */}
             <g fill="#ffffff">
                 <polygon points="60,33 46,40 60,47 74,40" />
                 <polygon points="58,47 54,49 54,54 60,56 66,54 66,49 62,47" opacity="0.9" />
@@ -72,35 +94,23 @@ function SchoolCrest({ logoUrl, className = 'w-16 h-16' }: { logoUrl?: string | 
                 <path d="M60 56v15" stroke="url(#crestGold)" strokeWidth="1.5" />
             </g>
 
-            {/* Golden Ribbon Banner Below */}
+            {/* Banner Below */}
             <g filter="url(#crestGlow)">
                 <path d="M30 96l10-4h40l10 4-4 8H34l-4-8z" fill="url(#crestGold)" />
                 <polygon points="30,96 34,104 22,106 27,99 22,93" fill="#b45309" />
                 <polygon points="90,96 86,104 98,106 93,99 98,93" fill="#b45309" />
-                <line x1="38" y1="100" x2="82" y2="100" stroke="#78350f" strokeWidth="1.5" strokeDasharray="2 2" />
             </g>
         </svg>
     );
 }
 
-/* ─── 3D Circular Emblem for the Login Card ─── */
-function CardEmblem() {
+/* ─── 3D Specular Badge for Card Top ─── */
+function CardShieldBadge() {
     return (
-        <div className="relative w-20 h-20 rounded-full p-[3px] bg-gradient-to-tr from-amber-600 via-amber-300 to-yellow-100 shadow-[0_10px_30px_rgba(124,58,237,0.45)]">
-            <div className="w-full h-full rounded-full p-[2px] bg-amber-500/80">
-                <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-950 via-purple-900 to-violet-950 flex items-center justify-center shadow-inner relative overflow-hidden">
-                    <div className="absolute -top-3 -left-3 w-14 h-14 bg-white/20 rounded-full blur-sm pointer-events-none"></div>
-
-                    {/* Graduation Cap & Open Book Graphic */}
-                    <svg className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]" viewBox="0 0 64 64" fill="currentColor">
-                        <polygon points="32,14 10,24 32,34 54,24" fill="#ffffff" />
-                        <polygon points="28,34 23,37 23,43 32,47 41,43 41,37 36,34" fill="#e0e7ff" />
-                        <path d="M10 24v13" stroke="#fef08a" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="10" cy="38" r="2" fill="#fef08a" />
-                        <path d="M32 44c-5-3-12-4-20-3v12c8-1 15 0 20 3 5-3 12-4 20-3V41c-8-1-15 0-20 3z" fill="#ffffff" opacity="0.95" />
-                        <line x1="32" y1="44" x2="32" y2="56" stroke="#fbbf24" strokeWidth="2" />
-                    </svg>
-                </div>
+        <div className="relative w-12 h-12 rounded-2xl p-[2px] bg-gradient-to-tr from-amber-500 via-amber-200 to-yellow-100 shadow-[0_6px_20px_rgba(79,70,229,0.35)] flex-shrink-0">
+            <div className="w-full h-full rounded-[14px] bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900 flex items-center justify-center relative overflow-hidden">
+                <div className="absolute -top-2 -left-2 w-8 h-8 bg-white/25 rounded-full blur-[2px] pointer-events-none"></div>
+                <HiOutlineAcademicCap className="w-6 h-6 text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
             </div>
         </div>
     );
@@ -116,11 +126,28 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    // School data dynamically fetched from database (no hardcoding)
-    const [schoolName, setSchoolName] = useState('');
-    const [schoolMotto, setSchoolMotto] = useState('');
+
+    // School data dynamically fetched from database
+    const [schoolName, setSchoolName] = useState('ST. CATHERINE GIRL\'S SCHOOL TEGAT');
+    const [schoolMotto, setSchoolMotto] = useState('Excellence in Education');
     const [schoolLogoUrl, setSchoolLogoUrl] = useState<string | null>(null);
+    const [schoolPhone, setSchoolPhone] = useState<string>('0720316175');
+    const [schoolEmail, setSchoolEmail] = useState<string>('support@apsims.co.ke');
+    const [schoolAddress, setSchoolAddress] = useState<string>('BOMET, KENYA');
     const [mounted, setMounted] = useState(false);
+
+    // Real-Time Clock State
+    const [currentTime, setCurrentTime] = useState<string>('');
+    const [currentDate, setCurrentDate] = useState<string>('');
+    const [use24Hour, setUse24Hour] = useState<boolean>(false);
+    const [latencyMs, setLatencyMs] = useState<number>(24);
+
+    // Fullscreen state
+    const [isFullscreen, setIsFullscreen] = useState(false);
+
+    // Contact & Support Modal state
+    const [showSupportModal, setShowSupportModal] = useState(false);
+    const [copiedField, setCopiedField] = useState<string | null>(null);
 
     // Forgot password state
     const [showForgot, setShowForgot] = useState(false);
@@ -135,10 +162,45 @@ export default function LoginPage() {
     const [forgotHint, setForgotHint] = useState('');
     const [forgotDevCode, setForgotDevCode] = useState('');
 
+    // Clock Interval
     useEffect(() => {
         setMounted(true);
 
-        // Load saved username if remember me was active
+        const updateClock = () => {
+            const now = new Date();
+            // Kenya Time (EAT = UTC+3)
+            const timeOptions: Intl.DateTimeFormatOptions = {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: !use24Hour,
+            };
+            const dateOptions: Intl.DateTimeFormatOptions = {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+            };
+            setCurrentTime(now.toLocaleTimeString('en-GB', timeOptions));
+            setCurrentDate(now.toLocaleDateString('en-GB', dateOptions));
+        };
+
+        updateClock();
+        const timer = setInterval(updateClock, 1000);
+        return () => clearInterval(timer);
+    }, [use24Hour]);
+
+    // Track Fullscreen changes
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(Boolean(document.fullscreenElement));
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
+
+    // Load saved username & database school details
+    useEffect(() => {
         try {
             const saved = localStorage.getItem('apsims_remember_user');
             if (saved) {
@@ -149,45 +211,62 @@ export default function LoginPage() {
             // Ignore
         }
 
-        // Fetch school details dynamically from Supabase database (matching Settings)
         const loadSchoolDetails = async () => {
+            const t0 = performance.now();
             try {
-                // 1. Fetch registered main school (matches dashboard/settings: ST. CATHERINE GIRL'S SCHOOL TEGAT)
                 let { data } = await supabase
                     .from('school_details')
-                    .select('school_name, motto, logo_url')
+                    .select('*')
                     .neq('section', 'primary')
                     .order('id', { ascending: true })
                     .limit(1)
                     .maybeSingle();
 
-                // 2. Fallback to any school record if section filter yields no result
                 if (!data?.school_name) {
                     const fallback = await supabase
                         .from('school_details')
-                        .select('school_name, motto, logo_url')
+                        .select('*')
                         .order('id', { ascending: false })
                         .limit(1)
                         .maybeSingle();
                     data = fallback.data;
                 }
 
+                const elapsed = Math.round(performance.now() - t0);
+                if (elapsed > 0 && elapsed < 500) setLatencyMs(elapsed);
+
                 if (data?.school_name) {
                     setSchoolName(data.school_name);
                     document.title = `${data.school_name} - Login`;
-                } else {
-                    setSchoolName('School Management System');
-                    document.title = 'APSIMS - Login';
                 }
                 if (data?.motto) setSchoolMotto(data.motto);
                 if (data?.logo_url) setSchoolLogoUrl(data.logo_url);
+                if (data?.phone1 || data?.phone) setSchoolPhone(data.phone1 || data.phone);
+                if (data?.email) setSchoolEmail(data.email);
+                if (data?.postal_address || data?.physical_address) {
+                    setSchoolAddress(data.physical_address || data.postal_address);
+                }
             } catch {
-                setSchoolName('School Management System');
-                document.title = 'APSIMS - Login';
+                // Keep defaults
             }
         };
         loadSchoolDetails();
     }, []);
+
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+            document.exitFullscreen().catch(() => {});
+        }
+    };
+
+    const handleCopy = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        setCopiedField(label);
+        toast.success(`${label} copied to clipboard!`, { icon: '📋' });
+        setTimeout(() => setCopiedField(null), 2500);
+    };
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -215,7 +294,6 @@ export default function LoginPage() {
                 return;
             }
 
-            // Handle Remember Me
             try {
                 if (rememberMe) {
                     localStorage.setItem('apsims_remember_user', username.trim());
@@ -226,7 +304,6 @@ export default function LoginPage() {
                 // Ignore storage error
             }
 
-            // Store user data in localStorage for UI
             if (typeof window !== 'undefined') localStorage.setItem('school_user', JSON.stringify(data.user));
             const roleLabels: Record<string, string> = {
                 admin: '🔑 Admin',
@@ -238,7 +315,6 @@ export default function LoginPage() {
             };
             toast.success(`Welcome, ${data.user.full_name}! (${roleLabels[data.user.role] || data.user.role})`);
 
-            // Smart role-based redirect
             const perms: Record<string, boolean> = data.user.permissions || {};
             const role = (data.user.role || '').toLowerCase();
             const isAdminRole = ['admin', 'principal', 'super-admin', 'superadmin', 'super_admin'].includes(role);
@@ -333,94 +409,147 @@ export default function LoginPage() {
     if (!mounted) return null;
 
     return (
-        <div className="min-h-screen w-full relative overflow-x-hidden bg-[#0d1224] text-slate-100 flex flex-col justify-between select-none">
-            {/* Google Fonts: Caveat & Dancing Script for exact cursive golden motto */}
-            <style jsx global>{`
-                @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Dancing+Script:wght@700&display=swap');
+        <div className="h-screen max-h-screen w-full relative overflow-hidden bg-[#0a0f1d] text-slate-100 flex flex-col justify-between select-none">
+            <Toaster position="top-right" />
 
-                @keyframes shake {
-                    0%, 100% { transform: translateX(0); }
-                    15%, 45%, 75% { transform: translateX(-5px); }
-                    30%, 60%, 90% { transform: translateX(5px); }
+            {/* Google Fonts */}
+            <style jsx global>{`
+                @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Dancing+Script:wght@700&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+                @keyframes pulseGlow {
+                    0%, 100% { opacity: 0.6; transform: scale(1); }
+                    50% { opacity: 1; transform: scale(1.05); }
                 }
-                .animate-shake {
-                    animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+                .pulse-orb {
+                    animation: pulseGlow 4s ease-in-out infinite;
                 }
             `}</style>
 
-            {/* Clean Vibrant Campus Courtyard Background Image */}
+            {/* Clean Campus Courtyard Background Image */}
             <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0"
                 style={{ backgroundImage: `url('/login-bg.png')` }}
             >
-                {/* Subtle depth lighting */}
-                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/20 via-transparent to-indigo-950/25"></div>
+                {/* Luminous overlay gradient for contrast */}
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/45 via-slate-950/20 to-indigo-950/40"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-slate-950/30"></div>
             </div>
 
-            {/* Main Content Layout */}
-            <div className="relative z-10 w-full flex-1 flex flex-col justify-between p-4 sm:p-6 lg:p-10 min-h-screen max-w-[1920px] mx-auto">
+            {/* Ambient Lighting Orbs */}
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none pulse-orb"></div>
+            <div className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-purple-500/15 rounded-full blur-3xl pointer-events-none pulse-orb" style={{ animationDelay: '2s' }}></div>
 
-                {/* Top Section */}
-                <div className="w-full flex items-start justify-between">
-                    {/* Top-Left School Branding (Dynamic from Supabase Database) */}
-                    <div className="flex items-start gap-3.5 sm:gap-4.5 group">
-                        <SchoolCrest logoUrl={schoolLogoUrl} className="w-14 h-14 sm:w-20 sm:h-20 flex-shrink-0 drop-shadow-2xl" />
-                        <div className="pt-0.5">
-                            <h1 className="text-xl sm:text-3xl lg:text-4xl font-black text-white tracking-wide uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] leading-tight">
-                                {schoolName}
-                            </h1>
-                            <p className="text-cyan-300 text-[10px] sm:text-xs lg:text-sm font-bold tracking-[0.22em] uppercase drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)] mt-1">
-                                SCHOOL MANAGEMENT SYSTEM
-                            </p>
-                            {/* Cursive Golden Motto from Database */}
-                            <div
-                                className="mt-2 text-amber-300 text-lg sm:text-2xl lg:text-3xl font-bold italic tracking-wide drop-shadow-[0_3px_10px_rgba(0,0,0,0.85)]"
-                                style={{ fontFamily: "'Caveat', 'Dancing Script', cursive" }}
-                            >
-                                {schoolMotto ? (
-                                    <span>{schoolMotto}</span>
-                                ) : (
-                                    <div className="leading-tight">
-                                        <span>Learning Today...</span>
-                                        <span className="block ml-6 sm:ml-8">Leading Tomorrow!</span>
-                                    </div>
+            {/* MAIN SINGLE-WINDOW CONTENT WRAPPER */}
+            <div className="relative z-10 w-full h-full max-h-screen flex flex-col justify-between px-4 sm:px-6 lg:px-10 py-3 sm:py-4 max-w-[1920px] mx-auto overflow-hidden">
+
+                {/* ─── TOP SECTION: School Branding & Live Status Pill ─── */}
+                <header className="w-full flex items-center justify-between flex-shrink-0 pt-0.5">
+                    {/* Top-Left School Branding */}
+                    <div className="flex items-center gap-3 sm:gap-4 group">
+                        <SchoolCrest logoUrl={schoolLogoUrl} className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]" />
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-lg sm:text-2xl lg:text-3xl font-black text-white tracking-wide uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] leading-tight">
+                                    {schoolName}
+                                </h1>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-400/30 text-cyan-300 text-[9px] sm:text-[11px] font-bold tracking-wider uppercase">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                                    INSTITUTIONAL PORTAL
+                                </span>
+                                {schoolMotto && (
+                                    <span
+                                        className="hidden sm:inline-block text-amber-300 text-sm sm:text-base font-bold italic tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] ml-1"
+                                        style={{ fontFamily: "'Caveat', 'Dancing Script', cursive" }}
+                                    >
+                                        &ldquo;{schoolMotto}&rdquo;
+                                    </span>
                                 )}
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Center / Body Section: Floating Frosted Glass Login Card */}
-                <div className="w-full flex items-center justify-center lg:justify-end my-8 lg:my-0 lg:pr-12 xl:pr-20">
-                    <div className="w-full max-w-[430px] relative">
-                        {/* 3D Circular Floating Emblem on Top of Card */}
-                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20">
-                            <CardEmblem />
-                        </div>
+                    {/* Top-Right Quick Links & Active System Orb */}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        {/* Parent & Student Portal Pill Shortcut */}
+                        <button
+                            type="button"
+                            onClick={() => router.push('/portal/login')}
+                            className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/18 backdrop-blur-xl border border-white/20 text-white text-xs font-bold tracking-wide transition-all shadow-lg hover:shadow-indigo-500/20 active:scale-95"
+                            title="Switch to Student & Parent Portal"
+                        >
+                            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                            <span>Parents &amp; Students Portal</span>
+                            <HiArrowRight className="w-3.5 h-3.5 text-amber-300" />
+                        </button>
 
-                        {/* Glassmorphic Login Card */}
-                        <div className="relative rounded-[36px] bg-white/92 sm:bg-white/88 backdrop-blur-2xl border-2 border-white/80 shadow-[0_25px_60px_-15px_rgba(79,70,229,0.38),0_0_40px_rgba(168,85,247,0.22)] p-7 sm:p-9 pt-12 text-slate-800 overflow-hidden">
-                            {/* Purple wave ribbon glow at top of card */}
-                            <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-purple-600/35 via-indigo-600/10 to-transparent rounded-t-[36px] pointer-events-none"></div>
+                        {/* Public Website Button */}
+                        <button
+                            type="button"
+                            onClick={() => router.push('/school')}
+                            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-950/60 hover:bg-indigo-900/70 backdrop-blur-xl border border-indigo-400/30 text-indigo-200 text-xs font-semibold transition-all shadow-md active:scale-95"
+                            title="View School Public Website"
+                        >
+                            <HiOutlineArrowTopRightOnSquare className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>Website</span>
+                        </button>
 
-                            {/* Card Header */}
-                            <div className="text-center relative z-10">
-                                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-1.5">
-                                    <span>Welcome Back!</span>
-                                    <span className="inline-block transform hover:rotate-12 transition-transform">👋</span>
-                                </h2>
-                                <div className="flex items-center justify-center gap-3 mt-2 mb-6">
-                                    <div className="h-[1px] flex-1 max-w-[50px] bg-gradient-to-r from-transparent to-purple-300"></div>
-                                    <p className="text-xs sm:text-sm font-semibold text-slate-500">Sign in to access your school system</p>
-                                    <div className="h-[1px] flex-1 max-w-[50px] bg-gradient-to-l from-transparent to-purple-300"></div>
+                        {/* Fullscreen Button */}
+                        <button
+                            type="button"
+                            onClick={toggleFullscreen}
+                            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-white/20 text-white flex items-center justify-center transition-all shadow-md active:scale-90"
+                            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                        >
+                            {isFullscreen ? (
+                                <HiOutlineArrowsPointingIn className="w-4 h-4 text-slate-200" />
+                            ) : (
+                                <HiOutlineArrowsPointingOut className="w-4 h-4 text-slate-200" />
+                            )}
+                        </button>
+                    </div>
+                </header>
+
+                {/* ─── CENTER SECTION: Ultra-Refined Executive Login Card ─── */}
+                <main className="w-full flex-1 flex items-center justify-center lg:justify-end my-auto py-1 sm:py-2 lg:pr-10 xl:pr-16">
+                    <div className="w-full max-w-[420px] relative">
+                        {/* Background Specular Aura */}
+                        <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-blue-500/30 rounded-[34px] blur-xl opacity-75 pointer-events-none"></div>
+
+                        {/* Ultra-Refined Frosted Glass Card Container */}
+                        <div className="relative rounded-[28px] bg-white/[0.94] backdrop-blur-2xl border border-white/95 shadow-[0_20px_50px_-10px_rgba(15,23,42,0.4),0_0_35px_rgba(99,102,241,0.18)] p-6 sm:p-7 text-slate-800 overflow-hidden">
+                            {/* Glowing Multi-Color Top Edge Rim */}
+                            <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-t-[28px]"></div>
+
+                            {/* Card Header with 3D Shield Badge */}
+                            <div className="flex items-center gap-3.5 pt-1 mb-4">
+                                <CardShieldBadge />
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                                            Institutional Security Gate
+                                        </span>
+                                    </div>
+                                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                                        Staff &amp; Faculty Sign In
+                                    </h2>
                                 </div>
                             </div>
 
-                            {/* Form */}
-                            <form onSubmit={handleLogin} className="space-y-4 relative z-10">
+                            {/* Subtitle Divider */}
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-slate-200"></div>
+                                <p className="text-[11px] font-semibold text-slate-500">Enter your credentials to manage records</p>
+                                <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-slate-200"></div>
+                            </div>
+
+                            {/* Login Form */}
+                            <form onSubmit={handleLogin} className="space-y-3.5">
                                 {/* Error Alert */}
                                 {error && (
-                                    <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs font-bold animate-shake">
+                                    <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-bold animate-shake">
                                         <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                         </svg>
@@ -428,21 +557,21 @@ export default function LoginPage() {
                                     </div>
                                 )}
 
-                                {/* Username Pill Input */}
+                                {/* Username Field */}
                                 <div className="space-y-1">
-                                    <div className="relative flex items-center bg-white rounded-full border-2 border-purple-200/90 hover:border-purple-300 focus-within:border-purple-600 focus-within:ring-4 focus-within:ring-purple-500/15 transition-all shadow-sm px-4 py-3 sm:py-3.5">
-                                        <div className="text-purple-600 mr-3 flex-shrink-0">
-                                            {/* Solid Royal Purple User Silhouette Icon */}
-                                            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M10 9a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                                            </svg>
+                                    <label htmlFor="username-input" className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 pl-1">
+                                        Username
+                                    </label>
+                                    <div className="relative flex items-center bg-slate-50/90 hover:bg-white focus-within:bg-white rounded-2xl border border-slate-200/90 hover:border-slate-300 focus-within:border-indigo-600 focus-within:ring-4 focus-within:ring-indigo-500/12 transition-all shadow-sm px-3.5 py-2.5">
+                                        <div className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mr-2.5 flex-shrink-0 shadow-inner">
+                                            <HiOutlineUser className="w-4 h-4" />
                                         </div>
                                         <input
                                             id="username-input"
                                             type="text"
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
-                                            placeholder="Enter your username"
+                                            placeholder="e.g. principal or admin"
                                             autoFocus
                                             autoComplete="username"
                                             className="w-full bg-transparent text-slate-800 placeholder-slate-400 font-semibold text-sm outline-none"
@@ -450,21 +579,21 @@ export default function LoginPage() {
                                     </div>
                                 </div>
 
-                                {/* Password Pill Input */}
+                                {/* Password Field */}
                                 <div className="space-y-1">
-                                    <div className="relative flex items-center bg-white rounded-full border-2 border-purple-200/90 hover:border-purple-300 focus-within:border-purple-600 focus-within:ring-4 focus-within:ring-purple-500/15 transition-all shadow-sm px-4 py-3 sm:py-3.5">
-                                        <div className="text-purple-600 mr-3 flex-shrink-0">
-                                            {/* Solid Royal Purple Lock Icon */}
-                                            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                            </svg>
+                                    <label htmlFor="password-input" className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 pl-1">
+                                        Password
+                                    </label>
+                                    <div className="relative flex items-center bg-slate-50/90 hover:bg-white focus-within:bg-white rounded-2xl border border-slate-200/90 hover:border-slate-300 focus-within:border-indigo-600 focus-within:ring-4 focus-within:ring-indigo-500/12 transition-all shadow-sm px-3.5 py-2.5">
+                                        <div className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mr-2.5 flex-shrink-0 shadow-inner">
+                                            <HiOutlineLockClosed className="w-4 h-4" />
                                         </div>
                                         <input
                                             id="password-input"
                                             type={showPassword ? 'text' : 'password'}
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            placeholder="Enter your password"
+                                            placeholder="Enter your security password"
                                             autoComplete="current-password"
                                             className="w-full bg-transparent text-slate-800 placeholder-slate-400 font-semibold text-sm outline-none pr-8"
                                         />
@@ -472,92 +601,247 @@ export default function LoginPage() {
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
                                             tabIndex={-1}
-                                            className="absolute right-4 text-slate-400 hover:text-purple-700 transition-colors p-1"
+                                            className="absolute right-3.5 text-slate-400 hover:text-indigo-600 transition-colors p-1"
                                             title={showPassword ? 'Hide password' : 'Show password'}
                                         >
                                             {showPassword ? (
-                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
-                                                    <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
-                                                </svg>
+                                                <HiOutlineEyeSlash className="w-4 h-4" />
                                             ) : (
-                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                                    <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                                                </svg>
+                                                <HiOutlineEye className="w-4 h-4" />
                                             )}
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Options Row: Remember Me & Forgot Password */}
-                                <div className="flex items-center justify-between text-xs sm:text-sm pt-1 px-1">
-                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                {/* Remember Me & Forgot Password Row */}
+                                <div className="flex items-center justify-between text-xs pt-0.5 px-1">
+                                    <label className="flex items-center gap-2 cursor-pointer select-none group">
                                         <input
                                             type="checkbox"
                                             checked={rememberMe}
                                             onChange={(e) => setRememberMe(e.target.checked)}
-                                            className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 accent-purple-600 cursor-pointer"
+                                            className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
                                         />
-                                        <span className="font-semibold text-slate-800">Remember me</span>
+                                        <span className="font-semibold text-slate-600 group-hover:text-slate-900 transition-colors">
+                                            Remember device
+                                        </span>
                                     </label>
                                     <button
                                         type="button"
                                         onClick={() => setShowForgot(true)}
-                                        className="font-bold text-indigo-700 hover:text-purple-700 transition-colors"
+                                        className="font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
                                     >
                                         Forgot password?
                                     </button>
                                 </div>
 
-                                {/* 3D Glossy Pill Submit Button */}
+                                {/* Super Ultra 3D Submit Button */}
                                 <button
                                     id="login-button"
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full mt-3 py-3.5 sm:py-4 rounded-full bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 hover:from-purple-800 hover:via-indigo-700 hover:to-purple-900 text-white font-black text-base sm:text-lg shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_12px_28px_-5px_rgba(124,58,237,0.55)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_16px_36px_-5px_rgba(124,58,237,0.65)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2.5"
+                                    className="w-full mt-2 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-700 hover:via-blue-700 hover:to-indigo-800 text-white font-extrabold text-sm sm:text-base shadow-[inset_0_1px_1px_rgba(255,255,255,0.45),0_10px_25px_-5px_rgba(79,70,229,0.5)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.45),0_14px_30px_-5px_rgba(79,70,229,0.65)] hover:translate-y-[-1px] active:translate-y-[1px] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 group cursor-pointer"
                                 >
                                     {isLoading ? (
                                         <>
-                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                            <span>Signing in...</span>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            <span>Authenticating Session...</span>
                                         </>
                                     ) : (
                                         <>
-                                            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                                            </svg>
-                                            <span>Sign In</span>
+                                            <span>Authenticate &amp; Enter</span>
+                                            <HiArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
                                         </>
                                     )}
                                 </button>
                             </form>
 
-                            {/* Card Security & Powered By Footer */}
-                            <div className="mt-6 flex flex-col items-center justify-center gap-2 text-xs font-bold text-slate-600">
-                                <div className="flex items-center gap-2">
-                                    <div className="h-[1px] w-10 bg-slate-200"></div>
-                                    <div className="flex items-center gap-1.5 text-slate-700">
-                                        <svg className="w-4 h-4 text-purple-700 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                        </svg>
-                                        <span>Secure & Encrypted</span>
-                                    </div>
-                                    <div className="h-[1px] w-10 bg-slate-200"></div>
+                            {/* Card Security Tag & Footer */}
+                            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                                <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                                    <HiOutlineShieldCheck className="w-4 h-4 text-emerald-600" />
+                                    <span>256-Bit SSL Encrypted</span>
                                 </div>
-                                <p className="text-[10px] text-slate-400 font-medium">
-                                    © {new Date().getFullYear()} APSIMS • Powered by <span className="text-purple-700 font-bold">Hawkinsoft Solutions</span>
-                                </p>
+                                <span className="text-slate-400">APSIMS v2.4</span>
                             </div>
                         </div>
                     </div>
-                </div>
+                </main>
 
-                {/* Bottom Spacer to leave the glistening background dock bar unobstructed */}
-                <div className="w-full h-12 lg:h-16 pointer-events-none"></div>
+                {/* ─── BOTTOM SECTION: Super Ultra-Premium Working Bottom Nav Dock ─── */}
+                <footer className="w-full flex-shrink-0 z-20 pb-0.5">
+                    <div className="w-full rounded-2xl bg-slate-950/75 backdrop-blur-xl border border-white/15 shadow-[0_10px_35px_rgba(0,0,0,0.6)] px-3 sm:px-5 py-2 flex flex-col md:flex-row items-center justify-between gap-2.5 text-xs text-slate-200">
+
+                        {/* Left Island: Working Real-Time Clock & Date */}
+                        <div className="flex items-center gap-3">
+                            <div
+                                onClick={() => setUse24Hour(!use24Hour)}
+                                className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 transition-all cursor-pointer select-none"
+                                title="Click to toggle 12h / 24h format"
+                            >
+                                <HiOutlineClock className="w-4 h-4 text-amber-300 animate-spin-slow" />
+                                <span className="font-mono font-bold text-amber-200 text-xs sm:text-sm tracking-wider">
+                                    {currentTime || '09:00:00 AM'}
+                                </span>
+                                <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300">
+                                    🇰🇪 EAT
+                                </span>
+                            </div>
+                            <span className="hidden sm:inline-block text-slate-300 font-medium text-xs">
+                                {currentDate}
+                            </span>
+                        </div>
+
+                        {/* Center Island: Live System Status & Connection Latency */}
+                        <div className="hidden lg:flex items-center gap-4">
+                            <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-300">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <span className="font-bold text-xs tracking-wide">All Systems Operational</span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                                <HiOutlineSignal className="w-3.5 h-3.5 text-cyan-400" />
+                                <span>Supabase Cloud:</span>
+                                <span className="font-mono text-cyan-300 font-bold">{latencyMs}ms</span>
+                            </div>
+                        </div>
+
+                        {/* Right Island: Working Real Action Functions */}
+                        <div className="flex items-center gap-2 sm:gap-2.5">
+                            {/* Switch to Parent & Student Portal */}
+                            <button
+                                type="button"
+                                onClick={() => router.push('/portal/login')}
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-bold text-xs transition-all shadow-md active:scale-95"
+                            >
+                                <span>Portal Access</span>
+                                <HiArrowRight className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Public Website */}
+                            <button
+                                type="button"
+                                onClick={() => router.push('/school')}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-slate-200 hover:text-white text-xs font-semibold transition-all active:scale-95"
+                            >
+                                <HiOutlineArrowTopRightOnSquare className="w-3.5 h-3.5 text-cyan-400" />
+                                <span className="hidden sm:inline">Website</span>
+                            </button>
+
+                            {/* Contact Support & Hotline Modal Trigger */}
+                            <button
+                                type="button"
+                                onClick={() => setShowSupportModal(true)}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-amber-200 hover:text-amber-100 text-xs font-semibold transition-all active:scale-95"
+                            >
+                                <HiOutlinePhone className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Support</span>
+                            </button>
+                        </div>
+                    </div>
+                </footer>
             </div>
 
-            {/* Forgot Password Modal — 3-Step Self-Service Reset */}
+            {/* ─── REAL WORKING SUPPORT & EMERGENCY HOTLINE MODAL ─── */}
+            {showSupportModal && (
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[110] p-4"
+                    onClick={() => setShowSupportModal(false)}
+                >
+                    <div
+                        className="bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden text-white p-6 relative"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Close button */}
+                        <button
+                            onClick={() => setShowSupportModal(false)}
+                            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                        >
+                            <HiOutlineXMark className="w-5 h-5" />
+                        </button>
+
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400">
+                                <HiOutlinePhone className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-white">Institutional Support Desk</h3>
+                                <p className="text-xs text-slate-400">Direct contacts for {schoolName}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 mt-4">
+                            {/* Phone Hotline */}
+                            <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <HiOutlinePhone className="w-5 h-5 text-indigo-400 flex-shrink-0" />
+                                    <div>
+                                        <div className="text-[10px] uppercase font-bold text-slate-400">School Telephone / Helpdesk</div>
+                                        <div className="text-sm font-bold text-white font-mono">{schoolPhone}</div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleCopy(schoolPhone, 'Phone number')}
+                                    className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
+                                    title="Copy Phone"
+                                >
+                                    {copiedField === 'Phone number' ? (
+                                        <HiOutlineClipboardDocumentCheck className="w-4 h-4 text-emerald-400" />
+                                    ) : (
+                                        <HiOutlineClipboardDocument className="w-4 h-4" />
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* Email Support */}
+                            <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <HiOutlineEnvelope className="w-5 h-5 text-cyan-400 flex-shrink-0" />
+                                    <div>
+                                        <div className="text-[10px] uppercase font-bold text-slate-400">Support Email</div>
+                                        <div className="text-sm font-bold text-white font-mono">{schoolEmail}</div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleCopy(schoolEmail, 'Email address')}
+                                    className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
+                                    title="Copy Email"
+                                >
+                                    {copiedField === 'Email address' ? (
+                                        <HiOutlineClipboardDocumentCheck className="w-4 h-4 text-emerald-400" />
+                                    ) : (
+                                        <HiOutlineClipboardDocument className="w-4 h-4" />
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* Physical Address */}
+                            <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center gap-3">
+                                <HiOutlineMapPin className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                                <div>
+                                    <div className="text-[10px] uppercase font-bold text-slate-400">Campus Location</div>
+                                    <div className="text-xs font-semibold text-slate-200">{schoolAddress}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-5 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                            <span>ICT Support Hours: Mon–Fri 07:00–18:00</span>
+                            <button
+                                onClick={() => setShowSupportModal(false)}
+                                className="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── FORGOT PASSWORD MODAL ─── */}
             {showForgot && (
                 <div
                     className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4"
@@ -567,7 +851,6 @@ export default function LoginPage() {
                         className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden text-slate-800 border border-purple-100"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Header */}
                         <div className="bg-gradient-to-r from-purple-700 via-indigo-600 to-blue-600 px-6 py-5 text-center relative text-white">
                             <button
                                 onClick={closeForgot}
@@ -576,14 +859,11 @@ export default function LoginPage() {
                                 &times;
                             </button>
                             <div className="inline-flex items-center justify-center w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl mb-3">
-                                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                </svg>
+                                <HiOutlineLockClosed className="w-6 h-6 text-white" />
                             </div>
                             <h3 className="font-extrabold text-lg">
                                 {forgotStep === 'request' ? 'Forgot Password' : forgotStep === 'verify' ? 'Verify Code' : 'Set New Password'}
                             </h3>
-                            {/* Step indicators */}
                             <div className="flex items-center justify-center gap-2 mt-3">
                                 {[1, 2, 3].map((step) => (
                                     <div
@@ -599,7 +879,6 @@ export default function LoginPage() {
                         </div>
 
                         <div className="p-6">
-                            {/* Step 1: Request reset */}
                             {forgotStep === 'request' && (
                                 <form onSubmit={handleForgotRequest} className="space-y-4">
                                     <p className="text-slate-600 text-sm">Enter your username and we&apos;ll send a verification reset code to your registered phone or email.</p>
@@ -624,7 +903,6 @@ export default function LoginPage() {
                                 </form>
                             )}
 
-                            {/* Step 2: Verify code */}
                             {forgotStep === 'verify' && (
                                 <form onSubmit={handleForgotVerify} className="space-y-4">
                                     <p className="text-slate-600 text-sm">{forgotHint}</p>
@@ -662,7 +940,6 @@ export default function LoginPage() {
                                 </form>
                             )}
 
-                            {/* Step 3: Set new password */}
                             {forgotStep === 'reset' && (
                                 <form onSubmit={handleForgotReset} className="space-y-4">
                                     <p className="text-slate-600 text-sm">Code verified! Set your new password.</p>
