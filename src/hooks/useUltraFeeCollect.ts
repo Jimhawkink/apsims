@@ -11,12 +11,25 @@ export const PAYMENT_METHODS = ['Cash', 'M-Pesa', 'Bank Transfer', 'Cheque', 'In
 export type PayMethod = typeof PAYMENT_METHODS[number];
 
 export const BURSARY_SOURCES = [
-  { id: 'moe_capitation', label: 'MoE Capitation', icon: '🏛️', color: '#1D9E75' },
-  { id: 'county_bursary', label: 'County Bursary', icon: '🏦', color: '#378ADD' },
-  { id: 'cdf', label: 'CDF/NG-CDF', icon: '🇰🇪', color: '#6C63FF' },
-  { id: 'helb', label: 'HELB', icon: '🎓', color: '#EF9F27' },
-  { id: 'ngo', label: 'NGO/Scholarship', icon: '🤝', color: '#E24B4A' },
-  { id: 'church', label: 'Church/FBO', icon: '⛪', color: '#8B5CF6' },
+  { id: 'moe_fdse', label: 'MoE FDSE Secondary Capitation', icon: '🏛️', color: '#16a34a', desc: 'Free Day Secondary Education (Tuition & Operations)' },
+  { id: 'moe_jss', label: 'MoE JSS Junior Secondary Grant', icon: '🎓', color: '#0d9488', desc: 'Junior Secondary Capitation Grant (Grade 7–9)' },
+  { id: 'moe_fpe', label: 'MoE FPE Primary Capitation', icon: '🎒', color: '#2563eb', desc: 'Free Primary Education Subsidy (PP1–Grade 6)' },
+  { id: 'moe_sne', label: 'MoE SNE Special Needs Grant', icon: '♿', color: '#7c3aed', desc: 'Special Needs Education Enhanced Grant' },
+  { id: 'county_ward', label: 'County Government Ward Bursary', icon: '🏦', color: '#378add', desc: 'County Ward Bursary Committee Allocation' },
+  { id: 'county_governor', label: "County Governor's Scholarship", icon: '👑', color: '#d97706', desc: "County Executive Governor's Affirmative Fund" },
+  { id: 'ng_cdf', label: 'NG-CDF (Constituency Bursary)', icon: '🇰🇪', color: '#4f46e5', desc: 'National Government Constituencies Development Fund' },
+  { id: 'ngaaf', label: 'NGAAF Woman Rep Affirmative Fund', icon: '👩‍👧', color: '#db2777', desc: 'County Woman Representative Bursary Fund' },
+  { id: 'elimu', label: 'Elimu Scholarship / Equity Wings to Fly', icon: '🦅', color: '#b91c1c', desc: 'MoE Elimu & Equity Foundation Full Sponsorship' },
+  { id: 'kcb_foundation', label: 'KCB Foundation Scholarship', icon: '🦁', color: '#15803d', desc: 'KCB Bank Education Scholarship' },
+  { id: 'coop_foundation', label: 'Co-op Bank Foundation Scholarship', icon: '🌿', color: '#047857', desc: 'Co-operative Bank Foundation' },
+  { id: 'church_fbo', label: 'Church / Faith-Based Organization', icon: '⛪', color: '#8b5cf6', desc: 'Diocese / Parish / Mosque Education Grant' },
+  { id: 'helb', label: 'HELB / TVET Education Fund', icon: '📜', color: '#ea580c', desc: 'Higher Education Loans Board / TVET Grant' },
+  { id: 'rmi_infrastructure', label: 'MoE RMI Infrastructure Grant', icon: '🏗️', color: '#64748b', desc: 'Repairs, Maintenance & Improvement Capital Grant' },
+  { id: 'school_feeding', label: 'National School Feeding / WFP', icon: '🍲', color: '#ca8a04', desc: 'School Meals Programme Subsidy' },
+  { id: 'ngo', label: 'Private NGO / Charitable Trust', icon: '🤝', color: '#e11d48', desc: 'International or Local Charitable Sponsor' },
+  { id: 'moe_capitation', label: 'General MoE Capitation', icon: '🏛️', color: '#1D9E75', desc: 'National Government Ministry Capitation' },
+  { id: 'county_bursary', label: 'General County Bursary', icon: '🏦', color: '#378ADD', desc: 'County Government Education Assistance' },
+  { id: 'cdf', label: 'General CDF Fund', icon: '🇰🇪', color: '#6C63FF', desc: 'Constituency Development Fund' },
 ] as const;
 
 export const WAIVER_TYPES = [
@@ -450,6 +463,66 @@ export function useUltraFeeCollect() {
     };
   }, [payments, students, structures, terms, currentYear]);
 
+  // Record Government Capitation / Infrastructure Grant
+  const recordCapitationGrant = useCallback(async (data: {
+    grantType: string;
+    source: string;
+    amount: number;
+    formId?: number;
+    termId?: number;
+    year?: number;
+    refNo?: string;
+    notes?: string;
+  }) => {
+    const { data: rec, error } = await supabase.from('school_capitation').insert({
+      grant_type: data.grantType,
+      source: data.source,
+      amount: data.amount,
+      received_amount: data.amount,
+      form_id: data.formId || null,
+      term_id: data.termId || null,
+      year: data.year || currentYear,
+      academic_year: String(data.year || currentYear),
+      reference_number: data.refNo || `CAP-${Date.now().toString(36).toUpperCase()}`,
+      status: 'Received',
+      received_date: new Date().toISOString().split('T')[0],
+      notes: data.notes || '',
+    }).select().single();
+    if (error) throw error;
+    await fetchAll();
+    return rec;
+  }, [currentYear, fetchAll]);
+
+  // Record Student Bursary / County / CDF Award
+  const recordBursaryAward = useCallback(async (data: {
+    studentId: number;
+    donorName: string;
+    amount: number;
+    academicYear?: string;
+    term?: string;
+    reference?: string;
+    notes?: string;
+  }) => {
+    const { data: rec, error } = await supabase.from('school_bursary_records').insert({
+      student_id: data.studentId,
+      donor_name: data.donorName,
+      donor: data.donorName,
+      amount: data.amount,
+      approved_amount: data.amount,
+      disbursed_amount: data.amount,
+      academic_year: data.academicYear || String(currentYear),
+      term: data.term || (currentTerm?.term_name || 'Term 1'),
+      status: 'Applied',
+      award_date: new Date().toISOString().split('T')[0],
+      disbursement_date: new Date().toISOString().split('T')[0],
+      reference: data.reference || `BUR-${Date.now().toString(36).toUpperCase()}`,
+      notes: data.notes || '',
+    }).select().single();
+    if (error) throw error;
+    await fetchAll();
+    return rec;
+  }, [currentYear, currentTerm, fetchAll]);
+
   return {
     loading, forms, streams, students, payments, structures, terms,
     bursaryRecords, capitationRecords, settings,
@@ -457,6 +530,7 @@ export function useUltraFeeCollect() {
     getFormName, getStreamName, searchStudent,
     getStudentFeeProfile, getStudentPayments, getStatement,
     recordPayment, updatePayment, deletePayment,
+    recordCapitationGrant, recordBursaryAward,
     sendSmsReceipt, fetchAll,
   };
 }

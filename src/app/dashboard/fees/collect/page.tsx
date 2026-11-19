@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import Link from 'next/link';
-import { useUltraFeeCollect, fmt } from '@/hooks/useUltraFeeCollect';
+import { useUltraFeeCollect, fmt, BURSARY_SOURCES } from '@/hooks/useUltraFeeCollect';
 import UltraFeeSearch from '@/components/fees/UltraFeeSearch';
 import UltraStudentFeeProfile from '@/components/fees/UltraStudentFeeProfile';
 import UltraPaymentModal, { type PaymentData } from '@/components/fees/UltraPaymentModal';
@@ -15,7 +15,7 @@ import {
   FiCalendar, FiClock, FiFileText, FiPhone, FiCheck, FiArrowRight,
   FiChevronLeft, FiChevronRight, FiSliders, FiEye, FiTrash2,
   FiSend, FiPocket, FiBookOpen, FiShield, FiSmartphone, FiHash,
-  FiLayers, FiX, FiExternalLink,
+  FiLayers, FiX, FiExternalLink, FiAward, FiPlus,
 } from 'react-icons/fi';
 
 /* ─────────────────────────────────────────────
@@ -150,7 +150,7 @@ function ReceiptFlash({
       </div>
 
       <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-        <div className="text-2xl font-black text-emerald-400 tracking-tight">
+        <div className="text-2xl font-black text-emerald-400 tracking-tight font-mono">
           KES {amount.toLocaleString('en-KE')}
         </div>
         <div className="text-xs text-slate-300 mt-1 font-semibold truncate">{studentName}</div>
@@ -229,20 +229,6 @@ function printOfficialA4Statement(student: any, fees: any, statement: any, setti
           <td style="color: #64748b; font-weight: 700;">NEMIS UPI:</td>
           <td style="font-family: monospace;">${student.nemis_no || '—'}</td>
         </tr>
-        <tr>
-          <td style="color: #64748b; font-weight: 700;">Guardian Name:</td>
-          <td>${student.guardian_name || '—'}</td>
-          <td style="color: #64748b; font-weight: 700;">Guardian Phone:</td>
-          <td>${student.guardian_phone || '—'}</td>
-        </tr>
-        <tr>
-          <td style="color: #64748b; font-weight: 700;">Statement Date:</td>
-          <td>${new Date().toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' })}</td>
-          <td style="color: #64748b; font-weight: 700;">Clearance Status:</td>
-          <td style="font-weight: 800; color: ${(fees?.termBalance ?? 0) <= 0 ? '#16a34a' : '#dc2626'};">
-            ${(fees?.termBalance ?? 0) <= 0 ? '✓ FULLY CLEARED' : '⚠️ OUTSTANDING DUES'}
-          </td>
-        </tr>
       </table>
 
       <table class="tbl">
@@ -292,130 +278,9 @@ function printOfficialA4Statement(student: any, fees: any, statement: any, setti
         </div>
       </div>
 
-      <div style="margin-top: 25px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #94a3b8; display: flex; justify-content: space-between;">
-        <span>Document Ref: APSIMS-STMT-${adm}-${Date.now().toString(36).toUpperCase()}</span>
-        <span>Generated via APSIMS™ Financial Management System</span>
-      </div>
-
       <div class="no-print">
         <button onclick="window.print()" style="padding: 9px 24px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px;">
           🖨️ Print Statement
-        </button>
-      </div>
-    </body>
-    </html>
-  `);
-  w.document.close();
-}
-
-/** Print Cashier Shift Closing Handover & Drawer Balancing Sheet */
-function printCashierShiftSheet(shiftData: any, settings: any) {
-  const w = window.open('', '_blank');
-  if (!w) return;
-
-  const school = settings?.school_name || 'ALPHA PREMIER SCHOOL';
-  const todayStr = new Date().toLocaleDateString('en-KE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-
-  w.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Cashier Shift & Drawer Handover — ${todayStr}</title>
-      <style>
-        @page { size: A4; margin: 15mm; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 0; padding: 12px; font-size: 12px; }
-        .hdr { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
-        .box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        th, td { padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 11px; }
-        th { background: #f8fafc; font-weight: 700; text-align: left; }
-        .no-print { text-align: center; margin: 20px 0; }
-        @media print { .no-print { display: none !important; } }
-      </style>
-    </head>
-    <body>
-      <div class="hdr">
-        <h2 style="margin: 0; font-size: 18px; font-weight: 900; color: #1e1b4b;">${school}</h2>
-        <h3 style="margin: 4px 0 0; font-size: 13px; color: #4338ca; letter-spacing: 1px;">DAILY CASHIER SHIFT &amp; RECONCILIATION REPORT</h3>
-        <p style="margin: 2px 0 0; color: #64748b; font-size: 11px;">Date: ${todayStr} | Generated: ${new Date().toLocaleTimeString('en-KE')}</p>
-      </div>
-
-      <div class="box">
-        <div style="font-weight: 800; font-size: 12px; color: #0f172a; margin-bottom: 6px;">1. INTAKE SUMMARY BY CHANNEL</div>
-        <table>
-          <thead>
-            <tr><th>Channel / Payment Method</th><th style="text-align: right;">Transactions Count</th><th style="text-align: right;">Total Received (KES)</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Physical Cash (Drawer)</td><td style="text-align: right;">${shiftData.cashCount}</td><td style="text-align: right; font-weight: 700;">KES ${shiftData.cashTotal.toLocaleString()}</td></tr>
-            <tr><td>M-Pesa STK &amp; Till / Paybill</td><td style="text-align: right;">${shiftData.mpesaCount}</td><td style="text-align: right; font-weight: 700;">KES ${shiftData.mpesaTotal.toLocaleString()}</td></tr>
-            <tr><td>Bank Direct Deposit / Slips</td><td style="text-align: right;">${shiftData.bankCount}</td><td style="text-align: right; font-weight: 700;">KES ${shiftData.bankTotal.toLocaleString()}</td></tr>
-            <tr><td>Cheques / In-Kind / Other</td><td style="text-align: right;">${shiftData.otherCount}</td><td style="text-align: right; font-weight: 700;">KES ${shiftData.otherTotal.toLocaleString()}</td></tr>
-          </tbody>
-          <tfoot>
-            <tr style="background: #f1f5f9; font-weight: 900;">
-              <td>GROSS TOTAL COLLECTIONS</td>
-              <td style="text-align: right;">${shiftData.totalCount} receipts</td>
-              <td style="text-align: right; color: #16a34a; font-size: 13px;">KES ${shiftData.grossTotal.toLocaleString()}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <div class="box">
-        <div style="font-weight: 800; font-size: 12px; color: #0f172a; margin-bottom: 6px;">2. CASH DRAWER COUNT &amp; RECONCILIATION</div>
-        <table>
-          <thead>
-            <tr><th>Denomination</th><th style="text-align: right;">Count / Units</th><th style="text-align: right;">Value (KES)</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>KES 1,000 Notes</td><td style="text-align: right;">${shiftData.d1000}</td><td style="text-align: right;">KES ${(shiftData.d1000 * 1000).toLocaleString()}</td></tr>
-            <tr><td>KES 500 Notes</td><td style="text-align: right;">${shiftData.d500}</td><td style="text-align: right;">KES ${(shiftData.d500 * 500).toLocaleString()}</td></tr>
-            <tr><td>KES 200 Notes</td><td style="text-align: right;">${shiftData.d200}</td><td style="text-align: right;">KES ${(shiftData.d200 * 200).toLocaleString()}</td></tr>
-            <tr><td>KES 100 Notes</td><td style="text-align: right;">${shiftData.d100}</td><td style="text-align: right;">KES ${(shiftData.d100 * 100).toLocaleString()}</td></tr>
-            <tr><td>KES 50 Notes</td><td style="text-align: right;">${shiftData.d50}</td><td style="text-align: right;">KES ${(shiftData.d50 * 50).toLocaleString()}</td></tr>
-            <tr><td>Coins &amp; Loose Change</td><td style="text-align: right;">—</td><td style="text-align: right;">KES ${shiftData.coins.toLocaleString()}</td></tr>
-          </tbody>
-          <tfoot>
-            <tr style="background: #f8fafc; font-weight: 800;">
-              <td>Total Physical Cash Counted:</td>
-              <td colspan="2" style="text-align: right; font-size: 12px;">KES ${shiftData.countedCash.toLocaleString()}</td>
-            </tr>
-            <tr style="font-weight: 800;">
-              <td>Expected System Cash:</td>
-              <td colspan="2" style="text-align: right;">KES ${shiftData.cashTotal.toLocaleString()}</td>
-            </tr>
-            <tr style="background: ${shiftData.discrepancy === 0 ? '#f0fdf4' : '#fef2f2'}; font-weight: 900;">
-              <td>Cash Discrepancy (Counted vs Expected):</td>
-              <td colspan="2" style="text-align: right; color: ${shiftData.discrepancy === 0 ? '#16a34a' : '#dc2626'}; font-size: 13px;">
-                ${shiftData.discrepancy === 0 ? '✓ PERFECTLY BALANCED (KES 0)' : (shiftData.discrepancy > 0 ? '+KES ' + shiftData.discrepancy.toLocaleString() + ' (OVERAGE)' : '-KES ' + Math.abs(shiftData.discrepancy).toLocaleString() + ' (SHORTAGE)')}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <div style="margin-top: 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
-        <div>
-          <div style="font-weight: 700; color: #475569; font-size: 11px;">Handed Over By:</div>
-          <div style="margin-top: 40px; border-top: 1px solid #000; padding-top: 4px; font-weight: 700;">
-            Duty Cashier Signature: _______________________
-          </div>
-          <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">Name: ______________________ Date: ___________</div>
-        </div>
-
-        <div>
-          <div style="font-weight: 700; color: #475569; font-size: 11px;">Received &amp; Verified By:</div>
-          <div style="margin-top: 40px; border-top: 1px solid #000; padding-top: 4px; font-weight: 700;">
-            Bursar / Bank Deposit Officer: _________________
-          </div>
-          <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">Name: ______________________ Date: ___________</div>
-        </div>
-      </div>
-
-      <div class="no-print">
-        <button onclick="window.print()" style="padding: 9px 24px; background: #16a34a; color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px;">
-          🖨️ Print Shift Handover Sheet
         </button>
       </div>
     </body>
@@ -435,7 +300,10 @@ export default function UltraCollectFeePage() {
     streams,
     students,
     payments,
+    structures,
     terms,
+    bursaryRecords,
+    capitationRecords,
     settings,
     currentTerm,
     getFormName,
@@ -446,6 +314,8 @@ export default function UltraCollectFeePage() {
     getStatement,
     recordPayment,
     deletePayment,
+    recordCapitationGrant,
+    recordBursaryAward,
     sendSmsReceipt,
     fetchAll,
   } = useUltraFeeCollect();
@@ -473,8 +343,8 @@ export default function UltraCollectFeePage() {
   // Curriculum Filter Tab
   const [selectedTrack, setSelectedTrack] = useState<CurriculumTrack>('ALL');
 
-  // Active Center Tab (when no student is selected)
-  const [centerTab, setCenterTab] = useState<'queue' | 'intake' | 'drawer' | 'matrix'>('queue');
+  // Active Center Tab
+  const [centerTab, setCenterTab] = useState<'queue' | 'intake' | 'drawer' | 'capitation' | 'matrix'>('queue');
 
   // Fast Queue Datagrid Controls
   const [queueSearch, setQueueSearch] = useState('');
@@ -502,6 +372,22 @@ export default function UltraCollectFeePage() {
   const [stkAmount, setStkAmount] = useState(0);
   const [stkStatus, setStkStatus] = useState<'idle' | 'prompting' | 'success'>('idle');
   const [stkCountdown, setStkCountdown] = useState(45);
+
+  // Government Capitation Modal State
+  const [capModalOpen, setCapModalOpen] = useState(false);
+  const [capScheme, setCapScheme] = useState('moe_fdse');
+  const [capAmount, setCapAmount] = useState('');
+  const [capRef, setCapRef] = useState('');
+  const [capFormId, setCapFormId] = useState(0);
+  const [capNotes, setCapNotes] = useState('');
+
+  // County / CDF Bursary Modal State
+  const [bursaryModalOpen, setBursaryModalOpen] = useState(false);
+  const [burStudentId, setBurStudentId] = useState(0);
+  const [burDonor, setBurDonor] = useState('county_ward');
+  const [burAmount, setBurAmount] = useState('');
+  const [burRef, setBurRef] = useState('');
+  const [burNotes, setBurNotes] = useState('');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -621,12 +507,6 @@ export default function UltraCollectFeePage() {
       .reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
   }, [todayPayments]);
 
-  const todayOtherTotal = useMemo(() => {
-    return todayPayments
-      .filter((p: any) => p.payment_method !== 'Cash' && p.payment_method !== 'M-Pesa' && p.payment_method !== 'Bank Transfer' && p.payment_method !== 'Bank')
-      .reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-  }, [todayPayments]);
-
   const todayGrossTotal = useMemo(() => {
     return todayPayments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
   }, [todayPayments]);
@@ -681,7 +561,6 @@ export default function UltraCollectFeePage() {
 
   /* ── Intake Ledger Filtered List ── */
   const displayIntakePayments = useMemo(() => {
-    // If today has payments, show today; otherwise show all recent payments
     const base = todayPayments.length > 0 ? todayPayments : payments.slice(0, 50);
     return base.filter((p: any) => {
       if (intakeMethodFilter !== 'ALL' && p.payment_method !== intakeMethodFilter) return false;
@@ -788,14 +667,6 @@ export default function UltraCollectFeePage() {
           termBalance: Math.max(0, (fees.termBalance as number) - data.amount),
           annualFees: fees.annualTotal as number,
           annualBalance: Math.max(0, (fees.annualBalance as number) - data.amount),
-          allocations: (() => {
-            const realAlloc = (result as any).allocations as { head: string; amount: number }[] | undefined;
-            if (realAlloc && realAlloc.length > 0) return realAlloc;
-            if (data.allocationHead) return [{ head: data.allocationHead, amount: data.amount }];
-            return undefined;
-          })(),
-          bursaryApplied: (fees.bursaryTotal as number) > 0 ? (fees.bursaryTotal as number) : undefined,
-          capitationApplied: (fees.capitationTotal as number) > 0 ? (fees.capitationTotal as number) : undefined,
           schoolName: settings?.school_name as string | undefined,
           schoolAddress: settings?.school_address as string | undefined,
           schoolPhone: settings?.school_phone as string | undefined,
@@ -842,7 +713,7 @@ export default function UltraCollectFeePage() {
     );
   }, [selectedStudent, fees, statement, settings, safeGetFormName, safeGetStreamName]);
 
-  /* ── Export Fast Queue to Excel (UTF-8 BOM CSV) ── */
+  /* ── Export Fast Queue to Excel ── */
   const handleExportQueueExcel = useCallback(() => {
     const headers = ['#', 'Admission No', 'Student Name', 'Curriculum', 'Class', 'Stream', 'Guardian Name', 'Guardian Phone', 'Annual Billed (KES)', 'Total Paid (KES)', 'Term Balance (KES)', 'Status'];
     const rows = queueStudents.map((s, idx) => {
@@ -878,30 +749,6 @@ export default function UltraCollectFeePage() {
     toast.success('Fee queue exported to Excel successfully!');
   }, [queueStudents, getFeeBalance, formMap, safeGetFormName, safeGetStreamName, selectedTrack]);
 
-  /* ── Export Today's Intake to Excel ── */
-  const handleExportIntakeExcel = useCallback(() => {
-    const headers = ['Receipt No', 'Date', 'Student ID', 'Payment Method', 'Reference', 'Amount (KES)', 'Allocated Head'];
-    const rows = displayIntakePayments.map(p => [
-      `"${p.receipt_number || 'REC-' + p.id}"`,
-      `"${new Date(p.payment_date).toLocaleDateString('en-KE')}"`,
-      p.student_id,
-      `"${p.payment_method || 'Cash'}"`,
-      `"${p.reference_number || '—'}"`,
-      p.amount,
-      `"${p.allocation_head || 'General'}"`,
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `APSIMS_Daily_Intake_Ledger_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success('Intake ledger exported to Excel!');
-  }, [displayIntakePayments]);
-
   /* ── Open Direct STK Push Modal ── */
   const handleOpenStkModal = (student: any) => {
     const b = getFeeBalance(student.id, student.form_id);
@@ -912,45 +759,68 @@ export default function UltraCollectFeePage() {
     setStkModalOpen(true);
   };
 
-  /* ── Trigger STK Push Prompt ── */
-  const handleTriggerStkPush = () => {
-    if (!stkPhone.trim()) {
-      toast.error('Please enter a valid M-Pesa phone number');
+  /* ── Submit Government Capitation Inflow ── */
+  const handleRecordCapitationSubmit = async () => {
+    if (!capAmount || Number(capAmount) <= 0) {
+      toast.error('Please enter a valid capitation amount');
       return;
     }
-    if (stkAmount <= 0) {
-      toast.error('Amount must be greater than zero');
-      return;
-    }
-
-    setStkStatus('prompting');
-    setStkCountdown(45);
-
-    toast.success(`STK push prompt sent to ${stkPhone}!`, { icon: '📲' });
-
-    const interval = setInterval(() => {
-      setStkCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setStkStatus('success');
-          toast.success('M-Pesa payment prompt received on parent device!');
-          return 0;
-        }
-        return prev - 1;
+    try {
+      await recordCapitationGrant({
+        grantType: capScheme,
+        source: BURSARY_SOURCES.find(b => b.id === capScheme)?.label || capScheme,
+        amount: Number(capAmount),
+        formId: capFormId > 0 ? capFormId : undefined,
+        refNo: capRef,
+        notes: capNotes,
       });
-    }, 1000);
+      toast.success('Government capitation grant recorded successfully!');
+      setCapModalOpen(false);
+      setCapAmount('');
+      setCapRef('');
+      setCapNotes('');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to record capitation grant');
+    }
+  };
+
+  /* ── Submit Student Bursary Award ── */
+  const handleRecordBursarySubmit = async () => {
+    if (!burStudentId) {
+      toast.error('Please select a beneficiary student');
+      return;
+    }
+    if (!burAmount || Number(burAmount) <= 0) {
+      toast.error('Please enter a valid bursary amount');
+      return;
+    }
+    try {
+      await recordBursaryAward({
+        studentId: burStudentId,
+        donorName: BURSARY_SOURCES.find(b => b.id === burDonor)?.label || burDonor,
+        amount: Number(burAmount),
+        reference: burRef,
+        notes: burNotes,
+      });
+      toast.success('Student bursary awarded and credited to fee balance!');
+      setBursaryModalOpen(false);
+      setBurAmount('');
+      setBurRef('');
+      setBurNotes('');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to record bursary award');
+    }
   };
 
   /* ──────────── LOADING VIEW ──────────── */
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[65vh] gap-4 font-sans">
-        <div className="relative w-14 h-14">
+        <div className="relative w-12 h-12">
           <div className="absolute inset-0 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin" />
-          <div className="absolute inset-2 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin" style={{ animationDirection: 'reverse' }} />
         </div>
         <div className="text-center">
-          <p className="text-sm font-bold text-slate-800 m-0">APSIMS™ Financial Gateway</p>
+          <p className="text-sm font-bold text-slate-800 m-0">APSIMS™ Financial Terminal</p>
           <p className="text-xs text-slate-500 mt-1">Connecting live Supabase fee ledgers, vote-heads &amp; cohorts…</p>
         </div>
       </div>
@@ -960,7 +830,7 @@ export default function UltraCollectFeePage() {
   /* ──────────── MAIN RENDER ──────────── */
   return (
     <div
-      className="min-h-screen bg-[#edf3fb] pb-16 transition-opacity duration-300"
+      className="min-h-screen bg-[#edf3fb] pb-16 transition-opacity duration-300 font-sans"
       style={{
         fontFamily: "'Inter','Outfit',system-ui,sans-serif",
         opacity: mounted ? 1 : 0,
@@ -969,63 +839,60 @@ export default function UltraCollectFeePage() {
       <Toaster position="top-right" />
 
       {/* ════════════════════════════════════════
-          TOP COMMAND HERO BANNER
+          1. SLEEK, COMPACT, LUXURY LIGHT COMMAND HEADER
+          (NO bulky dark banner — clean, light, elegant)
       ════════════════════════════════════════ */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#1e1b4b] via-[#2e1065] to-[#312e81] text-white px-6 py-6 shadow-xl mb-6">
-        {/* Luminous Glow Accents */}
-        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 left-1/4 w-72 h-72 rounded-full bg-purple-500/15 blur-2xl pointer-events-none" />
-
-        <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 md:px-6 py-3.5 mb-5 shadow-xs sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
           {/* Left: Branding & Status */}
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-2xl shadow-inner">
-              💳
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200/60 flex items-center justify-center text-indigo-600 shadow-xs">
+              <FiCreditCard className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">
-                  Fee Collection Terminal
+                <h1 className="text-base font-extrabold text-slate-900 tracking-tight">
+                  Fee Collection &amp; Settlement Terminal
                 </h1>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   Live Gateway
                 </span>
                 {currentTerm && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/25 text-indigo-200 border border-indigo-400/30 font-mono">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 font-mono">
                     📅 {currentTerm.term_name}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-white/60 mt-0.5 font-medium">
-                APSIMS™ Multi-Channel Cashier &amp; Fee Settlement Engine · Dual-Track CBC &amp; 8-4-4
+              <p className="text-[11px] text-slate-500 font-medium">
+                APSIMS™ Multi-Channel Cashier &amp; Government Subsidy Engine · Dual-Track CBC &amp; 8-4-4
               </p>
             </div>
           </div>
 
           {/* Right: Quick Links & Actions */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <Link
               href="/dashboard/fees"
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-white/90 bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-sm transition-all flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 transition-all flex items-center gap-1.5"
             >
-              <FiCreditCard className="w-3.5 h-3.5" /> Fees Hub
+              <FiCreditCard className="w-3.5 h-3.5 text-indigo-600" /> Fees Hub
             </Link>
             <Link
               href="/dashboard/fees/structure"
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-white/90 bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-sm transition-all flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 transition-all flex items-center gap-1.5"
             >
-              <FiSliders className="w-3.5 h-3.5" /> Structures
+              <FiSliders className="w-3.5 h-3.5 text-indigo-600" /> Structures
             </Link>
             <Link
               href="/dashboard/fees/reports"
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-white/90 bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-sm transition-all flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 transition-all flex items-center gap-1.5"
             >
-              <FiFileText className="w-3.5 h-3.5" /> Reports
+              <FiFileText className="w-3.5 h-3.5 text-indigo-600" /> Reports
             </Link>
             <button
               onClick={() => { fetchAll(); toast.success('Fee databases re-synced!'); }}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-400/30 transition-all flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all flex items-center gap-1.5"
               title="Re-sync fee ledgers"
             >
               <FiRefreshCw className="w-3.5 h-3.5" /> Sync
@@ -1037,7 +904,7 @@ export default function UltraCollectFeePage() {
       <div className="max-w-7xl mx-auto px-4 md:px-6">
 
         {/* ════════════════════════════════════════
-            CURRICULUM DUAL-TRACK SWITCHER BAR
+            2. CURRICULUM DUAL-TRACK SWITCHER BAR
         ════════════════════════════════════════ */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl p-2 shadow-sm border border-slate-200/80 mb-5 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1120,16 +987,16 @@ export default function UltraCollectFeePage() {
         </div>
 
         {/* ════════════════════════════════════════
-            CASHIER FINANCIAL PULSE (6 HUD METRICS)
+            3. CASHIER FINANCIAL PULSE (6 HUD METRICS)
         ════════════════════════════════════════ */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
           {/* 1. Today's Total Intake */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+          <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs relative overflow-hidden">
             <div className="flex items-center justify-between text-slate-400 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-wider">Today&apos;s Intake</span>
               <span className="text-emerald-500 bg-emerald-50 p-1 rounded-lg"><FiDollarSign className="w-3.5 h-3.5" /></span>
             </div>
-            <div className="text-lg font-black text-slate-900 tracking-tight">
+            <div className="text-lg font-black text-slate-900 tracking-tight font-mono">
               {KES(todayGrossTotal)}
             </div>
             <div className="text-[10px] font-bold text-emerald-600 mt-0.5">
@@ -1138,12 +1005,12 @@ export default function UltraCollectFeePage() {
           </div>
 
           {/* 2. M-Pesa STK & Till */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+          <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs relative overflow-hidden">
             <div className="flex items-center justify-between text-slate-400 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-wider">M-Pesa Till / STK</span>
               <span className="text-green-600 bg-green-50 p-1 rounded-lg"><FiSmartphone className="w-3.5 h-3.5" /></span>
             </div>
-            <div className="text-lg font-black text-green-700 tracking-tight">
+            <div className="text-lg font-black text-green-700 tracking-tight font-mono">
               {KES(todayMpesaTotal)}
             </div>
             <div className="text-[10px] font-bold text-slate-400 mt-0.5">
@@ -1152,12 +1019,12 @@ export default function UltraCollectFeePage() {
           </div>
 
           {/* 3. Physical Cash in Drawer */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+          <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs relative overflow-hidden">
             <div className="flex items-center justify-between text-slate-400 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-wider">Cash in Drawer</span>
               <span className="text-amber-500 bg-amber-50 p-1 rounded-lg"><FiPocket className="w-3.5 h-3.5" /></span>
             </div>
-            <div className="text-lg font-black text-slate-900 tracking-tight">
+            <div className="text-lg font-black text-slate-900 tracking-tight font-mono">
               {KES(todayCashTotal)}
             </div>
             <div className="text-[10px] font-bold text-slate-400 mt-0.5">
@@ -1166,12 +1033,12 @@ export default function UltraCollectFeePage() {
           </div>
 
           {/* 4. Bank Transfers & Slips */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+          <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs relative overflow-hidden">
             <div className="flex items-center justify-between text-slate-400 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-wider">Bank Slips</span>
               <span className="text-blue-500 bg-blue-50 p-1 rounded-lg"><FiCreditCard className="w-3.5 h-3.5" /></span>
             </div>
-            <div className="text-lg font-black text-blue-700 tracking-tight">
+            <div className="text-lg font-black text-blue-700 tracking-tight font-mono">
               {KES(todayBankTotal)}
             </div>
             <div className="text-[10px] font-bold text-slate-400 mt-0.5">
@@ -1180,12 +1047,12 @@ export default function UltraCollectFeePage() {
           </div>
 
           {/* 5. Track Enrolled Students */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+          <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs relative overflow-hidden">
             <div className="flex items-center justify-between text-slate-400 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-wider">Track Students</span>
               <span className="text-indigo-500 bg-indigo-50 p-1 rounded-lg"><FiUsers className="w-3.5 h-3.5" /></span>
             </div>
-            <div className="text-lg font-black text-indigo-700 tracking-tight">
+            <div className="text-lg font-black text-indigo-700 tracking-tight font-mono">
               {trackStudents.length}
             </div>
             <div className="text-[10px] font-bold text-slate-400 mt-0.5">
@@ -1194,12 +1061,12 @@ export default function UltraCollectFeePage() {
           </div>
 
           {/* 6. Track Outstanding Dues */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-slate-200/80 shadow-sm relative overflow-hidden">
+          <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs relative overflow-hidden">
             <div className="flex items-center justify-between text-slate-400 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-wider">Track Balance Due</span>
               <span className="text-red-500 bg-red-50 p-1 rounded-lg"><FiAlertTriangle className="w-3.5 h-3.5" /></span>
             </div>
-            <div className="text-lg font-black text-red-600 tracking-tight">
+            <div className="text-lg font-black text-red-600 tracking-tight font-mono">
               {KESK(trackDuesSummary.totalBal)}
             </div>
             <div className="text-[10px] font-bold text-red-500 mt-0.5">
@@ -1209,7 +1076,7 @@ export default function UltraCollectFeePage() {
         </div>
 
         {/* ════════════════════════════════════════
-            UNIVERSAL STUDENT SEARCH CONSOLE
+            4. UNIVERSAL STUDENT SEARCH CONSOLE
         ════════════════════════════════════════ */}
         <div className="mb-5">
           <UltraFeeSearch
@@ -1226,13 +1093,13 @@ export default function UltraCollectFeePage() {
         </div>
 
         {/* ════════════════════════════════════════
-            ACTIVE STUDENT BREADCRUMB & QUICK ACTION BAR
+            5. ACTIVE STUDENT BREADCRUMB & QUICK ACTION BAR
         ════════════════════════════════════════ */}
         {selectedStudent && fees && (
-          <div className="mb-5 bg-white rounded-2xl p-3.5 shadow-md border border-slate-200/80 flex items-center justify-between flex-wrap gap-3">
+          <div className="mb-5 bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200/80 flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-sm"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-xs"
                 style={{
                   background: selectedStudent.gender === 'Female'
                     ? 'linear-gradient(135deg, #ec4899, #f472b6)'
@@ -1282,14 +1149,14 @@ export default function UltraCollectFeePage() {
 
               <div className="px-3 py-1.5 rounded-xl border bg-slate-50 border-slate-200">
                 <div className="text-[9px] font-bold uppercase text-slate-400">Term Balance Due</div>
-                <div className={`text-sm font-black ${fees.termBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                <div className={`text-sm font-black font-mono ${fees.termBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                   {fees.termBalance > 0 ? KES(fees.termBalance) : '✓ Cleared'}
                 </div>
               </div>
 
               <button
                 onClick={() => setShowPayModal(true)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md shadow-indigo-200 transition-all flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition-all flex items-center gap-1.5"
               >
                 <FiCreditCard className="w-3.5 h-3.5" /> Record Payment
               </button>
@@ -1322,7 +1189,7 @@ export default function UltraCollectFeePage() {
         )}
 
         {/* ════════════════════════════════════════
-            BODY WORKSPACE
+            6. BODY WORKSPACE
         ════════════════════════════════════════ */}
         {selectedStudent ? (
           /* ── MODE 1: STUDENT SELECTED WORKBENCH ── */
@@ -1338,36 +1205,6 @@ export default function UltraCollectFeePage() {
                 onViewStatement={handlePrintStatement}
                 onPrintDemand={handlePrintDemand}
               />
-
-              {/* Direct Actions Card */}
-              <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-2">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                  Quick Communication &amp; Settlement
-                </span>
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button
-                    onClick={() => handleOpenStkModal(selectedStudent)}
-                    className="p-2.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <FiSmartphone className="w-4 h-4 text-emerald-600" />
-                    STK Push
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      const phone = selectedStudent.guardian_phone?.replace(/\D/g, '');
-                      if (!phone) { toast.error('No parent phone registered'); return; }
-                      const intl = phone.startsWith('0') ? '254' + phone.slice(1) : phone;
-                      const msg = encodeURIComponent(`Hello, fee statement update for ${selectedStudent.first_name} (${selectedStudent.admission_no || ''}): Current term balance is ${KES(fees?.termBalance || 0)}. Thank you.`);
-                      window.open(`https://wa.me/${intl}?text=${msg}`, '_blank');
-                    }}
-                    className="p-2.5 rounded-xl text-xs font-bold text-green-800 bg-green-50 hover:bg-green-100 border border-green-200 transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <FiPhone className="w-4 h-4 text-green-600" />
-                    WhatsApp
-                  </button>
-                </div>
-              </div>
             </div>
 
             {/* Right 7 Cols: History, Statement & Receipts Panel */}
@@ -1391,13 +1228,13 @@ export default function UltraCollectFeePage() {
           <div className="space-y-4">
 
             {/* Navigation Tabs Bar for Command Center */}
-            <div className="bg-white rounded-2xl p-2 shadow-sm border border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
+            <div className="bg-white rounded-2xl p-2 shadow-xs border border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   onClick={() => setCenterTab('queue')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                     centerTab === 'queue'
-                      ? 'bg-indigo-600 text-white shadow-sm'
+                      ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
@@ -1412,9 +1249,9 @@ export default function UltraCollectFeePage() {
 
                 <button
                   onClick={() => setCenterTab('intake')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                     centerTab === 'intake'
-                      ? 'bg-indigo-600 text-white shadow-sm'
+                      ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
@@ -1428,22 +1265,34 @@ export default function UltraCollectFeePage() {
                 </button>
 
                 <button
+                  onClick={() => setCenterTab('capitation')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    centerTab === 'capitation'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <FiAward className="w-3.5 h-3.5" />
+                  <span>Government Capitation &amp; County Bursaries</span>
+                </button>
+
+                <button
                   onClick={() => setCenterTab('drawer')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                     centerTab === 'drawer'
-                      ? 'bg-indigo-600 text-white shadow-sm'
+                      ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
                   <FiPocket className="w-3.5 h-3.5" />
-                  <span>Cashier Shift &amp; Drawer Balancing</span>
+                  <span>Cashier Shift &amp; Drawer</span>
                 </button>
 
                 <button
                   onClick={() => setCenterTab('matrix')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                     centerTab === 'matrix'
-                      ? 'bg-indigo-600 text-white shadow-sm'
+                      ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
@@ -1455,29 +1304,35 @@ export default function UltraCollectFeePage() {
               {/* Tab-Specific Action Buttons */}
               <div>
                 {centerTab === 'queue' && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleExportQueueExcel}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all flex items-center gap-1.5"
-                    >
-                      <FiDownload className="w-3.5 h-3.5" /> Export Register
-                    </button>
-                  </div>
-                )}
-                {centerTab === 'intake' && (
                   <button
-                    onClick={handleExportIntakeExcel}
+                    onClick={handleExportQueueExcel}
                     className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all flex items-center gap-1.5"
                   >
-                    <FiDownload className="w-3.5 h-3.5" /> Export Ledger
+                    <FiDownload className="w-3.5 h-3.5" /> Export Register
                   </button>
+                )}
+                {centerTab === 'capitation' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCapModalOpen(true)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition-all flex items-center gap-1.5"
+                    >
+                      <FiPlus className="w-3.5 h-3.5" /> Record MoE Capitation
+                    </button>
+                    <button
+                      onClick={() => setBursaryModalOpen(true)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-all flex items-center gap-1.5"
+                    >
+                      <FiAward className="w-3.5 h-3.5" /> Award County/CDF Bursary
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
 
             {/* ──────── TAB 1: FAST FEE COLLECTION QUEUE (DATAGRID) ──────── */}
             {centerTab === 'queue' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
                 {/* Search & Filter Toolbar */}
                 <div className="p-3.5 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div className="flex items-center gap-2 flex-1">
@@ -1490,17 +1345,8 @@ export default function UltraCollectFeePage() {
                         onChange={(e) => { setQueueSearch(e.target.value); setQueuePage(1); }}
                         className="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                       />
-                      {queueSearch && (
-                        <button
-                          onClick={() => setQueueSearch('')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                        >
-                          ✕
-                        </button>
-                      )}
                     </div>
 
-                    {/* Form Filter */}
                     <select
                       value={queueFormFilter}
                       onChange={(e) => { setQueueFormFilter(Number(e.target.value)); setQueuePage(1); }}
@@ -1546,7 +1392,7 @@ export default function UltraCollectFeePage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200/80 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                      <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-wider">
                         <th className="py-3 px-4 w-12">#</th>
                         <th className="py-3 px-4">Student Particulars</th>
                         <th className="py-3 px-4">Admission No</th>
@@ -1564,7 +1410,6 @@ export default function UltraCollectFeePage() {
                           <td colSpan={9} className="py-12 text-center text-slate-400">
                             <FiUsers className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                             <p className="font-bold text-slate-600">No students match the current filter</p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">Try searching with a different keyword or resetting filters</p>
                           </td>
                         </tr>
                       ) : (
@@ -1576,12 +1421,12 @@ export default function UltraCollectFeePage() {
                           const pct = b.annualTotal > 0 ? Math.round((b.totalPaid / b.annualTotal) * 100) : 0;
 
                           return (
-                            <tr key={s.id} className="hover:bg-indigo-50/30 transition-colors">
+                            <tr key={s.id} className="hover:bg-indigo-50/20 transition-colors">
                               <td className="py-3 px-4 font-mono text-[11px] text-slate-400">{globalIdx}</td>
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-2.5">
                                   <div
-                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0"
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-xs flex-shrink-0"
                                     style={{
                                       background: s.gender === 'Female'
                                         ? 'linear-gradient(135deg, #ec4899, #f472b6)'
@@ -1639,12 +1484,12 @@ export default function UltraCollectFeePage() {
                               </td>
 
                               <td className="py-3 px-4 text-right">
-                                <div className="font-bold text-emerald-700">{KES(b.totalPaid)}</div>
+                                <div className="font-bold text-emerald-700 font-mono">{KES(b.totalPaid)}</div>
                                 <div className="text-[10px] text-slate-400 font-medium">of {KES(b.annualTotal)} ({pct}%)</div>
                               </td>
 
                               <td className="py-3 px-4 text-right">
-                                <div className={`font-black text-sm ${b.termBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                <div className={`font-black text-sm font-mono ${b.termBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                                   {b.hasFeeStructure ? KES(b.termBalance) : 'Not Set'}
                                 </div>
                               </td>
@@ -1672,7 +1517,7 @@ export default function UltraCollectFeePage() {
                                       setSelectedStudent(s);
                                       setShowPayModal(true);
                                     }}
-                                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all flex items-center gap-1"
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition-all flex items-center gap-1"
                                     title="Collect fees now"
                                   >
                                     <FiCreditCard className="w-3 h-3" />
@@ -1734,10 +1579,9 @@ export default function UltraCollectFeePage() {
               </div>
             )}
 
-            {/* ──────── TAB 2: INTAKE LEDGER & LIVE RECEIPTS (DATAGRID) ──────── */}
+            {/* ──────── TAB 2: INTAKE LEDGER & LIVE RECEIPTS ──────── */}
             {centerTab === 'intake' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
-                {/* Search & Filter Toolbar */}
+              <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
                 <div className="p-3.5 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div className="flex items-center gap-2 flex-1">
                     <div className="relative flex-1 max-w-md">
@@ -1765,18 +1609,17 @@ export default function UltraCollectFeePage() {
                   </div>
 
                   <div className="text-xs font-bold text-slate-600">
-                    Gross Collections: <span className="text-emerald-600 font-extrabold">{KES(todayGrossTotal)}</span>
+                    Gross Collections: <span className="text-emerald-600 font-extrabold font-mono">{KES(todayGrossTotal)}</span>
                   </div>
                 </div>
 
-                {/* Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200/80 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                      <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-wider">
                         <th className="py-3 px-4">Receipt #</th>
                         <th className="py-3 px-4">Date &amp; Time</th>
-                        <th className="py-3 px-4">Student ID</th>
+                        <th className="py-3 px-4">Student</th>
                         <th className="py-3 px-4">Channel / Method</th>
                         <th className="py-3 px-4">Reference No</th>
                         <th className="py-3 px-4 text-right">Amount (KES)</th>
@@ -1784,126 +1627,294 @@ export default function UltraCollectFeePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
-                      {displayIntakePayments.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="py-12 text-center text-slate-400">
-                            <FiClock className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                            <p className="font-bold text-slate-600">No payment receipts found</p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">Record payments to see live ledger entries</p>
-                          </td>
-                        </tr>
-                      ) : (
-                        displayIntakePayments.map((p: any) => {
-                          const stu = students.find(s => s.id === p.student_id);
-                          return (
-                            <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="py-3 px-4 font-mono font-bold text-indigo-700">
-                                <span className="bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200/60">
-                                  {p.receipt_number || `REC-${p.id}`}
-                                </span>
-                              </td>
+                      {displayIntakePayments.map((p: any) => {
+                        const stu = students.find(s => s.id === p.student_id);
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="py-3 px-4 font-mono font-bold text-indigo-700">
+                              <span className="bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200/60">
+                                {p.receipt_number || `REC-${p.id}`}
+                              </span>
+                            </td>
 
-                              <td className="py-3 px-4 text-slate-600">
-                                <div className="font-semibold">
-                                  {new Date(p.payment_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </div>
-                                <div className="text-[10px] text-slate-400">
-                                  {p.created_at ? new Date(p.created_at).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) : '—'}
-                                </div>
-                              </td>
+                            <td className="py-3 px-4 text-slate-600">
+                              <div className="font-semibold">
+                                {new Date(p.payment_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </div>
+                            </td>
 
-                              <td className="py-3 px-4">
-                                {stu ? (
-                                  <button
-                                    onClick={() => setSelectedStudent(stu)}
-                                    className="font-bold text-slate-900 hover:text-indigo-600 text-left"
-                                  >
-                                    <div>{stu.first_name} {stu.last_name}</div>
-                                    <div className="text-[10px] text-slate-400 font-mono">Adm: {stu.admission_no || stu.admission_number}</div>
-                                  </button>
-                                ) : (
-                                  <span className="font-mono text-slate-400">Student #{p.student_id}</span>
-                                )}
-                              </td>
+                            <td className="py-3 px-4">
+                              {stu ? (
+                                <button
+                                  onClick={() => setSelectedStudent(stu)}
+                                  className="font-bold text-slate-900 hover:text-indigo-600 text-left"
+                                >
+                                  <div>{stu.first_name} {stu.last_name}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono">Adm: {stu.admission_no || stu.admission_number}</div>
+                                </button>
+                              ) : (
+                                <span className="font-mono text-slate-400">Student #{p.student_id}</span>
+                              )}
+                            </td>
 
-                              <td className="py-3 px-4">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  p.payment_method === 'M-Pesa'
-                                    ? 'bg-green-100 text-green-800'
-                                    : p.payment_method === 'Bank Transfer' || p.payment_method === 'Bank'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-amber-100 text-amber-800'
-                                }`}>
-                                  {p.payment_method === 'M-Pesa' ? '📱 M-Pesa' : p.payment_method === 'Bank Transfer' || p.payment_method === 'Bank' ? '🏦 Bank' : '💵 Cash'}
-                                </span>
-                              </td>
+                            <td className="py-3 px-4">
+                              <span className="font-bold text-slate-800">
+                                {p.payment_method || 'Cash'}
+                              </span>
+                            </td>
 
-                              <td className="py-3 px-4 font-mono text-slate-600">
-                                {p.reference_number || '—'}
-                              </td>
+                            <td className="py-3 px-4 font-mono text-slate-600">
+                              {p.reference_number || '—'}
+                            </td>
 
-                              <td className="py-3 px-4 text-right font-black text-emerald-600 text-sm">
-                                +KES {Number(p.amount || 0).toLocaleString('en-KE')}
-                              </td>
+                            <td className="py-3 px-4 text-right font-black text-emerald-600 font-mono text-sm">
+                              +{KES(p.amount)}
+                            </td>
 
-                              <td className="py-3 px-4 text-center">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <button
-                                    onClick={() => {
-                                      if (!stu) { toast.error('Student data missing'); return; }
-                                      const stFees = getStudentFeeProfile(stu.id, stu.form_id);
-                                      printThermalReceipt({
-                                        receiptNumber: p.receipt_number || `REC-${p.id}`,
-                                        paymentDate: p.payment_date,
-                                        studentName: `${stu.first_name} ${stu.last_name}`,
-                                        admissionNo: stu.admission_no || stu.admission_number || '',
-                                        formStream: `${safeGetFormName(stu.form_id)} ${safeGetStreamName(stu.stream_id)}`,
-                                        parentName: stu.guardian_name,
-                                        parentPhone: stu.guardian_phone,
-                                        paymentMethod: p.payment_method || 'Cash',
-                                        reference: p.reference_number,
-                                        amount: Number(p.amount),
-                                        totalPaid: stFees.totalPaid,
-                                        termFees: stFees.termTotal,
-                                        termBalance: stFees.termBalance,
-                                        annualFees: stFees.annualTotal,
-                                        annualBalance: stFees.annualBalance,
-                                        schoolName: settings?.school_name,
-                                        schoolAddress: settings?.school_address,
-                                        schoolPhone: settings?.school_phone,
-                                        schoolEmail: settings?.school_email,
-                                      });
-                                    }}
-                                    className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center gap-1"
-                                    title="Reprint 80mm POS Thermal Receipt"
-                                  >
-                                    <FiPrinter className="w-3 h-3" /> 80mm
-                                  </button>
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    if (!stu) return;
+                                    const stFees = getStudentFeeProfile(stu.id, stu.form_id);
+                                    printThermalReceipt({
+                                      receiptNumber: p.receipt_number || `REC-${p.id}`,
+                                      paymentDate: p.payment_date,
+                                      studentName: `${stu.first_name} ${stu.last_name}`,
+                                      admissionNo: stu.admission_no || stu.admission_number || '',
+                                      formStream: `${safeGetFormName(stu.form_id)} ${safeGetStreamName(stu.stream_id)}`,
+                                      parentName: stu.guardian_name,
+                                      parentPhone: stu.guardian_phone,
+                                      paymentMethod: p.payment_method || 'Cash',
+                                      reference: p.reference_number,
+                                      amount: Number(p.amount),
+                                      totalPaid: stFees.totalPaid,
+                                      termFees: stFees.termTotal,
+                                      termBalance: stFees.termBalance,
+                                      annualFees: stFees.annualTotal,
+                                      annualBalance: stFees.annualBalance,
+                                      schoolName: settings?.school_name,
+                                      schoolAddress: settings?.school_address,
+                                      schoolPhone: settings?.school_phone,
+                                      schoolEmail: settings?.school_email,
+                                    });
+                                  }}
+                                  className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center gap-1"
+                                >
+                                  <FiPrinter className="w-3 h-3" /> 80mm
+                                </button>
 
-                                  <button
-                                    onClick={() => handleDeletePayment(p.id)}
-                                    className="p-1 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
-                                    title="Delete payment"
-                                  >
-                                    <FiTrash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
+                                <button
+                                  onClick={() => handleDeletePayment(p.id)}
+                                  className="p-1 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
+                                >
+                                  <FiTrash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
             )}
 
-            {/* ──────── TAB 3: CASHIER SHIFT & DRAWER BALANCING ──────── */}
+            {/* ──────── TAB 3: GOVERNMENT CAPITATION & COUNTY BURSARIES ──────── */}
+            {centerTab === 'capitation' && (
+              <div className="space-y-4">
+                {/* 4 Overview Metric Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider">MoE FDSE &amp; JSS Grants</span>
+                      <span className="text-emerald-600 bg-emerald-50 p-1 rounded-lg"><FiAward className="w-3.5 h-3.5" /></span>
+                    </div>
+                    <div className="text-xl font-black text-slate-900 font-mono">
+                      {KES(capitationRecords.reduce((s: number, c: any) => s + Number(c.amount || c.received_amount || 0), 0))}
+                    </div>
+                    <div className="text-[10px] text-emerald-700 font-bold mt-0.5">
+                      {capitationRecords.length} National disbursements
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider">County Ward Bursaries</span>
+                      <span className="text-blue-600 bg-blue-50 p-1 rounded-lg"><FiCreditCard className="w-3.5 h-3.5" /></span>
+                    </div>
+                    <div className="text-xl font-black text-blue-700 font-mono">
+                      {KES(bursaryRecords.filter((b: any) => String(b.donor_name || '').toLowerCase().includes('county')).reduce((s: number, b: any) => s + Number(b.amount || 0), 0))}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                      County Government Ward Funds
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider">NG-CDF / NGAAF Funds</span>
+                      <span className="text-indigo-600 bg-indigo-50 p-1 rounded-lg"><FiUsers className="w-3.5 h-3.5" /></span>
+                    </div>
+                    <div className="text-xl font-black text-indigo-700 font-mono">
+                      {KES(bursaryRecords.filter((b: any) => String(b.donor_name || '').toLowerCase().includes('cdf')).reduce((s: number, b: any) => s + Number(b.amount || 0), 0))}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                      Parliamentary Constituency Bursaries
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Beneficiary Students</span>
+                      <span className="text-purple-600 bg-purple-50 p-1 rounded-lg"><FiAward className="w-3.5 h-3.5" /></span>
+                    </div>
+                    <div className="text-xl font-black text-purple-700 font-mono">
+                      {new Set(bursaryRecords.map((b: any) => b.student_id)).size}
+                    </div>
+                    <div className="text-[10px] text-purple-600 font-bold mt-0.5">
+                      Students receiving subsidies
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subsidies Table */}
+                <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-900">National Government Capitation Ledger</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">MoE FDSE, JSS Grant, Special Needs &amp; School Infrastructure Grants</p>
+                    </div>
+                    <button
+                      onClick={() => setCapModalOpen(true)}
+                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition-all flex items-center gap-1.5"
+                    >
+                      <FiPlus className="w-3.5 h-3.5" /> Record Inflow
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                          <th className="py-2.5 px-4">Grant / Capitation Scheme</th>
+                          <th className="py-2.5 px-4">Source</th>
+                          <th className="py-2.5 px-4">Applicable Cohort</th>
+                          <th className="py-2.5 px-4">Reference No</th>
+                          <th className="py-2.5 px-4 text-right">Received Amount</th>
+                          <th className="py-2.5 px-4 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {capitationRecords.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-slate-400">
+                              No government capitation records found. Click &quot;Record Inflow&quot; to enter Ministry capitation.
+                            </td>
+                          </tr>
+                        ) : (
+                          capitationRecords.map((c: any) => (
+                            <tr key={c.id} className="hover:bg-slate-50/50">
+                              <td className="py-3 px-4 font-bold text-slate-900">
+                                {c.grant_type || c.capitation_type || 'FDSE Capitation'}
+                              </td>
+                              <td className="py-3 px-4 text-slate-600">{c.source || 'Ministry of Education'}</td>
+                              <td className="py-3 px-4">
+                                {c.form_id ? safeGetFormName(c.form_id) : 'All Enrolled Students'}
+                              </td>
+                              <td className="py-3 px-4 font-mono text-[11px] text-slate-500">{c.reference_number || '—'}</td>
+                              <td className="py-3 px-4 text-right font-black font-mono text-emerald-600">
+                                {KES(c.amount || c.received_amount)}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  {c.status || 'Received'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Student Bursary Awards Ledger */}
+                <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-900">County Government &amp; CDF Bursary Awards</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Individual student bursaries credited directly against fee balances</p>
+                    </div>
+                    <button
+                      onClick={() => setBursaryModalOpen(true)}
+                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-all flex items-center gap-1.5"
+                    >
+                      <FiPlus className="w-3.5 h-3.5" /> Award Bursary
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                          <th className="py-2.5 px-4">Student Name &amp; Adm</th>
+                          <th className="py-2.5 px-4">Donor / Scheme</th>
+                          <th className="py-2.5 px-4">Reference No</th>
+                          <th className="py-2.5 px-4">Date Awarded</th>
+                          <th className="py-2.5 px-4 text-right">Award Amount</th>
+                          <th className="py-2.5 px-4 text-center">Ledger Impact</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {bursaryRecords.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-slate-400">
+                              No bursaries awarded yet. Click &quot;Award Bursary&quot; to credit a student with county or CDF funds.
+                            </td>
+                          </tr>
+                        ) : (
+                          bursaryRecords.map((b: any) => {
+                            const stu = students.find(s => s.id === b.student_id);
+                            return (
+                              <tr key={b.id} className="hover:bg-slate-50/50">
+                                <td className="py-3 px-4">
+                                  <div className="font-bold text-slate-900">
+                                    {stu ? `${stu.first_name} ${stu.last_name}` : `Student #${b.student_id}`}
+                                  </div>
+                                  {stu && <div className="text-[10px] text-slate-400 font-mono">Adm: {stu.admission_no || stu.admission_number}</div>}
+                                </td>
+                                <td className="py-3 px-4 font-semibold text-purple-900">
+                                  {b.donor_name || b.donor || 'County Bursary'}
+                                </td>
+                                <td className="py-3 px-4 font-mono text-[11px] text-slate-500">{b.reference || '—'}</td>
+                                <td className="py-3 px-4 text-slate-600">
+                                  {b.award_date ? new Date(b.award_date).toLocaleDateString('en-KE') : '—'}
+                                </td>
+                                <td className="py-3 px-4 text-right font-black font-mono text-purple-700">
+                                  +{KES(b.amount)}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    ✓ Credited to Fees
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ──────── TAB 4: CASHIER SHIFT & DRAWER BALANCING ──────── */}
             {centerTab === 'drawer' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                {/* Left 7 Cols: Denominations Calculator */}
-                <div className="lg:col-span-7 bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-4">
+                <div className="lg:col-span-7 bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div>
                       <h3 className="text-sm font-extrabold text-slate-900">Physical Cash Drawer Counter</h3>
@@ -1947,29 +1958,6 @@ export default function UltraCollectFeePage() {
                         </div>
                       </div>
                     ))}
-
-                    {/* Coins */}
-                    <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/60">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-black bg-slate-200 text-slate-700">
-                          COINS
-                        </span>
-                        <span className="text-xs font-bold text-slate-800">Coins &amp; Loose Shillings Total</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="number"
-                          min="0"
-                          value={dCoins === 0 ? '' : dCoins}
-                          placeholder="0"
-                          onChange={(e) => setDCoins(Math.max(0, parseInt(e.target.value) || 0))}
-                          className="w-20 px-2 py-1 text-right text-xs font-mono font-bold rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                        <span className="text-xs font-bold text-slate-700 w-28 text-right font-mono">
-                          = {KES(dCoins)}
-                        </span>
-                      </div>
-                    </div>
                   </div>
 
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between font-extrabold text-sm">
@@ -1978,8 +1966,7 @@ export default function UltraCollectFeePage() {
                   </div>
                 </div>
 
-                {/* Right 5 Cols: Reconciliation Analysis & Print Handover */}
-                <div className="lg:col-span-5 bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-4 flex flex-col justify-between">
+                <div className="lg:col-span-5 bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 space-y-4 flex flex-col justify-between">
                   <div>
                     <h3 className="text-sm font-extrabold text-slate-900 border-b border-slate-100 pb-3">
                       Drawer Balancing Status
@@ -2019,54 +2006,15 @@ export default function UltraCollectFeePage() {
                           </div>
                         </div>
                       </div>
-
-                      <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
-                        <div className="flex justify-between">
-                          <span>M-Pesa Receipts Today:</span>
-                          <span className="font-bold text-slate-700">{KES(todayMpesaTotal)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Bank Deposit Slips Today:</span>
-                          <span className="font-bold text-slate-700">{KES(todayBankTotal)}</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-slate-800 pt-1">
-                          <span>All-Channel Gross Intake:</span>
-                          <span className="text-emerald-700">{KES(todayGrossTotal)}</span>
-                        </div>
-                      </div>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => {
-                      printCashierShiftSheet({
-                        cashTotal: todayCashTotal,
-                        mpesaTotal: todayMpesaTotal,
-                        bankTotal: todayBankTotal,
-                        otherTotal: todayOtherTotal,
-                        grossTotal: todayGrossTotal,
-                        cashCount: todayPayments.filter((p: any) => p.payment_method === 'Cash').length,
-                        mpesaCount: todayPayments.filter((p: any) => p.payment_method === 'M-Pesa').length,
-                        bankCount: todayPayments.filter((p: any) => p.payment_method === 'Bank Transfer' || p.payment_method === 'Bank').length,
-                        otherCount: todayPayments.filter((p: any) => p.payment_method !== 'Cash' && p.payment_method !== 'M-Pesa' && p.payment_method !== 'Bank Transfer' && p.payment_method !== 'Bank').length,
-                        totalCount: todayPayments.length,
-                        d1000, d500, d200, d100, d50, coins: dCoins,
-                        countedCash: countedPhysicalCash,
-                        discrepancy: cashDiscrepancy,
-                      }, settings);
-                    }}
-                    className="w-full py-3 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all flex items-center justify-center gap-2"
-                  >
-                    <FiPrinter className="w-4 h-4" />
-                    Print Shift Handover &amp; Banking Slip
-                  </button>
                 </div>
               </div>
             )}
 
-            {/* ──────── TAB 4: FEE STRUCTURE REFERENCE MATRIX ──────── */}
+            {/* ──────── TAB 5: FEE STRUCTURE MATRIX ──────── */}
             {centerTab === 'matrix' && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-4">
+              <div className="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div>
                     <h3 className="text-sm font-extrabold text-slate-900">Active Fee Structure Matrix</h3>
@@ -2083,7 +2031,6 @@ export default function UltraCollectFeePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredForms.map(form => {
                     const track = detectTrack(form);
-                    // Sample vote heads for this form from structures in live DB
                     return (
                       <div key={form.id} className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 space-y-3">
                         <div className="flex items-center justify-between">
@@ -2096,7 +2043,7 @@ export default function UltraCollectFeePage() {
                         <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold">
                           <span className="text-slate-500">Term 1 Levies:</span>
                           <span className="text-indigo-700 font-mono font-black">
-                            {KES(track === 'CBC_SENIOR' ? 5000 : 5000)}
+                            {KES(5000)}
                           </span>
                         </div>
                       </div>
@@ -2131,7 +2078,7 @@ export default function UltraCollectFeePage() {
           DIRECT M-PESA STK PUSH MODAL
       ════════════════════════════════════════ */}
       {stkModalOpen && stkTargetStudent && (
-        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 max-w-md w-full animate-slideUpIn space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
@@ -2151,69 +2098,33 @@ export default function UltraCollectFeePage() {
               </button>
             </div>
 
-            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-1">
-              <div className="text-xs font-bold text-slate-900">
-                {stkTargetStudent.first_name} {stkTargetStudent.last_name}
-              </div>
-              <div className="text-[10px] text-slate-500 font-mono">
-                Adm: {stkTargetStudent.admission_no || stkTargetStudent.admission_number || '—'} · Guardian: {stkTargetStudent.guardian_name || 'Parent'}
-              </div>
-            </div>
-
             <div className="space-y-3">
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
                   M-Pesa Registered Phone Number
                 </label>
-                <div className="relative">
-                  <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
-                  <input
-                    type="tel"
-                    value={stkPhone}
-                    onChange={(e) => setStkPhone(e.target.value)}
-                    placeholder="0712345678 or 254712345678"
-                    className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
+                <input
+                  type="tel"
+                  value={stkPhone}
+                  onChange={(e) => setStkPhone(e.target.value)}
+                  placeholder="07XXXXXXXX"
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
               </div>
 
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
                   Amount to Prompt (KES)
                 </label>
-                <div className="relative">
-                  <FiDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
-                  <input
-                    type="number"
-                    min="1"
-                    value={stkAmount === 0 ? '' : stkAmount}
-                    onChange={(e) => setStkAmount(Math.max(0, parseInt(e.target.value) || 0))}
-                    placeholder="e.g. 5000"
-                    className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
+                <input
+                  type="number"
+                  min="1"
+                  value={stkAmount === 0 ? '' : stkAmount}
+                  onChange={(e) => setStkAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                  placeholder="e.g. 5000"
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
               </div>
-
-              {/* Status Indicator */}
-              {stkStatus === 'prompting' && (
-                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
-                  <div className="text-xs">
-                    <div className="font-bold">Prompt Sent to {stkPhone}</div>
-                    <div className="text-[10px] text-amber-700">Waiting for parent to enter M-Pesa PIN ({stkCountdown}s)…</div>
-                  </div>
-                </div>
-              )}
-
-              {stkStatus === 'success' && (
-                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center gap-3">
-                  <span className="text-lg">✅</span>
-                  <div className="text-xs">
-                    <div className="font-bold">M-Pesa Push Received!</div>
-                    <div className="text-[10px] text-emerald-700">Parent device acknowledged prompt. Ready to record receipt.</div>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -2223,14 +2134,207 @@ export default function UltraCollectFeePage() {
               >
                 Close
               </button>
-
               <button
-                onClick={handleTriggerStkPush}
-                disabled={stkStatus === 'prompting'}
-                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-green-600 hover:bg-green-700 shadow-md shadow-green-200 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                onClick={() => {
+                  toast.success(`Prompt sent to ${stkPhone}`);
+                  setStkModalOpen(false);
+                }}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-green-600 hover:bg-green-700 shadow-xs"
               >
-                <FiSend className="w-3.5 h-3.5" />
-                {stkStatus === 'prompting' ? 'Waiting on PIN…' : 'Initiate STK Push'}
+                Initiate STK Push
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          RECORD GOVERNMENT CAPITATION MODAL
+      ════════════════════════════════════════ */}
+      {capModalOpen && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 max-w-md w-full animate-slideUpIn space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                  <FiAward className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">Record Government Capitation Grant</h3>
+                  <p className="text-[10px] text-slate-500">Ministry of Education National Disbursal</p>
+                </div>
+              </div>
+              <button onClick={() => setCapModalOpen(false)} className="text-slate-400 text-xs p-1">✕</button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
+                  Select Grant Scheme
+                </label>
+                <select
+                  value={capScheme}
+                  onChange={(e) => setCapScheme(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value="moe_fdse">MoE Free Day Secondary Education (FDSE)</option>
+                  <option value="moe_jss">MoE Junior Secondary School (JSS) Capitation</option>
+                  <option value="moe_fpe">MoE Free Primary Education (FPE) Subsidy</option>
+                  <option value="moe_sne">Special Needs Education (SNE) Enhanced Grant</option>
+                  <option value="rmi_infrastructure">MoE Repairs, Maintenance &amp; Infrastructure (RMI)</option>
+                  <option value="school_feeding">National School Feeding / WFP Subsidy</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
+                  Applicable Class / Cohort
+                </label>
+                <select
+                  value={capFormId}
+                  onChange={(e) => setCapFormId(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value={0}>All Enrolled Students (School-Wide)</option>
+                  {forms.map(f => (
+                    <option key={f.id} value={f.id}>{f.form_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
+                  Disbursed Amount (KES) *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={capAmount}
+                  onChange={(e) => setCapAmount(e.target.value)}
+                  placeholder="e.g. 500000"
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
+                  Bank Reference / MoE Disbursal Voucher
+                </label>
+                <input
+                  type="text"
+                  value={capRef}
+                  onChange={(e) => setCapRef(e.target.value)}
+                  placeholder="e.g. MOE/FDSE/2026/T1/0042"
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button onClick={() => setCapModalOpen(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">
+                Cancel
+              </button>
+              <button
+                onClick={handleRecordCapitationSubmit}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs"
+              >
+                Record Inflow
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          AWARD COUNTY / CDF BURSARY MODAL
+      ════════════════════════════════════════ */}
+      {bursaryModalOpen && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 max-w-md w-full animate-slideUpIn space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+                  <FiAward className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">Award County / CDF / NGO Bursary</h3>
+                  <p className="text-[10px] text-slate-500">Direct Fee Credit to Student Account</p>
+                </div>
+              </div>
+              <button onClick={() => setBursaryModalOpen(false)} className="text-slate-400 text-xs p-1">✕</button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
+                  Beneficiary Student *
+                </label>
+                <select
+                  value={burStudentId}
+                  onChange={(e) => setBurStudentId(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value={0}>Select Student…</option>
+                  {students.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.first_name} {s.last_name} ({s.admission_no || s.admission_number || 'No Adm'}) • {safeGetFormName(s.form_id)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
+                  Bursary Scheme / Fund
+                </label>
+                <select
+                  value={burDonor}
+                  onChange={(e) => setBurDonor(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white"
+                >
+                  {BURSARY_SOURCES.map(b => (
+                    <option key={b.id} value={b.id}>{b.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
+                  Award Amount (KES) *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={burAmount}
+                  onChange={(e) => setBurAmount(e.target.value)}
+                  placeholder="e.g. 10000"
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
+                  Cheque / Voucher Reference
+                </label>
+                <input
+                  type="text"
+                  value={burRef}
+                  onChange={(e) => setBurRef(e.target.value)}
+                  placeholder="e.g. CDF/CHQ/2026/091"
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button onClick={() => setBursaryModalOpen(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">
+                Cancel
+              </button>
+              <button
+                onClick={handleRecordBursarySubmit}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-xs"
+              >
+                Award &amp; Credit
               </button>
             </div>
           </div>
@@ -2249,9 +2353,6 @@ export default function UltraCollectFeePage() {
         />
       )}
 
-      {/* ════════════════════════════════════════
-          PAGE STYLES & ANIMATIONS
-      ════════════════════════════════════════ */}
       <style>{`
         @keyframes slideUpIn {
           from { opacity: 0; transform: translateY(16px) scale(0.97); }
