@@ -39,7 +39,7 @@ export interface FormCollectionExportItem {
 }
 
 export async function exportUltraPaymentsExcel({
-  schoolName = 'ALPHA PREMIER SCHOOL',
+  schoolName = "ST. CATHERINE GIRL'S SCHOOL TEGAT",
   termName = 'All Academic Terms',
   payments,
   methodSummaries,

@@ -115,7 +115,13 @@ export default function UltraFeeStructurePage() {
     async function loadSchoolData() {
       try {
         const [detRes, setRes] = await Promise.all([
-          supabase.from('school_details').select('*').limit(1).maybeSingle(),
+          supabase
+            .from('school_details')
+            .select('*')
+            .neq('section', 'primary')
+            .order('id', { ascending: true })
+            .limit(1)
+            .maybeSingle(),
           supabase.from('school_settings').select('*').limit(1).maybeSingle(),
         ]);
         if (detRes.data) setSchoolDetails(detRes.data);
@@ -130,7 +136,7 @@ export default function UltraFeeStructurePage() {
   }, []);
 
   const registeredSchoolName = useMemo(() => {
-    return schoolDetails?.school_name || schoolSettings?.school_name || 'SUNSHINE ACADEMY';
+    return schoolDetails?.school_name || schoolSettings?.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT";
   }, [schoolDetails, schoolSettings]);
 
   const currentTerm = useMemo(() => terms.find((t) => t.is_current), [terms]);

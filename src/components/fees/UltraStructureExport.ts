@@ -46,7 +46,7 @@ export interface ExportUltraStructureOptions {
 }
 
 export async function exportUltraStructureExcel({
-  schoolName = 'ALPHA PREMIER SCHOOL',
+  schoolName = "ST. CATHERINE GIRL'S SCHOOL TEGAT",
   schoolAddress = 'P.O. Box 0000-00100, Nairobi, Kenya',
   schoolPhone = '+254 700 000 000',
   schoolEmail = 'bursar@alphaschool.ac.ke',

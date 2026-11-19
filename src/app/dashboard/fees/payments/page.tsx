@@ -47,6 +47,7 @@ import {
   FiShield,
   FiSend,
   FiAward,
+  FiArrowLeft,
 } from 'react-icons/fi';
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -152,6 +153,27 @@ export default function UltraPaymentsPage() {
     deletePayment,
     fetchAll,
   } = useUltraFeeCollect();
+
+  // ── School Identity (Direct DB Settings) ──
+  const [schoolDetails, setSchoolDetails] = useState<any>(null);
+
+  useEffect(() => {
+    async function loadSchoolData() {
+      try {
+        const { data } = await supabase
+          .from('school_details')
+          .select('*')
+          .neq('section', 'primary')
+          .order('id', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (data) setSchoolDetails(data);
+      } catch (err) {
+        console.error('Failed to load school details:', err);
+      }
+    }
+    loadSchoolData();
+  }, []);
 
   // ── Intelligent Term Resolver (Guarantees Term is Never Blank!) ──
   const resolvePaymentTerm = useCallback(
@@ -826,7 +848,7 @@ export default function UltraPaymentsPage() {
                   Fee Payment &amp; Collection History
                 </h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
-                  🏫 {schoolDetails?.school_name || 'SUNSHINE ACADEMY'}
+                  🏫 {schoolDetails?.school_name || settings?.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT"}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                   {hudStats.count.toLocaleString()} Settlements

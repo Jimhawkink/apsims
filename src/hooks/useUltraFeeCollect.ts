@@ -312,9 +312,12 @@ export function useUltraFeeCollect() {
     waiverType?: string;
     notes?: string;
     termId?: number;
+    customReceiptNo?: string;
+    paymentDate?: string;
+    selectedTermIds?: number[];
   }) => {
     // ── Get next receipt number atomically from DB ──────────────────
-    const receiptNo = await getNextReceiptNumber(supabase);
+    const receiptNo = data.customReceiptNo || await getNextReceiptNumber(supabase);
     const method = data.method === 'In-Kind' ? `In-Kind (${data.inKindItem || 'Other'})` : data.method;
     const bankReference = data.bankRef || [data.bankSlip, data.bankBranch].filter(Boolean).join(' - ') || undefined;
     const ref = data.method === 'M-Pesa' 
