@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import AppHub from '@/components/AppHub';
 import { useSearchParams } from 'next/navigation';
@@ -15,22 +15,14 @@ import {
     FiDollarSign, FiAlertTriangle, FiRefreshCw, FiUsers,
     FiTrendingUp, FiTrendingDown, FiBarChart2, FiChevronRight,
     FiActivity, FiShield, FiCpu, FiCheckCircle, FiAlertCircle,
-    FiAward, FiBook, FiCalendar, FiTarget, FiZap,
+    FiAward, FiBook, FiCalendar, FiTarget, FiZap, FiSearch,
+    FiChevronLeft,
 } from 'react-icons/fi';
 import {
     Users as LucideUsers,
     GraduationCap as LucideGraduationCap,
     Wallet as LucideWallet,
     AlertTriangle as LucideAlertTriangle,
-    CreditCard as LucideCreditCard,
-    UserPlus as LucideUserPlus,
-    CheckCircle2 as LucideCheckCircle2,
-    FileText as LucideFileText,
-    Mail as LucideMail,
-    BarChart3 as LucideBarChart3,
-    FileCheck as LucideFileCheck,
-    LayoutGrid as LucideLayoutGrid,
-    ArrowRight as LucideArrowRight,
 } from 'lucide-react';
 import {
     HiCreditCard,
@@ -45,6 +37,7 @@ import {
     HiSquares2X2,
     HiBolt,
     HiArrowRight,
+    HiSparkles,
 } from 'react-icons/hi2';
 import UltraCardsSection from './components/UltraCards';
 import FeeAnalyticsSection from './components/FeeAnalyticsSection';
@@ -69,12 +62,17 @@ type DateRange = 'today' | 'week' | 'month' | 'term' | 'year' | 'custom';
 // ── Small section title ──
 function SH({ title, sub, href, linkLabel }: { title: string; sub?: string; href?: string; linkLabel?: string }) {
     return (
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2.5">
             <div>
-                <p className="text-xs font-black text-gray-800 tracking-tight">{title}</p>
-                {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+                <p className="text-xs font-black text-slate-800 tracking-tight">{title}</p>
+                {sub && <p className="text-[10px] text-slate-400 mt-0.5 font-medium">{sub}</p>}
             </div>
-            {href && <Link href={href} className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline">{linkLabel || 'View All'} <FiChevronRight size={11} /></Link>}
+            {href && (
+                <Link href={href} className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 transition-colors">
+                    <span>{linkLabel || 'View All'}</span>
+                    <FiChevronRight size={11} />
+                </Link>
+            )}
         </div>
     );
 }
@@ -119,6 +117,16 @@ export default function DashboardPage() {
     const [pendingIssues, setPendingIssues] = useState(0);
     const [todayFeeTotal, setTodayFeeTotal] = useState(0);
     const [liveActivity, setLiveActivity] = useState<{ text: string; time: string; icon: string }[]>([]);
+
+    // Pagination & Search States for Side-by-Side DataGrids
+    const [paySearch, setPaySearch] = useState('');
+    const [payPage, setPayPage] = useState(1);
+    const payPageSize = 5;
+
+    const [studentSearch, setStudentSearch] = useState('');
+    const [studentPage, setStudentPage] = useState(1);
+    const studentPageSize = 5;
+
     const searchParams = useSearchParams();
     const accessDenied = searchParams.get('access_denied') === '1';
     const currentYear = new Date().getFullYear();
@@ -201,8 +209,8 @@ export default function DashboardPage() {
             setExpenses(expData || []);
             setDisciplineCount((discData || []).length);
             setOpenIssues((issueData || []).length);
-            setRecentPayments((payData || []).slice(0, 8));
-            setRecentStudents((allStudents || []).slice(0, 8));
+            setRecentPayments((payData || []).slice(0, 50));
+            setRecentStudents((allStudents || []).slice(0, 50));
 
             const { data: todayAtt } = await supabase.from('school_daily_attendance').select('status,student_id').eq('attendance_date', today);
             setAttendance(todayAtt || []);
@@ -324,7 +332,7 @@ export default function DashboardPage() {
         return () => clearInterval(interval);
     }, [fetchLiveKPIs]);
 
-    // Supabase Realtime — update live KPIs instantly on new payments / store issues
+    // Supabase Realtime — update live KPIs instantly
     useEffect(() => {
         const ch = supabase.channel('dashboard-live-kpis')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'school_fee_payments' }, () => fetchLiveKPIs())
@@ -349,6 +357,11 @@ export default function DashboardPage() {
     const payThisMonth = payments.filter(p => { const d = new Date(p.payment_date); return d.getMonth() === new Date().getMonth() && d.getFullYear() === currentYear; }).reduce((s, p) => s + Number(p.amount || 0), 0);
     const newThisYear = students.filter(s => s.admission_date && new Date(s.admission_date).getFullYear() === currentYear).length;
 
+    // Advanced Metrics & Analysis
+    const operatingRatio = totalIncome > 0 ? Math.round((approvedExp / totalIncome) * 100) : 0;
+    const studentTeacherRatio = staff.length > 0 ? (active.length / staff.length).toFixed(1) : '—';
+    const overallMeanScore = formPerf.length > 0 ? Math.round((formPerf.reduce((s, f) => s + f.avg, 0) / formPerf.length) * 10) / 10 : 0;
+
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
@@ -358,12 +371,53 @@ export default function DashboardPage() {
         { key: 'year', label: 'Year' }, { key: 'custom', label: 'Custom' },
     ];
 
+    // Filtered & Paginated Payments
+    const filteredPayments = useMemo(() => {
+        let list = recentPayments;
+        if (paySearch.trim()) {
+            const q = paySearch.toLowerCase();
+            list = list.filter(p => {
+                const st = students.find(s => s.id === p.student_id);
+                const name = st ? `${st.first_name} ${st.last_name}` : `student #${p.student_id}`;
+                return name.toLowerCase().includes(q) || (p.payment_method || '').toLowerCase().includes(q) || String(p.amount).includes(q);
+            });
+        }
+        return list;
+    }, [recentPayments, paySearch, students]);
+
+    const totalPayPages = Math.ceil(filteredPayments.length / payPageSize) || 1;
+    const paginatedPayments = useMemo(() => {
+        const start = (payPage - 1) * payPageSize;
+        return filteredPayments.slice(start, start + payPageSize);
+    }, [filteredPayments, payPage, payPageSize]);
+
+    // Filtered & Paginated Students
+    const filteredStudents = useMemo(() => {
+        let list = recentStudents;
+        if (studentSearch.trim()) {
+            const q = studentSearch.toLowerCase();
+            list = list.filter(s => {
+                const name = `${s.first_name} ${s.last_name}`;
+                const adm = s.admission_no || s.admission_number || '';
+                const form = forms.find(f => f.id === s.form_id)?.form_name || '';
+                return name.toLowerCase().includes(q) || adm.toLowerCase().includes(q) || form.toLowerCase().includes(q);
+            });
+        }
+        return list;
+    }, [recentStudents, studentSearch, forms]);
+
+    const totalStudentPages = Math.ceil(filteredStudents.length / studentPageSize) || 1;
+    const paginatedStudents = useMemo(() => {
+        const start = (studentPage - 1) * studentPageSize;
+        return filteredStudents.slice(start, start + studentPageSize);
+    }, [filteredStudents, studentPage, studentPageSize]);
+
     // Charts
     const feeExpChart = {
         labels: monthlyFees.map(m => m.month),
         datasets: [
-            { label: 'Fee Collections', data: monthlyFees.map(m => m.fees), backgroundColor: 'rgba(99,102,241,0.85)', borderRadius: 6, borderSkipped: false as const },
-            { label: 'Expenses', data: monthlyFees.map(m => m.expenses), backgroundColor: 'rgba(239,68,68,0.7)', borderRadius: 6, borderSkipped: false as const },
+            { label: 'Fee Collections', data: monthlyFees.map(m => m.fees), backgroundColor: 'rgba(59, 130, 246, 0.85)', borderRadius: 6, borderSkipped: false as const },
+            { label: 'Expenses', data: monthlyFees.map(m => m.expenses), backgroundColor: 'rgba(239, 68, 68, 0.7)', borderRadius: 6, borderSkipped: false as const },
         ],
     };
     const wAttChart = {
@@ -372,7 +426,7 @@ export default function DashboardPage() {
     };
     const fPerfChart = {
         labels: formPerf.map(f => f.form),
-        datasets: [{ label: 'Avg Score', data: formPerf.map(f => f.avg), backgroundColor: ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#0891b2', '#16a34a'].slice(0, formPerf.length), borderRadius: 8 }],
+        datasets: [{ label: 'Avg Score', data: formPerf.map(f => f.avg), backgroundColor: ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#0891b2', '#16a34a'].slice(0, formPerf.length), borderRadius: 8 }],
     };
     const attDonut = {
         labels: ['Present', 'Absent', 'Late'],
@@ -383,43 +437,39 @@ export default function DashboardPage() {
     if (theme === 'light-soft' || theme === 'full-system') return <AppHub />;
 
     if (loading) return (
-        <div className="flex flex-col items-center justify-center h-[70vh] gap-4">
+        <div className="flex flex-col items-center justify-center h-[70vh] gap-3">
             <div className="relative">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl" style={{ background: 'linear-gradient(135deg,#6366f1,#4f46e5)' }}>
-                    <FiBarChart2 className="text-white" size={28} />
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl" style={{ background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)' }}>
+                    <FiBarChart2 className="text-white" size={24} />
                 </div>
-                <div className="absolute -inset-2 rounded-3xl border-2 border-indigo-200 animate-ping opacity-30" />
+                <div className="absolute -inset-2 rounded-3xl border-2 border-blue-200 animate-ping opacity-30" />
             </div>
-            <p className="text-sm font-black text-gray-600">Loading APSIMS Ultra…</p>
-            <div className="flex gap-1.5">
-                {[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
-            </div>
+            <p className="text-xs font-bold text-slate-600">Loading APSIMS Executive Intelligence…</p>
         </div>
     );
 
     return (
-        <div className="space-y-4 ultra-animate pb-8">
+        <div className="space-y-3.5 ultra-animate pb-8">
 
-            {/* ── Role banners ── */}
+            {/* ── Role Banners ── */}
             {userRole.toLowerCase() === 'auditor' && (
-                <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50">
+                <div className="flex items-center gap-3 px-4 py-2 rounded-xl border border-amber-200 bg-amber-50">
                     <span>🔍</span>
                     <p className="text-xs font-bold text-amber-800 flex-1">Auditor Read-Only Access — write operations are restricted.</p>
                     <span className="text-[9px] font-black px-2 py-0.5 bg-amber-200 text-amber-700 rounded-full">READ ONLY</span>
                 </div>
             )}
             {accessDenied && (
-                <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-red-200 bg-red-50">
+                <div className="flex items-center gap-3 px-4 py-2 rounded-xl border border-red-200 bg-red-50">
                     <FiShield size={16} className="text-red-500" />
                     <p className="text-xs font-bold text-red-800">Access Denied — you do not have permission to view that page.</p>
                 </div>
             )}
 
             {/* ══════════════════════════════════════════════════
-                SLIM GLASS GREETING & PERIOD BAR (Matching Top Bar)
+                SLIM GLASS GREETING & PERIOD BAR
             ══════════════════════════════════════════════════ */}
             <div className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-2xl px-4 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all">
-                {/* Left: Greeting + Live metadata */}
                 <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-2">
                         <span className="relative flex h-2 w-2">
@@ -447,7 +497,6 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* Right: Period selector pills + Custom Dates + Refresh */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex items-center gap-1 bg-[#f0f5fc] p-0.5 rounded-full border border-[#e2ecf8]">
                         <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider pl-2.5 pr-1 hidden lg:inline">Period:</span>
@@ -491,7 +540,7 @@ export default function DashboardPage() {
                         className="w-7 h-7 rounded-full bg-white border border-slate-200/80 text-slate-500 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center shadow-xs transition-all hover:scale-105 flex-shrink-0"
                         title="Refresh Data"
                     >
-                        <FiRefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+                        <FiRefreshCw size={11} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
             </div>
@@ -502,7 +551,7 @@ export default function DashboardPage() {
                     {alerts.map((a, i) => (
                         <div
                             key={i}
-                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border text-xs font-semibold backdrop-blur-md transition-all ${
+                            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-semibold backdrop-blur-md transition-all ${
                                 a.level === 'error'
                                     ? 'bg-rose-50/80 border-rose-200/70 text-rose-800 shadow-xs'
                                     : a.level === 'warn'
@@ -510,9 +559,9 @@ export default function DashboardPage() {
                                     : 'bg-blue-50/80 border-blue-200/70 text-blue-800 shadow-xs'
                             }`}
                         >
-                            {a.level === 'error' ? <FiAlertCircle size={14} className="flex-shrink-0 text-rose-600" /> : a.level === 'warn' ? <FiAlertTriangle size={14} className="flex-shrink-0 text-amber-600" /> : <FiCheckCircle size={14} className="flex-shrink-0 text-blue-600" />}
-                            <span className="flex-1 truncate">{a.msg}</span>
-                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wider ${
+                            {a.level === 'error' ? <FiAlertCircle size={13} className="flex-shrink-0 text-rose-600" /> : a.level === 'warn' ? <FiAlertTriangle size={13} className="flex-shrink-0 text-amber-600" /> : <FiCheckCircle size={13} className="flex-shrink-0 text-blue-600" />}
+                            <span className="flex-1 truncate text-[11px]">{a.msg}</span>
+                            <span className={`text-[8px] font-black px-2 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wider ${
                                 a.level === 'error' ? 'bg-rose-200/80 text-rose-700' : a.level === 'warn' ? 'bg-amber-200/80 text-amber-700' : 'bg-blue-200/80 text-blue-700'
                             }`}>
                                 {a.level === 'error' ? 'CRITICAL' : a.level === 'warn' ? 'WARNING' : 'INFO'}
@@ -523,7 +572,7 @@ export default function DashboardPage() {
             )}
 
             {/* ══════════════════════════════════════════════════
-                ✨ ULTRA-PREMIUM 4-STAT HERO CARDS (Exact Reference Match)
+                ✨ ULTRA-PREMIUM 4-STAT HERO CARDS
             ══════════════════════════════════════════════════ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                 {/* ── CARD 1: Total Students ── */}
@@ -533,7 +582,6 @@ export default function DashboardPage() {
                     style={{ background: 'linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #f0f7ff 100%)' }}
                 >
                     <div className="flex items-center gap-4 relative z-10">
-                        {/* 3D Gloss Liquid Orb — Blue */}
                         <div
                             className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-white flex-shrink-0 relative transition-transform duration-200 group-hover:scale-105"
                             style={{
@@ -544,21 +592,19 @@ export default function DashboardPage() {
                             <LucideUsers size={23} strokeWidth={2.4} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]" />
                         </div>
                         <div>
-                            <p className="text-[26px] font-black text-slate-800 tracking-tight leading-none">
+                            <p className="text-[24px] font-black text-slate-800 tracking-tight leading-none">
                                 {fmtN(active.length || 127)}
                             </p>
-                            <p className="text-[12px] font-semibold text-slate-500 mt-1">Total Students</p>
+                            <p className="text-[11px] font-semibold text-slate-500 mt-1">Total Students</p>
                         </div>
                     </div>
 
-                    {/* Top-Right Badge */}
                     <div className="absolute top-3.5 right-3.5 z-10">
-                        <span className="flex items-center gap-0.5 bg-[#d1fae5]/80 text-[#059669] border border-[#a7f3d0] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                        <span className="flex items-center gap-0.5 bg-[#d1fae5]/80 text-[#059669] border border-[#a7f3d0] text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs">
                             <span className="text-[7px]">▲</span> 12%
                         </span>
                     </div>
 
-                    {/* Smooth Organic SVG Wave Sparkline — Seamless Fade-In */}
                     <div className="absolute right-0 bottom-0 w-[55%] h-13 pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
                         <svg viewBox="0 0 200 60" className="w-full h-full" preserveAspectRatio="none">
                             <defs>
@@ -585,7 +631,6 @@ export default function DashboardPage() {
                     style={{ background: 'linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #faf5ff 100%)' }}
                 >
                     <div className="flex items-center gap-4 relative z-10">
-                        {/* 3D Gloss Liquid Orb — Purple */}
                         <div
                             className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-white flex-shrink-0 relative transition-transform duration-200 group-hover:scale-105"
                             style={{
@@ -596,21 +641,19 @@ export default function DashboardPage() {
                             <LucideGraduationCap size={23} strokeWidth={2.4} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]" />
                         </div>
                         <div>
-                            <p className="text-[26px] font-black text-slate-800 tracking-tight leading-none">
+                            <p className="text-[24px] font-black text-slate-800 tracking-tight leading-none">
                                 {fmtN(stats.totalStudents || stats.newEnrollments || 126)}
                             </p>
-                            <p className="text-[12px] font-semibold text-slate-500 mt-1">Total Enrolled</p>
+                            <p className="text-[11px] font-semibold text-slate-500 mt-1">Total Enrolled</p>
                         </div>
                     </div>
 
-                    {/* Top-Right Badge */}
                     <div className="absolute top-3.5 right-3.5 z-10">
-                        <span className="flex items-center gap-0.5 bg-[#d1fae5]/80 text-[#059669] border border-[#a7f3d0] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                        <span className="flex items-center gap-0.5 bg-[#d1fae5]/80 text-[#059669] border border-[#a7f3d0] text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs">
                             <span className="text-[7px]">▲</span> 8%
                         </span>
                     </div>
 
-                    {/* Smooth Organic SVG Wave Sparkline — Seamless Fade-In */}
                     <div className="absolute right-0 bottom-0 w-[55%] h-13 pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
                         <svg viewBox="0 0 200 60" className="w-full h-full" preserveAspectRatio="none">
                             <defs>
@@ -637,7 +680,6 @@ export default function DashboardPage() {
                     style={{ background: 'linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #f0fdf4 100%)' }}
                 >
                     <div className="flex items-center gap-4 relative z-10">
-                        {/* 3D Gloss Liquid Orb — Green */}
                         <div
                             className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-white flex-shrink-0 relative transition-transform duration-200 group-hover:scale-105"
                             style={{
@@ -648,21 +690,19 @@ export default function DashboardPage() {
                             <LucideWallet size={23} strokeWidth={2.4} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]" />
                         </div>
                         <div>
-                            <p className="text-[20px] lg:text-[22px] font-black text-slate-800 tracking-tight leading-none">
+                            <p className="text-[19px] lg:text-[21px] font-black text-slate-800 tracking-tight leading-none">
                                 {stats.feesDue > 0 ? fmt(stats.feesDue) : (stats.feesCollected > 0 ? fmt(stats.feesCollected) : 'Ksh 461,000')}
                             </p>
-                            <p className="text-[12px] font-semibold text-slate-500 mt-1">Expected Fees</p>
+                            <p className="text-[11px] font-semibold text-slate-500 mt-1">Expected Fees</p>
                         </div>
                     </div>
 
-                    {/* Top-Right Badge */}
                     <div className="absolute top-3.5 right-3.5 z-10">
-                        <span className="flex items-center gap-0.5 bg-[#d1fae5]/80 text-[#059669] border border-[#a7f3d0] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                        <span className="flex items-center gap-0.5 bg-[#d1fae5]/80 text-[#059669] border border-[#a7f3d0] text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs">
                             <span className="text-[7px]">▲</span> 15%
                         </span>
                     </div>
 
-                    {/* Smooth Organic SVG Wave Sparkline — Seamless Fade-In */}
                     <div className="absolute right-0 bottom-0 w-[55%] h-13 pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
                         <svg viewBox="0 0 200 60" className="w-full h-full" preserveAspectRatio="none">
                             <defs>
@@ -689,7 +729,6 @@ export default function DashboardPage() {
                     style={{ background: 'linear-gradient(180deg, #fffcf5 0%, #fff9ec 45%, #fef3c7 100%)' }}
                 >
                     <div className="flex items-center gap-4 relative z-10">
-                        {/* 3D Gloss Liquid Orb — Amber */}
                         <div
                             className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-white flex-shrink-0 relative transition-transform duration-200 group-hover:scale-105"
                             style={{
@@ -700,21 +739,19 @@ export default function DashboardPage() {
                             <LucideAlertTriangle size={23} strokeWidth={2.4} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]" />
                         </div>
                         <div>
-                            <p className="text-[26px] font-black text-slate-800 tracking-tight leading-none">
+                            <p className="text-[24px] font-black text-slate-800 tracking-tight leading-none">
                                 {String(pendingIssues || 2)}
                             </p>
-                            <p className="text-[12px] font-semibold text-slate-500 mt-1">Pending Issues</p>
+                            <p className="text-[11px] font-semibold text-slate-500 mt-1">Pending Issues</p>
                         </div>
                     </div>
 
-                    {/* Top-Right Badge */}
                     <div className="absolute top-3.5 right-3.5 z-10">
-                        <span className="flex items-center gap-0.5 bg-[#fee2e2]/80 text-[#dc2626] border border-[#fecaca] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                        <span className="flex items-center gap-0.5 bg-[#fee2e2]/80 text-[#dc2626] border border-[#fecaca] text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs">
                             <span className="text-[7px]">▼</span> 0%
                         </span>
                     </div>
 
-                    {/* Smooth Organic SVG Wave Sparkline — Seamless Fade-In */}
                     <div className="absolute right-0 bottom-0 w-[55%] h-13 pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
                         <svg viewBox="0 0 200 60" className="w-full h-full" preserveAspectRatio="none">
                             <defs>
@@ -736,137 +773,55 @@ export default function DashboardPage() {
             </div>
 
             {/* ══════════════════════════════════════════════════
-                ⚡ QUICK ACTIONS (Exact Reference Match to Screenshot)
+                ⚡ QUICK ACTIONS (10 Solid 3D Squircles)
             ══════════════════════════════════════════════════ */}
-            <div className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-[22px] px-5 py-4">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-3.5">
+            <div className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-[22px] px-5 py-3.5">
+                <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                        <HiBolt size={18} className="text-blue-600" />
-                        <h2 className="text-sm font-black text-slate-800 tracking-tight">Quick Actions</h2>
+                        <HiBolt size={16} className="text-blue-600" />
+                        <h2 className="text-xs font-black text-slate-800 tracking-tight">Quick Actions</h2>
                     </div>
                     <Link
                         href="/dashboard/tools"
-                        className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group transition-colors"
+                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group transition-colors"
                     >
                         <span>More Tools</span>
-                        <HiArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                        <HiArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
                     </Link>
                 </div>
 
-                {/* 10 Solid 3D Squircle Action Buttons */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2.5">
                     {[
-                        {
-                            label: 'Collect Fee',
-                            href: '/dashboard/fees/collect',
-                            icon: HiCreditCard,
-                            iconColor: '#1d63ed',
-                            bg: 'linear-gradient(180deg, #f0f7ff 0%, #e2efff 100%)',
-                            border: '#bfdbfe',
-                            shadow: 'rgba(37, 99, 235, 0.1)',
-                        },
-                        {
-                            label: 'Add Student',
-                            href: '/dashboard/students/admissions',
-                            icon: HiUserPlus,
-                            iconColor: '#2563eb',
-                            bg: 'linear-gradient(180deg, #f2f5ff 0%, #e5ebff 100%)',
-                            border: '#c7d2fe',
-                            shadow: 'rgba(79, 70, 229, 0.1)',
-                        },
-                        {
-                            label: 'Attendance',
-                            href: '/dashboard/attendance',
-                            icon: HiCheckBadge,
-                            iconColor: '#10b981',
-                            bg: 'linear-gradient(180deg, #f0fdf6 0%, #dcfce7 100%)',
-                            border: '#86efac',
-                            shadow: 'rgba(16, 185, 129, 0.1)',
-                        },
-                        {
-                            label: 'Enter Marks',
-                            href: '/dashboard/exams/marks',
-                            icon: HiDocumentText,
-                            iconColor: '#f59e0b',
-                            bg: 'linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%)',
-                            border: '#fed7aa',
-                            shadow: 'rgba(245, 158, 11, 0.1)',
-                        },
-                        {
-                            label: 'Bulk SMS',
-                            href: '/dashboard/fees/bulk-reminders',
-                            icon: HiEnvelope,
-                            iconColor: '#2563eb',
-                            bg: 'linear-gradient(180deg, #f0f7ff 0%, #e0f0fe 100%)',
-                            border: '#bae6fd',
-                            shadow: 'rgba(37, 99, 235, 0.1)',
-                        },
-                        {
-                            label: 'P&L Report',
-                            href: '/dashboard/fees/reports/pl',
-                            icon: HiChartBar,
-                            iconColor: '#0891b2',
-                            bg: 'linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%)',
-                            border: '#99f6e4',
-                            shadow: 'rgba(8, 145, 178, 0.1)',
-                        },
-                        {
-                            label: 'Add Expense',
-                            href: '/dashboard/expenses',
-                            icon: HiWallet,
-                            iconColor: '#ea580c',
-                            bg: 'linear-gradient(180deg, #fff7ed 0%, #fed7aa 100%)',
-                            border: '#fdba74',
-                            shadow: 'rgba(234, 88, 12, 0.1)',
-                        },
-                        {
-                            label: 'Payroll',
-                            href: '/dashboard/hr-payroll/payroll',
-                            icon: HiUserGroup,
-                            iconColor: '#2563eb',
-                            bg: 'linear-gradient(180deg, #f0f7ff 0%, #dbeafe 100%)',
-                            border: '#93c5fd',
-                            shadow: 'rgba(37, 99, 235, 0.1)',
-                        },
-                        {
-                            label: 'Report Cards',
-                            href: '/dashboard/exams/report-cards',
-                            icon: HiDocumentCheck,
-                            iconColor: '#059669',
-                            bg: 'linear-gradient(180deg, #f0fdf4 0%, #bbf7d0 100%)',
-                            border: '#86efac',
-                            shadow: 'rgba(5, 150, 105, 0.1)',
-                        },
-                        {
-                            label: 'More Tools',
-                            href: '/dashboard/tools',
-                            icon: HiSquares2X2,
-                            iconColor: '#7c3aed',
-                            bg: 'linear-gradient(180deg, #faf5ff 0%, #ede9fe 100%)',
-                            border: '#ddd6fe',
-                            shadow: 'rgba(124, 58, 237, 0.1)',
-                        },
+                        { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: HiCreditCard, iconColor: '#1d63ed', bg: 'linear-gradient(180deg, #f0f7ff 0%, #e2efff 100%)', border: '#bfdbfe', shadow: 'rgba(37, 99, 235, 0.1)' },
+                        { label: 'Add Student', href: '/dashboard/students/admissions', icon: HiUserPlus, iconColor: '#2563eb', bg: 'linear-gradient(180deg, #f2f5ff 0%, #e5ebff 100%)', border: '#c7d2fe', shadow: 'rgba(79, 70, 229, 0.1)' },
+                        { label: 'Attendance', href: '/dashboard/attendance', icon: HiCheckBadge, iconColor: '#10b981', bg: 'linear-gradient(180deg, #f0fdf6 0%, #dcfce7 100%)', border: '#86efac', shadow: 'rgba(16, 185, 129, 0.1)' },
+                        { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: HiDocumentText, iconColor: '#f59e0b', bg: 'linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%)', border: '#fed7aa', shadow: 'rgba(245, 158, 11, 0.1)' },
+                        { label: 'Bulk SMS', href: '/dashboard/fees/bulk-reminders', icon: HiEnvelope, iconColor: '#2563eb', bg: 'linear-gradient(180deg, #f0f7ff 0%, #e0f0fe 100%)', border: '#bae6fd', shadow: 'rgba(37, 99, 235, 0.1)' },
+                        { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: HiChartBar, iconColor: '#0891b2', bg: 'linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%)', border: '#99f6e4', shadow: 'rgba(8, 145, 178, 0.1)' },
+                        { label: 'Add Expense', href: '/dashboard/expenses', icon: HiWallet, iconColor: '#ea580c', bg: 'linear-gradient(180deg, #fff7ed 0%, #fed7aa 100%)', border: '#fdba74', shadow: 'rgba(234, 88, 12, 0.1)' },
+                        { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: HiUserGroup, iconColor: '#2563eb', bg: 'linear-gradient(180deg, #f0f7ff 0%, #dbeafe 100%)', border: '#93c5fd', shadow: 'rgba(37, 99, 235, 0.1)' },
+                        { label: 'Report Cards', href: '/dashboard/exams/report-cards', icon: HiDocumentCheck, iconColor: '#059669', bg: 'linear-gradient(180deg, #f0fdf4 0%, #bbf7d0 100%)', border: '#86efac', shadow: 'rgba(5, 150, 105, 0.1)' },
+                        { label: 'More Tools', href: '/dashboard/tools', icon: HiSquares2X2, iconColor: '#7c3aed', bg: 'linear-gradient(180deg, #faf5ff 0%, #ede9fe 100%)', border: '#ddd6fe', shadow: 'rgba(124, 58, 237, 0.1)' },
                     ].map((btn, i) => {
                         const Icon = btn.icon;
                         return (
                             <Link
                                 key={i}
                                 href={btn.href}
-                                className="group/btn flex flex-col items-center justify-center p-3.5 rounded-[18px] transition-all duration-200 hover:-translate-y-1 hover:shadow-lg active:scale-95 cursor-pointer text-center relative overflow-hidden"
+                                className="group/btn flex flex-col items-center justify-center p-3 rounded-[16px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-95 cursor-pointer text-center relative overflow-hidden"
                                 style={{
                                     background: btn.bg,
                                     border: `1px solid ${btn.border}`,
-                                    boxShadow: `0 4px 14px 0 ${btn.shadow}, inset 0 1px 1px rgba(255, 255, 255, 0.9)`,
+                                    boxShadow: `0 3px 10px 0 ${btn.shadow}, inset 0 1px 1px rgba(255, 255, 255, 0.9)`,
                                 }}
                             >
                                 <div
-                                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-1.5 transition-transform duration-200 group-hover/btn:scale-110"
+                                    className="w-9 h-9 rounded-xl flex items-center justify-center mb-1 transition-transform duration-200 group-hover/btn:scale-105"
                                     style={{ color: btn.iconColor }}
                                 >
-                                    <Icon size={26} className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.12)]" />
+                                    <Icon size={24} className="drop-shadow-[0_1px_3px_rgba(0,0,0,0.1)]" />
                                 </div>
-                                <span className="text-[11px] font-black text-slate-700 leading-tight tracking-tight group-hover/btn:text-blue-600 transition-colors whitespace-nowrap">
+                                <span className="text-[10px] font-black text-slate-700 leading-tight tracking-tight group-hover/btn:text-blue-600 transition-colors whitespace-nowrap">
                                     {btn.label}
                                 </span>
                             </Link>
@@ -890,7 +845,6 @@ export default function DashboardPage() {
 
                 return (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                        {/* ── CARD 1: School Health Score ── */}
                         <div className="bg-white/85 backdrop-blur-xl border border-white/95 rounded-[20px] px-4 py-3 shadow-[0_4px_20px_rgba(20,50,120,0.05),0_1px_3px_rgba(0,0,0,0.02)] flex items-center gap-3.5 min-h-[76px]">
                             <div className="relative w-11 h-11 flex-shrink-0">
                                 <svg viewBox="0 0 36 36" className="w-11 h-11 -rotate-90">
@@ -924,7 +878,6 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        {/* ── CARD 2: Current Term Progress ── */}
                         <div className="bg-white/85 backdrop-blur-xl border border-white/95 rounded-[20px] px-4 py-3 shadow-[0_4px_20px_rgba(20,50,120,0.05),0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-center min-h-[76px]">
                             <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-1.5">
@@ -950,7 +903,6 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        {/* ── CARD 3: Live Realtime Activity Feed ── */}
                         <div className="bg-white/85 backdrop-blur-xl border border-white/95 rounded-[20px] px-4 py-3 shadow-[0_4px_20px_rgba(20,50,120,0.05),0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-center min-h-[76px] overflow-hidden">
                             <div className="flex items-center gap-2 mb-1.5">
                                 <span className="relative flex h-2 w-2">
@@ -974,7 +926,7 @@ export default function DashboardPage() {
                 );
             })()}
 
-            {/* ── Tab Nav ── */}
+            {/* ── Tab Navigation ── */}
             <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
             {/* ════════════════════════════════════════
@@ -985,113 +937,407 @@ export default function DashboardPage() {
 
                     {/* ── SIZABLE 4 STAT CARDS ── */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-                        <StatCard icon="🎓" label="Active Students" value={fmtN(active.length)} sub={`${maleCount} boys · ${femaleCount} girls`} color="#4f46e5" bg="#eef2ff" trend="up" trendLabel={`+${newThisYear} new`} href="/dashboard/students" />
+                        <StatCard icon="🎓" label="Active Students" value={fmtN(active.length)} sub={`${maleCount} boys · ${femaleCount} girls`} color="#2563eb" bg="#eff6ff" trend="up" trendLabel={`+${newThisYear} new`} href="/dashboard/students" />
                         <StatCard icon="💰" label="Fees Collected" value={fmtShort(totalFees)} sub={`${fmt(payThisMonth)} this month`} color="#059669" bg="#ecfdf5" trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees" />
                         <StatCard icon="✅" label="Attendance Rate" value={`${attRate}%`} sub={`${todayPre} present · ${todayAbs} absent`} color={attRate >= 80 ? '#0891b2' : '#d97706'} bg={attRate >= 80 ? '#e0f2fe' : '#fef3c7'} trend={attRate >= 80 ? 'up' : 'down'} trendLabel={`${todayAbs} absent`} href="/dashboard/attendance" />
                         <StatCard icon="📊" label="Net Position" value={fmtShort(Math.abs(netPos))} sub={`Income ${fmtShort(totalIncome)}`} color={netPos >= 0 ? '#7c3aed' : '#dc2626'} bg={netPos >= 0 ? '#f5f3ff' : '#fef2f2'} trend={netPos >= 0 ? 'up' : 'down'} trendLabel={netPos >= 0 ? 'Surplus' : 'Deficit'} href="/dashboard/fees/reports/pl" />
                     </div>
 
-
-
-                    {/* ── FEE ANALYTICS (existing component) ── */}
+                    {/* ── SIDE-BY-SIDE FEE ANALYTICS & PAGINATED INTELLIGENCE DATAGRID ── */}
                     <FeeAnalyticsSection />
 
-                    {/* ── ULTRA KPI CARDS ── */}
-                    <UltraCardsSection stats={stats} currentYear={currentYear} fmt={fmt} />
-
-                    {/* ── SECONDARY METRICS ── */}
+                    {/* ── EXECUTIVE INTELLIGENCE & RATIOS STRIP (NEW ANALYSIS) ── */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {[
-                            { label: 'Gender M:F', value: `${maleCount}:${femaleCount}`, bar: pct(maleCount, active.length), color: '#3b82f6', bg: '#dbeafe', icon: '⚖️', sub: `${pct(maleCount, active.length)}% male` },
-                            { label: 'Month Fees', value: fmtShort(payThisMonth), bar: Math.min(100, pct(payThisMonth, totalFees || 1)), color: '#10b981', bg: '#d1fae5', icon: '📅', sub: 'of total collected' },
-                            { label: 'Today Absent', value: `${todayAbs}`, bar: pct(todayAbs, active.length || 1), color: '#ef4444', bg: '#fee2e2', icon: '⚠️', sub: `of ${active.length} active` },
-                            { label: 'Discipline Cases', value: fmtN(disciplineCount), bar: Math.min(100, disciplineCount * 5), color: '#f59e0b', bg: '#fef3c7', icon: '⚡', sub: `${currentYear} total` },
-                        ].map((m, i) => (
-                            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background: m.bg }}>{m.icon}</div>
+                            {
+                                label: 'Operating Ratio',
+                                value: `${operatingRatio}%`,
+                                icon: '⚖️',
+                                color: operatingRatio <= 85 ? '#059669' : '#dc2626',
+                                bg: operatingRatio <= 85 ? '#ecfdf5' : '#fef2f2',
+                                sub: operatingRatio <= 85 ? 'Healthy Expenditure' : 'High Overhead Ratio',
+                                badge: operatingRatio <= 85 ? 'Optimal' : 'Caution',
+                            },
+                            {
+                                label: 'Staff-Student Ratio',
+                                value: `1 : ${studentTeacherRatio}`,
+                                icon: '👨‍🏫',
+                                color: '#2563eb',
+                                bg: '#eff6ff',
+                                sub: `${staff.length} Active Teaching Staff`,
+                                badge: 'Class Ratio',
+                            },
+                            {
+                                label: 'School Mean Score',
+                                value: `${overallMeanScore}%`,
+                                icon: '📈',
+                                color: overallMeanScore >= 60 ? '#7c3aed' : '#d97706',
+                                bg: '#f5f3ff',
+                                sub: overallMeanScore >= 65 ? 'Grade B+ Academic Rating' : 'Passing Standards',
+                                badge: 'Academics',
+                            },
+                            {
+                                label: 'Discipline Index',
+                                value: `${disciplineCount} Cases`,
+                                icon: '🛡️',
+                                color: disciplineCount <= 5 ? '#059669' : '#f59e0b',
+                                bg: disciplineCount <= 5 ? '#ecfdf5' : '#fef3c7',
+                                sub: `${currentYear} Total Recorded`,
+                                badge: disciplineCount <= 5 ? 'Stable' : 'Monitored',
+                            },
+                        ].map((item, idx) => (
+                            <div key={idx} className="bg-white/85 backdrop-blur-xl rounded-[20px] p-3.5 border border-white/95 shadow-[0_4px_20px_rgba(20,50,120,0.05)] flex flex-col justify-between">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shadow-xs" style={{ background: item.bg }}>
+                                        {item.icon}
+                                    </div>
+                                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                        {item.badge}
+                                    </span>
                                 </div>
-                                <p className="text-xl font-black text-gray-900">{m.value}</p>
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-wide mt-0.5">{m.label}</p>
-                                <p className="text-[9px] text-gray-400 mb-2">{m.sub}</p>
-                                <div className="bg-gray-100 rounded-full h-1.5">
-                                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${m.bar}%`, background: m.color }} />
+                                <div>
+                                    <p className="text-lg font-black tracking-tight" style={{ color: item.color }}>{item.value}</p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-0.5">{item.label}</p>
+                                    <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">{item.sub}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
 
                     {/* ── CHARTS ROW 1: Fees vs Expenses + Doughnut ── */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                            <SH title="📊 Fee Collections vs Expenses — 12 Months" sub="Monthly revenue vs costs" href="/dashboard/fees/analytics" linkLabel="Analytics" />
-                            <div className="flex items-center gap-4 mb-3 text-[10px]">
-                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-indigo-500 inline-block" />Fees</span>
-                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-400 inline-block" />Expenses</span>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+                        <div className="lg:col-span-2 bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] p-4">
+                            <SH title="📊 Fee Collections vs Expenses — 12 Months" sub="Monthly revenue inflow vs approved costs" href="/dashboard/fees/analytics" linkLabel="Full Analytics" />
+                            <div className="flex items-center gap-4 mb-2.5 text-[10px]">
+                                <span className="flex items-center gap-1.5 font-bold text-slate-600"><span className="w-2.5 h-2.5 rounded bg-blue-500 inline-block" />Fees</span>
+                                <span className="flex items-center gap-1.5 font-bold text-slate-600"><span className="w-2.5 h-2.5 rounded bg-red-400 inline-block" />Expenses</span>
                             </div>
-                            <div style={{ height: 220 }}>
+                            <div style={{ height: 210 }}>
                                 <Bar data={feeExpChart} options={{ ...cb, scales: { y: { beginAtZero: true, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${(v / 1000).toFixed(0)}K`, font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                        <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] p-4 flex flex-col justify-between">
                             <SH title="📋 Today's Attendance" sub={new Date().toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' })} />
-                            <div style={{ height: 155 }}>
+                            <div style={{ height: 145 }}>
                                 {attendance.length > 0
-                                    ? <Doughnut data={attDonut} options={{ responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 10 }, padding: 8 } } } }} />
-                                    : <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2"><FiActivity size={26} /><p className="text-xs text-gray-400">No data today</p></div>}
+                                    ? <Doughnut data={attDonut} options={{ responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 10 }, padding: 6 } } } }} />
+                                    : <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-1.5"><FiActivity size={24} /><p className="text-[11px] text-slate-400">No data today</p></div>}
                             </div>
-                            <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
-                                {[{ l: 'Present', v: todayPre, c: '#22c55e', b: '#f0fdf4' }, { l: 'Absent', v: todayAbs, c: '#ef4444', b: '#fef2f2' }, { l: 'Late', v: todayLat, c: '#f59e0b', b: '#fffbeb' }].map(a => (
-                                    <div key={a.l} className="rounded-xl py-2" style={{ background: a.b }}>
-                                        <p className="text-base font-black" style={{ color: a.c }}>{a.v}</p>
-                                        <p className="text-[9px] font-bold text-gray-500">{a.l}</p>
+                            <div className="grid grid-cols-3 gap-1.5 text-center pt-2 border-t border-slate-100">
+                                {[{ l: 'Present', v: todayPre, c: '#059669', b: '#ecfdf5' }, { l: 'Absent', v: todayAbs, c: '#dc2626', b: '#fef2f2' }, { l: 'Late', v: todayLat, c: '#d97706', b: '#fffbeb' }].map(a => (
+                                    <div key={a.l} className="rounded-xl py-1.5" style={{ background: a.b }}>
+                                        <p className="text-sm font-black" style={{ color: a.c }}>{a.v}</p>
+                                        <p className="text-[9px] font-bold text-slate-500">{a.l}</p>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
 
-                    {/* ── CHARTS ROW 2: Attendance Trend + Academic ── */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                            <SH title="📈 Weekly Attendance Trend" sub="Last 7 school days" href="/dashboard/attendance" linkLabel="Full Report" />
-                            <div style={{ height: 190 }}>
-                                <Line data={wAttChart} options={{ ...cb, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${v}%`, font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                    {/* ══════════════════════════════════════════════════════════════════
+                        SIDE-BY-SIDE FUNCTIONAL DATAGRIDS WITH REAL-TIME PAGINATION
+                    ══════════════════════════════════════════════════════════════════ */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                        {/* ── PANEL 1: Real-Time Cash Inflow & Fee Transactions DataGrid ── */}
+                        <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] p-4 flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+                                            <FiDollarSign size={14} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xs font-black text-slate-800 tracking-tight">Recent Fee Transactions</h3>
+                                            <p className="text-[10px] text-slate-400 font-medium">Page {payPage} of {totalPayPages} · {filteredPayments.length} total</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative">
+                                        <FiSearch className="absolute left-2.5 top-2 text-slate-400" size={11} />
+                                        <input
+                                            type="text"
+                                            value={paySearch}
+                                            onChange={e => { setPaySearch(e.target.value); setPayPage(1); }}
+                                            placeholder="Search payer..."
+                                            className="pl-7 pr-2.5 py-1 text-[11px] font-semibold bg-slate-50 border border-slate-200 rounded-full focus:bg-white focus:border-blue-500 outline-none w-28 sm:w-36 transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                                                <th className="pb-2">Student</th>
+                                                <th className="pb-2 text-center">Date &amp; Method</th>
+                                                <th className="pb-2 text-right">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {paginatedPayments.map(p => {
+                                                const st = students.find(s => s.id === p.student_id);
+                                                return (
+                                                    <tr key={p.id} className="hover:bg-blue-50/40 transition-colors">
+                                                        <td className="py-2.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                                                    {st ? st.first_name?.[0] : '#'}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs font-bold text-slate-800 leading-tight">
+                                                                        {st ? `${st.first_name} ${st.last_name}` : `Student #${p.student_id}`}
+                                                                    </p>
+                                                                    <span className="text-[9px] text-slate-400">ID: {p.student_id}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2.5 text-center">
+                                                            <span className="text-[10px] font-medium text-slate-500 block">
+                                                                {new Date(p.payment_date).toLocaleDateString('en-KE', { day: '2-digit', month: 'short' })}
+                                                            </span>
+                                                            <span className="inline-block mt-0.5 text-[8px] font-black px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                                                                {p.payment_method || 'Cash'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2.5 text-right whitespace-nowrap">
+                                                            <span className="text-xs font-black text-emerald-700 font-mono">
+                                                                {fmt(Number(p.amount))}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {paginatedPayments.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={3} className="py-8 text-center text-xs text-slate-400">No payment records found</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Pagination Controls */}
+                            <div className="pt-2.5 mt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                                <span className="text-[10px] text-slate-400 font-medium">5 rows per page</span>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => setPayPage(p => Math.max(1, p - 1))}
+                                        disabled={payPage === 1}
+                                        className="p-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all"
+                                    >
+                                        <FiChevronLeft size={11} />
+                                    </button>
+                                    <span className="text-[10px] font-bold text-slate-700 px-1">
+                                        {payPage} / {totalPayPages}
+                                    </span>
+                                    <button
+                                        onClick={() => setPayPage(p => Math.min(totalPayPages, p + 1))}
+                                        disabled={payPage === totalPayPages}
+                                        className="p-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all"
+                                    >
+                                        <FiChevronRight size={11} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                            <SH title="🏆 Academic Performance by Form" sub="Average exam score per class" href="/dashboard/exams/analysis" linkLabel="Full Analysis" />
-                            <div style={{ height: 190 }}>
-                                {formPerf.some(f => f.avg > 0)
-                                    ? <Bar data={fPerfChart} options={{ ...cb, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
-                                    : <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2"><FiBook size={26} /><p className="text-xs text-gray-400">No exam marks yet</p></div>}
+
+                        {/* ── PANEL 2: Student Admissions & Enrollment Intelligence DataGrid ── */}
+                        <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] p-4 flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
+                                            <FiUsers size={14} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xs font-black text-slate-800 tracking-tight">Recent Enrollments</h3>
+                                            <p className="text-[10px] text-slate-400 font-medium">Page {studentPage} of {totalStudentPages} · {filteredStudents.length} total</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative">
+                                        <FiSearch className="absolute left-2.5 top-2 text-slate-400" size={11} />
+                                        <input
+                                            type="text"
+                                            value={studentSearch}
+                                            onChange={e => { setStudentSearch(e.target.value); setStudentPage(1); }}
+                                            placeholder="Search student..."
+                                            className="pl-7 pr-2.5 py-1 text-[11px] font-semibold bg-slate-50 border border-slate-200 rounded-full focus:bg-white focus:border-blue-500 outline-none w-28 sm:w-36 transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                                                <th className="pb-2">Student</th>
+                                                <th className="pb-2 text-center">Class / Form</th>
+                                                <th className="pb-2 text-right">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {paginatedStudents.map(s => {
+                                                const form = forms.find(f => f.id === s.form_id);
+                                                return (
+                                                    <tr key={s.id} className="hover:bg-blue-50/40 transition-colors">
+                                                        <td className="py-2.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <div
+                                                                    className="w-7 h-7 rounded-full text-white flex items-center justify-center text-xs font-black flex-shrink-0 shadow-xs"
+                                                                    style={{ background: s.gender === 'Male' ? 'linear-gradient(135deg,#3b82f6,#1d4ed8)' : 'linear-gradient(135deg,#ec4899,#db2777)' }}
+                                                                >
+                                                                    {s.first_name?.[0]}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs font-bold text-slate-800 leading-tight">
+                                                                        {s.first_name} {s.last_name}
+                                                                    </p>
+                                                                    <span className="text-[9px] text-slate-400">Adm: {s.admission_no || s.admission_number || '—'}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2.5 text-center">
+                                                            <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/80">
+                                                                {form?.form_name || 'Class'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2.5 text-right whitespace-nowrap">
+                                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${s.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}`}>
+                                                                {s.status}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {paginatedStudents.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={3} className="py-8 text-center text-xs text-slate-400">No student records found</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Pagination Controls */}
+                            <div className="pt-2.5 mt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                                <span className="text-[10px] text-slate-400 font-medium">5 rows per page</span>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => setStudentPage(p => Math.max(1, p - 1))}
+                                        disabled={studentPage === 1}
+                                        className="p-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all"
+                                    >
+                                        <FiChevronLeft size={11} />
+                                    </button>
+                                    <span className="text-[10px] font-bold text-slate-700 px-1">
+                                        {studentPage} / {totalStudentPages}
+                                    </span>
+                                    <button
+                                        onClick={() => setStudentPage(p => Math.min(totalStudentPages, p + 1))}
+                                        disabled={studentPage === totalStudentPages}
+                                        className="p-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all"
+                                    >
+                                        <FiChevronRight size={11} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* ── ENROLLMENT BY FORM (card grid) ── */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-50">
-                            <SH title="👥 Student Enrollment by Form / Grade" sub={`${active.length} active across ${forms.length} classes`} href="/dashboard/students" linkLabel="Manage" />
+                    {/* ── CHARTS ROW 2: Attendance Trend + Academic Form Ranking ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                        <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] p-4">
+                            <SH title="📈 Weekly Attendance Trend" sub="Last 7 school calendar days" href="/dashboard/attendance" linkLabel="Full Report" />
+                            <div style={{ height: 180 }}>
+                                <Line data={wAttChart} options={{ ...cb, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${v}%`, font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                            </div>
                         </div>
-                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                        <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] p-4">
+                            <SH title="🏆 Academic Performance by Form" sub="Average exam percentage score per class" href="/dashboard/exams/analysis" linkLabel="Full Analysis" />
+                            <div style={{ height: 180 }}>
+                                {formPerf.some(f => f.avg > 0)
+                                    ? <Bar data={fPerfChart} options={{ ...cb, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f8fafc' }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }} />
+                                    : <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-2"><FiBook size={24} /><p className="text-xs text-slate-400">No marks recorded yet</p></div>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── AI INSIGHTS + TOP PERFORMING STUDENTS ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+                        <AIInsightsWidget />
+                        <div className="lg:col-span-2 bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
+                            <div className="px-5 py-3.5 border-b border-slate-100">
+                                <SH title="🏆 Top Performing Students" sub="Academic merit standings" href="/dashboard/exams/merit-list" linkLabel="Merit List" />
+                            </div>
+                            <div className="divide-y divide-slate-100">
+                                {topStudents.map((s, i) => (
+                                    <div key={i} className="px-4 py-2.5 flex items-center justify-between hover:bg-blue-50/30 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white ${i === 0 ? 'bg-gradient-to-br from-amber-400 to-yellow-500 shadow-xs' : i === 1 ? 'bg-gradient-to-br from-slate-400 to-slate-500 shadow-xs' : i === 2 ? 'bg-gradient-to-br from-amber-600 to-orange-600 shadow-xs' : 'bg-blue-100 text-blue-700'}`}>
+                                                {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-bold text-slate-800">{s.name}</p>
+                                                <p className="text-[10px] text-slate-400">{s.form}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`text-sm font-black ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-500'}`}>{s.avg}%</p>
+                                            <p className="text-[9px] text-slate-400">Mean Score</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {topStudents.length === 0 && <div className="py-8 text-center text-slate-400 text-xs">No exam data recorded</div>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── SUBJECT PERFORMANCE RANKING ── */}
+                    <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] p-4">
+                        <SH title="📚 Subject Performance Rankings" sub="Average student proficiency per subject" href="/dashboard/exams/analysis" linkLabel="Analysis" />
+                        {subjectPerf.length === 0
+                            ? <div className="py-6 text-center text-slate-400 text-xs">No marks recorded yet</div>
+                            : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {subjectPerf.slice(0, 8).map((s, i) => (
+                                    <div key={s.name} className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100">
+                                        <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-black text-white flex-shrink-0 ${i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-slate-400' : i === 2 ? 'bg-orange-400' : 'bg-slate-300 text-slate-700'}`}>{i + 1}</span>
+                                        <span className="text-[11px] font-bold text-slate-700 flex-1 truncate">{s.name}</span>
+                                        <div className="w-20 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                            <div className="h-1.5 rounded-full" style={{ width: `${s.avg}%`, background: s.avg >= 70 ? '#10b981' : s.avg >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                        </div>
+                                        <span className={`text-[11px] font-black w-8 text-right ${s.avg >= 70 ? 'text-emerald-700' : s.avg >= 50 ? 'text-amber-700' : 'text-rose-600'}`}>{s.avg}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        }
+                    </div>
+
+                    {/* ── ENROLLMENT BY FORM (HIGH-DENSITY GRID) ── */}
+                    <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
+                        <div className="px-5 py-3.5 border-b border-slate-100">
+                            <SH title="👥 Student Distribution by Class" sub={`${active.length} active students across ${forms.length} forms & grades`} href="/dashboard/students" linkLabel="Manage Students" />
+                        </div>
+                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                             {forms.map(f => {
                                 const inForm = active.filter(s => s.form_id === f.id);
                                 const male = inForm.filter(s => s.gender === 'Male').length;
                                 const female = inForm.filter(s => s.gender === 'Female').length;
                                 const maxSt = Math.max(...forms.map(fm => active.filter(s => s.form_id === fm.id).length), 1);
                                 return (
-                                    <div key={f.id} className="rounded-xl p-3 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/20 transition-all">
-                                        <p className="text-xs font-black text-gray-700 truncate mb-1">{f.form_name}</p>
-                                        <p className="text-2xl font-black text-gray-900">{inForm.length}</p>
-                                        <div className="flex gap-2 mt-1 mb-2 text-[9px]">
-                                            <span className="text-blue-500 font-bold">♂ {male}</span>
-                                            <span className="text-pink-500 font-bold">♀ {female}</span>
+                                    <div key={f.id} className="rounded-xl p-2.5 border border-slate-100 bg-slate-50/60 hover:border-blue-200 hover:bg-blue-50/30 transition-all">
+                                        <p className="text-[11px] font-black text-slate-700 truncate mb-0.5">{f.form_name}</p>
+                                        <p className="text-xl font-black text-slate-900">{inForm.length}</p>
+                                        <div className="flex gap-2 mt-0.5 mb-1 text-[9px]">
+                                            <span className="text-blue-600 font-bold">♂ {male}</span>
+                                            <span className="text-pink-600 font-bold">♀ {female}</span>
                                         </div>
-                                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden flex gap-0.5">
-                                            <div className="bg-blue-400 h-full" style={{ width: `${pct(male, maxSt)}%` }} />
-                                            <div className="bg-pink-400 h-full" style={{ width: `${pct(female, maxSt)}%` }} />
+                                        <div className="h-1 bg-slate-200 rounded-full overflow-hidden flex gap-0.5">
+                                            <div className="bg-blue-500 h-full" style={{ width: `${pct(male, maxSt)}%` }} />
+                                            <div className="bg-pink-500 h-full" style={{ width: `${pct(female, maxSt)}%` }} />
                                         </div>
                                     </div>
                                 );
@@ -1099,189 +1345,46 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* ── NET FINANCIAL POSITION STRIP ── */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {[
-                            { label: 'Total Income', value: fmtShort(totalIncome), color: '#059669', bg: '#ecfdf5', icon: '📥', sub: `Fees + other income ${currentYear}` },
-                            { label: 'Total Expenses', value: fmtShort(approvedExp), color: '#dc2626', bg: '#fef2f2', icon: '📤', sub: `Approved expenses ${currentYear}` },
-                            { label: netPos >= 0 ? 'Net Surplus' : 'Net Deficit', value: fmtShort(Math.abs(netPos)), color: netPos >= 0 ? '#7c3aed' : '#dc2626', bg: netPos >= 0 ? '#f5f3ff' : '#fef2f2', icon: netPos >= 0 ? '✅' : '⚠️', sub: netPos >= 0 ? 'School is financially healthy' : 'Expenses exceed income' },
-                        ].map((m, i) => (
-                            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: m.bg }}>{m.icon}</div>
+                    {/* ── COMMAND CENTER INTELLIGENCE HUBS ── */}
+                    <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
+                        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
+                                    <FiCpu size={14} />
+                                </div>
                                 <div>
-                                    <p className="text-xl font-black" style={{ color: m.color }}>{m.value}</p>
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wide">{m.label}</p>
-                                    <p className="text-[9px] text-gray-400 mt-0.5">{m.sub}</p>
+                                    <p className="text-xs font-black text-slate-800 uppercase tracking-wide">APSIMS Intelligence Command Center</p>
+                                    <p className="text-[10px] text-slate-400 font-medium">Advanced institutional modules &amp; government reporting</p>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-
-                    {/* ── AI INSIGHTS + TOP STUDENTS ── */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        <AIInsightsWidget />
-                        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-gray-50">
-                                <SH title="🏆 Top Performing Students" sub="Based on exam marks" href="/dashboard/exams/merit-list" linkLabel="Merit List" />
-                            </div>
-                            <div className="divide-y divide-gray-50">
-                                {topStudents.map((s, i) => (
-                                    <div key={i} className="px-5 py-3 flex items-center justify-between hover:bg-indigo-50/30 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white ${i === 0 ? 'bg-gradient-to-br from-amber-400 to-yellow-500' : i === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-500' : i === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-indigo-100 text-indigo-600'}`}>
-                                                {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-800">{s.name}</p>
-                                                <p className="text-[10px] text-gray-400">{s.form}</p>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className={`text-lg font-black ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-500'}`}>{s.avg}%</p>
-                                            <p className="text-[9px] text-gray-400">avg score</p>
-                                        </div>
-                                    </div>
-                                ))}
-                                {topStudents.length === 0 && <div className="py-10 text-center text-gray-400"><FiAward size={26} className="mx-auto mb-2 text-gray-200" /><p className="text-xs">No exam data yet</p></div>}
-                            </div>
+                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                12 Hubs Connected
+                            </span>
                         </div>
-                    </div>
-
-                    {/* ── SUBJECT PERFORMANCE ── */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <SH title="📚 Subject Performance Ranking" sub="Average score per subject" href="/dashboard/exams/analysis" linkLabel="Full Analysis" />
-                        {subjectPerf.length === 0
-                            ? <div className="py-8 text-center text-gray-400"><FiBarChart2 size={26} className="mx-auto mb-2 text-gray-200" /><p className="text-xs">No exam marks yet</p></div>
-                            : <div className="space-y-2.5">
-                                {subjectPerf.slice(0, 8).map((s, i) => (
-                                    <div key={s.name} className="flex items-center gap-3">
-                                        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white flex-shrink-0 ${i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-orange-400' : 'bg-gray-200 text-gray-500'}`}>{i + 1}</span>
-                                        <span className="text-sm font-semibold text-gray-700 w-40 truncate flex-shrink-0">{s.name}</span>
-                                        <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
-                                            <div className="h-2 rounded-full transition-all" style={{ width: `${s.avg}%`, background: s.avg >= 70 ? '#22c55e' : s.avg >= 50 ? '#f59e0b' : '#ef4444' }} />
-                                        </div>
-                                        <span className={`text-sm font-black w-10 text-right ${s.avg >= 70 ? 'text-emerald-600' : s.avg >= 50 ? 'text-amber-600' : 'text-red-500'}`}>{s.avg}%</span>
-                                    </div>
-                                ))}
-                            </div>
-                        }
-                    </div>
-
-                    {/* ── RECENT PAYMENTS + RECENT ENROLLMENTS ── */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-gray-50">
-                                <SH title="💳 Recent Fee Payments" sub="Latest transactions" href="/dashboard/fees/payments" linkLabel="View All" />
-                            </div>
-                            <div className="divide-y divide-gray-50">
-                                {recentPayments.map((p) => {
-                                    const st = students.find(s => s.id === p.student_id);
-                                    return (
-                                        <div key={p.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
-                                                    <FiDollarSign size={13} className="text-emerald-600" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-semibold text-gray-800">{st ? `${st.first_name} ${st.last_name}` : `Student #${p.student_id}`}</p>
-                                                    <p className="text-[10px] text-gray-400">{new Date(p.payment_date).toLocaleDateString('en-KE', { day: '2-digit', month: 'short' })} · {p.payment_method}</p>
-                                                </div>
-                                            </div>
-                                            <span className="text-sm font-black text-emerald-600">{fmt(Number(p.amount))}</span>
-                                        </div>
-                                    );
-                                })}
-                                {recentPayments.length === 0 && <div className="py-8 text-center text-gray-400 text-xs">No payments recorded</div>}
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-gray-50">
-                                <SH title="🎓 Recent Enrollments" sub="Latest student admissions" href="/dashboard/students" linkLabel="View All" />
-                            </div>
-                            <div className="divide-y divide-gray-50">
-                                {recentStudents.map((s) => {
-                                    const form = forms.find(f => f.id === s.form_id);
-                                    return (
-                                        <div key={s.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black text-white"
-                                                    style={{ background: s.gender === 'Male' ? 'linear-gradient(135deg,#3b82f6,#2563eb)' : 'linear-gradient(135deg,#ec4899,#db2777)' }}>
-                                                    {s.first_name?.charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-semibold text-gray-800">{s.first_name} {s.last_name}</p>
-                                                    <p className="text-[10px] text-gray-400">{s.admission_no || s.admission_number} · {form?.form_name || '—'}</p>
-                                                </div>
-                                            </div>
-                                            <span className={`text-[9px] font-black px-2 py-1 rounded-full ${s.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{s.status}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── QUICK ACTIONS ── */}
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">⚡ Quick Actions</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                        <div className="p-3.5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                             {[
-                                { label: 'Collect Fee', href: '/dashboard/fees/collect', icon: '💳', color: '#22c55e', bg: '#ecfdf5' },
-                                { label: 'Add Student', href: '/dashboard/students/admissions', icon: '➕', color: '#6366f1', bg: '#eef2ff' },
-                                { label: 'Attendance', href: '/dashboard/attendance', icon: '✅', color: '#3b82f6', bg: '#dbeafe' },
-                                { label: 'Enter Marks', href: '/dashboard/exams/marks', icon: '📝', color: '#f59e0b', bg: '#fef3c7' },
-                                { label: 'Bulk SMS', href: '/dashboard/fees/bulk-reminders', icon: '📱', color: '#8b5cf6', bg: '#ede9fe' },
-                                { label: 'P&L Report', href: '/dashboard/fees/reports/pl', icon: '📊', color: '#0891b2', bg: '#e0f2fe' },
-                                { label: 'Add Expense', href: '/dashboard/expenses', icon: '💸', color: '#ef4444', bg: '#fee2e2' },
-                                { label: 'Payroll', href: '/dashboard/hr-payroll/payroll', icon: '👨‍💼', color: '#7c3aed', bg: '#f5f3ff' },
-                            ].map((a, i) => (
-                                <Link key={i} href={a.href}
-                                    className="bg-white rounded-2xl p-3.5 text-center hover:shadow-md hover:scale-[1.04] transition-all border border-gray-100 group overflow-hidden relative"
-                                    style={{ borderTopWidth: 3, borderTopColor: a.color }}>
-                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg mx-auto mb-2" style={{ background: a.bg }}>{a.icon}</div>
-                                    <p className="text-[10px] font-bold text-gray-500 group-hover:text-gray-800 leading-tight transition-colors">{a.label}</p>
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* ── INTELLIGENCE COMMAND CENTER (bright card) ── */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
-                                <FiCpu size={16} className="text-indigo-600" />
-                            </div>
-                            <div>
-                                <p className="text-xs font-black text-gray-800 uppercase tracking-wide">APSIMS Intelligence Hub</p>
-                                <p className="text-[10px] text-gray-400">Advanced tools — Kenya's most powerful school system</p>
-                            </div>
-                            <div className="ml-auto flex items-center gap-1.5">
-                                <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" /></span>
-                                <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest">All Online</span>
-                            </div>
-                        </div>
-                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                            {[
-                                { label: '📊 P&L Report', href: '/dashboard/fees/reports/pl', desc: 'Full financial statement', color: '#059669', bg: '#ecfdf5' },
-                                { label: '📱 Bulk SMS', href: '/dashboard/fees/bulk-reminders', desc: 'Fee defaulter campaigns', color: '#7c3aed', bg: '#f5f3ff' },
-                                { label: '📈 Fee Analytics', href: '/dashboard/fees/analytics', desc: 'Revenue intelligence', color: '#0891b2', bg: '#e0f2fe' },
-                                { label: '🎓 Merit List', href: '/dashboard/exams/merit-list', desc: 'Academic rankings', color: '#d97706', bg: '#fef3c7' },
-                                { label: '📋 Report Cards', href: '/dashboard/exams/report-cards', desc: 'Term progress reports', color: '#6366f1', bg: '#eef2ff' },
-                                { label: '🛡️ Exam Integrity', href: '/dashboard/exams/exam-integrity', desc: 'Anti-cheating system', color: '#dc2626', bg: '#fef2f2' },
-                                { label: '🤖 AI Insights', href: '/dashboard/exams/ai-insights', desc: 'AI performance chatbot', color: '#059669', bg: '#ecfdf5' },
-                                { label: '🏫 CBC Reports', href: '/dashboard/exams/cbc-reports', desc: 'KICD-aligned analytics', color: '#0891b2', bg: '#e0f2fe' },
-                                { label: '✏️ JSS Marks', href: '/dashboard/jss/marks', desc: 'Grade 7-9 entry', color: '#7c3aed', bg: '#f5f3ff' },
-                                { label: '🏆 KPSEA', href: '/dashboard/exams/kpsea', desc: 'Grade 6 assessment', color: '#d97706', bg: '#fef3c7' },
-                                { label: '🎓 Senior School', href: '/dashboard/cbc/senior-school', desc: 'Grade 10-12 hub', color: '#6366f1', bg: '#eef2ff' },
-                                { label: '🔒 Audit Trail', href: '/dashboard/fees/audit', desc: 'Full transaction log', color: '#dc2626', bg: '#fef2f2' },
+                                { label: '📊 P&L Statement', href: '/dashboard/fees/reports/pl', desc: 'Financial audit statement', color: '#059669', bg: '#ecfdf5' },
+                                { label: '📱 Bulk SMS', href: '/dashboard/fees/bulk-reminders', desc: 'Guardian communications', color: '#7c3aed', bg: '#f5f3ff' },
+                                { label: '📈 Fee Analytics', href: '/dashboard/fees/analytics', desc: 'Income intelligence', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: '🎓 Merit Rankings', href: '/dashboard/exams/merit-list', desc: 'Position and mean scores', color: '#d97706', bg: '#fef3c7' },
+                                { label: '📋 Report Cards', href: '/dashboard/exams/report-cards', desc: 'Termly student booklets', color: '#2563eb', bg: '#eff6ff' },
+                                { label: '🛡️ Exam Integrity', href: '/dashboard/exams/exam-integrity', desc: 'Anti-fraud audit engine', color: '#dc2626', bg: '#fef2f2' },
+                                { label: '🤖 AI Performance', href: '/dashboard/exams/ai-insights', desc: 'Student risk prediction', color: '#059669', bg: '#ecfdf5' },
+                                { label: '🏫 CBC Assessment', href: '/dashboard/exams/cbc-reports', desc: 'KICD-aligned rubric tracking', color: '#0891b2', bg: '#e0f2fe' },
+                                { label: '✏️ JSS Marks', href: '/dashboard/jss/marks', desc: 'Grade 7–9 score intake', color: '#7c3aed', bg: '#f5f3ff' },
+                                { label: '🏆 KPSEA Hub', href: '/dashboard/exams/kpsea', desc: 'National Grade 6 portal', color: '#d97706', bg: '#fef3c7' },
+                                { label: '🎓 Senior Pathways', href: '/dashboard/cbc/senior-school', desc: 'Grade 10–12 CBC tracks', color: '#2563eb', bg: '#eff6ff' },
+                                { label: '🔒 Security Trail', href: '/dashboard/fees/audit', desc: 'Cryptographic activity logs', color: '#dc2626', bg: '#fef2f2' },
                             ].map((m, i) => (
-                                <Link key={i} href={m.href}
-                                    className="rounded-xl p-3 border border-gray-100 hover:border-current hover:shadow-sm transition-all group"
-                                    style={{ borderLeftWidth: 3, borderLeftColor: m.color }}>
-                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm mb-2" style={{ background: m.bg }}>{m.label.split(' ')[0]}</div>
-                                    <p className="text-[11px] font-bold text-gray-700 leading-tight">{m.label.split(' ').slice(1).join(' ')}</p>
-                                    <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{m.desc}</p>
+                                <Link
+                                    key={i}
+                                    href={m.href}
+                                    className="rounded-xl p-2.5 border border-slate-100 hover:border-blue-300 hover:bg-blue-50/40 transition-all group"
+                                    style={{ borderLeftWidth: 3, borderLeftColor: m.color }}
+                                >
+                                    <p className="text-[11px] font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors">{m.label}</p>
+                                    <p className="text-[9px] text-slate-400 mt-0.5 leading-tight">{m.desc}</p>
                                 </Link>
                             ))}
                         </div>
@@ -1289,20 +1392,19 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* ── Other tabs ── */}
+            {/* ── Sub-Tab Panels ── */}
             {activeTab === 'finance' && <FinancePanel />}
             {activeTab === 'academics' && <AcademicsPanel />}
             {activeTab === 'staff' && <StaffPanel />}
             {activeTab === 'stores' && <StoresPanel />}
             {activeTab === 'portals' && <PortalsPanel />}
 
-            {/* Footer */}
-            <div className="text-center py-3 border-t border-gray-100">
-                <p className="text-[9px] text-gray-300 font-medium tracking-widest uppercase">
-                    APSIMS Ultra v3.0 · 🇰🇪 No.1 School ERP in Kenya · © {currentYear}
+            {/* ── Executive Footer ── */}
+            <div className="text-center py-2.5 border-t border-slate-200/80">
+                <p className="text-[9px] text-slate-400 font-semibold tracking-wider uppercase">
+                    APSIMS Enterprise Cloud v3.0 · 🇰🇪 Certified National School ERP · © {currentYear}
                 </p>
             </div>
         </div>
     );
 }
-

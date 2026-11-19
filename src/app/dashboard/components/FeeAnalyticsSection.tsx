@@ -2,10 +2,16 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Bar, Line } from 'react-chartjs-2';
-import { FiDownload, FiFilter, FiRefreshCw, FiTrendingUp, FiTrendingDown, FiBarChart2, FiList } from 'react-icons/fi';
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import {
+    FiDownload, FiRefreshCw, FiChevronRight,
+    FiSearch, FiChevronLeft, FiLayers, FiDollarSign,
+    FiTrendingUp, FiAlertTriangle, FiCheckCircle
+} from 'react-icons/fi';
+import { HiChartBar, HiChevronDown, HiChevronUp, HiArrowDownTray } from 'react-icons/hi2';
 
 const fmt = (n: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(n || 0);
+const fmtShort = (n: number) => n >= 1_000_000 ? `KES ${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `KES ${(n / 1000).toFixed(0)}K` : `KES ${n}`;
 const pct = (a: number, b: number) => b > 0 ? Math.round((a / b) * 100) : 0;
 
 // CBC colour map
@@ -15,10 +21,10 @@ const GRADE_COLORS: Record<string, string> = {
 };
 const getColor = (name: string) => {
     const key = Object.keys(GRADE_COLORS).find(k => name?.includes(k.split(' ')[1]));
-    return key ? GRADE_COLORS[key] : '#6366f1';
+    return key ? GRADE_COLORS[key] : '#3b82f6';
 };
 
-type ViewMode = 'chart' | 'grid';
+type ViewMode = 'panels' | 'chart';
 type FeeView = 'term' | 'annual';
 
 interface ClassFeeRow {
@@ -42,11 +48,13 @@ interface ClassFeeRow {
 export default function FeeAnalyticsSection() {
     const [rows, setRows] = useState<ClassFeeRow[]>([]);
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState<ViewMode>('grid');
+    const [viewMode, setViewMode] = useState<ViewMode>('panels');
     const [feeView, setFeeView] = useState<FeeView>('term');
     const [termFilter, setTermFilter] = useState<'1' | '2' | '3' | 'all'>('all');
-    const [formFilter, setFormFilter] = useState<string>('all');
-    const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
+    const [searchQuery, setSearchQuery] = useState<string>('');
+    const [expandedFormId, setExpandedFormId] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [pageSize, setPageSize] = useState<number>(5);
     const [refreshKey, setRefreshKey] = useState(0);
     const currentYear = new Date().getFullYear();
 
@@ -80,7 +88,6 @@ export default function FeeAnalyticsSection() {
             const feeStructures = feeStructData || [];
             const terms = termData || [];
 
-            // Build term number → term id map
             const termMap: Record<string, number> = {};
             (terms).forEach((t: any) => { termMap[String(t.term_number)] = t.id; });
 
@@ -88,27 +95,24 @@ export default function FeeAnalyticsSection() {
                 const formStudents = students.filter((s: any) => s.form_id === f.id);
                 const formPayments = payments.filter((p: any) => p.form_id === f.id || formStudents.some((s: any) => s.id === p.student_id));
 
-                // Expected fees from structure
                 const termStructures = feeStructures.filter((fs: any) => fs.form_id === f.id);
                 const annualExpected = termStructures.reduce((sum: number, fs: any) => sum + Number(fs.amount || 0), 0) * formStudents.length;
                 const termExpected = (annualExpected / 3) || 0;
 
-                // Paid by term
                 const getTermPaid = (termNo: string) => {
                     const tid = termMap[termNo];
                     return formPayments.filter((p: any) => p.term_id === tid).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
                 };
+
                 const term1Paid = getTermPaid('1');
                 const term2Paid = getTermPaid('2');
                 const term3Paid = getTermPaid('3');
                 const annualPaid = formPayments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
 
-                // Current term paid (use most recent term with data or all)
                 const termPaid = termFilter === '1' ? term1Paid : termFilter === '2' ? term2Paid : termFilter === '3' ? term3Paid : annualPaid;
                 const effectiveExpected = feeView === 'annual' ? annualExpected : termExpected;
-                const outstanding = Math.max(0, (feeView === 'annual' ? annualExpected : termExpected) - termPaid);
+                const outstanding = Math.max(0, effectiveExpected - termPaid);
 
-                // Per-stream breakdown
                 const formStreams = streams.filter((s: any) => s.form_id === f.id);
                 const streamRows = formStreams.map((st: any) => {
                     const stStudents = formStudents.filter((s: any) => s.stream_id === st.id);
@@ -142,16 +146,32 @@ export default function FeeAnalyticsSection() {
     }
 
     const filteredRows = useMemo(() => {
-        if (formFilter === 'all') return rows;
-        return rows.filter(r => r.formName.toLowerCase().includes(formFilter.toLowerCase()) || r.educationSystem.toLowerCase().includes(formFilter.toLowerCase()));
-    }, [rows, formFilter]);
+        let res = rows;
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            res = res.filter(r => r.formName.toLowerCase().includes(q) || r.educationSystem.toLowerCase().includes(q));
+        }
+        return res;
+    }, [rows, searchQuery]);
 
     // Totals
     const totalStudents = filteredRows.reduce((s, r) => s + r.totalStudents, 0);
-    const totalPaid    = filteredRows.reduce((s, r) => s + (feeView === 'annual' ? r.annualPaid : r.termPaid), 0);
+    const totalPaid = filteredRows.reduce((s, r) => s + (feeView === 'annual' ? r.annualPaid : r.termPaid), 0);
     const totalExpected = filteredRows.reduce((s, r) => s + (feeView === 'annual' ? r.annualExpected : r.termExpected), 0);
     const totalOutstanding = Math.max(0, totalExpected - totalPaid);
     const overallRate = pct(totalPaid, totalExpected);
+
+    // Pagination calculations
+    const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
+    const paginatedRows = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredRows.slice(start, start + pageSize);
+    }, [filteredRows, currentPage, pageSize]);
+
+    // Reset page if filtered results decrease
+    useEffect(() => {
+        if (currentPage > totalPages) setCurrentPage(1);
+    }, [totalPages, currentPage]);
 
     // Chart data
     const barChartData = {
@@ -160,7 +180,7 @@ export default function FeeAnalyticsSection() {
             {
                 label: 'Paid (KES)',
                 data: filteredRows.map(r => feeView === 'annual' ? r.annualPaid : r.termPaid),
-                backgroundColor: filteredRows.map(r => `${getColor(r.formName)}cc`),
+                backgroundColor: filteredRows.map(r => `${getColor(r.formName)}dd`),
                 borderRadius: 6,
                 borderSkipped: false as const,
                 barPercentage: 0.55,
@@ -176,28 +196,16 @@ export default function FeeAnalyticsSection() {
         ],
     };
 
-    const lineChartData = {
-        labels: filteredRows.map(r => r.formName),
-        datasets: [
-            { label: 'Term 1', data: filteredRows.map(r => r.term1Paid), borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', fill: true, tension: 0.4, pointRadius: 5, borderWidth: 2.5 },
-            { label: 'Term 2', data: filteredRows.map(r => r.term2Paid), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', fill: true, tension: 0.4, pointRadius: 5, borderWidth: 2.5 },
-            { label: 'Term 3', data: filteredRows.map(r => r.term3Paid), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)', fill: true, tension: 0.4, pointRadius: 5, borderWidth: 2.5 },
-        ],
+    const doughnutData = {
+        labels: ['Collected', 'Outstanding'],
+        datasets: [{
+            data: [totalPaid || 1, totalOutstanding],
+            backgroundColor: ['#22c55e', '#ef4444'],
+            borderWidth: 0,
+            hoverOffset: 6,
+        }],
     };
 
-    const chartOptions = {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-            legend: { position: 'bottom' as const, labels: { usePointStyle: true, font: { size: 11 }, padding: 16 } },
-            tooltip: { callbacks: { label: (ctx: any) => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` } },
-        },
-        scales: {
-            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { callback: (v: any) => `${(v / 1000).toFixed(0)}K` } },
-            x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-        },
-    };
-
-    // Export to CSV/Excel
     const exportToExcel = () => {
         const headers = ['Class', 'Education System', 'Students', 'Term Expected', 'Annual Expected', 'Term 1 Paid', 'Term 2 Paid', 'Term 3 Paid', 'Total Paid', 'Outstanding', 'Collection Rate %'];
         const dataRows = filteredRows.map(r => [
@@ -207,7 +215,6 @@ export default function FeeAnalyticsSection() {
             r.annualPaid, r.outstanding, r.collectionRate,
         ]);
 
-        // Try xlsx, fallback to CSV
         try {
             const XLSX = require('xlsx');
             const wb = XLSX.utils.book_new();
@@ -225,7 +232,6 @@ export default function FeeAnalyticsSection() {
             XLSX.utils.book_append_sheet(wb, ws, 'Fee Analytics');
             XLSX.writeFile(wb, `Fee_Analytics_${currentYear}.xlsx`);
         } catch {
-            // CSV fallback
             const csv = [headers.join(','), ...dataRows.map(r => r.join(','))].join('\n');
             const blob = new Blob([csv], { type: 'text/csv' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Fee_Analytics_${currentYear}.csv`; a.click();
@@ -233,279 +239,383 @@ export default function FeeAnalyticsSection() {
     };
 
     if (loading) return (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-xs text-gray-400 font-semibold">Loading fee analytics...</p>
+        <div className="bg-white/85 backdrop-blur-xl rounded-[20px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] p-6 text-center">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <p className="text-xs text-slate-400 font-semibold">Loading fee intelligence...</p>
         </div>
     );
 
     return (
-        <div className="space-y-4">
-            {/* ── Header — BRIGHT PREMIUM LIGHT ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {/* Rainbow accent top */}
-                <div className="h-1" style={{ background: 'linear-gradient(90deg,#6366f1,#3b82f6,#06b6d4,#10b981,#f59e0b)' }} />
-                <div className="p-5">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
-                            <div className="flex items-center gap-2.5 mb-1">
-                                <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center text-lg">📊</div>
-                                <div>
-                                    <h2 className="text-sm font-black text-gray-900">Fee Analytics & Class Intelligence</h2>
-                                    <p className="text-[10px] text-gray-400">Paid · Outstanding · Term & Annual · All Forms & Grades</p>
-                                </div>
-                                <span className="px-2 py-0.5 text-[9px] font-black bg-amber-100 text-amber-700 border border-amber-200 rounded-full uppercase">Live {currentYear}</span>
-                            </div>
+        <div className="space-y-3.5">
+            {/* ── Top Header Strip: Filters & View Switcher ── */}
+            <div className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-[20px] px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-xs">
+                        <HiChartBar size={18} />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-xs font-black text-slate-800 tracking-tight">Fee Analytics &amp; Class Intelligence</h2>
+                            <span className="px-2 py-0.5 text-[9px] font-black bg-blue-50 text-blue-700 border border-blue-200 rounded-full uppercase">
+                                Live {currentYear}
+                            </span>
                         </div>
+                        <p className="text-[10px] text-slate-400 font-medium">Revenue distribution, collection efficiency &amp; class-level balances</p>
+                    </div>
+                </div>
 
-                        {/* Controls */}
-                        <div className="flex flex-wrap items-center gap-2">
-                            {/* View toggle */}
-                            <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                                {([['grid', '📋 DataGrid'], ['chart', '📈 Charts']] as const).map(([k, l]) => (
-                                    <button key={k} onClick={() => setViewMode(k)}
-                                        className={`px-3 py-1.5 text-[11px] font-bold transition-all ${viewMode === k ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
-                                        {l}
-                                    </button>
-                                ))}
-                            </div>
-                            {/* Fee view */}
-                            <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                                {([['term', 'Per Term'], ['annual', 'Annual']] as const).map(([k, l]) => (
-                                    <button key={k} onClick={() => setFeeView(k)}
-                                        className={`px-3 py-1.5 text-[11px] font-bold transition-all ${feeView === k ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
-                                        {l}
-                                    </button>
-                                ))}
-                            </div>
-                            {/* Term filter */}
-                            <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                                {([['all', 'All Terms'], ['1', 'T1'], ['2', 'T2'], ['3', 'T3']] as const).map(([k, l]) => (
-                                    <button key={k} onClick={() => setTermFilter(k)}
-                                        className={`px-3 py-1.5 text-[11px] font-bold transition-all ${termFilter === k ? 'bg-cyan-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
-                                        {l}
-                                    </button>
-                                ))}
-                            </div>
-                            {/* Form filter */}
-                            <select value={formFilter} onChange={e => setFormFilter(e.target.value)}
-                                className="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-gray-50 text-gray-700 border border-gray-200 focus:outline-none focus:border-indigo-400">
-                                <option value="all">All Classes</option>
-                                <option value="Form">8-4-4 Forms</option>
-                                <option value="Grade">CBC Grades</option>
-                                {rows.map(r => <option key={r.formId} value={r.formName}>{r.formName}</option>)}
-                            </select>
-                            <button onClick={() => setRefreshKey(k => k + 1)} className="p-2 rounded-xl bg-gray-100 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200 transition" title="Refresh"><FiRefreshCw size={14} /></button>
-                            <button onClick={exportToExcel} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition shadow-sm">
-                                <FiDownload size={13} /> Export Excel
-                            </button>
-                        </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* View Switcher: Side-by-Side Panels vs Full Chart */}
+                    <div className="flex rounded-full overflow-hidden border border-slate-200 bg-slate-100/80 p-0.5">
+                        <button
+                            onClick={() => setViewMode('panels')}
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${
+                                viewMode === 'panels' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Side-by-Side Panels
+                        </button>
+                        <button
+                            onClick={() => setViewMode('chart')}
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${
+                                viewMode === 'chart' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Full Chart
+                        </button>
                     </div>
 
-                    {/* Summary KPIs — bright colored tiles */}
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 pt-4 border-t border-gray-100">
-                        {[
-                            { label: 'Total Classes', value: filteredRows.length, icon: '🏫', color: '#3b82f6', bg: '#dbeafe' },
-                            { label: 'Total Students', value: totalStudents.toLocaleString(), icon: '🎓', color: '#7c3aed', bg: '#ede9fe' },
-                            { label: 'Expected', value: fmt(totalExpected), icon: '🎯', color: '#d97706', bg: '#fef3c7' },
-                            { label: 'Collected', value: fmt(totalPaid), icon: '✅', color: '#059669', bg: '#d1fae5' },
-                            { label: 'Outstanding', value: fmt(totalOutstanding), icon: '⚠️', color: '#dc2626', bg: '#fee2e2' },
-                        ].map((k, i) => (
-                            <div key={i} className="rounded-xl p-3 text-center" style={{ background: k.bg }}>
-                                <span className="text-xl">{k.icon}</span>
-                                <p className="text-sm font-black mt-1" style={{ color: k.color }}>{k.value}</p>
-                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wide mt-0.5">{k.label}</p>
-                            </div>
+                    {/* Term vs Annual View */}
+                    <div className="flex rounded-full overflow-hidden border border-slate-200 bg-slate-100/80 p-0.5">
+                        {(['term', 'annual'] as const).map(mode => (
+                            <button
+                                key={mode}
+                                onClick={() => setFeeView(mode)}
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize transition-all ${
+                                    feeView === mode ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-blue-600'
+                                }`}
+                            >
+                                {mode}
+                            </button>
                         ))}
                     </div>
-                </div>
-            </div>
 
-            {/* ── Collection Rate Bar ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Overall Collection Rate — {feeView === 'annual' ? 'Annual' : `Term ${termFilter === 'all' ? 'All' : termFilter}`}</p>
-                    <span className={`text-sm font-black ${overallRate >= 70 ? 'text-emerald-600' : overallRate >= 40 ? 'text-amber-600' : 'text-red-600'}`}>{overallRate}%</span>
-                </div>
-                <div className="bg-gray-100 rounded-full h-4 overflow-hidden">
-                    <div className="h-4 rounded-full transition-all duration-1000 relative" style={{ width: `${overallRate}%`, background: overallRate >= 70 ? 'linear-gradient(90deg,#10b981,#059669)' : overallRate >= 40 ? 'linear-gradient(90deg,#f59e0b,#d97706)' : 'linear-gradient(90deg,#ef4444,#dc2626)' }}>
-                        <span className="absolute right-2 top-0.5 text-[9px] font-black text-white">{overallRate}%</span>
+                    {/* Term Filter */}
+                    <div className="flex rounded-full overflow-hidden border border-slate-200 bg-slate-100/80 p-0.5">
+                        {([['all', 'All'], ['1', 'T1'], ['2', 'T2'], ['3', 'T3']] as const).map(([val, label]) => (
+                            <button
+                                key={val}
+                                onClick={() => setTermFilter(val)}
+                                className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all ${
+                                    termFilter === val ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-emerald-700'
+                                }`}
+                            >
+                                {label}
+                            </button>
+                        ))}
                     </div>
-                </div>
-                <div className="flex justify-between mt-1 text-[9px] text-gray-400">
-                    <span>0%</span><span className="text-amber-500 font-bold">40% — At Risk</span><span className="text-emerald-500 font-bold">70% — Good</span><span>100%</span>
+
+                    {/* Refresh & Excel Export */}
+                    <button
+                        onClick={() => setRefreshKey(k => k + 1)}
+                        className="w-7 h-7 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-blue-600 flex items-center justify-center transition-all hover:scale-105"
+                        title="Refresh Data"
+                    >
+                        <FiRefreshCw size={11} />
+                    </button>
+                    <button
+                        onClick={exportToExcel}
+                        className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition-all shadow-xs"
+                    >
+                        <HiArrowDownTray size={12} />
+                        <span>Export</span>
+                    </button>
                 </div>
             </div>
 
-            {/* ── DATAGRID VIEW ── */}
-            {viewMode === 'grid' && (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-gray-100" style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
-                                    {['#','Class / Grade','System','Streams','Students','Expected','T1 Paid','T2 Paid','T3 Paid','Total Paid','Outstanding','Rate'].map(h => (
-                                        <th key={h} className="px-3 py-3 text-left text-[10px] font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredRows.map((row, i) => {
-                                    const isCBC = row.educationSystem === 'CBC_Senior_School' || row.formName.includes('Grade');
-                                    const accentColor = getColor(row.formName);
-                                    const rate = pct(row.annualPaid, row.annualExpected);
-                                    return (
-                                        <>
-                                            {/* Form row */}
-                                            <tr key={row.formId} className={`border-b border-gray-50 hover:bg-indigo-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
-                                                <td className="px-3 py-3 text-[11px] font-bold text-gray-400">{i + 1}</td>
-                                                <td className="px-3 py-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-2.5 h-8 rounded-full flex-shrink-0" style={{ background: accentColor }} />
-                                                        <div>
-                                                            <p className="text-sm font-extrabold text-gray-900">{row.formName}</p>
-                                                            <p className="text-[10px] text-gray-400">{row.streams.length} stream{row.streams.length !== 1 ? 's' : ''}</p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isCBC ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{isCBC ? 'CBC' : '8-4-4'}</span>
-                                                </td>
-                                                <td className="px-3 py-3 text-[11px] text-gray-500">{row.streams.map(s => s.streamName).join(', ') || '—'}</td>
-                                                <td className="px-3 py-3 text-sm font-bold text-gray-800">{row.totalStudents}</td>
-                                                <td className="px-3 py-3 text-xs font-bold text-gray-700 whitespace-nowrap">{fmt(feeView === 'annual' ? row.annualExpected : row.termExpected)}</td>
-                                                <td className="px-3 py-3 text-xs font-semibold text-indigo-700 whitespace-nowrap">{fmt(row.term1Paid)}</td>
-                                                <td className="px-3 py-3 text-xs font-semibold text-blue-700 whitespace-nowrap">{fmt(row.term2Paid)}</td>
-                                                <td className="px-3 py-3 text-xs font-semibold text-cyan-700 whitespace-nowrap">{fmt(row.term3Paid)}</td>
-                                                <td className="px-3 py-3 whitespace-nowrap">
-                                                    <span className="text-xs font-black text-emerald-700">{fmt(row.annualPaid)}</span>
-                                                </td>
-                                                <td className="px-3 py-3 whitespace-nowrap">
-                                                    <span className={`text-xs font-black ${row.outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{fmt(row.outstanding)}</span>
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="flex items-center gap-2 min-w-[80px]">
-                                                        <div className="flex-1 bg-gray-100 rounded-full h-2">
-                                                            <div className="h-2 rounded-full" style={{ width: `${rate}%`, background: rate >= 70 ? '#22c55e' : rate >= 40 ? '#f59e0b' : '#ef4444' }} />
-                                                        </div>
-                                                        <span className={`text-[11px] font-black w-8 text-right ${rate >= 70 ? 'text-emerald-600' : rate >= 40 ? 'text-amber-600' : 'text-red-600'}`}>{rate}%</span>
-                                                    </div>
-                                                </td>
-                                            </tr>
+            {/* ══════════════════════════════════════════════════════════════════
+                SIDE-BY-SIDE PANELS (Left: Analytics / Right: Paginated DataGrid)
+            ══════════════════════════════════════════════════════════════════ */}
+            {viewMode === 'panels' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+                    {/* ── LEFT PANEL (4 of 12 cols): Financial Intelligence & Collection Gauges ── */}
+                    <div className="lg:col-span-5 bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-[22px] p-4 flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Financial Efficiency</span>
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                    overallRate >= 70 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                }`}>
+                                    {overallRate}% Collection Rate
+                                </span>
+                            </div>
 
-                                            {/* Stream sub-rows */}
-                                            {row.streams.map(st => (
-                                                <tr key={st.streamId} className="border-b border-gray-50/50 bg-indigo-50/20 hover:bg-indigo-50/40 transition-colors">
-                                                    <td className="px-3 py-2 pl-6" />
-                                                    <td className="px-3 py-2 pl-8" colSpan={2}>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: accentColor }} />
-                                                            <span className="text-[11px] font-semibold text-gray-600">{row.formName} — {st.streamName}</span>
+                            {/* Donut Chart with Centered Metric */}
+                            <div className="relative w-full h-40 flex items-center justify-center mb-3">
+                                <Doughnut
+                                    data={doughnutData}
+                                    options={{
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        cutout: '74%',
+                                        plugins: { legend: { display: false } },
+                                    }}
+                                />
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <span className="text-xl font-black text-slate-800 leading-none">{overallRate}%</span>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Efficiency</span>
+                                </div>
+                            </div>
+
+                            {/* 3 Metric Pills */}
+                            <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                                <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase">Expected</span>
+                                    <p className="text-xs font-black text-slate-800 mt-0.5 truncate">{fmtShort(totalExpected)}</p>
+                                </div>
+                                <div className="bg-emerald-50/60 rounded-xl p-2 border border-emerald-100">
+                                    <span className="text-[9px] font-bold text-emerald-700 uppercase">Collected</span>
+                                    <p className="text-xs font-black text-emerald-700 mt-0.5 truncate">{fmtShort(totalPaid)}</p>
+                                </div>
+                                <div className="bg-rose-50/60 rounded-xl p-2 border border-rose-100">
+                                    <span className="text-[9px] font-bold text-rose-700 uppercase">Outstanding</span>
+                                    <p className="text-xs font-black text-rose-700 mt-0.5 truncate">{fmtShort(totalOutstanding)}</p>
+                                </div>
+                            </div>
+
+                            {/* Term-by-Term Comparative Breakdown */}
+                            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Term Breakdown</span>
+                                {[
+                                    { label: 'Term 1 Paid', val: filteredRows.reduce((s, r) => s + r.term1Paid, 0), color: '#6366f1' },
+                                    { label: 'Term 2 Paid', val: filteredRows.reduce((s, r) => s + r.term2Paid, 0), color: '#3b82f6' },
+                                    { label: 'Term 3 Paid', val: filteredRows.reduce((s, r) => s + r.term3Paid, 0), color: '#06b6d4' },
+                                ].map((t, idx) => {
+                                    const share = totalPaid > 0 ? Math.round((t.val / totalPaid) * 100) : 0;
+                                    return (
+                                        <div key={idx} className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-slate-50">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full" style={{ background: t.color }}></span>
+                                                <span className="text-[11px] font-semibold text-slate-600">{t.label}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-black text-slate-800">{fmtShort(t.val)}</span>
+                                                <span className="text-[9px] font-bold text-slate-400 w-8 text-right">{share}%</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Bottom Status Tag */}
+                        <div className="pt-2.5 mt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                            <span className="flex items-center gap-1">
+                                <FiCheckCircle className="text-emerald-500" />
+                                <span>{totalStudents} Enrolled Students</span>
+                            </span>
+                            <span>{filteredRows.length} Total Forms</span>
+                        </div>
+                    </div>
+
+                    {/* ── RIGHT PANEL (7 of 12 cols): Ultra-Premium Paginated DataGrid ── */}
+                    <div className="lg:col-span-7 bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06),0_1px_3px_rgba(0,0,0,0.03)] rounded-[22px] p-4 flex flex-col justify-between">
+                        <div>
+                            {/* Panel Header with Search & Count */}
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <h3 className="text-xs font-black text-slate-800 tracking-tight">Class Revenue Performance</h3>
+                                    <p className="text-[10px] text-slate-400">Showing page {currentPage} of {totalPages}</p>
+                                </div>
+                                <div className="relative">
+                                    <FiSearch className="absolute left-2.5 top-2 text-slate-400" size={11} />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                        placeholder="Search class..."
+                                        className="pl-7 pr-2.5 py-1 text-[11px] font-semibold bg-slate-50 border border-slate-200 rounded-full focus:bg-white focus:border-blue-500 outline-none w-32 sm:w-40 transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* High-Density Compact DataGrid */}
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                                            <th className="pb-2">Class</th>
+                                            <th className="pb-2 text-center">Students</th>
+                                            <th className="pb-2 text-right">Expected</th>
+                                            <th className="pb-2 text-right">Collected</th>
+                                            <th className="pb-2 text-right">Balance</th>
+                                            <th className="pb-2 text-right">Rate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {paginatedRows.map(row => {
+                                            const isExpanded = expandedFormId === row.formId;
+                                            const rate = pct(feeView === 'annual' ? row.annualPaid : row.termPaid, feeView === 'annual' ? row.annualExpected : row.termExpected);
+                                            return (
+                                                <tr key={row.formId} className="group hover:bg-blue-50/40 transition-colors">
+                                                    <td className="py-2.5">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="w-1.5 h-6 rounded-full" style={{ background: getColor(row.formName) }}></div>
+                                                            <div>
+                                                                <button
+                                                                    onClick={() => setExpandedFormId(isExpanded ? null : row.formId)}
+                                                                    className="text-xs font-bold text-slate-800 hover:text-blue-600 flex items-center gap-1 text-left"
+                                                                >
+                                                                    <span>{row.formName}</span>
+                                                                    {row.streams.length > 0 && (
+                                                                        <span className="text-[9px] text-slate-400">
+                                                                            {isExpanded ? <HiChevronUp size={11} /> : <HiChevronDown size={11} />}
+                                                                        </span>
+                                                                    )}
+                                                                </button>
+                                                                <span className="text-[9px] text-slate-400 font-medium">{row.streams.length} stream{row.streams.length !== 1 ? 's' : ''}</span>
+                                                            </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-3 py-2 text-[10px] text-gray-400">—</td>
-                                                    <td className="px-3 py-2 text-[11px] font-semibold text-gray-700">{st.students}</td>
-                                                    <td className="px-3 py-2 text-[11px] text-gray-500">{fmt(st.expected)}</td>
-                                                    <td className="px-3 py-2" colSpan={3} />
-                                                    <td className="px-3 py-2 text-[11px] font-bold text-emerald-600">{fmt(st.paid)}</td>
-                                                    <td className="px-3 py-2 text-[11px] font-bold text-red-500">{fmt(st.outstanding)}</td>
-                                                    <td className="px-3 py-2">
-                                                        <div className="flex items-center gap-1.5 min-w-[70px]">
-                                                            <div className="flex-1 bg-gray-100 rounded-full h-1.5">
-                                                                <div className="h-1.5 rounded-full" style={{ width: `${pct(st.paid, st.expected)}%`, background: pct(st.paid, st.expected) >= 70 ? '#22c55e' : '#f59e0b' }} />
+                                                    <td className="py-2.5 text-center text-xs font-bold text-slate-700">
+                                                        {row.totalStudents}
+                                                    </td>
+                                                    <td className="py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">
+                                                        {fmtShort(feeView === 'annual' ? row.annualExpected : row.termExpected)}
+                                                    </td>
+                                                    <td className="py-2.5 text-right text-xs font-black text-emerald-700 whitespace-nowrap">
+                                                        {fmtShort(feeView === 'annual' ? row.annualPaid : row.termPaid)}
+                                                    </td>
+                                                    <td className="py-2.5 text-right text-xs font-black whitespace-nowrap">
+                                                        <span className={row.outstanding > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                                                            {fmtShort(row.outstanding)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-2.5 text-right">
+                                                        <div className="inline-flex flex-col items-end">
+                                                            <span className={`text-[10px] font-black ${rate >= 70 ? 'text-emerald-700' : rate >= 40 ? 'text-amber-700' : 'text-rose-600'}`}>
+                                                                {rate}%
+                                                            </span>
+                                                            <div className="w-12 h-1 bg-slate-100 rounded-full overflow-hidden mt-0.5">
+                                                                <div
+                                                                    className="h-full rounded-full"
+                                                                    style={{
+                                                                        width: `${Math.min(100, rate)}%`,
+                                                                        background: rate >= 70 ? '#10b981' : rate >= 40 ? '#f59e0b' : '#ef4444',
+                                                                    }}
+                                                                ></div>
                                                             </div>
-                                                            <span className="text-[10px] font-bold text-gray-500">{pct(st.paid, st.expected)}%</span>
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            ))}
-                                        </>
-                                    );
-                                })}
-
-                                {/* Totals row */}
-                                <tr className="border-t-2 border-gray-200" style={{ background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)' }}>
-                                    <td colSpan={4} className="px-3 py-3 text-sm font-extrabold text-gray-800">📊 GRAND TOTALS</td>
-                                    <td className="px-3 py-3 text-sm font-extrabold text-gray-900">{totalStudents}</td>
-                                    <td className="px-3 py-3 text-xs font-extrabold text-gray-900 whitespace-nowrap">{fmt(totalExpected)}</td>
-                                    <td className="px-3 py-3 text-xs font-extrabold text-indigo-700 whitespace-nowrap">{fmt(filteredRows.reduce((s, r) => s + r.term1Paid, 0))}</td>
-                                    <td className="px-3 py-3 text-xs font-extrabold text-blue-700 whitespace-nowrap">{fmt(filteredRows.reduce((s, r) => s + r.term2Paid, 0))}</td>
-                                    <td className="px-3 py-3 text-xs font-extrabold text-cyan-700 whitespace-nowrap">{fmt(filteredRows.reduce((s, r) => s + r.term3Paid, 0))}</td>
-                                    <td className="px-3 py-3 text-xs font-extrabold text-emerald-700 whitespace-nowrap">{fmt(totalPaid)}</td>
-                                    <td className="px-3 py-3 text-xs font-extrabold text-red-600 whitespace-nowrap">{fmt(totalOutstanding)}</td>
-                                    <td className="px-3 py-3">
-                                        <span className={`text-sm font-extrabold ${overallRate >= 70 ? 'text-emerald-700' : overallRate >= 40 ? 'text-amber-700' : 'text-red-700'}`}>{overallRate}%</span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* ── CHARTS VIEW ── */}
-            {viewMode === 'chart' && (
-                <div className="space-y-4">
-                    {/* Chart type toggle */}
-                    <div className="flex items-center gap-2">
-                        {([['bar', '📊 Bar Chart'], ['line', '📈 Line Chart']] as const).map(([k, l]) => (
-                            <button key={k} onClick={() => setChartType(k)}
-                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${chartType === k ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'}`}>
-                                {l}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* Paid vs Outstanding */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                            <div className="mb-4">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">💰 Paid vs Outstanding — Per Class</p>
-                                <p className="text-xs text-gray-400 mt-0.5">{feeView === 'annual' ? 'Annual' : 'Term'} · {filteredRows.length} classes</p>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
-                            <div style={{ height: 280 }}>
-                                <Bar data={barChartData} options={chartOptions} />
-                            </div>
-                        </div>
 
-                        {/* Term-by-term line chart */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                            <div className="mb-4">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">📈 Term-by-Term Collections — Per Class</p>
-                                <p className="text-xs text-gray-400 mt-0.5">Term 1 · Term 2 · Term 3 comparison</p>
-                            </div>
-                            <div style={{ height: 280 }}>
-                                <Line data={lineChartData} options={chartOptions} />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Collection rate bar per class */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">📊 Collection Rate by Class</p>
-                        <div className="space-y-3">
-                            {filteredRows.map(row => {
-                                const rate = pct(row.annualPaid, row.annualExpected);
+                            {/* Stream Expansion Dropdown */}
+                            {expandedFormId && (() => {
+                                const selected = rows.find(r => r.formId === expandedFormId);
+                                if (!selected || selected.streams.length === 0) return null;
                                 return (
-                                    <div key={row.formId}>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-bold text-gray-800 w-24">{row.formName}</span>
-                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${row.educationSystem === 'CBC_Senior_School' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{row.educationSystem === 'CBC_Senior_School' ? 'CBC' : '8-4-4'}</span>
-                                                <span className="text-[10px] text-gray-400">{row.totalStudents} students</span>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className={`text-sm font-extrabold ${rate >= 70 ? 'text-emerald-600' : rate >= 40 ? 'text-amber-600' : 'text-red-600'}`}>{rate}%</span>
-                                                <span className="text-[10px] text-gray-400 ml-2">{fmt(row.outstanding)} outstanding</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-0.5 h-3 bg-gray-100 rounded-full overflow-hidden">
-                                            <div className="h-full rounded-l-full transition-all duration-1000" style={{ width: `${rate}%`, background: rate >= 70 ? 'linear-gradient(90deg,#10b981,#059669)' : rate >= 40 ? 'linear-gradient(90deg,#f59e0b,#d97706)' : 'linear-gradient(90deg,#ef4444,#dc2626)' }} />
+                                    <div className="mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-1">
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
+                                            {selected.formName} Streams Breakdown:
+                                        </p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {selected.streams.map(st => (
+                                                <div key={st.streamId} className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-100">
+                                                    <div>
+                                                        <span className="font-bold text-slate-800 text-[11px]">{st.streamName}</span>
+                                                        <span className="text-[9px] text-slate-400 block">{st.students} students</span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="font-black text-emerald-600 text-[11px]">{fmtShort(st.paid)}</span>
+                                                        <span className="text-[9px] text-slate-400 block">/ {fmtShort(st.expected)}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 );
-                            })}
+                            })()}
                         </div>
+
+                        {/* ── INTERACTIVE PAGINATION CONTROLS ── */}
+                        <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                <span>Rows:</span>
+                                <select
+                                    value={pageSize}
+                                    onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="px-1.5 py-0.5 rounded-md border border-slate-200 bg-white text-slate-700 font-bold outline-none text-[10px]"
+                                >
+                                    <option value={4}>4</option>
+                                    <option value={5}>5</option>
+                                    <option value={8}>8</option>
+                                    <option value={10}>10</option>
+                                </select>
+                                <span className="hidden sm:inline">classes per page</span>
+                            </div>
+
+                            {/* Page Controls */}
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                    title="Previous Page"
+                                >
+                                    <FiChevronLeft size={12} />
+                                </button>
+
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all ${
+                                            currentPage === page
+                                                ? 'bg-blue-600 text-white shadow-xs'
+                                                : 'text-slate-600 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        {page}
+                                    </button>
+                                ))}
+
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                    title="Next Page"
+                                >
+                                    <FiChevronRight size={12} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                /* Full Chart View Option */
+                <div className="bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] rounded-[22px] p-5">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-slate-700">Class Fee Collections vs Outstanding</span>
+                        <span className="text-[10px] text-slate-400">All Forms &amp; Grades</span>
+                    </div>
+                    <div style={{ height: 260 }}>
+                        <Bar
+                            data={barChartData}
+                            options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 10 } } } },
+                                scales: {
+                                    y: { beginAtZero: true, grid: { color: '#f8fafc' }, ticks: { callback: (v: any) => `${(v / 1000).toFixed(0)}K`, font: { size: 10 } } },
+                                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                                },
+                            }}
+                        />
                     </div>
                 </div>
             )}
