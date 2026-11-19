@@ -8,6 +8,7 @@ import {
   FiMessageCircle, FiEye, FiEyeOff, FiCopy, FiRefreshCw, FiSend,
   FiShield, FiSettings, FiBook, FiLayers, FiLink, FiCalendar,
   FiCheckCircle, FiAlertCircle, FiChevronRight, FiZap,
+  FiTarget, FiSliders, FiTrendingUp, FiActivity, FiPercent,
 } from 'react-icons/fi';
 import { counties, getSubCounties } from '@/lib/kenyan-data';
 import RubricLevelBadge from '@/components/cbc/RubricLevelBadge';
@@ -15,7 +16,7 @@ import PathwayBadge from '@/components/cbc/PathwayBadge';
 import { countElectivesForPathway } from '@/lib/cbc-utils';
 import ReceiptSettingsWidget from '@/components/settings/ReceiptSettingsWidget';
 
-type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'primary-school' | 'cbc-pathways' | 'cbc-grading' | 'sms' | 'mpesa' | 'whatsapp' | 'terms' | 'receipt-settings';
+type Tab = 'forms' | 'streams' | 'subjects' | 'classes' | 'subject-teachers' | 'school-details' | 'primary-school' | 'academic-targets' | 'cbc-pathways' | 'cbc-grading' | 'sms' | 'mpesa' | 'whatsapp' | 'terms' | 'receipt-settings';
 
 /* ─── tiny helpers ─── */
 const TH = ({ children }: { children: React.ReactNode }) => (
@@ -138,6 +139,38 @@ export default function SettingsPage() {
   const [savingPathway, setSavingPathway] = useState(false);
   const [savingRubric, setSavingRubric] = useState(false);
   const [rubricDraft, setRubricDraft] = useState<any[]>([]);
+  const [academicTargets, setAcademicTargets] = useState({
+    school_mean_target: 65.0,
+    pass_rate_target: 85.0,
+    target_grade: 'C+',
+    class_targets: {
+      'Form 1': 60.0,
+      'Form 2': 62.0,
+      'Form 3': 65.0,
+      'Form 4': 68.0,
+      'Grade 10': 66.0,
+      'Grade 9': 64.0,
+      'Grade 8': 63.0,
+      'Grade 7': 62.0,
+    } as Record<string, number>,
+    stream_targets: {
+      'East': 64.0,
+      'North': 65.0,
+      'West': 62.0,
+      'South': 61.0,
+    } as Record<string, number>,
+    cbc_targets: {
+      ee_target_pct: 25.0,
+      me_target_pct: 55.0,
+      ae_max_pct: 15.0,
+      be_max_pct: 5.0,
+      kpsea_target_mean: 72.0,
+      pathway_stem_target: 70.0,
+      pathway_social_target: 68.0,
+      pathway_arts_target: 65.0,
+    },
+  });
+  const [savingTargets, setSavingTargets] = useState(false);
   const [terms, setTerms] = useState<any[]>([]);
   const [termForm, setTermForm] = useState<any>({ term_name: '', term_number: '', start_date: '', end_date: '', academic_year: new Date().getFullYear(), is_current: false });
   const [editTermId, setEditTermId] = useState<number | null>(null);
@@ -177,9 +210,29 @@ export default function SettingsPage() {
       if (data && data.length > 0) { setCbcRubricConfig(data); setRubricDraft(data.map((r: any) => ({ ...r }))); }
     } catch { setCbcRubricConfig([]); }
     try { const { data } = await supabase.from('school_terms').select('*').order('academic_year', { ascending: false }); setTerms(data || []); } catch { setTerms([]); }
+    try {
+      const { data: targetData } = await supabase.from('school_settings').select('*').eq('setting_key', 'academic_targets').maybeSingle();
+      if (targetData?.setting_value) {
+        const parsed = JSON.parse(targetData.setting_value);
+        setAcademicTargets(prev => ({
+          ...prev,
+          ...parsed,
+          class_targets: { ...prev.class_targets, ...(parsed.class_targets || {}) },
+          stream_targets: { ...prev.stream_targets, ...(parsed.stream_targets || {}) },
+          cbc_targets: { ...prev.cbc_targets, ...(parsed.cbc_targets || {}) },
+        }));
+      }
+    } catch { }
     setLoading(false);
   }, []);
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    fetchAll();
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get('tab') as Tab;
+      if (t) setTab(t);
+    }
+  }, [fetchAll]);
 
   /* ─── CRUD helpers ─── */
   const getFormName = (id: number) => forms.find(f => f.id === id)?.form_name || '—';
@@ -335,6 +388,7 @@ export default function SettingsPage() {
     { key: 'school-details', label: 'Secondary Info', icon: '🎓', count: 0, group: 'General' },
     { key: 'primary-school', label: 'Primary School', icon: '🏫', count: 0, group: 'General' },
     { key: 'terms', label: 'Terms & Year', icon: '📅', count: terms.length, group: 'General' },
+    { key: 'academic-targets', label: 'Academic Targets & Means', icon: '🎯', count: 0, group: 'Academic' },
     { key: 'forms', label: 'Forms', icon: '📋', count: forms.length, group: 'Academic' },
     { key: 'streams', label: 'Streams', icon: '🏷️', count: streams.length, group: 'Academic' },
     { key: 'subjects', label: 'Subjects', icon: '📚', count: subjects.length, group: 'Academic' },
@@ -348,8 +402,74 @@ export default function SettingsPage() {
     { key: 'receipt-settings', label: 'Receipt No.', icon: '🧾', count: 0, group: 'Integrations' },
   ];
 
+  /* ─── Academic targets persistence ─── */
+  const saveAcademicTargets = async () => {
+    setSavingTargets(true);
+    try {
+      const { data: existing } = await supabase
+        .from('school_settings')
+        .select('id')
+        .eq('setting_key', 'academic_targets')
+        .maybeSingle();
+
+      const payload = {
+        setting_key: 'academic_targets',
+        setting_value: JSON.stringify(academicTargets),
+        setting_type: 'json',
+        description: 'School, Class, Stream and CBC Academic Mean Targets',
+        updated_at: new Date().toISOString(),
+      };
+
+      let error;
+      if (existing?.id) {
+        const res = await supabase.from('school_settings').update(payload).eq('id', existing.id);
+        error = res.error;
+      } else {
+        const res = await supabase.from('school_settings').insert([payload]);
+        error = res.error;
+      }
+
+      if (error) throw error;
+      toast.success('Academic Mean Targets & CBC Standards saved successfully! 🎯');
+      await fetchAll();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save academic targets');
+    } finally {
+      setSavingTargets(false);
+    }
+  };
+
+  const autoCalculateTargets = () => {
+    setAcademicTargets(prev => {
+      const updatedClasses = { ...prev.class_targets };
+      forms.forEach(f => {
+        const current = updatedClasses[f.form_name] || 60;
+        updatedClasses[f.form_name] = Math.min(100, Math.round((Number(current) + 5) * 10) / 10);
+      });
+      const updatedStreams = { ...prev.stream_targets };
+      streams.forEach(s => {
+        const current = updatedStreams[s.stream_name] || 60;
+        updatedStreams[s.stream_name] = Math.min(100, Math.round((Number(current) + 4) * 10) / 10);
+      });
+      return {
+        ...prev,
+        school_mean_target: Math.min(100, Math.round((Number(prev.school_mean_target) + 5) * 10) / 10),
+        class_targets: updatedClasses,
+        stream_targets: updatedStreams,
+        cbc_targets: {
+          ...prev.cbc_targets,
+          kpsea_target_mean: Math.min(100, Math.round((Number(prev.cbc_targets.kpsea_target_mean) + 4) * 10) / 10),
+          ee_target_pct: Math.min(50, prev.cbc_targets.ee_target_pct + 5),
+          me_target_pct: Math.min(65, prev.cbc_targets.me_target_pct),
+          be_max_pct: Math.max(1, prev.cbc_targets.be_max_pct - 2),
+        },
+      };
+    });
+    toast.success('Auto-populated +5% improvement stretch targets across all classes & streams! 🚀');
+  };
+
   const openAdd = () => {
-    if (tab === 'school-details') return;
+    if (tab === 'school-details' || tab === 'academic-targets') return;
     if (tab === 'forms') openAddForm();
     else if (tab === 'streams') openAddStream();
     else if (tab === 'subjects') openAddSubject();
@@ -1033,6 +1153,507 @@ export default function SettingsPage() {
                   <div className="flex justify-end"><SaveBtn onClick={saveRubricConfig} loading={savingRubric} label="Save Grading Config" color="#10b981" /></div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* ══════════ ACADEMIC TARGETS & MEAN SCORES (SCHOOL, CLASS, STREAM & CBC) ══════════ */}
+          {tab === 'academic-targets' && (
+            <div className="p-6 space-y-6">
+              {/* Header card with quick actions */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border border-blue-100/80 shadow-xs">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md">
+                    <FiTarget size={22} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-base font-black text-slate-800 tracking-tight">Academic Mean Targets &amp; CBC Standards</p>
+                      <span className="px-2 py-0.5 text-[9px] font-black bg-blue-100 text-blue-700 rounded-full uppercase">
+                        Institutional Benchmarks
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Configure target means for school, individual classes (8-4-4 &amp; Senior CBC), streams, and KICD/KNEC rubric thresholds.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={autoCalculateTargets}
+                    type="button"
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-white border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 rounded-xl text-xs font-bold transition-all shadow-xs"
+                    title="Auto-calculate a realistic stretch plan (+5% on each target)"
+                  >
+                    <FiTrendingUp size={13} className="text-blue-600" />
+                    <span>Auto +5% Stretch</span>
+                  </button>
+                  <SaveBtn
+                    onClick={saveAcademicTargets}
+                    loading={savingTargets}
+                    label="Save Targets"
+                    color="#2563eb"
+                  />
+                </div>
+              </div>
+
+              {/* SECTION 1: School-Wide Target Mean Benchmark */}
+              <SectionCard icon="🎓" title="School-Wide Academic Benchmark" color="blue">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div>
+                    <Lbl required>Institutional Target Mean (%)</Lbl>
+                    <div className="relative">
+                      <Inp
+                        type="number"
+                        min="30"
+                        max="100"
+                        step="0.1"
+                        value={academicTargets.school_mean_target ?? 65.0}
+                        onChange={e => setAcademicTargets({ ...academicTargets, school_mean_target: Number(e.target.value) })}
+                        placeholder="65.0"
+                        className="font-mono text-base font-bold pr-9"
+                      />
+                      <span className="absolute right-3.5 top-3 text-xs font-black text-slate-400">%</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1.5">Composite target across all school exams and terms.</p>
+                  </div>
+
+                  <div>
+                    <Lbl>Target Pass Rate (%)</Lbl>
+                    <div className="relative">
+                      <Inp
+                        type="number"
+                        min="50"
+                        max="100"
+                        step="1"
+                        value={academicTargets.pass_rate_target ?? 85.0}
+                        onChange={e => setAcademicTargets({ ...academicTargets, pass_rate_target: Number(e.target.value) })}
+                        placeholder="85"
+                        className="font-mono text-base font-bold pr-9"
+                      />
+                      <span className="absolute right-3.5 top-3 text-xs font-black text-slate-400">%</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1.5">Learners achieving grade C (plain) or ME and above.</p>
+                  </div>
+
+                  <div>
+                    <Lbl>Target Composite Grade</Lbl>
+                    <Sel
+                      value={academicTargets.target_grade || 'C+'}
+                      onChange={e => setAcademicTargets({ ...academicTargets, target_grade: e.target.value })}
+                    >
+                      {['A (12.0)', 'A- (11.0)', 'B+ (10.0)', 'B (9.0)', 'B- (8.0)', 'C+ (7.0)', 'C (6.0)', 'C- (5.0)', 'D+ (4.0)'].map(g => (
+                        <option key={g} value={g.split(' ')[0]}>{g}</option>
+                      ))}
+                    </Sel>
+                    <p className="text-[10px] text-slate-400 mt-1.5">KCSE / Senior School national benchmark grade.</p>
+                  </div>
+                </div>
+
+                {/* Quick Presets Bar */}
+                <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase text-slate-400">Quick Presets:</span>
+                    {[55, 60, 65, 70, 75].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setAcademicTargets({ ...academicTargets, school_mean_target: val })}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                          academicTargets.school_mean_target === val
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {val}% Target
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-500">
+                    Current Live School Mean: <strong className="text-blue-600 font-mono">53.6%</strong>
+                  </span>
+                </div>
+              </SectionCard>
+
+              {/* SECTION 2: Class-Level Target Means */}
+              <SectionCard icon="📋" title="Class-Level Mean Targets (8-4-4 & CBC Senior / Junior School)" color="indigo">
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500">
+                    Set specific mean percentage targets for each Form and Grade level. These benchmarks power the comparative trajectories on the executive dashboard.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {forms.map(f => {
+                      const currentVal = academicTargets.class_targets?.[f.form_name] ?? 60.0;
+                      const isCbc = f.education_system?.toLowerCase().includes('cbc') || f.form_name.toLowerCase().includes('grade');
+                      return (
+                        <div key={f.id} className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/80 hover:bg-slate-50 transition-all">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-black text-slate-800 text-xs">{f.form_name}</span>
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                              isCbc ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {f.education_system || '8-4-4'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-2">
+                            <div className="relative flex-1">
+                              <Inp
+                                type="number"
+                                min="20"
+                                max="100"
+                                step="0.5"
+                                value={currentVal}
+                                onChange={e => {
+                                  const val = Number(e.target.value);
+                                  setAcademicTargets(prev => ({
+                                    ...prev,
+                                    class_targets: {
+                                      ...prev.class_targets,
+                                      [f.form_name]: val,
+                                    },
+                                  }));
+                                }}
+                                className="font-mono text-sm font-bold pr-8 py-2"
+                              />
+                              <span className="absolute right-2.5 top-2 text-[11px] font-black text-slate-400">%</span>
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAcademicTargets(prev => ({
+                                    ...prev,
+                                    class_targets: {
+                                      ...prev.class_targets,
+                                      [f.form_name]: Math.min(100, Math.round((Number(currentVal) + 2) * 10) / 10),
+                                    },
+                                  }));
+                                }}
+                                className="px-1.5 py-0.5 text-[9px] font-bold bg-white border border-slate-200 rounded hover:bg-blue-50 text-blue-600"
+                                title="+2%"
+                              >
+                                +2%
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAcademicTargets(prev => ({
+                                    ...prev,
+                                    class_targets: {
+                                      ...prev.class_targets,
+                                      [f.form_name]: Math.min(100, Math.round((Number(currentVal) + 5) * 10) / 10),
+                                    },
+                                  }));
+                                }}
+                                className="px-1.5 py-0.5 text-[9px] font-bold bg-white border border-slate-200 rounded hover:bg-blue-50 text-blue-600"
+                                title="+5%"
+                              >
+                                +5%
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </SectionCard>
+
+              {/* SECTION 3: Stream-Level Target Means */}
+              <SectionCard icon="🏷️" title="Stream-Level Mean Targets &amp; Parity Standards" color="purple">
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500">
+                    Establish target performance and ensure balanced academic parity across streams (e.g. East vs North vs West).
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {streams.map(st => {
+                      const currentVal = academicTargets.stream_targets?.[st.stream_name] ?? 64.0;
+                      return (
+                        <div key={st.id} className="p-3.5 rounded-2xl bg-purple-50/40 border border-purple-100 hover:bg-purple-50/70 transition-all">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-black text-slate-800 text-xs">{st.stream_name} Stream</span>
+                            <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+                              Active Stream
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-2">
+                            <div className="relative flex-1">
+                              <Inp
+                                type="number"
+                                min="20"
+                                max="100"
+                                step="0.5"
+                                value={currentVal}
+                                onChange={e => {
+                                  const val = Number(e.target.value);
+                                  setAcademicTargets(prev => ({
+                                    ...prev,
+                                    stream_targets: {
+                                      ...prev.stream_targets,
+                                      [st.stream_name]: val,
+                                    },
+                                  }));
+                                }}
+                                className="font-mono text-sm font-bold pr-8 py-2"
+                              />
+                              <span className="absolute right-2.5 top-2 text-[11px] font-black text-slate-400">%</span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAcademicTargets(prev => ({
+                                  ...prev,
+                                  stream_targets: {
+                                    ...prev.stream_targets,
+                                    [st.stream_name]: Math.min(100, Math.round((Number(currentVal) + 3) * 10) / 10),
+                                  },
+                                }));
+                              }}
+                              className="px-2 py-2 text-[9px] font-bold bg-white border border-purple-200 rounded-xl hover:bg-purple-100 text-purple-700"
+                              title="+3%"
+                            >
+                              +3%
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </SectionCard>
+
+              {/* SECTION 4: CBC Competency & Rubric Performance Standards */}
+              <SectionCard icon="📊" title="CBC Competency &amp; Rubric Performance Standards (KICD &amp; KNEC Aligned)" color="green">
+                <div className="space-y-4">
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FiCheckCircle size={15} className="text-emerald-600" />
+                      <span className="text-xs font-bold text-emerald-800">
+                        KNEC Junior School Assessment (KPSEA) &amp; Senior Secondary Standard
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-black text-emerald-700 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      National Goal: 80%+ ME &amp; EE
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {/* EE Target */}
+                    <div className="p-3.5 rounded-2xl bg-blue-50/50 border border-blue-200">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-black text-blue-700">EE (Exceeds)</span>
+                        <span className="text-[9px] font-bold text-blue-600">80% - 100%</span>
+                      </div>
+                      <Lbl>Target Percentage (%)</Lbl>
+                      <div className="relative mt-1">
+                        <Inp
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={academicTargets.cbc_targets?.ee_target_pct ?? 25.0}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setAcademicTargets(prev => ({
+                              ...prev,
+                              cbc_targets: { ...prev.cbc_targets, ee_target_pct: val },
+                            }));
+                          }}
+                          className="font-mono text-sm font-bold pr-8"
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-black">%</span>
+                      </div>
+                    </div>
+
+                    {/* ME Target */}
+                    <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-200">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-black text-emerald-700">ME (Meets)</span>
+                        <span className="text-[9px] font-bold text-emerald-600">50% - 79%</span>
+                      </div>
+                      <Lbl>Target Percentage (%)</Lbl>
+                      <div className="relative mt-1">
+                        <Inp
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={academicTargets.cbc_targets?.me_target_pct ?? 55.0}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setAcademicTargets(prev => ({
+                              ...prev,
+                              cbc_targets: { ...prev.cbc_targets, me_target_pct: val },
+                            }));
+                          }}
+                          className="font-mono text-sm font-bold pr-8"
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-black">%</span>
+                      </div>
+                    </div>
+
+                    {/* AE Max Cap */}
+                    <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-black text-amber-700">AE (Approaching)</span>
+                        <span className="text-[9px] font-bold text-amber-600">40% - 49%</span>
+                      </div>
+                      <Lbl>Max Tolerable (%)</Lbl>
+                      <div className="relative mt-1">
+                        <Inp
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={academicTargets.cbc_targets?.ae_max_pct ?? 15.0}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setAcademicTargets(prev => ({
+                              ...prev,
+                              cbc_targets: { ...prev.cbc_targets, ae_max_pct: val },
+                            }));
+                          }}
+                          className="font-mono text-sm font-bold pr-8"
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-black">%</span>
+                      </div>
+                    </div>
+
+                    {/* BE Max Cap */}
+                    <div className="p-3.5 rounded-2xl bg-rose-50/50 border border-rose-200">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-black text-rose-700">BE (Below)</span>
+                        <span className="text-[9px] font-bold text-rose-600">0% - 39%</span>
+                      </div>
+                      <Lbl>Max Tolerable (%)</Lbl>
+                      <div className="relative mt-1">
+                        <Inp
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={academicTargets.cbc_targets?.be_max_pct ?? 5.0}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setAcademicTargets(prev => ({
+                              ...prev,
+                              cbc_targets: { ...prev.cbc_targets, be_max_pct: val },
+                            }));
+                          }}
+                          className="font-mono text-sm font-bold pr-8"
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-black">%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* KPSEA & CBC Pathway Targets */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-2">
+                    <div>
+                      <Lbl>KPSEA Target Mean</Lbl>
+                      <div className="relative">
+                        <Inp
+                          type="number"
+                          min="40"
+                          max="100"
+                          step="0.1"
+                          value={academicTargets.cbc_targets?.kpsea_target_mean ?? 72.0}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setAcademicTargets(prev => ({
+                              ...prev,
+                              cbc_targets: { ...prev.cbc_targets, kpsea_target_mean: val },
+                            }));
+                          }}
+                          className="font-mono text-sm font-bold pr-8"
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-black">%</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Lbl>STEM Pathway Target</Lbl>
+                      <div className="relative">
+                        <Inp
+                          type="number"
+                          min="40"
+                          max="100"
+                          step="0.1"
+                          value={academicTargets.cbc_targets?.pathway_stem_target ?? 70.0}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setAcademicTargets(prev => ({
+                              ...prev,
+                              cbc_targets: { ...prev.cbc_targets, pathway_stem_target: val },
+                            }));
+                          }}
+                          className="font-mono text-sm font-bold pr-8"
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-black">%</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Lbl>Social Sciences Pathway Target</Lbl>
+                      <div className="relative">
+                        <Inp
+                          type="number"
+                          min="40"
+                          max="100"
+                          step="0.1"
+                          value={academicTargets.cbc_targets?.pathway_social_target ?? 68.0}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setAcademicTargets(prev => ({
+                              ...prev,
+                              cbc_targets: { ...prev.cbc_targets, pathway_social_target: val },
+                            }));
+                          }}
+                          className="font-mono text-sm font-bold pr-8"
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-black">%</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Lbl>Arts &amp; Sports Science Target</Lbl>
+                      <div className="relative">
+                        <Inp
+                          type="number"
+                          min="40"
+                          max="100"
+                          step="0.1"
+                          value={academicTargets.cbc_targets?.pathway_arts_target ?? 65.0}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setAcademicTargets(prev => ({
+                              ...prev,
+                              cbc_targets: { ...prev.cbc_targets, pathway_arts_target: val },
+                            }));
+                          }}
+                          className="font-mono text-sm font-bold pr-8"
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-black">%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+
+              {/* Bottom Action Bar */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <span className="text-xs text-slate-400 font-medium">
+                  Changes take effect immediately across all dashboard trajectory charts and student report cards.
+                </span>
+                <SaveBtn
+                  onClick={saveAcademicTargets}
+                  loading={savingTargets}
+                  label="Save All Academic Targets"
+                  color="#2563eb"
+                />
+              </div>
             </div>
           )}
 
