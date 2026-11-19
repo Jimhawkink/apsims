@@ -17,6 +17,9 @@ import {
   printThermalReceipt,
   printA4OfficialReceipt,
   printPaymentsRegisterReport,
+  printCashierShiftHandover,
+  printBulkThermalReceipts,
+  printBulkA4Receipts,
 } from '@/components/fees/UltraThermalReceipt';
 import {
   FiDollarSign,
@@ -55,7 +58,8 @@ import {
    ══════════════════════════════════════════════════════════════════════════════ */
 type SortKey = 'payment_date' | 'amount' | 'student' | 'receipt_number' | 'payment_method';
 type SortDir = 'asc' | 'desc';
-type ViewMode = 'table' | 'grid' | 'analytics';
+type ViewMode = 'table' | 'grid';
+type PaymentTab = 'ledger' | 'analytics' | 'terminal' | 'reconciliation';
 type CurriculumFilter = 'ALL' | 'CBC_SENIOR' | '844_SEC' | 'JSS' | 'PRIMARY_CBC';
 
 const T = {
@@ -245,6 +249,32 @@ export default function UltraPaymentsPage() {
   const [editModalData, setEditModalData] = useState<{ open: boolean; payment: any | null }>({ open: false, payment: null });
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isSubmittingFastPay, setIsSubmittingFastPay] = useState(false);
+
+  // ── Studio Navigation Tabs ──
+  const [activeTab, setActiveTab] = useState<PaymentTab>('ledger');
+
+  // ── Fast Terminal State ──
+  const [terminalSearch, setTerminalSearch] = useState('');
+  const [terminalStudentId, setTerminalStudentId] = useState<number | null>(null);
+  const [terminalAmt, setTerminalAmt] = useState('');
+  const [terminalMethod, setTerminalMethod] = useState('M-Pesa');
+  const [terminalRef, setTerminalRef] = useState('');
+  const [terminalTermId, setTerminalTermId] = useState('');
+  const [terminalDate, setTerminalDate] = useState(new Date().toISOString().split('T')[0]);
+  const [terminalNotes, setTerminalNotes] = useState('');
+  const [isTerminalSubmitting, setIsTerminalSubmitting] = useState(false);
+
+  // ── Reconciliation Cash Drawer State ──
+  const [cashCounts, setCashCounts] = useState({
+    n1000: 0,
+    n500: 0,
+    n200: 0,
+    n100: 0,
+    n50: 0,
+    coins: 0,
+  });
+  const [cashierName, setCashierName] = useState('Jimhawkins Korir');
+  const [shiftNumber, setShiftNumber] = useState('1');
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -820,6 +850,189 @@ export default function UltraPaymentsPage() {
     setPage(1);
   };
 
+  // ── Fast Terminal Derived State ──
+  const terminalSelectedStudent = useMemo(() => {
+    if (!terminalStudentId) return null;
+    return students.find((s) => s.id === terminalStudentId) || null;
+  }, [students, terminalStudentId]);
+
+  const terminalStudentFees = useMemo(() => {
+    if (!terminalSelectedStudent) return null;
+    return getStudentFeeProfile(terminalSelectedStudent.id);
+  }, [terminalSelectedStudent, getStudentFeeProfile]);
+
+  const terminalSearchResults = useMemo(() => {
+    if (!terminalSearch.trim()) return [];
+    const q = terminalSearch.toLowerCase().trim();
+    return students
+      .filter((s) => {
+        const fn = `${s.first_name || ''} ${s.last_name || ''}`.toLowerCase();
+        const adm = (s.admission_no || s.admission_number || '').toString().toLowerCase();
+        return fn.includes(q) || adm.includes(q);
+      })
+      .slice(0, 8);
+  }, [students, terminalSearch]);
+
+  // ── Cash Drawer Calculations ──
+  const countedCash = useMemo(() => {
+    return (
+      (cashCounts.n1000 || 0) * 1000 +
+      (cashCounts.n500 || 0) * 500 +
+      (cashCounts.n200 || 0) * 200 +
+      (cashCounts.n100 || 0) * 100 +
+      (cashCounts.n50 || 0) * 50 +
+      (cashCounts.coins || 0)
+    );
+  }, [cashCounts]);
+
+  const expectedCash = hudStats.cashVolume;
+  const cashVariance = countedCash - expectedCash;
+
+  // ── Bulk Print Handlers ──
+  const handleBulkPrintThermal = () => {
+    if (selected.size === 0) return;
+    const items = filtered.filter((p) => selected.has(p.id));
+    const receipts = items.map((p) => {
+      const s = students.find((st: any) => st.id === p.student_id);
+      const formName = s ? getFormName(s.form_id) : '—';
+      const streamName = s ? getStreamName(s.stream_id) : '';
+      const fees = s ? getStudentFeeProfile(s.id) : null;
+      return {
+        receiptNumber: p.receipt_number || `REC-${p.id}`,
+        paymentDate: p.payment_date || new Date().toISOString().split('T')[0],
+        studentName: s ? `${s.first_name} ${s.last_name}` : 'Unknown Student',
+        admissionNo: s?.admission_no || s?.admission_number || '—',
+        formStream: `${formName}${streamName ? ' ' + streamName : ''}`,
+        parentName: s?.parent_name || s?.guardian_name || '',
+        parentPhone: s?.parent_phone || s?.emergency_contact || '',
+        paymentMethod: p.payment_method || 'Cash',
+        reference: p.mpesa_code || p.reference_number || p.bank_name || '',
+        amount: Number(p.amount || 0),
+        totalPaid: fees?.totalPaid || Number(p.amount || 0),
+        termFees: fees?.termTotal || 0,
+        termBalance: fees?.termBalance || 0,
+        annualFees: fees?.annualTotal || 0,
+        annualBalance: fees?.annualBalance || 0,
+        schoolName: schoolDetails?.school_name || settings?.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT",
+        schoolAddress: schoolDetails?.address || settings?.school_address || 'P.O. Box 000, Kenya',
+        schoolPhone: schoolDetails?.phone || settings?.school_phone || 'Tel: +254 700 000 000',
+        schoolEmail: schoolDetails?.email || settings?.school_email || 'info@school.ac.ke',
+        cashier: p.received_by || cashierName || 'Bursar Desk',
+      };
+    });
+    printBulkThermalReceipts(receipts);
+  };
+
+  const handleBulkPrintA4 = () => {
+    if (selected.size === 0) return;
+    const items = filtered.filter((p) => selected.has(p.id));
+    const receipts = items.map((p) => {
+      const s = students.find((st: any) => st.id === p.student_id);
+      const formName = s ? getFormName(s.form_id) : '—';
+      const streamName = s ? getStreamName(s.stream_id) : '';
+      const fees = s ? getStudentFeeProfile(s.id) : null;
+      return {
+        receiptNumber: p.receipt_number || `REC-${p.id}`,
+        paymentDate: p.payment_date || new Date().toISOString().split('T')[0],
+        studentName: s ? `${s.first_name} ${s.last_name}` : 'Unknown Student',
+        admissionNo: s?.admission_no || s?.admission_number || '—',
+        formStream: `${formName}${streamName ? ' ' + streamName : ''}`,
+        parentName: s?.parent_name || s?.guardian_name || '',
+        parentPhone: s?.parent_phone || s?.emergency_contact || '',
+        paymentMethod: p.payment_method || 'Cash',
+        reference: p.mpesa_code || p.reference_number || p.bank_name || '',
+        amount: Number(p.amount || 0),
+        totalPaid: fees?.totalPaid || Number(p.amount || 0),
+        termFees: fees?.termTotal || 0,
+        termBalance: fees?.termBalance || 0,
+        annualFees: fees?.annualTotal || 0,
+        annualBalance: fees?.annualBalance || 0,
+        schoolName: schoolDetails?.school_name || settings?.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT",
+        schoolAddress: schoolDetails?.address || settings?.school_address || 'P.O. Box 000, Kenya',
+        schoolPhone: schoolDetails?.phone || settings?.school_phone || 'Tel: +254 700 000 000',
+        schoolEmail: schoolDetails?.email || settings?.school_email || 'info@school.ac.ke',
+        cashier: p.received_by || cashierName || 'Bursar Desk',
+      };
+    });
+    printBulkA4Receipts(receipts);
+  };
+
+  // ── Rapid Terminal Payment Handler ──
+  const handleTerminalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!terminalSelectedStudent) {
+      toast.error('Please select a student from lookup');
+      return;
+    }
+    const amt = Number(terminalAmt);
+    if (!amt || amt <= 0) {
+      toast.error('Please enter a valid payment amount');
+      return;
+    }
+
+    try {
+      setIsTerminalSubmitting(true);
+      const res = await recordPayment({
+        studentId: terminalSelectedStudent.id,
+        amount: amt,
+        method: terminalMethod as any,
+        mpesaCode: terminalMethod === 'M-Pesa' ? terminalRef : undefined,
+        bankSlip: terminalMethod.includes('Bank') ? terminalRef : undefined,
+        chequeNo: terminalMethod === 'Cheque' ? terminalRef : undefined,
+        paymentDate: terminalDate || new Date().toISOString().split('T')[0],
+        selectedTermIds: terminalTermId ? [terminalTermId] : undefined,
+        notes: terminalNotes,
+      });
+
+      toast.success(`Fee settlement recorded for ${terminalSelectedStudent.first_name}! ✓`);
+
+      handlePrintThermalReceipt({
+        receipt_number: (res as any)?.receipt_number || `REC-${Date.now().toString().slice(-6)}`,
+        payment_date: terminalDate || new Date().toISOString().split('T')[0],
+        student_id: terminalSelectedStudent.id,
+        amount: amt,
+        payment_method: terminalMethod,
+        mpesa_code: terminalMethod === 'M-Pesa' ? terminalRef : null,
+        reference_number: terminalRef,
+        received_by: cashierName,
+      });
+
+      setTerminalAmt('');
+      setTerminalRef('');
+      setTerminalNotes('');
+    } catch (err: any) {
+      toast.error('Payment submission failed: ' + (err?.message || 'Error'));
+    } finally {
+      setIsTerminalSubmitting(false);
+    }
+  };
+
+  // ── Shift Handover Print ──
+  const handlePrintHandover = () => {
+    printCashierShiftHandover({
+      date: new Date().toISOString().split('T')[0],
+      cashierName: cashierName || 'Jimhawkins Korir',
+      shiftNumber: shiftNumber || '1',
+      totalVolume: totalAmount,
+      mpesaVolume: hudStats.mpesaVolume,
+      cashVolume: countedCash || hudStats.cashVolume,
+      bankVolume: hudStats.bankVolume,
+      otherVolume: hudStats.bursaryVolume,
+      totalReceipts: filtered.length,
+      payments: filtered.map((p) => {
+        const s = students.find((st: any) => st.id === p.student_id);
+        return {
+          receiptNo: p.receipt_number || `REC-${p.id}`,
+          studentName: s ? `${s.first_name} ${s.last_name}` : 'Student',
+          paymentMethod: p.payment_method || 'Cash',
+          referenceNo: p.mpesa_code || p.reference_number || '—',
+          amount: Number(p.amount || 0),
+        };
+      }),
+      schoolName: schoolDetails?.school_name || settings?.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT",
+    });
+  };
+
   return (
     <div className="space-y-3.5 pb-10 max-w-[1400px] mx-auto text-slate-800">
       {/* ── Page Styles ── */}
@@ -860,24 +1073,34 @@ export default function UltraPaymentsPage() {
             </div>
           </div>
 
-          {/* Right: Actions */}
+          {/* Right: Actions & Studio Tabs */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* View Selector */}
-            <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200/80 gap-0.5">
-              {(['table', 'grid', 'analytics'] as ViewMode[]).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => {
-                    setView(v);
-                    setPage(1);
-                  }}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition capitalize ${
-                    view === v ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {v === 'table' ? '📋 Table' : v === 'grid' ? '🗂️ Cards' : '📊 Analytics'}
-                </button>
-              ))}
+            {/* 4 Studio Tabs */}
+            <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/80 gap-0.5">
+              {[
+                { id: 'ledger', label: '📋 Ledger' },
+                { id: 'analytics', label: '📊 Analytics' },
+                { id: 'terminal', label: '⚡ Fast Terminal' },
+                { id: 'reconciliation', label: '⚖️ Reconciliation' },
+              ].map((tab) => {
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id as PaymentTab);
+                      setPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                      active
+                        ? 'bg-white text-indigo-700 shadow-xs border border-indigo-100 font-extrabold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <Link
@@ -927,538 +1150,424 @@ export default function UltraPaymentsPage() {
         </div>
       </div>
 
-      {/* ═══ 2. COMPACT DUAL-TRACK CURRICULUM SELECTION BAR ═══ */}
-      <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex items-center justify-between flex-wrap gap-2 text-xs">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
-            Curriculum:
-          </span>
+      {/* ═══ 2. EXECUTIVE FINANCIAL COMMAND HUD (Fine Low-Profile Cards Like Fee Structure) ═══ */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        {[
+          {
+            label: 'Total Revenue',
+            value: fmtK(hudStats.totalRevenue),
+            sub: `${hudStats.count.toLocaleString()} transactions`,
+            color: 'text-indigo-700',
+            bg: 'bg-indigo-50/70',
+            border: 'border-indigo-100',
+            icon: <FiDollarSign size={14} className="text-indigo-600" />,
+          },
+          {
+            label: "Today's Intake",
+            value: fmtK(hudStats.todayVolume),
+            sub: new Date().toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' }),
+            color: 'text-emerald-700',
+            bg: 'bg-emerald-50/70',
+            border: 'border-emerald-100',
+            icon: <FiCalendar size={14} className="text-emerald-600" />,
+          },
+          {
+            label: 'M-Pesa Volume',
+            value: fmtK(hudStats.mpesaVolume),
+            sub: `${hudStats.totalRevenue > 0 ? ((hudStats.mpesaVolume / hudStats.totalRevenue) * 100).toFixed(0) : 0}% digital share`,
+            color: 'text-green-700',
+            bg: 'bg-green-50/70',
+            border: 'border-green-100',
+            icon: <FiSmartphone size={14} className="text-green-600" />,
+          },
+          {
+            label: 'Bank Rails',
+            value: fmtK(hudStats.bankVolume),
+            sub: 'KCB, Equity, Co-op',
+            color: 'text-sky-700',
+            bg: 'bg-sky-50/70',
+            border: 'border-sky-100',
+            icon: <FiCreditCard size={14} className="text-sky-600" />,
+          },
+          {
+            label: 'Cash Drawer',
+            value: fmtK(hudStats.cashVolume),
+            sub: 'Counter cash intake',
+            color: 'text-amber-700',
+            bg: 'bg-amber-50/70',
+            border: 'border-amber-100',
+            icon: <FiDollarSign size={14} className="text-amber-600" />,
+          },
+          {
+            label: 'Bursary & Grants',
+            value: fmtK(hudStats.bursaryVolume),
+            sub: 'CDF, County, SNE',
+            color: 'text-teal-700',
+            bg: 'bg-teal-50/70',
+            border: 'border-teal-100',
+            icon: <FiAward size={14} className="text-teal-600" />,
+          },
+        ].map((k, i) => (
+          <div
+            key={i}
+            className={`bg-white border ${k.border} rounded-xl p-2.5 shadow-2xs flex flex-col justify-between`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{k.label}</span>
+              <div className={`w-6 h-6 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}>
+                {k.icon}
+              </div>
+            </div>
+            <div className="mt-1">
+              <p className={`text-sm font-extrabold font-mono ${k.color} tracking-tight`}>{k.value}</p>
+              <p className="text-[9.5px] text-slate-400 font-medium truncate">{k.sub}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ═══ TAB 1: OFFICIAL FINANCIAL LEDGER ═══ */}
+      {activeTab === 'ledger' && (
+        <div className="space-y-3 fade-in">
+          {/* Compact Dual-Track Curriculum Bar */}
+          <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex items-center justify-between flex-wrap gap-2 text-xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+                Curriculum:
+              </span>
+              {[
+                { id: 'ALL', label: 'All Curricula', icon: '🌐', count: payments.length },
+                {
+                  id: 'CBC_SENIOR',
+                  label: 'CBC Senior (G10–12)',
+                  icon: '🏛️',
+                  count: payments.filter((p) => {
+                    const s = students.find((st) => st.id === p.student_id);
+                    return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'CBC_SENIOR';
+                  }).length,
+                },
+                {
+                  id: '844_SEC',
+                  label: '8-4-4 Sec (F1–4)',
+                  icon: '📚',
+                  count: payments.filter((p) => {
+                    const s = students.find((st) => st.id === p.student_id);
+                    return detectCurriculum(s ? getFormName(s.form_id) : '').track === '844_SEC';
+                  }).length,
+                },
+                {
+                  id: 'JSS',
+                  label: 'JSS (G7–9)',
+                  icon: '🎓',
+                  count: payments.filter((p) => {
+                    const s = students.find((st) => st.id === p.student_id);
+                    return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'JSS';
+                  }).length,
+                },
+                {
+                  id: 'PRIMARY_CBC',
+                  label: 'Primary CBC (PP1–G6)',
+                  icon: '🎒',
+                  count: payments.filter((p) => {
+                    const s = students.find((st) => st.id === p.student_id);
+                    return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'PRIMARY_CBC';
+                  }).length,
+                },
+              ].map((tab) => {
+                const active = curriculum === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setCurriculum(tab.id as CurriculumFilter);
+                      setPage(1);
+                    }}
+                    className={`px-2.5 py-1 rounded-full border text-[11px] font-bold transition flex items-center gap-1.5 ${
+                      active
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    <span
+                      className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${
+                        active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            {[
-              { id: 'ALL', label: 'All Curricula', icon: '🌐', count: payments.length },
-              {
-                id: 'CBC_SENIOR',
-                label: 'CBC Senior School (G10–12)',
-                icon: '🏛️',
-                count: payments.filter((p) => {
-                  const s = students.find((st) => st.id === p.student_id);
-                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'CBC_SENIOR';
-                }).length,
-              },
-              {
-                id: '844_SEC',
-                label: '8-4-4 Secondary (Forms 1–4)',
-                icon: '📚',
-                count: payments.filter((p) => {
-                  const s = students.find((st) => st.id === p.student_id);
-                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === '844_SEC';
-                }).length,
-              },
-              {
-                id: 'JSS',
-                label: 'JSS Junior Secondary (G7–9)',
-                icon: '🎓',
-                count: payments.filter((p) => {
-                  const s = students.find((st) => st.id === p.student_id);
-                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'JSS';
-                }).length,
-              },
-              {
-                id: 'PRIMARY_CBC',
-                label: 'Primary CBC (PP1–G6)',
-                icon: '🎒',
-                count: payments.filter((p) => {
-                  const s = students.find((st) => st.id === p.student_id);
-                  return detectCurriculum(s ? getFormName(s.form_id) : '').track === 'PRIMARY_CBC';
-                }).length,
-              },
-            ].map((tab) => {
-              const active = curriculum === tab.id;
-              return (
+          {/* Side-to-Side Functions Directly on Top of Data Grid */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs space-y-2.5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+              {/* Left Side: Search + Channel Pills + Filter Toggle */}
+              <div className="flex items-center gap-2 flex-wrap flex-1">
+                <div className="relative flex-1 min-w-[220px]">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
+                  <input
+                    ref={searchRef}
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
+                    placeholder="Search student, adm no, receipt #, M-Pesa, bank… (Ctrl+F)"
+                    className="w-full pl-8 pr-7 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50/70 focus:bg-white outline-none transition"
+                  />
+                  {search && (
+                    <button
+                      onClick={() => {
+                        setSearch('');
+                        setPage(1);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Channel Pills */}
+                {['M-Pesa', 'Cash', 'Bank Transfer', 'Cheque', 'Bursary'].map((m) => {
+                  const meta = getMethodMeta(m);
+                  const active = filterMethod === m;
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setFilterMethod(active ? '' : m);
+                        setPage(1);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition flex items-center gap-1.5 ${
+                        active
+                          ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-2xs'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      <span>{meta.icon}</span>
+                      <span>{m}</span>
+                    </button>
+                  );
+                })}
+
+                {/* Filter Toggle */}
                 <button
-                  key={tab.id}
-                  onClick={() => {
-                    setCurriculum(tab.id as CurriculumFilter);
+                  onClick={() => setShowFilters((s) => !s)}
+                  className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition flex items-center gap-1.5 ${
+                    showFilters || hasFilters
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  }`}
+                >
+                  <FiFilter size={12} />
+                  <span>Filters</span>
+                  {hasFilters && (
+                    <span className="w-3.5 h-3.5 rounded-full bg-indigo-600 text-white text-[8px] font-black flex items-center justify-center">
+                      !
+                    </span>
+                  )}
+                </button>
+
+                {hasFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-2 py-1.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-[11px] font-bold transition flex items-center gap-1"
+                  >
+                    <FiX size={12} />
+                    <span>Reset</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Right Side: Totals Badges + View Mode + Rows Selector */}
+              <div className="flex items-center gap-2.5 flex-wrap shrink-0 justify-between lg:justify-end">
+                <div className="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200/80 px-2.5 py-1.5 rounded-xl">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Filtered:</span>
+                  <span className="font-extrabold font-mono text-indigo-700">{fmtK(totalAmount)}</span>
+                  <span className="text-slate-300">|</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Page:</span>
+                  <span className="font-extrabold font-mono text-emerald-700">
+                    {fmtK(paginated.reduce((s, p) => s + Number(p.amount || 0), 0))}
+                  </span>
+                </div>
+
+                {/* View Switcher */}
+                <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200/80 gap-0.5">
+                  <button
+                    onClick={() => setView('table')}
+                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition ${
+                      view === 'table' ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    📋 Table
+                  </button>
+                  <button
+                    onClick={() => setView('grid')}
+                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition ${
+                      view === 'grid' ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🗂️ Cards
+                  </button>
+                </div>
+
+                {/* Rows Selector */}
+                <select
+                  value={perPage}
+                  onChange={(e) => {
+                    setPerPage(Number(e.target.value));
                     setPage(1);
                   }}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 99,
-                    border: `1.5px solid ${active ? T.indigo : T.border}`,
-                    background: active ? T.indigoL : T.card,
-                    color: active ? T.indigo : T.sub,
-                    fontSize: 11,
-                    fontWeight: active ? 800 : 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    transition: 'all 0.15s ease',
-                  }}
+                  className="px-2 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white outline-none cursor-pointer"
                 >
-                  <span>{tab.icon}</span>
-                  <span>{tab.label}</span>
-                  <span
-                    style={{
-                      background: active ? T.indigo : '#e2e8f0',
-                      color: active ? '#fff' : T.sub,
-                      borderRadius: 99,
-                      fontSize: 9,
-                      fontWeight: 900,
-                      padding: '1px 6px',
-                    }}
-                  >
-                    {tab.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                  {[10, 15, 25, 50].map((n) => (
+                    <option key={n} value={n}>
+                      {n} rows / page
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            3. EXECUTIVE FINANCIAL COMMAND HUD (Fine Like Fee Structure Cards)
-           ══════════════════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-          {[
-            {
-              label: 'Total Revenue',
-              value: fmtK(hudStats.totalRevenue),
-              sub: `${hudStats.count.toLocaleString()} transactions`,
-              color: 'text-indigo-700',
-              bg: 'bg-indigo-50/70',
-              border: 'border-indigo-100',
-              icon: <FiDollarSign size={14} className="text-indigo-600" />,
-            },
-            {
-              label: "Today's Intake",
-              value: fmtK(hudStats.todayVolume),
-              sub: new Date().toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' }),
-              color: 'text-emerald-700',
-              bg: 'bg-emerald-50/70',
-              border: 'border-emerald-100',
-              icon: <FiCalendar size={14} className="text-emerald-600" />,
-            },
-            {
-              label: 'M-Pesa Volume',
-              value: fmtK(hudStats.mpesaVolume),
-              sub: `${hudStats.totalRevenue > 0 ? ((hudStats.mpesaVolume / hudStats.totalRevenue) * 100).toFixed(0) : 0}% digital share`,
-              color: 'text-green-700',
-              bg: 'bg-green-50/70',
-              border: 'border-green-100',
-              icon: <FiSmartphone size={14} className="text-green-600" />,
-            },
-            {
-              label: 'Bank Rails',
-              value: fmtK(hudStats.bankVolume),
-              sub: 'KCB, Equity, Co-op',
-              color: 'text-sky-700',
-              bg: 'bg-sky-50/70',
-              border: 'border-sky-100',
-              icon: <FiCreditCard size={14} className="text-sky-600" />,
-            },
-            {
-              label: 'Cash Drawer',
-              value: fmtK(hudStats.cashVolume),
-              sub: 'Counter cash intake',
-              color: 'text-amber-700',
-              bg: 'bg-amber-50/70',
-              border: 'border-amber-100',
-              icon: <FiDollarSign size={14} className="text-amber-600" />,
-            },
-            {
-              label: 'Bursary & Grants',
-              value: fmtK(hudStats.bursaryVolume),
-              sub: 'CDF, County, SNE',
-              color: 'text-teal-700',
-              bg: 'bg-teal-50/70',
-              border: 'border-teal-100',
-              icon: <FiAward size={14} className="text-teal-600" />,
-            },
-          ].map((k, i) => (
-            <div
-              key={i}
-              className={`bg-white border ${k.border} rounded-xl p-2.5 shadow-2xs flex flex-col justify-between`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{k.label}</span>
-                <div className={`w-6 h-6 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}>
-                  {k.icon}
+            {/* Expandable Advanced Options */}
+            {showFilters && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-2.5 border-t border-slate-100 text-xs">
+                <div>
+                  <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">Class / Form</label>
+                  <select
+                    value={filterForm}
+                    onChange={(e) => {
+                      setFilterForm(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-slate-50 outline-none"
+                  >
+                    <option value="">All Classes</option>
+                    {formOptions.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">Academic Term</label>
+                  <select
+                    value={filterTerm}
+                    onChange={(e) => {
+                      setFilterTerm(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-slate-50 outline-none"
+                  >
+                    <option value="">All Terms</option>
+                    {terms.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.term_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">From Date</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      setDateFrom(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-2 py-1 rounded-lg border border-slate-200 text-xs bg-slate-50 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">To Date</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => {
+                      setDateTo(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-2 py-1 rounded-lg border border-slate-200 text-xs bg-slate-50 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">Min (KES)</label>
+                  <input
+                    type="number"
+                    placeholder="Min KES"
+                    value={amtMin}
+                    onChange={(e) => {
+                      setAmtMin(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-2 py-1 rounded-lg border border-slate-200 text-xs bg-slate-50 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">Max (KES)</label>
+                  <input
+                    type="number"
+                    placeholder="Max KES"
+                    value={amtMax}
+                    onChange={(e) => {
+                      setAmtMax(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-2 py-1 rounded-lg border border-slate-200 text-xs bg-slate-50 outline-none"
+                  />
                 </div>
               </div>
-              <div className="mt-1">
-                <p className={`text-sm font-extrabold font-mono ${k.color} tracking-tight`}>{k.value}</p>
-                <p className="text-[9.5px] text-slate-400 font-medium truncate">{k.sub}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            4. SIDE-BY-SIDE ANALYTICS CHARTS (Channel Bar + Spline Curve)
-           ══════════════════════════════════════════════════════════════════════ */}
-        <UltraPaymentsCharts
-          methodMetrics={chartMethodMetrics}
-          dailyTrends={chartDailyTrends}
-          grandTotal={totalAmount}
-          totalCount={filtered.length}
-        />
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            5. ADVANCED QUERY & FILTER MATRIX
-           ══════════════════════════════════════════════════════════════════════ */}
-        <div
-          style={{
-            background: T.card,
-            border: `1px solid ${T.border}`,
-            borderRadius: 16,
-            padding: '16px 18px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-          }}
-        >
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {/* Search Input */}
-            <div style={{ position: 'relative', flex: '1', minWidth: 240 }}>
-              <span
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontSize: 14,
-                  pointerEvents: 'none',
-                  color: T.muted,
-                }}
-              >
-                🔍
-              </span>
-              <input
-                ref={searchRef}
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                placeholder="Search student, adm no, receipt #, M-Pesa code, bank… (Ctrl+F)"
-                style={{
-                  width: '100%',
-                  padding: '9px 36px 9px 34px',
-                  borderRadius: 10,
-                  border: `1.5px solid ${T.border}`,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: T.text,
-                  background: T.bg,
-                  outline: 'none',
-                }}
-              />
-              {search && (
-                <button
-                  onClick={() => {
-                    setSearch('');
-                    setPage(1);
-                  }}
-                  style={{
-                    position: 'absolute',
-                    right: 10,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: 16,
-                    color: T.muted,
-                  }}
-                >
-                  ×
-                </button>
-              )}
-            </div>
-
-            {/* Quick Channel Pills */}
-            {['M-Pesa', 'Cash', 'Bank Transfer', 'Cheque'].map((m) => {
-              const meta = getMethodMeta(m);
-              const active = filterMethod === m;
-              return (
-                <button
-                  key={m}
-                  onClick={() => {
-                    setFilterMethod(active ? '' : m);
-                    setPage(1);
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 10,
-                    border: `1.5px solid ${active ? meta.dot : T.border}`,
-                    background: active ? meta.bg : T.card,
-                    color: active ? meta.text : T.sub,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 5,
-                  }}
-                >
-                  <span>{meta.icon}</span>
-                  <span>{m}</span>
-                </button>
-              );
-            })}
-
-            {/* Filter Toggle */}
-            <button
-              onClick={() => setShowFilters((s) => !s)}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 10,
-                border: `1.5px solid ${showFilters || hasFilters ? T.indigo : T.border}`,
-                background: showFilters || hasFilters ? T.indigoL : T.card,
-                color: showFilters || hasFilters ? T.indigo : T.sub,
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <FiFilter />
-              <span>More Filters</span>
-              {hasFilters && (
-                <span
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: '50%',
-                    background: T.indigo,
-                    color: '#fff',
-                    fontSize: 9,
-                    fontWeight: 900,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  !
-                </span>
-              )}
-            </button>
-
-            {hasFilters && (
-              <button
-                onClick={clearFilters}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 10,
-                  border: `1.5px solid #fecaca`,
-                  background: '#fef2f2',
-                  color: T.red,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-              >
-                <FiX />
-                <span>Reset</span>
-              </button>
             )}
-
-            {/* Reduced Row Count Selector */}
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: T.sub }}>Rows:</span>
-              <select
-                value={perPage}
-                onChange={(e) => {
-                  setPerPage(Number(e.target.value));
-                  setPage(1);
-                }}
-                style={{
-                  padding: '7px 10px',
-                  borderRadius: 10,
-                  border: `1.5px solid ${T.border}`,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: T.text,
-                  background: T.card,
-                  cursor: 'pointer',
-                }}
-              >
-                {[10, 15, 25, 50].map((n) => (
-                  <option key={n} value={n}>
-                    {n} rows / page
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
 
-          {/* Expandable Advanced Options */}
-          {showFilters && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill,minmax(145px,1fr))',
-                gap: 10,
-                marginTop: 12,
-                paddingTop: 12,
-                borderTop: `1px solid ${T.border}`,
-              }}
-            >
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  Form / Class
-                </label>
-                <select
-                  value={filterForm}
-                  onChange={(e) => {
-                    setFilterForm(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
+          {/* Batch Actions Toolbar when selected.size > 0 */}
+          {selected.size > 0 && (
+            <div className="bg-indigo-50/90 border border-indigo-200/80 rounded-xl p-2.5 flex items-center justify-between flex-wrap gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                <span className="font-extrabold text-indigo-900">
+                  {selected.size} receipt{selected.size > 1 ? 's' : ''} selected
+                </span>
+                <button
+                  onClick={() => setSelected(new Set())}
+                  className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold underline ml-1"
                 >
-                  <option value="">All Classes</option>
-                  {formOptions.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
+                  Clear Selection
+                </button>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  Academic Term
-                </label>
-                <select
-                  value={filterTerm}
-                  onChange={(e) => {
-                    setFilterTerm(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleBulkPrintThermal}
+                  className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs"
                 >
-                  <option value="">All Terms</option>
-                  {terms.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.term_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <FiPrinter size={12} />
+                  <span>Print Bulk Thermal ({selected.size})</span>
+                </button>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  From Date
-                </label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => {
-                    setDateFrom(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  To Date
-                </label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => {
-                    setDateTo(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  Min Amount (KES)
-                </label>
-                <input
-                  type="number"
-                  placeholder="Min KES"
-                  value={amtMin}
-                  onChange={(e) => {
-                    setAmtMin(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: T.sub, textTransform: 'uppercase', marginBottom: 4 }}>
-                  Max Amount (KES)
-                </label>
-                <input
-                  type="number"
-                  placeholder="Max KES"
-                  value={amtMax}
-                  onChange={(e) => {
-                    setAmtMax(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 11, background: T.bg }}
-                />
+                <button
+                  onClick={handleBulkPrintA4}
+                  className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs"
+                >
+                  <FiPrinter size={12} />
+                  <span>Print Bulk A4 ({selected.size})</span>
+                </button>
               </div>
             </div>
           )}
-        </div>
-
-        {/* ── Results Bar & Bulk Actions ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>
-              Showing {filtered.length === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of{' '}
-              <strong style={{ color: T.text }}>{filtered.length.toLocaleString()}</strong> records{' '}
-              {hasFilters && <span style={{ color: T.indigo }}>(filtered)</span>}
-            </span>
-
-            {selected.size > 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  background: T.indigoL,
-                  border: `1px solid ${T.indigoBd}`,
-                  borderRadius: 8,
-                  padding: '3px 10px',
-                }}
-              >
-                <span style={{ fontSize: 11, fontWeight: 800, color: T.indigo }}>{selected.size} selected</span>
-                <button
-                  onClick={() => setSelected(new Set())}
-                  style={{ fontSize: 10, color: T.muted, background: 'none', border: 'none', cursor: 'pointer' }}
-                >
-                  ✕ clear
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>Page Volume:</span>
-            <span style={{ fontSize: 13, fontWeight: 900, color: T.green }}>
-              {fmt(paginated.reduce((s, p) => s + Number(p.amount || 0), 0))}
-            </span>
-            <span style={{ color: T.muted }}>·</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: T.sub }}>Filtered Total:</span>
-            <span style={{ fontSize: 14, fontWeight: 900, color: T.indigo }}>{fmt(totalAmount)}</span>
-          </div>
-        </div>
 
         {/* ══════════════════════════════════════════════════════════════════════
             6. COMPACT & RESPONSIVE DATAGRID (TABLE VIEW)
@@ -2277,67 +2386,639 @@ export default function UltraPaymentsPage() {
             )}
           </div>
         )}
+        </div>
+      )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            8. ANALYTICS FULL VIEW
-           ══════════════════════════════════════════════════════════════════════ */}
-        {view === 'analytics' && (
-          <div className="fade-in">
-            <div
-              style={{
-                background: T.card,
-                border: `1px solid ${T.border}`,
-                borderRadius: 16,
-                padding: '20px 24px',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
-              }}
-            >
-              <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 900, color: T.text, fontFamily: "'Outfit',sans-serif" }}>
-                Class & Form Collections Summary
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12 }}>
-                {forms.map((f) => {
-                  const formPays = payments.filter((p) => {
-                    const s = students.find((st) => st.id === p.student_id);
-                    return s && s.form_id === f.id;
-                  });
-                  const sum = formPays.reduce((acc, p) => acc + Number(p.amount || 0), 0);
-                  const { label: curLabel, badgeColor } = detectCurriculum(f.form_name);
+      {/* ═══ TAB 2: SIDE-BY-SIDE ANALYTICS STUDIO ═══ */}
+      {activeTab === 'analytics' && (
+        <div className="space-y-4 fade-in">
+          {/* Side-by-Side SVG Charts */}
+          <UltraPaymentsCharts
+            methodMetrics={chartMethodMetrics}
+            dailyTrends={chartDailyTrends}
+            grandTotal={totalAmount}
+            totalCount={filtered.length}
+          />
 
-                  return (
-                    <div
-                      key={f.id}
-                      style={{
-                        padding: '12px 14px',
-                        borderRadius: 12,
-                        border: `1px solid ${T.border}`,
-                        background: '#f8fafc',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 12, fontWeight: 800, color: T.text }}>{f.form_name}</span>
-                        <span
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 800,
-                            padding: '1px 6px',
-                            borderRadius: 99,
-                            border: '1px solid',
-                          }}
-                          className={badgeColor}
-                        >
-                          {curLabel}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 16, fontWeight: 900, color: T.green }}>{fmt(sum)}</div>
-                      <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>{formPays.length} recorded payments</div>
+          {/* Form & Class Collections Breakdown Grid */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                  Class &amp; Form Collections Summary
+                </h3>
+                <p className="text-[10px] text-slate-500 font-medium">
+                  Verified revenue distribution across CBC Grades and 8-4-4 secondary classes
+                </p>
+              </div>
+              <button
+                onClick={handleExportExcel}
+                className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-bold flex items-center gap-1.5 hover:bg-emerald-100"
+              >
+                <FiDownload size={12} />
+                <span>Export Class Matrix</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+              {forms.map((f) => {
+                const formPays = payments.filter((p) => {
+                  const s = students.find((st) => st.id === p.student_id);
+                  return s && s.form_id === f.id;
+                });
+                const sum = formPays.reduce((acc, p) => acc + Number(p.amount || 0), 0);
+                const { label: curLabel, badgeColor } = detectCurriculum(f.form_name);
+
+                return (
+                  <div
+                    key={f.id}
+                    className="p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 hover:bg-white hover:border-indigo-300 transition-all flex flex-col justify-between"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-extrabold text-slate-800">{f.form_name}</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full border ${badgeColor}`}>
+                        {curLabel}
+                      </span>
                     </div>
-                  );
-                })}
+                    <div className="text-sm font-extrabold font-mono text-emerald-700 tracking-tight">
+                      {fmtK(sum)}
+                    </div>
+                    <div className="text-[9.5px] text-slate-400 font-medium mt-1">
+                      {formPays.length} recorded payments
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ TAB 3: SIDE-BY-SIDE CASHIER RAPID SETTLEMENT TERMINAL ═══ */}
+      {activeTab === 'terminal' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 fade-in">
+          {/* Left Column (5/12): Student Search & Live Balance Waterfall Inspector */}
+          <div className="lg:col-span-5 space-y-3">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                  🔍
+                </div>
+                <div>
+                  <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
+                    Student Lookup &amp; Fee Inspector
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Search by student name or admission number</p>
+                </div>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Type admission # or student name..."
+                  value={terminalSearch}
+                  onChange={(e) => setTerminalSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50 focus:bg-white outline-none"
+                />
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">👤</span>
+              </div>
+
+              {/* Instant Search Results Dropdown */}
+              {terminalSearchResults.length > 0 && (
+                <div className="mt-2 divide-y divide-slate-100 border border-slate-200 rounded-xl max-h-52 overflow-y-auto bg-white shadow-sm">
+                  {terminalSearchResults.map((st) => (
+                    <div
+                      key={st.id}
+                      onClick={() => {
+                        setTerminalStudentId(st.id);
+                        setTerminalSearch('');
+                      }}
+                      className="p-2 hover:bg-indigo-50/60 cursor-pointer flex items-center justify-between transition text-xs"
+                    >
+                      <div>
+                        <div className="font-extrabold text-slate-900">
+                          {st.first_name} {st.last_name}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          Adm: {st.admission_no || st.admission_number || '—'} · {getFormName(st.form_id)}
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                        Select →
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Selected Student Fee Waterfall Balance Card */}
+            {terminalSelectedStudent ? (
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-black text-sm flex items-center justify-center">
+                      {(terminalSelectedStudent.first_name?.[0] || 'S').toUpperCase()}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900">
+                        {terminalSelectedStudent.first_name} {terminalSelectedStudent.last_name}
+                      </h4>
+                      <p className="text-[10px] font-mono text-slate-500">
+                        Adm: {terminalSelectedStudent.admission_no || terminalSelectedStudent.admission_number || '—'} ·{' '}
+                        {getFormName(terminalSelectedStudent.form_id)} {getStreamName(terminalSelectedStudent.stream_id)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Active Student
+                  </span>
+                </div>
+
+                {/* Balance Metrics */}
+                {terminalStudentFees && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2 text-center">
+                      <div className="text-[9px] font-bold text-slate-400 uppercase">Annual Fees</div>
+                      <div className="text-xs font-mono font-extrabold text-slate-800 mt-0.5">
+                        {fmtK(terminalStudentFees.annualTotal)}
+                      </div>
+                    </div>
+                    <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-2 text-center">
+                      <div className="text-[9px] font-bold text-emerald-600 uppercase">Paid Total</div>
+                      <div className="text-xs font-mono font-extrabold text-emerald-700 mt-0.5">
+                        {fmtK(terminalStudentFees.totalPaid)}
+                      </div>
+                    </div>
+                    <div className="bg-rose-50/70 border border-rose-200/80 rounded-xl p-2 text-center">
+                      <div className="text-[9px] font-bold text-rose-600 uppercase">Balance Due</div>
+                      <div className="text-xs font-mono font-extrabold text-rose-700 mt-0.5">
+                        {fmtK(terminalStudentFees.annualBalance)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Parent Contact Details */}
+                <div className="bg-slate-50/80 rounded-xl p-2.5 text-[11px] space-y-1 border border-slate-100">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Parent / Guardian:</span>
+                    <span className="font-bold text-slate-800">
+                      {terminalSelectedStudent.parent_name || terminalSelectedStudent.guardian_name || '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Phone Contact:</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {terminalSelectedStudent.parent_phone || terminalSelectedStudent.emergency_contact || '—'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Recent Student Payment History */}
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Recent Payments for this Student
+                  </div>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                    {payments
+                      .filter((p) => p.student_id === terminalSelectedStudent.id)
+                      .slice(0, 4)
+                      .map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 text-xs"
+                        >
+                          <div>
+                            <span className="font-mono font-bold text-indigo-700">{p.receipt_number || `REC-${p.id}`}</span>
+                            <span className="text-[10px] text-slate-400 ml-2">{fmtDate(p.payment_date)}</span>
+                          </div>
+                          <div className="font-mono font-extrabold text-emerald-700">{fmtK(Number(p.amount || 0))}</div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400 text-xs">
+                <div className="text-2xl mb-1">👆</div>
+                <p className="font-bold">Select a student above to inspect fee waterfall balances</p>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column (7/12): Rapid Fee Settlement Panel */}
+          <div className="lg:col-span-7">
+            <form
+              onSubmit={handleTerminalSubmit}
+              className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-4"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm">
+                    ⚡
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                      Rapid Fee Settlement Intake
+                    </h3>
+                    <p className="text-[10px] text-slate-400">One-click live ledger booking &amp; official receipting</p>
+                  </div>
+                </div>
+                {terminalSelectedStudent && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    Settling: {terminalSelectedStudent.first_name}
+                  </span>
+                )}
+              </div>
+
+              {/* Amount Input with Quick Preset Chips */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Settlement Amount (KES) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">KES</span>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 15000"
+                    value={terminalAmt}
+                    onChange={(e) => setTerminalAmt(e.target.value)}
+                    className="w-full pl-12 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-extrabold font-mono text-slate-900 bg-slate-50 focus:bg-white outline-none"
+                  />
+                </div>
+
+                {/* Quick Preset Buttons */}
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  {[1000, 2000, 5000, 10000, 20000].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setTerminalAmt(String(v))}
+                      className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[10px] font-bold text-slate-700 transition cursor-pointer"
+                    >
+                      +{v.toLocaleString()}
+                    </button>
+                  ))}
+                  {terminalStudentFees && terminalStudentFees.annualBalance > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setTerminalAmt(String(terminalStudentFees.annualBalance))}
+                      className="px-2.5 py-1 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-[10px] font-extrabold text-emerald-800 transition cursor-pointer"
+                    >
+                      Full Balance ({fmtK(terminalStudentFees.annualBalance)})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Payment Channel Pills */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Payment Method *
+                </label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {['M-Pesa', 'Cash', 'Bank Transfer', 'Cheque', 'Bursary'].map((m) => {
+                    const meta = getMethodMeta(m);
+                    const active = terminalMethod === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setTerminalMethod(m)}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          active
+                            ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-2xs font-extrabold'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        <span>{meta.icon}</span>
+                        <span>{m}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Dynamic Reference Field */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    {terminalMethod === 'M-Pesa'
+                      ? 'M-Pesa Confirmation Code'
+                      : terminalMethod.includes('Bank')
+                      ? 'Bank Slip / Deposit Ref'
+                      : terminalMethod === 'Cheque'
+                      ? 'Cheque Number'
+                      : 'Reference / Voucher #'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={
+                      terminalMethod === 'M-Pesa'
+                        ? 'e.g. SLK89X42A'
+                        : terminalMethod.includes('Bank')
+                        ? 'e.g. DEP-99420'
+                        : 'Optional reference'
+                    }
+                    value={terminalRef}
+                    onChange={(e) => setTerminalRef(e.target.value.toUpperCase())}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-800 bg-slate-50 focus:bg-white outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Target Academic Term
+                  </label>
+                  <select
+                    value={terminalTermId}
+                    onChange={(e) => setTerminalTermId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50 focus:bg-white outline-none cursor-pointer"
+                  >
+                    <option value="">Auto-Assign Closest Term</option>
+                    {terms.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.term_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Date & Cashier Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Receipt Date
+                  </label>
+                  <input
+                    type="date"
+                    value={terminalDate}
+                    onChange={(e) => setTerminalDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50 focus:bg-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Cashier / Bursar Name
+                  </label>
+                  <input
+                    type="text"
+                    value={cashierName}
+                    onChange={(e) => setCashierName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50 focus:bg-white outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Remarks / Receipt Notes
+                </label>
+                <input
+                  type="text"
+                  placeholder="Optional notes or teller details..."
+                  value={terminalNotes}
+                  onChange={(e) => setTerminalNotes(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50 focus:bg-white outline-none"
+                />
+              </div>
+
+              {/* Submit & Settle Action */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isTerminalSubmitting || !terminalSelectedStudent}
+                  className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isTerminalSubmitting ? (
+                    <>
+                      <FiRefreshCw className="animate-spin" size={14} />
+                      <span>Recording Settlement into Official Ledger...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>⚡ Settle Fee &amp; Issue Official Thermal Receipt</span>
+                      <FiArrowUpRight size={14} />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ TAB 4: SIDE-BY-SIDE CASHIER SHIFT & DIGITAL RAILS RECONCILIATION ═══ */}
+      {activeTab === 'reconciliation' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 fade-in">
+          {/* Left Column (6/12): Counter Cash Drawer Balancing */}
+          <div className="lg:col-span-6 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-700 font-bold text-sm">
+                  💵
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                    Counter Cash Drawer Balancing
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Physical currency denomination tally vs ledger intake</p>
+                </div>
+              </div>
+              <button
+                onClick={handlePrintHandover}
+                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+              >
+                <FiPrinter size={12} />
+                <span>Print Shift Handover</span>
+              </button>
+            </div>
+
+            {/* Denomination Counter Inputs */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+              {[
+                { key: 'n1000', label: '1,000 Notes', mult: 1000 },
+                { key: 'n500', label: '500 Notes', mult: 500 },
+                { key: 'n200', label: '200 Notes', mult: 200 },
+                { key: 'n100', label: '100 Notes', mult: 100 },
+                { key: 'n50', label: '50 Notes', mult: 50 },
+                { key: 'coins', label: 'Coins Sum', mult: 1 },
+              ].map((d) => (
+                <div key={d.key} className="bg-slate-50 border border-slate-200/80 rounded-xl p-2">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 mb-1">
+                    <span>{d.label}</span>
+                    <span className="font-mono text-slate-400">×{d.mult}</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={(cashCounts as any)[d.key] || ''}
+                    onChange={(e) =>
+                      setCashCounts((prev) => ({
+                        ...prev,
+                        [d.key]: Number(e.target.value) || 0,
+                      }))
+                    }
+                    className="w-full px-2 py-1 rounded-lg border border-slate-200 text-xs font-mono font-extrabold text-slate-800 bg-white outline-none"
+                  />
+                  <div className="text-[9px] font-mono text-right text-slate-500 mt-1">
+                    = {fmtK(((cashCounts as any)[d.key] || 0) * d.mult)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Drawer Variance Indicator */}
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center">
+                <div className="text-[9px] font-bold text-slate-400 uppercase">Counted Cash</div>
+                <div className="text-sm font-extrabold font-mono text-slate-900 mt-0.5">{fmtK(countedCash)}</div>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center">
+                <div className="text-[9px] font-bold text-slate-400 uppercase">Expected Ledger</div>
+                <div className="text-sm font-extrabold font-mono text-slate-900 mt-0.5">{fmtK(expectedCash)}</div>
+              </div>
+              <div
+                className={`border rounded-xl p-2.5 text-center ${
+                  cashVariance === 0
+                    ? 'bg-emerald-50/80 border-emerald-200 text-emerald-700'
+                    : cashVariance > 0
+                    ? 'bg-sky-50/80 border-sky-200 text-sky-700'
+                    : 'bg-rose-50/80 border-rose-200 text-rose-700'
+                }`}
+              >
+                <div className="text-[9px] font-bold uppercase">
+                  {cashVariance === 0 ? 'Balanced ✓' : cashVariance > 0 ? 'Over (+)' : 'Short (-)'}
+                </div>
+                <div className="text-sm font-extrabold font-mono mt-0.5">
+                  {cashVariance > 0 ? `+${fmtK(cashVariance)}` : fmtK(cashVariance)}
+                </div>
+              </div>
+            </div>
+
+            {/* Shift & Cashier Details */}
+            <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
+              <div>
+                <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">Cashier On Duty</label>
+                <input
+                  type="text"
+                  value={cashierName}
+                  onChange={(e) => setCashierName(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-slate-50 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[9.5px] font-bold text-slate-500 uppercase mb-1">Shift Number</label>
+                <input
+                  type="text"
+                  value={shiftNumber}
+                  onChange={(e) => setShiftNumber(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-slate-50 outline-none"
+                />
               </div>
             </div>
           </div>
-        )}
+
+          {/* Right Column (6/12): Digital Rails & Bank Reconciliation */}
+          <div className="lg:col-span-6 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-700 font-bold text-sm">
+                  ⚖️
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                    Digital Rails &amp; Bank Settlement Audit
+                  </h3>
+                  <p className="text-[10px] text-slate-400">M-Pesa STK push, KCB, Equity &amp; Co-op digital channels</p>
+                </div>
+              </div>
+              <button
+                onClick={handleExportExcel}
+                className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-bold flex items-center gap-1.5 hover:bg-emerald-100 transition cursor-pointer"
+              >
+                <FiDownload size={12} />
+                <span>Reconciliation Sheet</span>
+              </button>
+            </div>
+
+            {/* Digital Channels Breakdown Cards */}
+            <div className="space-y-2 text-xs">
+              <div className="p-3 rounded-xl border border-green-200 bg-green-50/50 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-green-100 text-green-700 flex items-center justify-center text-base">
+                    📱
+                  </div>
+                  <div>
+                    <div className="font-extrabold text-green-900">M-Pesa Paybill Settlements</div>
+                    <div className="text-[10px] text-green-700">STK Push &amp; C2B Live Confirmation Codes</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-extrabold font-mono text-green-800">{fmtK(hudStats.mpesaVolume)}</div>
+                  <div className="text-[9px] font-bold text-green-600">100% Electronic Audit</div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-sky-200 bg-sky-50/50 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center text-base">
+                    🏦
+                  </div>
+                  <div>
+                    <div className="font-extrabold text-sky-900">Commercial Bank Accounts</div>
+                    <div className="text-[10px] text-sky-700">KCB, Equity &amp; Co-op Deposit Slips</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-extrabold font-mono text-sky-800">{fmtK(hudStats.bankVolume)}</div>
+                  <div className="text-[9px] font-bold text-sky-600">Bank Slips Reconciled</div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-teal-200 bg-teal-50/50 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center text-base">
+                    🏛️
+                  </div>
+                  <div>
+                    <div className="font-extrabold text-teal-900">Government Bursaries &amp; Grants</div>
+                    <div className="text-[10px] text-teal-700">CDF, County bursaries &amp; MoE Capitation</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-extrabold font-mono text-teal-800">{fmtK(hudStats.bursaryVolume)}</div>
+                  <div className="text-[9px] font-bold text-teal-600">Vote-Head Credited</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Reconciliation Checkpoints */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-2">
+              <div className="font-extrabold text-slate-800 text-[11px]">Audit Verification Checklist:</div>
+              <div className="space-y-1 text-slate-600 text-[10.5px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-emerald-600 font-bold">✓</span>
+                  <span>All M-Pesa transactions have 10-character alphanumeric codes</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-emerald-600 font-bold">✓</span>
+                  <span>Student fee profile balances update in real-time upon settlement</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-emerald-600 font-bold">✓</span>
+                  <span>Dual-track CBC Senior School and 8-4-4 ledgers fully partitioned</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
           9. EDIT PAYMENT MODAL

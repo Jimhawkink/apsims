@@ -174,6 +174,16 @@ export default function FeeDashboardPage() {
   const [ledgerPage, setLedgerPage] = useState(1);
   const pageSize = 10;
 
+  // Transactions Tab Search & Pagination
+  const [txSearch, setTxSearch] = useState('');
+  const [txPage, setTxPage] = useState(1);
+  const [txMethodFilter, setTxMethodFilter] = useState('');
+
+  // Defaulters Tab Search & Pagination
+  const [defSearch, setDefSearch] = useState('');
+  const [defPage, setDefPage] = useState(1);
+  const [defTrackFilter, setDefTrackFilter] = useState<'all' | '8-4-4' | 'cbc'>('all');
+
   // Clearance Voucher Modal State
   const [voucherStudent, setVoucherStudent] = useState<any>(null);
 
@@ -519,6 +529,62 @@ export default function FeeDashboardPage() {
       },
     },
   });
+
+  // Transactions Tab Filtering & Pagination (Strictly 10 rows)
+  const filteredTx = useMemo(() => {
+    let list = [...payments];
+    if (txSearch.trim()) {
+      const q = txSearch.toLowerCase().trim();
+      list = list.filter((p) => {
+        const st = students.find((s) => s.id === p.student_id);
+        const name = st ? `${st.first_name} ${st.last_name}`.toLowerCase() : '';
+        const adm = (st?.admission_no || st?.admission_number || '').toString().toLowerCase();
+        const rcpt = (p.receipt_number || '').toLowerCase();
+        const m = (p.payment_method || '').toLowerCase();
+        return name.includes(q) || adm.includes(q) || rcpt.includes(q) || m.includes(q);
+      });
+    }
+    if (txMethodFilter) {
+      list = list.filter((p) => (p.payment_method || 'Cash').toLowerCase() === txMethodFilter.toLowerCase());
+    }
+    return list;
+  }, [payments, students, txSearch, txMethodFilter]);
+
+  const paginatedTx = useMemo(() => {
+    const start = (txPage - 1) * 10;
+    return filteredTx.slice(start, start + 10);
+  }, [filteredTx, txPage]);
+
+  const totalTxPages = Math.max(1, Math.ceil(filteredTx.length / 10));
+
+  // Defaulters Tab Filtering & Pagination (Strictly 10 rows)
+  const filteredDefaulters = useMemo(() => {
+    let list = [...worstDefaulters];
+    if (defSearch.trim()) {
+      const q = defSearch.toLowerCase().trim();
+      list = list.filter((st) => {
+        const name = `${st.first_name} ${st.last_name}`.toLowerCase();
+        const adm = (st.admission_number || st.admission_no || '').toString().toLowerCase();
+        const f = (st.formName || '').toLowerCase();
+        return name.includes(q) || adm.includes(q) || f.includes(q);
+      });
+    }
+    if (defTrackFilter !== 'all') {
+      list = list.filter((st) =>
+        defTrackFilter === 'cbc'
+          ? st.systemTag?.includes('CBC') || st.formName?.includes('Grade')
+          : !st.systemTag?.includes('CBC') && !st.formName?.includes('Grade')
+      );
+    }
+    return list;
+  }, [worstDefaulters, defSearch, defTrackFilter]);
+
+  const paginatedDefaulters = useMemo(() => {
+    const start = (defPage - 1) * 10;
+    return filteredDefaulters.slice(start, start + 10);
+  }, [filteredDefaulters, defPage]);
+
+  const totalDefPages = Math.max(1, Math.ceil(filteredDefaulters.length / 10));
 
   if (loading) {
     return (
@@ -895,122 +961,141 @@ export default function FeeDashboardPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════
-            TAB 2: CBC & 8-4-4 DUAL-TRACK ANALYSIS
+            TAB 2: CBC & 8-4-4 DUAL-TRACK ANALYSIS (SIDE-BY-SIDE)
         ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'curriculum' && (
-          <div className="space-y-6">
-            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                    <FiLayers size={18} />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 fade-in">
+            {/* Left Column (7/12): Dual-Track Performance Table */}
+            <div className="lg:col-span-7 bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden flex flex-col justify-between">
+              <div>
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-sm font-bold">
+                      <FiLayers size={16} />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-black text-slate-900 tracking-tight">
+                        Dual-Track Curriculum Fee Performance
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        CBC Senior School vs 8-4-4 Secondary collection recovery rates
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 tracking-tight">
-                      Dual-Track Curriculum Fee Performance (CBC vs 8-4-4)
-                    </h3>
-                    <p className="text-[10px] text-slate-400 font-medium">
-                      Comparative breakdown of collection rates, expected totals, and balance arrears across all classes
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2">
                   <button
                     onClick={handleExportExcel}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5"
+                    className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 transition"
                   >
-                    <FiDownload size={12} />
+                    <FiDownload size={11} />
                     <span>Export Breakdown</span>
                   </button>
                 </div>
-              </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                      <th className="py-3 px-4">Class / Grade</th>
-                      <th className="py-3 px-4">Track</th>
-                      <th className="py-3 px-4 text-center">Active Students</th>
-                      <th className="py-3 px-4 text-right">Expected (KES)</th>
-                      <th className="py-3 px-4 text-right">Collected (KES)</th>
-                      <th className="py-3 px-4 text-right">Arrears (KES)</th>
-                      <th className="py-3 px-4 text-center">Owing Count</th>
-                      <th className="py-3 px-4 text-center">Recovery Rate</th>
-                      <th className="py-3 px-4 min-w-[140px]">Progress</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {formCollection.map(f => {
-                      const rc = f.rate >= 70 ? C.green : f.rate >= 40 ? C.amber : C.red;
-                      return (
-                        <tr key={f.id} className="hover:bg-blue-50/30 transition-colors">
-                          <td className="py-3 px-4 font-black text-slate-800 font-sans">
-                            {f.name}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${
-                              f.isCbc ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {f.system}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-center font-bold text-slate-700">
-                            {f.students}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-700">
-                            {KES(f.expected)}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-black text-emerald-600">
-                            {KES(f.collected)}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-black text-rose-600">
-                            {KES(f.balance)}
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                              f.owing > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
-                            }`}>
-                              {f.owing} defaulters
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-center font-black font-mono" style={{ color: rc }}>
-                            {f.rate}%
-                          </td>
-                          <td className="py-3 px-4">
-                            <PBar value={f.rate} color={rc} height={7} />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-slate-900 text-white font-black text-xs">
-                      <td className="py-3 px-4 font-mono">∑ TOTALS</td>
-                      <td className="py-3 px-4 text-slate-300">DUAL TRACK</td>
-                      <td className="py-3 px-4 text-center">{filteredStudents.length}</td>
-                      <td className="py-3 px-4 text-right font-mono">{KES(totalExpected)}</td>
-                      <td className="py-3 px-4 text-right font-mono text-emerald-400">{KES(totalCollected)}</td>
-                      <td className="py-3 px-4 text-right font-mono text-rose-400">{KES(totalOutstanding)}</td>
-                      <td className="py-3 px-4 text-center text-rose-300">{studentsOwing}</td>
-                      <td className="py-3 px-4 text-center font-mono">{collectionRate}%</td>
-                      <td className="py-3 px-4" />
-                    </tr>
-                  </tfoot>
-                </table>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200 text-[9.5px] font-black uppercase text-slate-400 tracking-wider">
+                        <th className="py-2.5 px-3">Class / Grade</th>
+                        <th className="py-2.5 px-2">Track</th>
+                        <th className="py-2.5 px-2 text-center">Students</th>
+                        <th className="py-2.5 px-3 text-right">Expected</th>
+                        <th className="py-2.5 px-3 text-right">Collected</th>
+                        <th className="py-2.5 px-3 text-right">Arrears</th>
+                        <th className="py-2.5 px-2 text-center">Rate</th>
+                        <th className="py-2.5 px-3 min-w-[90px]">Progress</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {formCollection.map((f) => {
+                        const rc = f.rate >= 70 ? C.green : f.rate >= 40 ? C.amber : C.red;
+                        return (
+                          <tr key={f.id} className="hover:bg-blue-50/30 transition-colors">
+                            <td className="py-2 px-3 font-extrabold text-slate-800 text-[11.5px]">
+                              {f.name}
+                            </td>
+                            <td className="py-2 px-2">
+                              <span
+                                className={`px-1.5 py-0.2 rounded-full text-[8.5px] font-black ${
+                                  f.isCbc ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                }`}
+                              >
+                                {f.system}
+                              </span>
+                            </td>
+                            <td className="py-2 px-2 text-center font-bold text-slate-700 text-[11px]">
+                              {f.students}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-700 text-[11px]">
+                              {KES(f.expected)}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-black text-emerald-600 text-[11px]">
+                              {KES(f.collected)}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-black text-rose-600 text-[11px]">
+                              {KES(f.balance)}
+                            </td>
+                            <td className="py-2 px-2 text-center font-black font-mono text-[11px]" style={{ color: rc }}>
+                              {f.rate}%
+                            </td>
+                            <td className="py-2 px-3">
+                              <PBar value={f.rate} color={rc} height={6} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-slate-900 text-white font-black text-[11px]">
+                        <td className="py-2.5 px-3 font-mono">∑ TOTALS</td>
+                        <td className="py-2.5 px-2 text-slate-300">DUAL</td>
+                        <td className="py-2.5 px-2 text-center">{filteredStudents.length}</td>
+                        <td className="py-2.5 px-3 text-right font-mono">{KES(totalExpected)}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-emerald-400">{KES(totalCollected)}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-rose-400">{KES(totalOutstanding)}</td>
+                        <td className="py-2.5 px-2 text-center font-mono">{collectionRate}%</td>
+                        <td className="py-2.5 px-3" />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             </div>
 
-            {/* Side by side chart */}
-            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-5 shadow-[0_4px_24px_rgba(20,50,120,0.06)]">
-              <SectionHead
-                icon={<FiBarChart2 size={15} className="text-blue-600" />}
-                title="Expected vs Collected by Class (KES)"
-                sub="Comparing fee recovery performance across all 8-4-4 Forms and CBC Grades"
-              />
-              <div className="relative w-full h-[240px]">
-                <Bar data={formBarData} options={chartOpts()} />
+            {/* Right Column (5/12): Side-by-Side Chart & Dual-Track Insights */}
+            <div className="lg:col-span-5 bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-4 shadow-[0_4px_24px_rgba(20,50,120,0.06)] flex flex-col justify-between space-y-3">
+              <div>
+                <SectionHead
+                  icon={<FiBarChart2 size={14} className="text-blue-600" />}
+                  title="Expected vs Collected by Class (KES)"
+                  sub="Comparing fee recovery performance across 8-4-4 and CBC Senior School"
+                />
+                <div className="relative w-full h-[220px] mt-2">
+                  <Bar data={formBarData} options={chartOpts()} />
+                </div>
+              </div>
+
+              {/* Dual-Track Quick Insights Grid */}
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
+                <div className="p-2.5 rounded-xl bg-purple-50/70 border border-purple-100">
+                  <div className="text-[9.5px] font-bold text-purple-600 uppercase">CBC Senior Track</div>
+                  <div className="text-sm font-extrabold font-mono text-purple-900 mt-0.5">
+                    {KES(formCollection.filter((f) => f.isCbc).reduce((s, f) => s + f.collected, 0))}
+                  </div>
+                  <div className="text-[9px] text-purple-500 font-medium mt-0.5">
+                    {formCollection.filter((f) => f.isCbc).length} CBC Classes
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-100">
+                  <div className="text-[9.5px] font-bold text-blue-600 uppercase">8-4-4 Secondary</div>
+                  <div className="text-sm font-extrabold font-mono text-blue-900 mt-0.5">
+                    {KES(formCollection.filter((f) => !f.isCbc).reduce((s, f) => s + f.collected, 0))}
+                  </div>
+                  <div className="text-[9px] text-blue-500 font-medium mt-0.5">
+                    {formCollection.filter((f) => !f.isCbc).length} Secondary Forms
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1237,66 +1322,168 @@ export default function FeeDashboardPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════
-            TAB 5: LIVE TRANSACTIONS & M-PESA
+            TAB 5: LIVE TRANSACTIONS & M-PESA STREAM
         ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'transactions' && (
-          <div className="space-y-4">
-            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 tracking-tight">
-                    Verified Fee Payment Stream
-                  </h3>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Audit log of real receipts and electronic M-Pesa STK push entries
-                  </p>
+          <div className="space-y-3.5 fade-in">
+            {/* Side-to-Side Cockpit Directly on Top of Transactions Grid */}
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-3.5 shadow-[0_4px_24px_rgba(20,50,120,0.06)] flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Left Side: Search + Channel Filters */}
+              <div className="flex items-center gap-2 flex-wrap flex-1">
+                <div className="relative flex-1 min-w-[200px]">
+                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                  <input
+                    type="text"
+                    placeholder="Search receipt #, student name, admission #, method..."
+                    value={txSearch}
+                    onChange={(e) => {
+                      setTxSearch(e.target.value);
+                      setTxPage(1);
+                    }}
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50/80 focus:bg-white outline-none transition"
+                  />
                 </div>
-                <Link
-                  href="/dashboard/fees/payments"
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-all"
-                >
-                  Full Transaction Hub →
-                </Link>
+
+                <div className="flex items-center gap-1">
+                  {[
+                    { id: '', label: 'All Methods' },
+                    { id: 'M-Pesa', label: '📱 M-Pesa' },
+                    { id: 'Bank Transfer', label: '🏦 Bank' },
+                    { id: 'Cash', label: '💵 Cash' },
+                  ].map((m) => {
+                    const active = txMethodFilter === m.id;
+                    const count = m.id
+                      ? payments.filter((p) => (p.payment_method || '').toLowerCase().includes(m.id.toLowerCase())).length
+                      : payments.length;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          setTxMethodFilter(m.id);
+                          setTxPage(1);
+                        }}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 ${
+                          active
+                            ? 'bg-blue-600 text-white shadow-2xs font-extrabold'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        <span>{m.label}</span>
+                        <span className={`text-[9px] px-1 py-0.2 rounded-full ${active ? 'bg-white/30 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
+              {/* Right Side: Totals Badges & Link */}
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <div className="text-xs bg-slate-50 border border-slate-200/80 px-2.5 py-1.5 rounded-xl flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Filtered:</span>
+                  <span className="font-extrabold font-mono text-emerald-700">
+                    {KES(filteredTx.reduce((s, p) => s + Number(p.amount || 0), 0))}
+                  </span>
+                  <span className="text-slate-300">|</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">{filteredTx.length} records</span>
+                </div>
+
+                <Link
+                  href="/dashboard/fees/payments"
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition flex items-center gap-1.5 shadow-xs"
+                >
+                  <span>Studio Workspace →</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* Non-Long Paginated 10-Row Transactions Table */}
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                      <th className="py-3 px-4">Receipt No</th>
-                      <th className="py-3 px-4">Student</th>
-                      <th className="py-3 px-4">Method</th>
-                      <th className="py-3 px-4">Payment Date</th>
-                      <th className="py-3 px-4 text-right">Amount (KES)</th>
+                      <th className="py-2.5 px-4">Receipt No</th>
+                      <th className="py-2.5 px-4">Student Name &amp; Adm</th>
+                      <th className="py-2.5 px-4">Method &amp; Ref</th>
+                      <th className="py-2.5 px-4">Payment Date</th>
+                      <th className="py-2.5 px-4 text-right">Amount (KES)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {payments.slice(0, 20).map(p => {
-                      const st = students.find(s => s.id === p.student_id);
-                      return (
-                        <tr key={p.id} className="hover:bg-blue-50/30 transition-colors">
-                          <td className="py-3 px-4 font-mono font-bold text-blue-600">
-                            {p.receipt_number || `REC-${p.id}`}
-                          </td>
-                          <td className="py-3 px-4 font-black text-slate-800">
-                            {st ? `${st.first_name} ${st.last_name}` : 'Unknown Student'}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-700">
-                              {p.payment_method || 'Cash'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-500">
-                            {p.payment_date}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-black text-emerald-600">
-                            {KES(p.amount)}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {paginatedTx.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-10 text-center text-slate-400 text-xs">
+                          No transactions found matching your search.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedTx.map((p) => {
+                        const st = students.find((s) => s.id === p.student_id);
+                        return (
+                          <tr key={p.id} className="hover:bg-blue-50/30 transition-colors">
+                            <td className="py-2.5 px-4 font-mono font-bold text-indigo-700">
+                              {p.receipt_number || `REC-${p.id}`}
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <div className="font-extrabold text-slate-800">
+                                {st ? `${st.first_name} ${st.last_name}` : 'Unknown Student'}
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                Adm: {st?.admission_no || st?.admission_number || '—'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                {p.payment_method || 'Cash'}
+                              </span>
+                              {(p.mpesa_code || p.reference_number) && (
+                                <span className="ml-1.5 font-mono text-[10px] text-slate-500">
+                                  {p.mpesa_code || p.reference_number}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-4 font-mono text-slate-500 text-[11px]">
+                              {p.payment_date}
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-mono font-extrabold text-emerald-600 text-[12px]">
+                              {KES(p.amount)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Compact Pagination Bar */}
+              <div className="p-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>
+                  Showing {filteredTx.length > 0 ? (txPage - 1) * 10 + 1 : 0} to{' '}
+                  {Math.min(txPage * 10, filteredTx.length)} of {filteredTx.length} payments
+                </span>
+
+                <div className="flex items-center gap-1.5 font-bold">
+                  <button
+                    onClick={() => setTxPage((p) => Math.max(1, p - 1))}
+                    disabled={txPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition cursor-pointer"
+                  >
+                    <FiChevronLeft size={13} />
+                  </button>
+                  <span className="px-2.5 py-0.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono">
+                    Page {txPage} / {totalTxPages}
+                  </span>
+                  <button
+                    onClick={() => setTxPage((p) => Math.min(totalTxPages, p + 1))}
+                    disabled={txPage === totalTxPages}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition cursor-pointer"
+                  >
+                    <FiChevronRight size={13} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1306,7 +1493,7 @@ export default function FeeDashboardPage() {
             TAB 6: DEFAULTERS RECOVERY ENGINE
         ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'defaulters' && (
-          <div className="space-y-6">
+          <div className="space-y-4 fade-in">
             {/* Aging Risk Buckets (Fine Compact Cards) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
               {[
@@ -1335,71 +1522,170 @@ export default function FeeDashboardPage() {
               ))}
             </div>
 
-            {/* Worst Defaulters List */}
-            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-black text-rose-900 tracking-tight flex items-center gap-2">
-                    <FiAlertTriangle className="text-rose-600" />
-                    <span>Prioritized Defaulters Clearance Ledger</span>
-                  </h3>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Highest outstanding fee balances requiring immediate parent follow-up
-                  </p>
+            {/* Side-by-Side Recovery Bar Directly on Top of Defaulters Table */}
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 p-3.5 shadow-[0_4px_24px_rgba(20,50,120,0.06)] flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Left Side: Defaulter Search + Track Filter */}
+              <div className="flex items-center gap-2 flex-wrap flex-1">
+                <div className="relative flex-1 min-w-[200px]">
+                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                  <input
+                    type="text"
+                    placeholder="Search defaulter student name, admission #, class..."
+                    value={defSearch}
+                    onChange={(e) => {
+                      setDefSearch(e.target.value);
+                      setDefPage(1);
+                    }}
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50/80 focus:bg-white outline-none transition"
+                  />
                 </div>
-                <button
-                  onClick={handleExportExcel}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-all"
-                >
-                  Export Defaulters →
-                </button>
+
+                <div className="flex items-center gap-1">
+                  {[
+                    { id: 'all', label: 'All Tracks' },
+                    { id: 'cbc', label: '🏛️ CBC Senior' },
+                    { id: '8-4-4', label: '📚 8-4-4 Sec' },
+                  ].map((t) => {
+                    const active = defTrackFilter === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          setDefTrackFilter(t.id as any);
+                          setDefPage(1);
+                        }}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition ${
+                          active
+                            ? 'bg-rose-600 text-white shadow-2xs font-extrabold'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
+              {/* Right Side: Total Arrears Badge & Export */}
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <div className="text-xs bg-rose-50 border border-rose-200/80 px-2.5 py-1.5 rounded-xl flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-rose-500 uppercase">Filtered Arrears:</span>
+                  <span className="font-extrabold font-mono text-rose-700">
+                    {KES(filteredDefaulters.reduce((s, st) => s + (st.balance || 0), 0))}
+                  </span>
+                  <span className="text-rose-300">|</span>
+                  <span className="text-[10px] font-bold text-rose-500 uppercase">
+                    {filteredDefaulters.length} students
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleExportExcel}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition flex items-center gap-1.5 shadow-xs"
+                >
+                  <FiDownload size={12} />
+                  <span>Export Defaulters →</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Strictly 10-Row Paginated Defaulters Ledger */}
+            <div className="bg-white/85 backdrop-blur-xl rounded-[22px] border border-white/95 shadow-[0_4px_24px_rgba(20,50,120,0.06)] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-rose-50/50 border-b border-rose-100 text-[10px] font-black uppercase text-rose-700 tracking-wider">
-                      <th className="py-3 px-4">#</th>
-                      <th className="py-3 px-4">Student</th>
-                      <th className="py-3 px-4">Track &amp; Form</th>
-                      <th className="py-3 px-4 text-right">Paid</th>
-                      <th className="py-3 px-4 text-right">Balance Due</th>
-                      <th className="py-3 px-4 text-center">Parent Contact</th>
-                      <th className="py-3 px-4 text-center">Action</th>
+                      <th className="py-2.5 px-4">#</th>
+                      <th className="py-2.5 px-4">Student</th>
+                      <th className="py-2.5 px-4">Track &amp; Form</th>
+                      <th className="py-2.5 px-4 text-right">Paid</th>
+                      <th className="py-2.5 px-4 text-right">Balance Due</th>
+                      <th className="py-2.5 px-4 text-center">Parent Contact</th>
+                      <th className="py-2.5 px-4 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {worstDefaulters.slice(0, 15).map((st, i) => (
-                      <tr key={st.id} className="hover:bg-rose-50/20 transition-colors">
-                        <td className="py-3 px-4 font-mono font-black text-rose-600">{i + 1}</td>
-                        <td className="py-3 px-4">
-                          <div className="font-black text-slate-900">{st.first_name} {st.last_name}</div>
-                          <span className="text-[10px] text-slate-400 font-mono">Adm: {st.admission_number || st.admission_no || '—'}</span>
-                        </td>
-                        <td className="py-3 px-4 font-bold text-slate-700">
-                          {st.formName} ({st.systemTag})
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-emerald-600 font-bold">{KES(st.totalPaid)}</td>
-                        <td className="py-3 px-4 text-right font-mono text-rose-600 font-black text-sm">{KES(st.balance)}</td>
-                        <td className="py-3 px-4 text-center font-mono text-xs">
-                          {st.guardian_phone ? (
-                            <a href={`tel:${st.guardian_phone}`} className="text-blue-600 hover:underline flex items-center justify-center gap-1">
-                              <FiPhone size={10} /> {st.guardian_phone}
-                            </a>
-                          ) : '—'}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <button
-                            onClick={() => openClearanceVoucher(st)}
-                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50"
-                          >
-                            Notice
-                          </button>
+                    {paginatedDefaulters.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-10 text-center text-slate-400 text-xs">
+                          No defaulters found matching your filter criteria.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      paginatedDefaulters.map((st, i) => (
+                        <tr key={st.id} className="hover:bg-rose-50/20 transition-colors">
+                          <td className="py-2.5 px-4 font-mono font-black text-rose-600 text-xs">
+                            {(defPage - 1) * 10 + i + 1}
+                          </td>
+                          <td className="py-2.5 px-4">
+                            <div className="font-black text-slate-900">{st.first_name} {st.last_name}</div>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              Adm: {st.admission_number || st.admission_no || '—'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4 font-bold text-slate-700">
+                            {st.formName} ({st.systemTag})
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono text-emerald-600 font-bold">
+                            {KES(st.totalPaid)}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono text-rose-600 font-black text-xs">
+                            {KES(st.balance)}
+                          </td>
+                          <td className="py-2.5 px-4 text-center font-mono text-xs">
+                            {st.guardian_phone ? (
+                              <a
+                                href={`tel:${st.guardian_phone}`}
+                                className="text-blue-600 hover:underline flex items-center justify-center gap-1"
+                              >
+                                <FiPhone size={10} /> {st.guardian_phone}
+                              </a>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="py-2.5 px-4 text-center">
+                            <button
+                              onClick={() => openClearanceVoucher(st)}
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition cursor-pointer"
+                            >
+                              Notice
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Compact Pagination Bar */}
+              <div className="p-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>
+                  Showing {filteredDefaulters.length > 0 ? (defPage - 1) * 10 + 1 : 0} to{' '}
+                  {Math.min(defPage * 10, filteredDefaulters.length)} of {filteredDefaulters.length} defaulters
+                </span>
+
+                <div className="flex items-center gap-1.5 font-bold">
+                  <button
+                    onClick={() => setDefPage((p) => Math.max(1, p - 1))}
+                    disabled={defPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition cursor-pointer"
+                  >
+                    <FiChevronLeft size={13} />
+                  </button>
+                  <span className="px-2.5 py-0.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono">
+                    Page {defPage} / {totalDefPages}
+                  </span>
+                  <button
+                    onClick={() => setDefPage((p) => Math.min(totalDefPages, p + 1))}
+                    disabled={defPage === totalDefPages}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition cursor-pointer"
+                  >
+                    <FiChevronRight size={13} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
