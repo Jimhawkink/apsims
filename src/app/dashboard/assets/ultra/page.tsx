@@ -432,23 +432,23 @@ export default function UltraAssetManagerPage() {
   };
 
   return (
-    <div className="space-y-4 pb-12">
+    <div className="w-full max-w-full min-w-0 space-y-4 pb-12 overflow-x-hidden">
       <Toaster position="top-right" />
 
       {/* ══════════════════════════════════════════════════════════════
           TOP EXECUTIVE HEADER & SCHOOL BRANDING BADGE
       ══════════════════════════════════════════════════════════════ */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs relative overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs relative overflow-hidden w-full min-w-0">
         <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-50/60 via-orange-50/20 to-transparent rounded-full pointer-events-none -mr-20 -mt-20" />
 
-        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3.5">
+        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 w-full min-w-0">
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-600 to-stone-800 flex items-center justify-center text-white shadow-md shrink-0">
               <FiPackage size={24} />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md">
+                <span className="text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md truncate max-w-xs">
                   {schoolDetails.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT"}
                 </span>
                 <span className="text-[10px] font-bold text-slate-400">
@@ -458,22 +458,22 @@ export default function UltraAssetManagerPage() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> CAPITAL ASSET INTELLIGENCE
                 </span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5 flex items-center gap-2">
-                Ultra Institutional Asset Manager
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5 flex flex-wrap items-center gap-2">
+                <span>Ultra Institutional Asset Manager</span>
                 <span className="text-xs font-black bg-gradient-to-r from-amber-600 to-orange-700 text-white px-2 py-0.5 rounded-md shadow-2xs">
                   SUPER PREMIUM
                 </span>
               </h1>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
+              <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
                 Automated MoE depreciation schedules, barcode tagging, routine servicing journals, and capital balance sheet valuations.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+          <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto shrink-0">
             <button
               onClick={handleExportExcel}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all flex items-center gap-1.5 shadow-2xs"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all flex items-center gap-1.5 shadow-2xs"
             >
               <FiDownload size={13} /> Export 5-Sheet Excel
             </button>
@@ -482,7 +482,7 @@ export default function UltraAssetManagerPage() {
                 setShowMaintModal(true);
                 setMaintForm(emptyMaint);
               }}
-              className="px-3 py-2 rounded-xl text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-all flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-all flex items-center gap-1.5"
             >
               <FiTool size={13} /> Log Maintenance
             </button>
@@ -492,22 +492,22 @@ export default function UltraAssetManagerPage() {
                 setEditId(null);
                 setShowModal(true);
               }}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-900 hover:bg-blue-800 transition-all flex items-center gap-1.5 shadow-2xs"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-900 hover:bg-blue-800 transition-all flex items-center gap-1.5 shadow-2xs"
             >
               <FiPlus size={13} /> Register Asset
             </button>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all flex items-center gap-1.5"
             >
               <FiRefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
             </button>
           </div>
         </div>
 
-        {/* Category Horizontal Filter Chips */}
-        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto pb-1">
+        {/* Category Wrap Filter Chips */}
+        <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-1.5 w-full min-w-0 pb-1">
           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1 shrink-0 flex items-center gap-1">
             <FiSliders size={11} /> Category:
           </span>
@@ -516,7 +516,7 @@ export default function UltraAssetManagerPage() {
               setFilterCat('All');
               setCurrentPage(1);
             }}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
               filterCat === 'All' ? 'bg-blue-900 text-white shadow-2xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
@@ -535,13 +535,13 @@ export default function UltraAssetManagerPage() {
                   setFilterCat(isSel ? 'All' : c.name);
                   setCurrentPage(1);
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                className={`px-2 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
                   isSel ? 'ring-2 border-amber-400 bg-amber-50 text-amber-900' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <span>{c.emoji}</span>
-                <span>{c.name.split(' ')[0]}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-slate-100 text-slate-700">
+                <span className="truncate max-w-[90px]">{c.name.split(' ')[0]}</span>
+                <span className="text-[9px] px-1 py-0.2 rounded font-mono bg-slate-100 text-slate-700">
                   {count}
                 </span>
               </button>
@@ -553,7 +553,7 @@ export default function UltraAssetManagerPage() {
       {/* ══════════════════════════════════════════════════════════════
           LOW-PROFILE COMPACT EXECUTIVE ASSET HUD CARDS (8 CARDS)
       ══════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 w-full min-w-0">
         {[
           {
             label: 'Total Acquisition',
@@ -630,7 +630,7 @@ export default function UltraAssetManagerPage() {
         ].map((card, i) => (
           <div
             key={i}
-            className="bg-white rounded-xl p-2.5 border shadow-2xs flex flex-col justify-between transition-all hover:shadow-xs"
+            className="bg-white rounded-xl p-2.5 border shadow-2xs flex flex-col justify-between transition-all hover:shadow-xs min-w-0 overflow-hidden"
             style={{ borderColor: card.bd }}
           >
             <div className="flex items-center justify-between">
@@ -644,8 +644,8 @@ export default function UltraAssetManagerPage() {
                 {card.icon}
               </div>
             </div>
-            <div className="mt-1">
-              <p className="text-sm font-black font-mono tracking-tight" style={{ color: card.color }}>
+            <div className="mt-1 min-w-0">
+              <p className="text-sm font-black font-mono tracking-tight truncate" style={{ color: card.color }}>
                 {card.value}
               </p>
               <p className="text-[9px] text-slate-400 font-medium truncate mt-0.2">{card.sub}</p>
@@ -655,29 +655,29 @@ export default function UltraAssetManagerPage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          STANDALONE ULTRA TAB BAR
+          STANDALONE ULTRA TAB BAR (Responsive Grid Layout, No Overflow)
       ══════════════════════════════════════════════════════════════ */}
-      <div className="bg-white border border-slate-200 rounded-xl p-1.5 shadow-2xs flex items-center gap-1 overflow-x-auto">
+      <div className="bg-white border border-slate-200 rounded-xl p-1.5 shadow-2xs grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1 w-full min-w-0">
         {[
-          { id: 'assets', label: '📦 Master Asset Register', badge: `${assets.length}` },
-          { id: 'maintenance', label: '🔧 Maintenance & Service Log', badge: `${maintenance.length}` },
-          { id: 'depreciation', label: '📉 Valuation & Depreciation Engine', badge: 'MoE' },
-          { id: 'tags', label: '🏷️ Barcode & QR Tag Generator', badge: 'Print' },
-          { id: 'disposal', label: '🗑️ Disposals & Write-Offs', badge: `${condemnedCount}` },
-          { id: 'board', label: '📑 Certified Board Audit', badge: 'MoE Reg' },
+          { id: 'assets', label: '📦 Master Register', badge: `${assets.length}` },
+          { id: 'maintenance', label: '🔧 Service Log', badge: `${maintenance.length}` },
+          { id: 'depreciation', label: '📉 Valuation & Dep', badge: 'MoE' },
+          { id: 'tags', label: '🏷️ Barcode Tags', badge: 'Print' },
+          { id: 'disposal', label: '🗑️ Disposals', badge: `${condemnedCount}` },
+          { id: 'board', label: '📑 Certified Audit', badge: 'MoE' },
         ].map((t) => {
           const isActive = activeTab === t.id;
           return (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id as ActiveTab)}
-              className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
+              className={`px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-w-0 truncate ${
                 isActive ? 'bg-blue-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              <span>{t.label}</span>
+              <span className="truncate">{t.label}</span>
               {t.badge && (
-                <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${
+                <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono shrink-0 ${
                   isActive ? 'bg-blue-800 text-blue-100' : 'bg-slate-200 text-slate-600'
                 }`}>
                   {t.badge}

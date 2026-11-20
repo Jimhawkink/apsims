@@ -801,7 +801,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SchoolModeProvider userSection={userSection}>
         <ThemeProvider>
         <LayoutThemeExtras>
-        <div className="min-h-screen flex text-slate-800" style={{ background: 'linear-gradient(180deg, #edf3fb 0%, #e9f0f9 50%, #edf3fb 100%)', fontFamily: "'Inter', 'Outfit', system-ui, -apple-system, sans-serif" }}>
+        <div className="min-h-screen flex text-slate-800 max-w-full overflow-x-hidden" style={{ background: 'linear-gradient(180deg, #edf3fb 0%, #e9f0f9 50%, #edf3fb 100%)', fontFamily: "'Inter', 'Outfit', system-ui, -apple-system, sans-serif" }}>
             <CommandPalette />
             <QuickActionsButton />
             {pageLoading && (
@@ -1009,7 +1009,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </aside>
 
             {/* ═══ MAIN CONTENT ═══ */}
-            <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-[68px]' : 'lg:ml-[260px]'}`}>
+            <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-[68px]' : 'lg:ml-[260px]'} min-w-0 max-w-full overflow-x-hidden`}>
                 {/* ── Offline banner + premium sync overlay ── */}
                 {SyncUI}
 
@@ -1168,7 +1168,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* 🔴 LIVE: Supabase Realtime — fee payments, attendance, discipline */}
                 <RealtimeProvider />
                 {/* Page Content */}
-                <div className="px-4 lg:px-6 pb-6 flex-1 overflow-x-hidden">
+                <div className="px-3 sm:px-4 lg:px-6 pb-6 flex-1 min-w-0 max-w-full overflow-x-hidden">
                     {children}
                 </div>
             </main>
