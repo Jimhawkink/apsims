@@ -5,13 +5,20 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import toast, { Toaster } from 'react-hot-toast';
 import {
+  Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement,
+  LineElement, PointElement, Title, Tooltip, Legend, Filler
+} from 'chart.js';
+import { Doughnut, Bar } from 'react-chartjs-2';
+import {
   FiPlus, FiEdit2, FiTrash2, FiX, FiSearch, FiDownload, FiRefreshCw,
   FiPackage, FiAlertTriangle, FiCheckCircle, FiTool, FiMapPin,
   FiCalendar, FiBarChart2, FiFilter, FiChevronLeft, FiChevronRight,
   FiTag, FiPrinter, FiActivity, FiDollarSign, FiShield, FiAward,
-  FiExternalLink, FiSliders, FiEye, FiArchive
+  FiExternalLink, FiSliders, FiEye, FiArchive, FiCheck, FiLayers
 } from 'react-icons/fi';
 import { exportUltraAssetsExcel } from '@/components/assets/UltraAssetsExport';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, LineElement, PointElement, Title, Tooltip, Legend, Filler);
 
 /* ══════════════════════════════════════════════════════════════
    CONSTANTS & METRIC HELPERS
@@ -60,6 +67,40 @@ const STATUS_CFG: Record<string, { color: string; bg: string; bd: string }> = {
   Donated: { color: '#7c3aed', bg: '#f5f3ff', bd: '#ddd6fe' },
 };
 
+/* ══════════════════════════════════════════════════════════════
+   HIGH-RESOLUTION VECTOR SVG BARCODE GENERATOR
+══════════════════════════════════════════════════════════════ */
+function SvgBarcode({ code, width = 160, height = 36 }: { code: string; width?: number; height?: number }) {
+  const chars = (code || 'AST-0001').toUpperCase();
+  const bars: boolean[] = [true, false, true];
+  for (let i = 0; i < chars.length; i++) {
+    const c = chars.charCodeAt(i);
+    for (let b = 0; b < 6; b++) {
+      bars.push(((c >> b) & 1) === 1);
+      bars.push(false);
+    }
+  }
+  bars.push(true, false, true, true);
+
+  const barWidth = width / bars.length;
+  return (
+    <svg width={width} height={height} className="overflow-hidden">
+      {bars.map((isBlack, idx) =>
+        isBlack ? (
+          <rect
+            key={idx}
+            x={idx * barWidth}
+            y={0}
+            width={barWidth * 0.9}
+            height={height}
+            fill="#0f172a"
+          />
+        ) : null
+      )}
+    </svg>
+  );
+}
+
 type ActiveTab = 'assets' | 'maintenance' | 'depreciation' | 'tags' | 'disposal' | 'board';
 
 export default function UltraAssetManagerPage() {
@@ -69,6 +110,7 @@ export default function UltraAssetManagerPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // School Identity
   const [schoolDetails, setSchoolDetails] = useState<any>({
@@ -93,6 +135,8 @@ export default function UltraAssetManagerPage() {
   const [filterCondition, setFilterCondition] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState<'name' | 'code' | 'cost' | 'bookValue' | 'depRate'>('name');
+  const [sortAsc, setSortAsc] = useState(true);
   const pageSize = 10;
 
   // Forms
@@ -129,6 +173,10 @@ export default function UltraAssetManagerPage() {
     status: 'Completed',
   };
   const [maintForm, setMaintForm] = useState(emptyMaint);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   /* ══════════════════════════════════════════════════════════════
      DATABASE FETCH (Unified school_assets & school_assets_ultra)
@@ -202,7 +250,7 @@ export default function UltraAssetManagerPage() {
     setRefreshing(true);
     await fetchAll();
     setRefreshing(false);
-    toast.success('Asset registry synchronized! 🔄');
+    toast.success('Asset registry synchronized with Live DB! ⚡');
   };
 
   /* ══════════════════════════════════════════════════════════════
@@ -236,14 +284,12 @@ export default function UltraAssetManagerPage() {
       };
 
       if (editId) {
-        // Update in school_assets and school_assets_ultra
         await Promise.all([
           supabase.from('school_assets').update(payload).eq('id', editId),
           supabase.from('school_assets_ultra').update(payload).eq('id', editId),
         ]);
         toast.success('Asset updated successfully! ✅');
       } else {
-        // Insert into school_assets (fallback to school_assets_ultra if column variance)
         const { error: err1 } = await supabase.from('school_assets').insert([payload]);
         if (err1) {
           await supabase.from('school_assets_ultra').insert([payload]);
@@ -279,7 +325,6 @@ export default function UltraAssetManagerPage() {
       const { error } = await supabase.from('school_asset_maintenance').insert([payload]);
       if (error) throw error;
 
-      // Update asset condition to Good if completed
       if (maintForm.status === 'Completed') {
         await supabase.from('school_assets').update({ status: 'Active', condition: 'Good' }).eq('id', maintForm.asset_id);
       }
@@ -343,7 +388,31 @@ export default function UltraAssetManagerPage() {
   const condemnedCount = assets.filter((a) => (a.status || '').toLowerCase() === 'disposed' || (a.condition || '').toLowerCase() === 'condemned').length;
 
   /* ══════════════════════════════════════════════════════════════
-     FILTERED & PAGINATED DATA
+     CATEGORY VALUATION BREAKDOWN FOR CHARTS
+  ══════════════════════════════════════════════════════════════ */
+  const categoryStats = useMemo(() => {
+    const map = new Map<string, { count: number; cost: number; bookValue: number; color: string }>();
+    ASSET_CATEGORIES.forEach((c) => {
+      map.set(c.name, { count: 0, cost: 0, bookValue: 0, color: c.color });
+    });
+
+    assets.forEach((a) => {
+      const cat = a.category || 'Other Assets';
+      const existing = map.get(cat) || { count: 0, cost: 0, bookValue: 0, color: '#64748b' };
+      existing.count += (Number(a.quantity) || 1);
+      existing.cost += (Number(a.purchase_price) || 0) * (Number(a.quantity) || 1);
+      existing.bookValue += (Number(a.book_value) || 0) * (Number(a.quantity) || 1);
+      map.set(cat, existing);
+    });
+
+    return Array.from(map.entries())
+      .map(([name, data]) => ({ name, ...data }))
+      .filter((c) => c.count > 0)
+      .sort((a, b) => b.cost - a.cost);
+  }, [assets]);
+
+  /* ══════════════════════════════════════════════════════════════
+     FILTERED, SORTED & PAGINATED DATA
   ══════════════════════════════════════════════════════════════ */
   const filteredAssets = useMemo(() => {
     return assets.filter((a) => {
@@ -362,17 +431,45 @@ export default function UltraAssetManagerPage() {
     });
   }, [assets, filterCat, filterCondition, filterStatus, search]);
 
+  const sortedAssets = useMemo(() => {
+    const list = [...filteredAssets];
+    list.sort((a, b) => {
+      let vA: any, vB: any;
+      if (sortBy === 'name') {
+        vA = a.asset_name?.toLowerCase() || '';
+        vB = b.asset_name?.toLowerCase() || '';
+      } else if (sortBy === 'code') {
+        vA = a.asset_code?.toLowerCase() || '';
+        vB = b.asset_code?.toLowerCase() || '';
+      } else if (sortBy === 'cost') {
+        vA = a.purchase_price || 0;
+        vB = b.purchase_price || 0;
+      } else if (sortBy === 'bookValue') {
+        vA = a.book_value || 0;
+        vB = b.book_value || 0;
+      } else {
+        vA = a.depreciation_rate || 0;
+        vB = b.depreciation_rate || 0;
+      }
+
+      if (vA < vB) return sortAsc ? -1 : 1;
+      if (vA > vB) return sortAsc ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }, [filteredAssets, sortBy, sortAsc]);
+
   const paginatedAssets = useMemo(() => {
-    const totalPages = Math.max(1, Math.ceil(filteredAssets.length / pageSize));
+    const totalPages = Math.max(1, Math.ceil(sortedAssets.length / pageSize));
     const safePage = Math.min(currentPage, totalPages);
     const start = (safePage - 1) * pageSize;
     return {
-      items: filteredAssets.slice(start, start + pageSize),
+      items: sortedAssets.slice(start, start + pageSize),
       totalPages,
       currentPage: safePage,
-      totalCount: filteredAssets.length,
+      totalCount: sortedAssets.length,
     };
-  }, [filteredAssets, currentPage]);
+  }, [sortedAssets, currentPage]);
 
   /* ══════════════════════════════════════════════════════════════
      EXCEL EXPORT HANDLER
@@ -443,7 +540,7 @@ export default function UltraAssetManagerPage() {
 
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 w-full min-w-0">
           <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-600 to-stone-800 flex items-center justify-center text-white shadow-md shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-600 via-orange-600 to-stone-800 flex items-center justify-center text-white shadow-md shrink-0">
               <FiPackage size={24} />
             </div>
             <div className="min-w-0">
@@ -492,7 +589,7 @@ export default function UltraAssetManagerPage() {
                 setEditId(null);
                 setShowModal(true);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-900 hover:bg-blue-800 transition-all flex items-center gap-1.5 shadow-2xs"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-900 hover:bg-blue-800 transition-all flex items-center gap-1.5 shadow-2xs"
             >
               <FiPlus size={13} /> Register Asset
             </button>
@@ -501,7 +598,7 @@ export default function UltraAssetManagerPage() {
               disabled={refreshing}
               className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all flex items-center gap-1.5"
             >
-              <FiRefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+              <FiRefreshCw size={13} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Syncing…' : 'Sync'}
             </button>
           </div>
         </div>
@@ -692,15 +789,15 @@ export default function UltraAssetManagerPage() {
           TAB 1: MASTER ASSET REGISTER DATAGRID
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'assets' && (
-        <div className="space-y-3">
+        <div className="space-y-3 w-full min-w-0">
           {/* Controls Bar */}
-          <div className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-            <div className="flex items-center gap-2 flex-1">
-              <div className="relative flex-1 max-w-sm">
+          <div className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 w-full min-w-0">
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
                 <FiSearch className="absolute left-3 top-2.5 text-slate-400" size={13} />
                 <input
                   type="text"
-                  placeholder="Search by code, asset name, location, custodian, serial..."
+                  placeholder="Search code, name, location, serial..."
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
@@ -741,16 +838,39 @@ export default function UltraAssetManagerPage() {
                   </option>
                 ))}
               </select>
+
+              {/* Sorting Pills */}
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                <span>Sort:</span>
+                <button
+                  onClick={() => {
+                    if (sortBy === 'cost') setSortAsc(!sortAsc);
+                    else { setSortBy('cost'); setSortAsc(false); }
+                  }}
+                  className={`px-2 py-0.5 rounded border ${sortBy === 'cost' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 border-slate-200'}`}
+                >
+                  Cost {sortBy === 'cost' ? (sortAsc ? '↑' : '↓') : ''}
+                </button>
+                <button
+                  onClick={() => {
+                    if (sortBy === 'bookValue') setSortAsc(!sortAsc);
+                    else { setSortBy('bookValue'); setSortAsc(false); }
+                  }}
+                  className={`px-2 py-0.5 rounded border ${sortBy === 'bookValue' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 border-slate-200'}`}
+                >
+                  Book Value {sortBy === 'bookValue' ? (sortAsc ? '↑' : '↓') : ''}
+                </button>
+              </div>
             </div>
 
-            <div className="text-xs font-bold text-slate-500 self-end sm:self-auto">
+            <div className="text-xs font-bold text-slate-500 self-end sm:self-auto shrink-0">
               Showing {paginatedAssets.items.length} of {paginatedAssets.totalCount} items
             </div>
           </div>
 
           {/* Compact Master Datagrid */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden w-full min-w-0">
+            <div className="w-full min-w-0 overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -783,14 +903,14 @@ export default function UltraAssetManagerPage() {
 
                       return (
                         <tr key={a.id} className="hover:bg-slate-50/70 transition-colors group">
-                          <td className="py-2.5 px-3 font-mono font-bold text-blue-700 text-[11px]">
+                          <td className="py-2.5 px-3 font-mono font-bold text-blue-700 text-[11px] whitespace-nowrap">
                             {a.asset_code || `AST-${String(a.id).padStart(4, '0')}`}
                           </td>
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-2">
                               <span className="text-base shrink-0">{catCfg.emoji}</span>
-                              <div>
-                                <p className="font-bold text-slate-800">{a.asset_name}</p>
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-800 truncate max-w-[180px]">{a.asset_name}</p>
                                 {a.serial_number && (
                                   <span className="text-[9px] text-slate-400 font-mono block">
                                     S/N: {a.serial_number}
@@ -799,7 +919,7 @@ export default function UltraAssetManagerPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="py-2.5 px-3">
+                          <td className="py-2.5 px-3 whitespace-nowrap">
                             <span
                               className="text-[9.5px] font-bold px-2 py-0.5 rounded"
                               style={{ background: catCfg.bg, color: catCfg.color }}
@@ -807,7 +927,7 @@ export default function UltraAssetManagerPage() {
                               {a.category}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3">
+                          <td className="py-2.5 px-3 whitespace-nowrap">
                             <span className="text-slate-700 font-semibold flex items-center gap-1">
                               <FiMapPin size={10} className="text-slate-400" /> {a.location || 'Main Store'}
                             </span>
@@ -820,13 +940,13 @@ export default function UltraAssetManagerPage() {
                           <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-700">
                             {a.quantity}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-500">
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-600 whitespace-nowrap">
                             {fmtKES(a.purchase_price)}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">
                             {fmtKES(a.book_value)}
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
                             <span
                               className="text-[9px] font-black px-2 py-0.5 rounded-full border"
                               style={{ background: condCfg.bg, color: condCfg.color, borderColor: condCfg.bd }}
@@ -834,7 +954,7 @@ export default function UltraAssetManagerPage() {
                               {a.condition || 'Good'}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
                             <select
                               value={a.status || 'Active'}
                               onChange={(e) => updateStatus(a.id, e.target.value)}
@@ -848,7 +968,7 @@ export default function UltraAssetManagerPage() {
                               ))}
                             </select>
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 onClick={() => {
@@ -948,15 +1068,15 @@ export default function UltraAssetManagerPage() {
           TAB 2: MAINTENANCE & SERVICE LOG
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'maintenance' && (
-        <div className="space-y-3">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🔧</span>
-              <div>
-                <p className="text-xs font-black text-amber-950 uppercase tracking-wider">
+        <div className="space-y-3 w-full min-w-0">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xl shrink-0">🔧</span>
+              <div className="min-w-0">
+                <p className="text-xs font-black text-amber-950 uppercase tracking-wider truncate">
                   Preventative Maintenance & Repair Log
                 </p>
-                <p className="text-[10px] text-amber-700">
+                <p className="text-[10px] text-amber-700 truncate">
                   Track routine maintenance, calibration, technician costs, and scheduled inspection cycles for all school equipment.
                 </p>
               </div>
@@ -966,14 +1086,14 @@ export default function UltraAssetManagerPage() {
                 setShowMaintModal(true);
                 setMaintForm(emptyMaint);
               }}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-amber-700 hover:bg-amber-800 transition flex items-center gap-1.5 shadow-2xs self-start sm:self-auto"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-amber-700 hover:bg-amber-800 transition flex items-center gap-1.5 shadow-2xs self-start sm:self-auto shrink-0"
             >
               <FiPlus size={13} /> Log New Service
             </button>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden w-full min-w-0">
+            <div className="w-full min-w-0 overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -1001,34 +1121,31 @@ export default function UltraAssetManagerPage() {
                       const matchA = assets.find((a) => a.id === m.asset_id);
                       return (
                         <tr key={m.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap">
+                          <td className="py-2.5 px-3 font-mono text-slate-500 text-[11px] whitespace-nowrap">
                             {fmtDate(m.maintenance_date)}
                           </td>
-                          <td className="py-2.5 px-3">
-                            <span className="font-bold text-slate-800">{matchA?.asset_name || 'School Asset'}</span>
-                            <span className="text-[9px] text-slate-400 block font-mono">
-                              {matchA?.asset_code || `AST-${m.asset_id}`}
-                            </span>
+                          <td className="py-2.5 px-3 font-bold text-slate-800 whitespace-nowrap">
+                            {matchA?.asset_name || `Asset #${m.asset_id}`}
                           </td>
                           <td className="py-2.5 px-3">
-                            <span className="text-[9.5px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                            <span className="text-[9.5px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded">
                               {m.maintenance_type || 'Routine'}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-slate-600 max-w-xs truncate">
+                          <td className="py-2.5 px-3 text-slate-600 truncate max-w-[220px]">
                             {m.description}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
                             {fmtKES(m.cost)}
                           </td>
-                          <td className="py-2.5 px-3 text-slate-700">
+                          <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
                             {m.technician || 'Internal Staff'}
                           </td>
-                          <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
+                          <td className="py-2.5 px-3 font-mono text-slate-500 text-[11px] whitespace-nowrap">
                             {fmtDate(m.next_maintenance)}
                           </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                               {m.status || 'Completed'}
                             </span>
                           </td>
@@ -1044,29 +1161,29 @@ export default function UltraAssetManagerPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════
-          TAB 3: DEPRECIATION & VALUATION ENGINE
+          TAB 3: MOE DEPRECIATION ENGINE & VALUATION
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'depreciation' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
+        <div className="space-y-4 w-full min-w-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full min-w-0">
+            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs min-w-0">
               <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Historical Cost</span>
               <p className="text-xl font-black font-mono text-slate-900 mt-1">{fmtKES(totalPurchaseValue)}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">Original purchase / acquisition investment</p>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
+            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs min-w-0">
               <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Accumulated Depreciation</span>
               <p className="text-xl font-black font-mono text-rose-600 mt-1">{fmtKES(totalDepreciation)}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">Total write-down using MoE rates</p>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
+            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs min-w-0">
               <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Net Book Value</span>
               <p className="text-xl font-black font-mono text-emerald-700 mt-1">{fmtKES(totalBookValue)}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">Carrying value for balance sheet</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden w-full min-w-0">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
                 MoE Standard Depreciation Schedule ({assets.length} Assets)
@@ -1074,7 +1191,7 @@ export default function UltraAssetManagerPage() {
               <span className="text-[10px] text-slate-400 font-mono">Reducing Balance & Straight-Line Formula</span>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="w-full min-w-0 overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -1095,15 +1212,15 @@ export default function UltraAssetManagerPage() {
                     const depPct = cost > 0 ? Math.min(100, Math.round((a.accumulated_depreciation / cost) * 100)) : 0;
                     return (
                       <tr key={a.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{a.asset_code}</td>
-                        <td className="py-2.5 px-3 font-bold text-slate-800">{a.asset_name}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-600">{fmtKES(cost)}</td>
-                        <td className="py-2.5 px-3 text-center font-mono font-bold text-indigo-700">{a.depreciation_rate}%</td>
-                        <td className="py-2.5 px-3 text-center font-mono">{a.useful_life_years} yrs</td>
-                        <td className="py-2.5 px-3 text-center font-mono">{a.yearsInService} yrs</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-rose-600">{fmtKES(a.accumulated_depreciation)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">{fmtKES(a.book_value)}</td>
-                        <td className="py-2.5 px-3 w-40">
+                        <td className="py-2.5 px-3 font-mono font-bold text-blue-700 whitespace-nowrap">{a.asset_code}</td>
+                        <td className="py-2.5 px-3 font-bold text-slate-800 whitespace-nowrap">{a.asset_name}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-slate-600 whitespace-nowrap">{fmtKES(cost)}</td>
+                        <td className="py-2.5 px-3 text-center font-mono font-bold text-indigo-700 whitespace-nowrap">{a.depreciation_rate}%</td>
+                        <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap">{a.useful_life_years} yrs</td>
+                        <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap">{a.yearsInService} yrs</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-rose-600 whitespace-nowrap">{fmtKES(a.accumulated_depreciation)}</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">{fmtKES(a.book_value)}</td>
+                        <td className="py-2.5 px-3 w-40 min-w-[120px]">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
                               <div
@@ -1131,37 +1248,37 @@ export default function UltraAssetManagerPage() {
           TAB 4: BARCODE & QR TAG GENERATOR STUDIO
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'tags' && (
-        <div className="space-y-4">
-          <div className="bg-sky-50 border border-sky-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🏷️</span>
-              <div>
-                <p className="text-xs font-black text-sky-950 uppercase tracking-wider">
+        <div className="space-y-4 w-full min-w-0">
+          <div className="bg-sky-50 border border-sky-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xl shrink-0">🏷️</span>
+              <div className="min-w-0">
+                <p className="text-xs font-black text-sky-950 uppercase tracking-wider truncate">
                   Asset Tag & QR Label Generation Studio
                 </p>
-                <p className="text-[10px] text-sky-700">
+                <p className="text-[10px] text-sky-700 truncate">
                   Generate print-ready physical asset tags formatted with school registration barcodes, serials, and room locations.
                 </p>
               </div>
             </div>
             <button
               onClick={() => window.print()}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-sky-800 bg-sky-100 hover:bg-sky-200 transition flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-sky-800 bg-sky-100 hover:bg-sky-200 transition flex items-center gap-1.5 shrink-0"
             >
               <FiPrinter size={13} /> Print Tag Sheet
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full min-w-0">
             {assets.slice(0, 12).map((a) => (
               <div
                 key={a.id}
-                className="bg-white rounded-xl border border-slate-300 p-3.5 shadow-2xs flex flex-col justify-between hover:shadow-xs transition"
+                className="bg-white rounded-xl border border-slate-300 p-3.5 shadow-2xs flex flex-col justify-between hover:shadow-xs transition min-w-0"
               >
                 <div>
                   <div className="flex items-start justify-between border-b border-slate-100 pb-2 mb-2">
                     <div>
-                      <p className="text-[9px] font-black uppercase text-blue-900 tracking-wider">
+                      <p className="text-[9px] font-black uppercase text-blue-900 tracking-wider truncate max-w-[150px]">
                         {schoolDetails.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT"}
                       </p>
                       <p className="text-[8px] text-slate-400">Reg: {schoolDetails.registration_number || '2566'}</p>
@@ -1181,17 +1298,17 @@ export default function UltraAssetManagerPage() {
                 </div>
 
                 <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                  <div className="font-mono text-[9px] tracking-widest text-slate-400">
-                    ||| | | |||| | | |||
+                  <div className="overflow-hidden">
+                    <SvgBarcode code={a.asset_code || `AST-${a.id}`} width={130} height={26} />
                   </div>
                   <button
                     onClick={() => {
                       setTagAsset(a);
                       setShowTagModal(true);
                     }}
-                    className="text-[10px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1"
+                    className="text-[10px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 shrink-0 ml-2"
                   >
-                    View Tag Badge <FiEye size={10} />
+                    View Badge <FiEye size={10} />
                   </button>
                 </div>
               </div>
@@ -1204,26 +1321,26 @@ export default function UltraAssetManagerPage() {
           TAB 5: DISPOSALS & WRITE-OFFS
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'disposal' && (
-        <div className="space-y-4">
-          <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🗑️</span>
-              <div>
-                <p className="text-xs font-black text-rose-950 uppercase tracking-wider">
+        <div className="space-y-4 w-full min-w-0">
+          <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xl shrink-0">🗑️</span>
+              <div className="min-w-0">
+                <p className="text-xs font-black text-rose-950 uppercase tracking-wider truncate">
                   Condemned, Disposed & Written-Off Assets Register
                 </p>
-                <p className="text-[10px] text-rose-700">
+                <p className="text-[10px] text-rose-700 truncate">
                   Permanent institutional audit log of retired, scrapped, lost, or donated assets in accordance with MoE disposal procedures.
                 </p>
               </div>
             </div>
-            <span className="text-xs font-bold text-rose-800 bg-rose-100 px-3 py-1 rounded-lg">
+            <span className="text-xs font-bold text-rose-800 bg-rose-100 px-3 py-1 rounded-lg shrink-0">
               {condemnedCount} Retired Assets
             </span>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden w-full min-w-0">
+            <div className="w-full min-w-0 overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -1250,17 +1367,17 @@ export default function UltraAssetManagerPage() {
                       .filter((a) => a.status === 'Disposed' || a.status === 'Lost/Stolen' || a.condition === 'Condemned')
                       .map((a) => (
                         <tr key={a.id} className="hover:bg-rose-50/20 transition-colors">
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-600">{a.asset_code}</td>
-                          <td className="py-2.5 px-3 font-bold text-slate-700 line-through">{a.asset_name}</td>
-                          <td className="py-2.5 px-3 text-slate-500">{a.category}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-500">{fmtKES(a.purchase_price)}</td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-600 whitespace-nowrap">{a.asset_code}</td>
+                          <td className="py-2.5 px-3 font-bold text-slate-700 line-through whitespace-nowrap">{a.asset_name}</td>
+                          <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">{a.category}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-500 whitespace-nowrap">{fmtKES(a.purchase_price)}</td>
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
                             <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
                               {a.status}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-slate-600">{a.condition}</td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">{a.condition}</td>
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
                             <button
                               onClick={() => updateStatus(a.id, 'Active')}
                               className="text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200"
@@ -1282,8 +1399,8 @@ export default function UltraAssetManagerPage() {
           TAB 6: CERTIFIED BOARD ASSET AUDIT REPORT
       ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'board' && (
-        <div className="space-y-4 print-area">
-          <div className="bg-white rounded-2xl border-2 border-slate-300 p-8 shadow-md" style={{ fontFamily: "'Times New Roman', Georgia, serif" }}>
+        <div className="space-y-4 w-full min-w-0 print-area">
+          <div className="bg-white rounded-2xl border-2 border-slate-300 p-8 shadow-md w-full min-w-0" style={{ fontFamily: "'Times New Roman', Georgia, serif" }}>
             <div className="text-center border-b-2 border-blue-900 pb-4 mb-6">
               <h2 className="text-2xl font-black text-slate-900 uppercase tracking-wider">
                 {schoolDetails.school_name || "ST. CATHERINE GIRL'S SCHOOL TEGAT"}
@@ -1299,7 +1416,7 @@ export default function UltraAssetManagerPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="border border-slate-200 rounded-xl p-4">
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2" style={{ fontFamily: 'sans-serif' }}>
                   Capital Valuation Summary
@@ -1328,34 +1445,36 @@ export default function UltraAssetManagerPage() {
             <h4 className="text-xs font-bold text-slate-700 uppercase mb-2" style={{ fontFamily: 'sans-serif' }}>
               Master Asset Inventory Ledger
             </h4>
-            <table className="w-full border-collapse border border-slate-300 text-xs mb-6">
-              <thead>
-                <tr className="bg-slate-100 font-bold text-slate-700">
-                  <th className="border border-slate-300 px-3 py-1.5 text-left">Code</th>
-                  <th className="border border-slate-300 px-3 py-1.5 text-left">Asset Name</th>
-                  <th className="border border-slate-300 px-3 py-1.5 text-left">Category</th>
-                  <th className="border border-slate-300 px-3 py-1.5 text-left">Location</th>
-                  <th className="border border-slate-300 px-3 py-1.5 text-center">Qty</th>
-                  <th className="border border-slate-300 px-3 py-1.5 text-right">Cost (KES)</th>
-                  <th className="border border-slate-300 px-3 py-1.5 text-right">Book Value (KES)</th>
-                  <th className="border border-slate-300 px-3 py-1.5 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {assets.map((a) => (
-                  <tr key={a.id}>
-                    <td className="border border-slate-300 px-3 py-1.5 font-mono">{a.asset_code}</td>
-                    <td className="border border-slate-300 px-3 py-1.5 font-bold">{a.asset_name}</td>
-                    <td className="border border-slate-300 px-3 py-1.5">{a.category}</td>
-                    <td className="border border-slate-300 px-3 py-1.5">{a.location || '—'}</td>
-                    <td className="border border-slate-300 px-3 py-1.5 text-center font-mono">{a.quantity}</td>
-                    <td className="border border-slate-300 px-3 py-1.5 text-right font-mono">{fmtKES(a.purchase_price)}</td>
-                    <td className="border border-slate-300 px-3 py-1.5 text-right font-mono font-bold text-emerald-700">{fmtKES(a.book_value)}</td>
-                    <td className="border border-slate-300 px-3 py-1.5 text-center">{a.status}</td>
+            <div className="w-full min-w-0 overflow-x-auto mb-6">
+              <table className="w-full border-collapse border border-slate-300 text-xs">
+                <thead>
+                  <tr className="bg-slate-100 font-bold text-slate-700">
+                    <th className="border border-slate-300 px-3 py-1.5 text-left">Code</th>
+                    <th className="border border-slate-300 px-3 py-1.5 text-left">Asset Name</th>
+                    <th className="border border-slate-300 px-3 py-1.5 text-left">Category</th>
+                    <th className="border border-slate-300 px-3 py-1.5 text-left">Location</th>
+                    <th className="border border-slate-300 px-3 py-1.5 text-center">Qty</th>
+                    <th className="border border-slate-300 px-3 py-1.5 text-right">Cost (KES)</th>
+                    <th className="border border-slate-300 px-3 py-1.5 text-right">Book Value (KES)</th>
+                    <th className="border border-slate-300 px-3 py-1.5 text-center">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {assets.map((a) => (
+                    <tr key={a.id}>
+                      <td className="border border-slate-300 px-3 py-1.5 font-mono">{a.asset_code}</td>
+                      <td className="border border-slate-300 px-3 py-1.5 font-bold">{a.asset_name}</td>
+                      <td className="border border-slate-300 px-3 py-1.5">{a.category}</td>
+                      <td className="border border-slate-300 px-3 py-1.5">{a.location || '—'}</td>
+                      <td className="border border-slate-300 px-3 py-1.5 text-center font-mono">{a.quantity}</td>
+                      <td className="border border-slate-300 px-3 py-1.5 text-right font-mono">{fmtKES(a.purchase_price)}</td>
+                      <td className="border border-slate-300 px-3 py-1.5 text-right font-mono font-bold text-emerald-700">{fmtKES(a.book_value)}</td>
+                      <td className="border border-slate-300 px-3 py-1.5 text-center">{a.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             <div className="flex items-center justify-between text-xs text-slate-400 pt-4 border-t border-slate-200" style={{ fontFamily: 'sans-serif' }}>
               <span>Certified Accurate by Principal & Board of Governors</span>
@@ -1398,7 +1517,7 @@ export default function UltraAssetManagerPage() {
                     value={form.asset_code}
                     onChange={(e) => setForm((f) => ({ ...f, asset_code: e.target.value }))}
                     placeholder="e.g. LAB-001"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none font-mono focus:ring-1 focus:ring-blue-500"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
@@ -1406,15 +1525,7 @@ export default function UltraAssetManagerPage() {
                   <label className="text-xs font-bold text-slate-700 block mb-1">Category</label>
                   <select
                     value={form.category}
-                    onChange={(e) => {
-                      const selCat = ASSET_CATEGORIES.find((c) => c.name === e.target.value);
-                      setForm((f) => ({
-                        ...f,
-                        category: e.target.value,
-                        depreciation_rate: selCat?.depRate || f.depreciation_rate,
-                        useful_life_years: selCat?.lifeYears || f.useful_life_years,
-                      }));
-                    }}
+                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {ASSET_CATEGORIES.map((c) => (
@@ -1430,7 +1541,7 @@ export default function UltraAssetManagerPage() {
                   <input
                     value={form.location}
                     onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                    placeholder="e.g. Physics Lab, Library, Block A"
+                    placeholder="e.g. Science Lab 2"
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
@@ -1440,7 +1551,7 @@ export default function UltraAssetManagerPage() {
                   <input
                     value={form.assigned_to}
                     onChange={(e) => setForm((f) => ({ ...f, assigned_to: e.target.value }))}
-                    placeholder="e.g. Lab Technician, HOD Science"
+                    placeholder="e.g. HOD Science"
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
@@ -1450,19 +1561,30 @@ export default function UltraAssetManagerPage() {
                   <input
                     value={form.serial_number}
                     onChange={(e) => setForm((f) => ({ ...f, serial_number: e.target.value }))}
-                    placeholder="e.g. SN-8923-0182"
+                    placeholder="e.g. SN-8829-441"
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Quantity (Units)</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Quantity</label>
                   <input
                     type="number"
+                    min={1}
                     value={form.quantity}
                     onChange={(e) => setForm((f) => ({ ...f, quantity: Number(e.target.value) || 1 }))}
-                    min={1}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none font-mono focus:ring-1 focus:ring-blue-500"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Acquisition Cost (KES)</label>
+                  <input
+                    type="number"
+                    value={form.purchase_price}
+                    onChange={(e) => setForm((f) => ({ ...f, purchase_price: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
@@ -1473,17 +1595,6 @@ export default function UltraAssetManagerPage() {
                     value={form.purchase_date}
                     onChange={(e) => setForm((f) => ({ ...f, purchase_date: e.target.value }))}
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Purchase Cost (KES) *</label>
-                  <input
-                    type="number"
-                    value={form.purchase_price}
-                    onChange={(e) => setForm((f) => ({ ...f, purchase_price: e.target.value }))}
-                    placeholder="0.00"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
@@ -1503,7 +1614,7 @@ export default function UltraAssetManagerPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Operational Status</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Status</label>
                   <select
                     value={form.status}
                     onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
@@ -1517,36 +1628,23 @@ export default function UltraAssetManagerPage() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Depreciation Rate (%/yr)</label>
+                <div className="col-span-2">
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Supplier / Vendor</label>
                   <input
-                    type="number"
-                    value={form.depreciation_rate}
-                    onChange={(e) => setForm((f) => ({ ...f, depreciation_rate: Number(e.target.value) }))}
-                    min={0}
-                    max={100}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Useful Life (Years)</label>
-                  <input
-                    type="number"
-                    value={form.useful_life_years}
-                    onChange={(e) => setForm((f) => ({ ...f, useful_life_years: Number(e.target.value) }))}
-                    min={1}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-blue-500"
+                    value={form.supplier}
+                    onChange={(e) => setForm((f) => ({ ...f, supplier: e.target.value }))}
+                    placeholder="e.g. Science Equipment Ltd"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
                 <div className="col-span-2">
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Notes / Description</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Additional Notes</label>
                   <textarea
                     value={form.notes}
                     onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                     rows={2}
-                    placeholder="Enter asset notes, warranty details, or supplier contact info..."
+                    placeholder="Warranty details, calibration notes..."
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-blue-500 resize-none"
                   />
                 </div>
@@ -1708,13 +1806,13 @@ export default function UltraAssetManagerPage() {
               </p>
               <p className="text-[8px] text-slate-500 italic">Official Capital Property • MoE Reg: {schoolDetails.registration_number || '2566'}</p>
 
-              <div className="my-3 py-2 bg-white rounded border border-slate-200 flex flex-col items-center">
-                <span className="font-mono text-2xl font-black text-slate-900 tracking-widest">
+              <div className="my-3 py-2.5 bg-white rounded-lg border border-slate-200 flex flex-col items-center">
+                <span className="font-mono text-xl font-black text-slate-900 tracking-widest">
                   {tagAsset.asset_code || `AST-${tagAsset.id}`}
                 </span>
-                <span className="font-mono text-[9px] tracking-widest text-slate-400 mt-0.5">
-                  ||||| | ||| |||| | ||||| | ||
-                </span>
+                <div className="mt-1 overflow-hidden">
+                  <SvgBarcode code={tagAsset.asset_code || `AST-${tagAsset.id}`} width={180} height={36} />
+                </div>
               </div>
 
               <p className="text-xs font-black text-slate-800">{tagAsset.asset_name}</p>
