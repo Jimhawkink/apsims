@@ -15,7 +15,7 @@ import {
   FiArrowUp, FiArrowDown, FiCheckCircle, FiAlertTriangle, FiSearch,
   FiChevronLeft, FiChevronRight, FiFilter, FiExternalLink, FiLayers,
   FiPackage, FiShoppingCart, FiBookOpen, FiCreditCard, FiAward,
-  FiArchive, FiPhone, FiCheck, FiX, FiSliders
+  FiArchive, FiPhone, FiCheck, FiX, FiSliders, FiTarget
 } from 'react-icons/fi';
 import { exportUltraFeesAnalyticsExcel } from '@/components/fees/UltraFeesAnalyticsExport';
 
